@@ -224,6 +224,39 @@ JWPLC_UIStyle JWPLC_UIBarStyle(
         JWPLC_UI_ALIGN_LEFT);
 }
 
+JWPLC_UIStyle JWPLC_UIIconStyle(
+    uint8_t labelTextSize,
+    bool frame,
+    JWPLC_UIFieldLayout layout)
+{
+    // valueTextSize 1: el margen derecho/inferior sólo depende de la etiqueta.
+    return JWPLC_UIValueStyle(
+        1,
+        labelTextSize,
+        frame,
+        layout,
+        JWPLC_UI_ALIGN_LEFT);
+}
+
+JWPLC_UIField JWPLC_UIIconField(
+    uint8_t id,
+    JWPLC_UIRect rect,
+    const JWPLC_UIIcon *icon,
+    JWPLC_UIText text,
+    JWPLC_UIStyle style,
+    uint8_t page,
+    JWPLC_UIColors colors)
+{
+    JWPLC_UIField field(
+        JWPLC_UIFieldMeta(id, page, JWPLC_UI_FIELD_ICON),
+        rect,
+        text,
+        style,
+        colors);
+    field.icon = icon;
+    return field;
+}
+
 JWPLC_UIField JWPLC_UIValueField(
     uint8_t id,
     JWPLC_UIRect rect,

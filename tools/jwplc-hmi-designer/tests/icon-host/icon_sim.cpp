@@ -1,0 +1,199 @@
+// Simulación en host del ICON de JWPLC_Display (Alpha16): compila el
+// JWPLC_UI.cpp real contra stubs (icon-host/stub) y verifica la decodificación
+// 4 bpp, el transparente, los estados, la etiqueta y que un cambio de estado
+// sólo repinta el recuadro del icono. Guarda icon_sim.ppm.
+#include <JWPLC_Display_API.h>
+#include "JWPLC_Display_H3E1_Profile.h"
+#include "JWPLC_UI_Pages.h"
+#include "font_data.h"
+extern "C"
+{
+#include "jwplc_peripherals.h"
+}
+
+// ---- stubs del resto del firmware ------------------------------------------
+JWPLC_DisplayClass JWPLC_Display;
+bool JWPLC_DisplayClass::isIdleMode() const { return false; }
+extern "C" void jwplcSystemForceDisplayRefresh(void) {}
+const JWPLC_RTCState *jwplcGetRTCState(void) { return nullptr; }
+bool jwplcH3E1ProfilerEnabled(void) { return false; }
+void jwplcH3E1RecordSetter(uint8_t, bool) {}
+void jwplcH3E1RecordDirtyPass(uint32_t) {}
+void jwplcH3E1RecordStage(JWPLCH3E1StageId, uint32_t) {}
+namespace JWPLCUIPages
+{
+  void serviceNavigation() {}
+  void prepareEnter() {}
+  void drawModeChange(JWPLC_TFTClass &) {}
+  void drawIndicator(JWPLC_TFTClass &) {}
+}
+void jwplcH3E1RecordFieldDraw(uint8_t, uint8_t, uint16_t, uint16_t, uint8_t, uint32_t, uint32_t, uint32_t, uint32_t) {}
+
+// ---- TFT en framebuffer ------------------------------------------------------
+bool JWPLC_TFTClass::fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t c, uint32_t)
+{
+  ++fillRects;
+  for (int yy = y; yy < y + h; ++yy) for (int xx = x; xx < x + w; ++xx) pixel(xx, yy, c);
+  return true;
+}
+bool JWPLC_TFTClass::drawRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t c, uint32_t)
+{
+  for (int xx = x; xx < x + w; ++xx) { pixel(xx, y, c); pixel(xx, y + h - 1, c); }
+  for (int yy = y; yy < y + h; ++yy) { pixel(x, yy, c); pixel(x + w - 1, yy, c); }
+  return true;
+}
+bool JWPLC_TFTClass::fillCircle(int16_t x, int16_t y, int16_t r, uint16_t c, uint32_t)
+{
+  for (int yy = -r; yy <= r; ++yy) for (int xx = -r; xx <= r; ++xx) if (xx * xx + yy * yy <= r * r) pixel(x + xx, y + yy, c);
+  return true;
+}
+bool JWPLC_TFTClass::pushImage(int16_t x, int16_t y, int16_t w, int16_t h, const uint16_t *p, uint32_t)
+{
+  ++pushImages;
+  for (int yy = 0; yy < h; ++yy) for (int xx = 0; xx < w; ++xx) pixel(x + xx, y + yy, p[yy * w + xx]);
+  return true;
+}
+void JWPLC_TFTClass::getTextBounds(const char *s, int16_t, int16_t, int16_t *x1, int16_t *y1, uint16_t *w, uint16_t *h)
+{
+  *x1 = 0; *y1 = 0;
+  const size_t n = strlen(s);
+  *w = (uint16_t)(n * 6 * size);
+  *h = (uint16_t)(n ? 8 * size : 0);
+}
+size_t JWPLC_TFTClass::write(uint8_t c)
+{
+  const uint8_t *g = jwplcSimGlyph(c);
+  for (int col = 0; col < 6; ++col)
+    for (int row = 0; row < 8; ++row)
+    {
+      const bool on = col < 5 && ((g[col] >> row) & 1);
+      for (int dy = 0; dy < size; ++dy) for (int dx = 0; dx < size; ++dx)
+        pixel(cx + col * size + dx, cy + row * size + dy, on ? fg : bg);
+    }
+  cx += 6 * size;
+  return 1;
+}
+
+// ---- iconos de prueba --------------------------------------------------------
+// 5x3 (ancho impar: cada fila ocupa 3 bytes), índice 0 transparente.
+static const uint8_t SMALL_PX[] = {
+  0x01, 0x23, 0x40,
+  0x12, 0x34, 0x00,
+  0xF0, 0x0F, 0x10,
+};
+static const uint16_t PAL_A[16] = { 0x1111, 0xF800, 0x07E0, 0x001F, 0xFFE0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xFFFF };
+static const uint16_t PAL_B[16] = { 0x2222, 0x8410, 0x8410, 0x8410, 0x8410, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x0001 };
+static const JWPLC_UIIconState SMALL_STATES[] = { { SMALL_PX, PAL_A }, { SMALL_PX, PAL_B } };
+static const JWPLC_UIIcon SMALL(5, 3, 2, SMALL_STATES, 0);
+
+// 64x64 sin transparente (8 envíos de 8 filas): diagonal de índices.
+static uint8_t BIG_PX[64 * 32];
+static uint16_t BIG_PAL0[16], BIG_PAL1[16], BIG_PAL2[16];
+static const JWPLC_UIIconState BIG_STATES[] = { { BIG_PX, BIG_PAL0 }, { BIG_PX, BIG_PAL1 }, { BIG_PX, BIG_PAL2 } };
+static const JWPLC_UIIcon BIG(64, 64, 3, BIG_STATES);
+
+enum : uint8_t { ID_SMALL = 1, ID_LABEL, ID_BIG, ID_INLINE };
+
+static int failures = 0;
+#define CHECK(cond, ...) do { if (cond) printf("  OK  " __VA_ARGS__); else { printf("  FAIL " __VA_ARGS__); ++failures; } printf("\n"); } while (0)
+
+static uint16_t refPixel(const JWPLC_UIIcon &icon, uint8_t state, int x, int y, uint16_t bg)
+{
+  if (state >= icon.stateCount) state = icon.stateCount - 1;
+  const uint8_t b = icon.states[state].pixels[y * ((icon.width + 1) / 2) + x / 2];
+  const uint8_t i = (x % 2) ? (b & 0x0F) : (b >> 4);
+  return i == icon.transparentIndex ? bg : icon.states[state].palette[i];
+}
+
+static bool iconMatches(JWPLC_TFTClass &tft, const JWPLC_UIIcon &icon, uint8_t state, int ox, int oy, uint16_t bg)
+{
+  for (int y = 0; y < icon.height; ++y)
+    for (int x = 0; x < icon.width; ++x)
+      if (tft.fb[(oy + y) * 320 + ox + x] != refPixel(icon, state, x, y, bg))
+      {
+        printf("    (%d,%d) = %04X, esperado %04X\n", x, y, tft.fb[(oy + y) * 320 + ox + x], refPixel(icon, state, x, y, bg));
+        return false;
+      }
+  return true;
+}
+
+static void savePpm(const JWPLC_TFTClass &tft, const char *path)
+{
+  FILE *f = fopen(path, "wb");
+  if (!f) return;
+  fprintf(f, "P6 320 170 255 ");
+  for (uint16_t c : tft.fb)
+  {
+    const uint8_t rgb[3] = { (uint8_t)(((c >> 11) & 0x1F) * 255 / 31), (uint8_t)(((c >> 5) & 0x3F) * 255 / 63), (uint8_t)((c & 0x1F) * 255 / 31) };
+    fwrite(rgb, 1, 3, f);
+  }
+  fclose(f);
+}
+
+int main(int argc, char **argv)
+{
+  for (int y = 0; y < 64; ++y)
+    for (int x = 0; x < 64; x += 2)
+      BIG_PX[y * 32 + x / 2] = (uint8_t)((((x + y) & 15) << 4) | ((x + 1 + y) & 15));
+  for (int i = 0; i < 16; ++i) { BIG_PAL0[i] = (uint16_t)(i * 0x0841); BIG_PAL1[i] = (uint16_t)(0xF800 | i); BIG_PAL2[i] = (uint16_t)(0x07E0 | i); }
+
+  const JWPLC_UIField fields[] = {
+    JWPLC_UIIconField(ID_SMALL, JWPLC_UIRect(10, 10), &SMALL, JWPLC_UIText(), JWPLC_UIIconStyle(), 0, JWPLC_UIColors(0xFFFF, 0xFFFF, 0x0841, 0xFFFF)),
+    JWPLC_UIIconField(ID_LABEL, JWPLC_UIRect(40, 10), &SMALL, JWPLC_UIText("Motor"), JWPLC_UIIconStyle(1, true), 0, JWPLC_UIColors(0xFFE0, 0xFFFF, 0x0010, 0x07FF)),
+    JWPLC_UIIconField(ID_BIG, JWPLC_UIRect(100, 10), &BIG, JWPLC_UIText("Tanque"), JWPLC_UIIconStyle(), 0),
+    JWPLC_UIIconField(ID_INLINE, JWPLC_UIRect(10, 120), &SMALL, JWPLC_UIText("M2"), JWPLC_UIIconStyle(2, false, JWPLC_UI_LAYOUT_INLINE), 0),
+  };
+
+  static JWPLC_TFTClass tft;
+  printf("ICON en host (JWPLC_UI.cpp real)\n");
+  CHECK(JWPLCUI::setFields(fields, sizeof(fields) / sizeof(fields[0])), "setFields acepta 4 ICON");
+  tft.fillScreen(0x0000);
+  JWPLCUI::drawStatic(tft);
+  JWPLCUI::drawDirty(tft);
+
+  // Sin etiqueta: el icono empieza en x + 3, y + 3 (margen fijo del campo).
+  CHECK(iconMatches(tft, SMALL, 0, 13, 13, 0x0841), "estado 0 sin setter, ancho impar, transparente = fondo del campo");
+  CHECK(tft.fb[10 * 320 + 10] == 0x0841 && tft.fb[(13 + 3 + 2) * 320 + 13 + 5 + 2] == 0x0841,
+        "recuadro AUTO = icono + margen 3/3 con el fondo del campo");
+  // Etiqueta arriba (STACKED): 7 px de texto + 4 de separación.
+  CHECK(iconMatches(tft, SMALL, 0, 43, 10 + 3 + 7 + 4, 0x0010), "con etiqueta STACKED el icono va bajo la etiqueta");
+  CHECK(tft.fb[10 * 320 + 40] == 0x07FF, "marco del campo");
+  CHECK(iconMatches(tft, BIG, 0, 103, 24, 0x0000), "64x64 en 8 envíos");
+  // INLINE con etiqueta de escala 2: "M2" mide 2*6*2 - 2 = 22 px + 4 de separación.
+  CHECK(iconMatches(tft, SMALL, 0, 10 + 3 + 22 + 4, 123, 0x0000), "INLINE: el icono va a la derecha de la etiqueta");
+
+  // Cambio de estado: sólo pushImage del icono (sin fillScreen ni fillRect).
+  tft.fillScreens = tft.fillRects = tft.pushImages = 0;
+  CHECK(JWPLC_Display.setIconState(ID_SMALL, 1), "setIconState(1) válido");
+  CHECK(JWPLCUI::refreshNeeded(), "cambio de estado pide refresco");
+  JWPLCUI::drawDirty(tft);
+  CHECK(iconMatches(tft, SMALL, 1, 13, 13, 0x0841), "estado 1: misma imagen, otra paleta");
+  CHECK(tft.fillScreens == 0 && tft.fillRects == 0 && tft.pushImages == 1, "sólo un pushImage (fillRect=%d push=%d)", tft.fillRects, tft.pushImages);
+
+  JWPLCUI::consumeRefreshRequest();
+  JWPLCUI::consumePageRedrawPending();
+  JWPLC_Display.setIconState(ID_SMALL, 1);
+  CHECK(!JWPLCUI::refreshNeeded(), "mismo estado: nada que repintar");
+
+  tft.pushImages = 0;
+  CHECK(JWPLC_Display.setBool(ID_BIG, true), "setBool en un ICON = estado 1");
+  JWPLCUI::drawDirty(tft);
+  CHECK(iconMatches(tft, BIG, 1, 103, 24, 0x0000) && tft.pushImages == 8, "64x64 estado 1 (push=%d)", tft.pushImages);
+  CHECK(!JWPLC_Display.setIconState(ID_BIG, 7), "estado fuera de rango devuelve false");
+  JWPLCUI::drawDirty(tft);
+  CHECK(iconMatches(tft, BIG, 2, 103, 24, 0x0000), "fuera de rango se ve el último estado");
+  CHECK(!JWPLC_Display.setIconState(99, 1), "id inexistente devuelve false");
+  CHECK(!JWPLC_Display.setText(ID_SMALL, "x"), "setText no aplica a ICON");
+
+  // Cambio de página y vuelta: se redibuja el último estado.
+  JWPLCUI::setPage(1);
+  JWPLCUI::setPage(0);
+  tft.fillScreen(0x0000);
+  JWPLCUI::drawStatic(tft);
+  JWPLCUI::drawDirty(tft);
+  CHECK(iconMatches(tft, SMALL, 1, 13, 13, 0x0841), "al volver a la página conserva el estado");
+
+  savePpm(tft, argc > 1 ? argv[1] : "icon_sim.ppm");
+  printf(failures ? "ICON host: %d FALLAS\n" : "ICON host: PASS\n", failures);
+  return failures ? 1 : 0;
+}

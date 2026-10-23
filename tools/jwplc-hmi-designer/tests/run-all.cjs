@@ -4,7 +4,7 @@
 //   node tools/jwplc-hmi-designer/tests/run-all.cjs
 //
 // Sin g++ (p. ej. Windows sin MSYS2) se omiten los tests que compilan C++:
-// codegen-smoke y menu-host-sim; menu-smoke y codegen-core omiten sólo esos pasos.
+// codegen-smoke, menu-host-sim e icon-host-sim; menu-smoke y codegen-core omiten sólo esos pasos.
 'use strict';
 
 const path = require('path');
@@ -29,6 +29,7 @@ const TESTS = [
   { file: 'live-bridge-flasher.test.cjs', what: 'flasheador Live Bridge (WebSerial + esptool-js + binarios ESP32)' },
   { file: 'live-bridge-host-sim.cjs', what: 'Live Bridge real en host (g++): TFT == lienzo, pushImage, protocolo v1/v2', needs: gpp ? null : 'g++' },
   { file: 'menu-host-sim.cjs', what: 'MENU: firmware real en host', needs: gpp ? null : 'g++' },
+  { file: 'icon-host-sim.cjs', what: 'ICON: firmware real en host (estados, transparente, repintado parcial)', needs: gpp ? null : 'g++' },
   { file: 'codegen-smoke.cjs', what: 'headers compilan contra el package', needs: gpp && python ? null : 'g++ y python3' }
 ];
 
