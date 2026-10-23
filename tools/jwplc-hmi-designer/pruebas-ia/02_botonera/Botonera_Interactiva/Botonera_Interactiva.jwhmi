@@ -9,7 +9,7 @@
     "pixelFormat": "RGB565"
   },
   "projectName": "Botonera_Interactiva",
-  "savedAt": "2026-10-23T19:57:03.326Z",
+  "savedAt": "2026-10-23T20:05:51.276Z",
   "activePage": 0,
   "navigationBar": {
     "enabled": true,
@@ -21,7 +21,15 @@
     "x": 0,
     "y": 147,
     "width": 320,
-    "orientation": "horizontal"
+    "orientation": "horizontal",
+    "tabDistribution": "center",
+    "textAlign": "center",
+    "fontSize": "normal",
+    "labelFormat": "short",
+    "bgMode": "solid",
+    "borderMode": "none",
+    "radius": 3,
+    "gap": 3
   },
   "display": {
     "start": "HMI",
