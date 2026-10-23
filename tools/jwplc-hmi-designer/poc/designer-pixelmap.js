@@ -271,6 +271,66 @@
     return map;
   }
 
+  // Una capa PIXEL tiene un solo color (setPixelColor recolorea toda la capa):
+  // pintar otro color va a una capa vacía de la página o a una nueva.
+  function mapForColor(value) {
+    const current = selected();
+    if (current && Number(current.page || 0) === page() && current.editorVisible !== false &&
+      (!current.pixels.length || current.pixels.every((p) => (p.color & 0xFFFF) === value))) {
+      return current;
+    }
+    const pageMaps = mapsForPage().filter((m) => m.editorVisible !== false);
+    const reuse = pageMaps.find((m) => m.pixels?.length && m.pixels.every((p) => (p.color & 0xFFFF) === value)) ||
+      mapsForPage().find((m) => !m.pixels || m.pixels.length === 0);
+    if (reuse) {
+      selectedKey = reuse.key;
+      selectedKeys = [reuse.key];
+      return reuse;
+    }
+    return createMap();
+  }
+
+  // Herramienta Relleno de app.js: agrega en bloque los puntos (coordenadas de
+  // pantalla) a una capa del color pedido. Devuelve la capa o null.
+  function paintPixels(points, value) {
+    value = Number(value) & 0xFFFF;
+    const map = mapForColor(value);
+    if (!map) return null;
+    const all = new Map();
+    map.pixels.forEach((p) => all.set((map.y + p.y) * WIDTH + (map.x + p.x), p.color & 0xFFFF));
+    points.forEach((pt) => {
+      if (pt.x >= 0 && pt.x < WIDTH && pt.y >= 0 && pt.y < HEIGHT) all.set(pt.y * WIDTH + pt.x, value);
+    });
+    if (!all.size) return null;
+    let minX = Infinity;
+    let minY = Infinity;
+    all.forEach((_, k) => {
+      minX = Math.min(minX, k % WIDTH);
+      minY = Math.min(minY, Math.floor(k / WIDTH));
+    });
+    map.x = minX;
+    map.y = minY;
+    map.pixels = [...all].map(([k, c]) => ({ x: (k % WIDTH) - minX, y: Math.floor(k / WIDTH) - minY, color: c }));
+    selectedKey = map.key;
+    selectedKeys = [map.key];
+    color = value;
+    updatePixelSwatch(color);
+    changed();
+    refreshBase();
+    return map;
+  }
+
+  // "Usar en Pincel" del cuentagotas: deja seleccionada una capa de ese color.
+  function prepareBrush(value) {
+    value = Number(value) & 0xFFFF;
+    const map = mapForColor(value);
+    if (!map) return null;
+    color = value;
+    updatePixelSwatch(color);
+    pixelColorEditor?.set(color, 'Píxeles');
+    return map;
+  }
+
   function duplicateMap() {
     const source = selected();
     if (!source || maps.length >= MAX_PIXEL_MAPS) return;
@@ -827,8 +887,10 @@
     if (fieldSection) fieldSection.hidden = (!hasFields && Boolean(map)) || fieldSection.hidden;
     if (rawSection && map && !hasFields) rawSection.hidden = true;
     if (!inspector) return;
-    inspector.hidden = hasFields || !map;
-    if (!map || hasFields) return;
+    // Relleno y cuentagotas tienen su propio inspector (app.js).
+    const isColorTool = currentTool === 'fill' || currentTool === 'pick';
+    inspector.hidden = hasFields || !map || isColorTool;
+    if (!map || hasFields || isColorTool) return;
 
     ensureEditorMeta(map);
     if (map.pixels && map.pixels.length > 0) {
@@ -1333,6 +1395,8 @@
   });
 
   displayCanvas.addEventListener('pointerdown', (event) => {
+    // Alt+clic es el cuentagotas rápido (app.js), con cualquier herramienta.
+    if (event.altKey) return;
     const currentTool = editor()?.getSelectedTool?.() || 'pointer';
     const isPixelTool = (currentTool === 'pixel' || currentTool === 'erase');
 
@@ -1666,6 +1730,8 @@
     getActiveColor: () => color,
     setActiveColor: (value) => { setPixelColor(Number(value) & 0xFFFF, true); syncMainColor(); syncInspector(); },
     getBrushSize: () => brushSize,
+    paintPixels,
+    prepareBrush,
     getEraserSize: () => eraserSize,
     create: createMap,
     duplicate: duplicateMap,

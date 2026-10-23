@@ -656,13 +656,8 @@
       let point = pointFromEvent(displayCanvas, event);
       lastPointerPoint = snapPoint(point, true); // Snap cursor if applicable
 
-      if (event.altKey) {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        pickColorAt(point);
-        drawCursor(lastPointerPoint);
-        return;
-      }
+      // Alt+clic: cuentagotas del editor (app.js), igual que la herramienta I.
+      if (event.altKey) return;
 
       if (!extraMode) return;
 
@@ -764,8 +759,9 @@
         b: () => activateNativeMode('DRAW'),
         e: () => activateNativeMode('ERASE'),
         v: () => activateNativeMode('MOVE'),
-        g: () => activateExtraMode('FILL'),
-        i: () => activateExtraMode('PICK'),
+        // G / I: herramientas Relleno y Cuentagotas de la barra (app.js).
+        g: () => document.querySelector('.tool[data-tool="fill"]')?.click(),
+        i: () => document.querySelector('.tool[data-tool="pick"]')?.click(),
         l: () => activateExtraMode('LINE'),
         r: () => activateExtraMode('RECT')
       };

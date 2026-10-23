@@ -43,6 +43,8 @@
   }
 
   function currentMode() {
+    const tool = editor()?.getSelectedTool?.();
+    if (tool === 'fill' || tool === 'pick') return 'COLOR';
     const field = editor()?.getSelectedField?.();
     const hasFields = Boolean(editor()?.hasFieldSelection?.() && field);
     const hasPixels = Boolean(pixels()?.getSelected?.());
@@ -73,6 +75,7 @@
     setSectionVisible(shapeSection, mode === 'SHAPE');
     setSectionVisible(rawSection, mode === 'RAW');
     setSectionVisible(pixelInspector, mode === 'PIXEL');
+    setSectionVisible(document.getElementById('eyedropperSection'), mode === 'COLOR');
     setSectionVisible(document.getElementById('idleConfigSection'), mode === 'NONE');
 
     if (mode === 'NAV_BAR' && window.JWPLCHMIPages?.syncNavBarInspector) {
@@ -89,6 +92,7 @@
   window.addEventListener('jwplc:editor-refresh', syncInspectorState);
   window.addEventListener('jwplc:pixelmap-changed', syncInspectorState);
   window.addEventListener('jwplc:project-loaded', syncInspectorState);
+  window.addEventListener('jwplc:tool-changed', () => setTimeout(syncInspectorState, 0));
 
   document.querySelector('.left-panel')?.addEventListener('click', () => {
     setTimeout(syncInspectorState, 0);

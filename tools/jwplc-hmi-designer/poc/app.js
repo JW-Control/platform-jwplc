@@ -1135,6 +1135,61 @@
     renderRecentColors();
   }
 
+  // Estado del inspector Cuentagotas / Relleno.
+  const colorToolPrefs = { fillMode: 'CONTIGUOUS', fillShapes: true, pickReturn: false };
+  let toolBeforePick = 'pointer';
+  let colorToolEditor = null;
+
+  function setActiveColor(value) {
+    const v = Number(value) & 0xFFFF;
+    selectedColor = COLORS.find((c) => c.value === v) || { name: hex565(v), value: v };
+    updateActiveColorUI();
+    buildPalette();
+  }
+
+  function ensureColorToolEditor() {
+    if (colorToolEditor || !window.JWPLCColorEditor) return;
+    const host = document.getElementById('colorToolEditorHost');
+    if (!host) return;
+    colorToolEditor = window.JWPLCColorEditor.create({
+      paletteAttr: 'data-colortool-palette',
+      onInput: (v565) => setActiveColor(v565),
+      onCommit: (v565) => { setActiveColor(v565); addRecentColor(v565); }
+    });
+    host.appendChild(colorToolEditor.el);
+  }
+
+  function syncColorToolInspector() {
+    if (!eyedropperSection) return;
+    const isPick = selectedTool === 'pick';
+    const title = document.getElementById('colorToolTitle');
+    if (title) title.textContent = isPick ? 'CUENTAGOTAS' : 'RELLENO';
+    const icon = document.getElementById('colorToolIcon');
+    const toolSvg = document.querySelector(`.tool[data-tool="${isPick ? 'pick' : 'fill'}"] svg`);
+    if (icon && toolSvg) icon.innerHTML = toolSvg.outerHTML;
+    const note = document.getElementById('colorToolNote');
+    if (note) {
+      note.textContent = isPick
+        ? 'Clic en el lienzo para capturar el color de ese píxel. Atajo: I, o Alt+clic con cualquier herramienta.'
+        : 'Clic en el lienzo para rellenar con el color activo. Atajo: G.';
+    }
+    eyedropperSection.querySelectorAll('[data-color-tool]').forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.colorTool === selectedTool);
+    });
+    eyedropperSection.querySelectorAll('[data-color-tool-pane]').forEach((pane) => {
+      pane.hidden = pane.dataset.colorToolPane !== selectedTool;
+    });
+    eyedropperSection.querySelectorAll('[data-fill-mode]').forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.fillMode === colorToolPrefs.fillMode);
+    });
+    const fillShapes = document.getElementById('fillShapesToggle');
+    if (fillShapes) fillShapes.checked = colorToolPrefs.fillShapes;
+    const pickReturn = document.getElementById('pickReturnToggle');
+    if (pickReturn) pickReturn.checked = colorToolPrefs.pickReturn;
+    ensureColorToolEditor();
+    colorToolEditor?.set(selectedColor.value & 0xFFFF, 'Color activo');
+  }
+
   function updateEyedropperActiveUI() {
     if (!eyedropperActiveSwatch || !selectedColor) return;
     const val = selectedColor.value & 0xFFFF;
@@ -1142,6 +1197,33 @@
     eyedropperActiveName.textContent = selectedColor.name;
     eyedropperActive565.textContent = hex565(val);
     if (eyedropperActiveHex) eyedropperActiveHex.textContent = rgb565ToHex888(val).toUpperCase();
+  }
+
+  // Lo que se ve en el lienzo: framebuffer de objetos + capas PIXEL visibles
+  // de la página (las capas no se componen en el framebuffer). Mismo orden
+  // que designer-pixelmap.js:render (un objeto más al frente tapa la capa).
+  function compositeBuffer() {
+    const out = framebuffer.slice();
+    const maps = (window.JWPLCHMIPixelMaps?.getAll?.() || [])
+      .filter((m) => Number(m.page || 0) === activePage && m.editorVisible !== false && m.pixels?.length)
+      .sort((a, b) => (Number(b.layerOrder) || 0) - (Number(a.layerOrder) || 0));
+    maps.forEach((m) => {
+      const order = Number(m.layerOrder) || Infinity;
+      m.pixels.forEach((p) => {
+        const x = Number(m.x) + Number(p.x);
+        const y = Number(m.y) + Number(p.y);
+        if (!inside(x, y)) return;
+        const idx = indexFor(x, y);
+        if (topFieldOrder[idx] < order) return;
+        out[idx] = Number(p.color) & 0xFFFF;
+      });
+    });
+    return out;
+  }
+
+  function compositeColorAt(x, y) {
+    if (!inside(x, y)) return null;
+    return compositeBuffer()[indexFor(x, y)];
   }
 
   function updateEyedropperLiveUI(point) {
@@ -1155,7 +1237,7 @@
       eyedropperLiveSwatch.style.backgroundColor = 'transparent';
       return;
     }
-    const color565 = framebuffer[indexFor(point.x, point.y)];
+    const color565 = compositeColorAt(point.x, point.y);
     const cName = colorName(color565);
     const hexVal = hex565(color565);
     const hex888 = rgb565ToHex888(color565).toUpperCase();
@@ -1182,32 +1264,8 @@
         btn.classList.add('active');
       }
       btn.addEventListener('click', () => {
-        const matched = COLORS.find((c) => c.value === colorVal);
-        selectedColor = matched || { name: hex565(colorVal), value: colorVal };
-        updateActiveColorUI();
-        buildPalette();
-        renderRecentColors();
-
-        const field = selectedField();
-        if (field) {
-          if (field.type === 'LINE') {
-            field.frameColor = selectedColor.value;
-          } else if (['RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(field.type)) {
-            if (field.fill) {
-              field.fillColor = selectedColor.value;
-            } else {
-              field.frameColor = selectedColor.value;
-            }
-          } else if (field.type === 'RAW_TEXT') {
-            field.textColor = selectedColor.value;
-          } else if (['TEXT', 'VALUE', 'BOOL', 'BAR'].includes(field.type)) {
-            field.valueColor = selectedColor.value;
-          }
-          syncInputsFromState();
-          syncShapeInspector();
-          render();
-          commitHistory();
-        }
+        setActiveColor(colorVal);
+        colorToolEditor?.set(colorVal & 0xFFFF, 'Color activo');
       });
       recentColorsGrid.appendChild(btn);
     });
@@ -1254,75 +1312,91 @@
     return true;
   }
 
-  function floodFill(startX, startY, replacement) {
-    if (!inside(startX, startY)) return false;
-    const target = framebuffer[indexFor(startX, startY)];
-    if (target === replacement) return false;
+  // Región a rellenar sobre lo que se ve en el lienzo (compositeBuffer).
+  // CONTIGUOUS: 4 vecinos del mismo color; GLOBAL: ese color en toda la página.
+  // Devuelve la lista de puntos, vacía si ya tienen el color de reemplazo.
+  function fillRegion(startX, startY, replacement, mode = 'CONTIGUOUS') {
+    if (!inside(startX, startY)) return [];
+    const buffer = compositeBuffer();
+    const target = buffer[indexFor(startX, startY)];
+    if (target === (replacement & 0xFFFF)) return [];
+    const points = [];
+
+    if (mode === 'GLOBAL') {
+      for (let idx = 0; idx < buffer.length; idx++) {
+        if (buffer[idx] === target) points.push({ x: idx % WIDTH, y: Math.floor(idx / WIDTH) });
+      }
+      return points;
+    }
 
     const queue = new Int32Array(WIDTH * HEIGHT);
     const visited = new Uint8Array(WIDTH * HEIGHT);
     let head = 0;
     let tail = 0;
-
     const startIdx = indexFor(startX, startY);
-    queue[tail++] = (startX & 0xFFFF) | ((startY & 0xFFFF) << 16);
+    queue[tail++] = startIdx;
     visited[startIdx] = 1;
-
-    let changed = false;
     while (head < tail) {
-      const val = queue[head++];
-      const x = val & 0xFFFF;
-      const y = (val >> 16) & 0xFFFF;
-      const idx = indexFor(x, y);
+      const idx = queue[head++];
+      const x = idx % WIDTH;
+      const y = (idx - x) / WIDTH;
+      points.push({ x, y });
+      const push = (n) => {
+        if (!visited[n] && buffer[n] === target) {
+          visited[n] = 1;
+          queue[tail++] = n;
+        }
+      };
+      if (x > 0) push(idx - 1);
+      if (x < WIDTH - 1) push(idx + 1);
+      if (y > 0) push(idx - WIDTH);
+      if (y < HEIGHT - 1) push(idx + WIDTH);
+    }
+    return points;
+  }
 
-      pixelLayer[idx] = replacement;
-      changed = true;
-
-      // 4 neighbors
-      if (x > 0) {
-        const nIdx = idx - 1;
-        if (!visited[nIdx] && framebuffer[nIdx] === target) {
-          visited[nIdx] = 1;
-          queue[tail++] = ((x - 1) & 0xFFFF) | ((y & 0xFFFF) << 16);
-        }
-      }
-      if (x < WIDTH - 1) {
-        const nIdx = idx + 1;
-        if (!visited[nIdx] && framebuffer[nIdx] === target) {
-          visited[nIdx] = 1;
-          queue[tail++] = ((x + 1) & 0xFFFF) | ((y & 0xFFFF) << 16);
-        }
-      }
-      if (y > 0) {
-        const nIdx = idx - WIDTH;
-        if (!visited[nIdx] && framebuffer[nIdx] === target) {
-          visited[nIdx] = 1;
-          queue[tail++] = (x & 0xFFFF) | (((y - 1) & 0xFFFF) << 16);
-        }
-      }
-      if (y < HEIGHT - 1) {
-        const nIdx = idx + WIDTH;
-        if (!visited[nIdx] && framebuffer[nIdx] === target) {
-          visited[nIdx] = 1;
-          queue[tail++] = (x & 0xFFFF) | (((y + 1) & 0xFFFF) << 16);
+  // Herramienta Relleno: figura cerrada bajo el puntero (si está activo) o
+  // región de píxeles pintada en una capa PIXEL (lo que exporta el codegen).
+  function fillAt(point) {
+    const value = selectedColor.value & 0xFFFF;
+    if (colorToolPrefs.fillShapes) {
+      for (let index = hmiFields.length - 1; index >= 0; index--) {
+        const f = hmiFields[index];
+        if (Number(f.page || 0) !== activePage || f.hidden) continue;
+        if (['RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(f.type) && isPointInsideShapeArea(point.x, point.y, f)) {
+          if (f.fill && (Number(f.fillColor) & 0xFFFF) === value) return false;
+          f.fill = true;
+          f.fillColor = value;
+          render();
+          commitHistory();
+          return true;
         }
       }
     }
-    return changed;
+    const points = fillRegion(point.x, point.y, value, colorToolPrefs.fillMode);
+    if (!points.length) return false;
+    const map = window.JWPLCHMIPixelMaps?.paintPixels?.(points, value);
+    if (!map) {
+      showToastMessage('No se pudo crear otra capa PIXEL (máximo alcanzado).', 'warning');
+      return false;
+    }
+    addRecentColor(value);
+    return true;
   }
 
   let activeShapeColorDropperTarget = null;
 
+  // Cuentagotas: el color capturado pasa a ser el color activo. Sólo se
+  // aplica a un objeto cuando se pidió desde su botón de cuentagotas
+  // (borde / relleno de figura); el cuentagotas general no recolorea nada.
   function pickColorAt(point) {
-    if (!inside(point.x, point.y)) return false;
-    const color565 = framebuffer[indexFor(point.x, point.y)];
-    const matched = COLORS.find((c) => c.value === color565);
-    selectedColor = matched || { name: hex565(color565), value: color565 };
+    const color565 = compositeColorAt(point.x, point.y);
+    if (color565 === null) return false;
+    setActiveColor(color565);
     addRecentColor(color565);
-    updateActiveColorUI();
-    buildPalette();
+    colorToolEditor?.set(color565, 'Color activo');
 
-    const field = selectedField();
+    const field = activeShapeColorDropperTarget ? selectedField() : null;
     if (field) {
       if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(field.type)) {
         if (activeShapeColorDropperTarget === 'fill') {
@@ -1347,8 +1421,6 @@
         field.valueColor = selectedColor.value;
       }
       syncInputsFromState();
-    } else if (window.JWPLCHMIPixelMaps?.getSelected?.()) {
-      window.JWPLCHMIPixelMaps.setActiveColor(selectedColor.value);
     }
     return true;
   }
@@ -3798,7 +3870,24 @@
     }
   }
 
+  // Cambia de herramienta como si se pulsara su botón de la barra (así
+  // reaccionan también los módulos PIXEL); sin botón, sólo el estado.
+  function activateTool(tool) {
+    const button = document.querySelector(`.tool[data-tool="${tool}"]`);
+    if (button) {
+      button.click();
+      return;
+    }
+    selectedTool = tool;
+    syncToolUI();
+    render();
+  }
+
+  let lastSyncedTool = null;
+
   function syncToolUI() {
+    if (selectedTool === 'pick' && lastSyncedTool && lastSyncedTool !== 'pick') toolBeforePick = lastSyncedTool;
+    lastSyncedTool = selectedTool;
     document.querySelectorAll('.tool[data-tool]').forEach((button) => {
       button.classList.toggle('active', button.dataset.tool === selectedTool);
     });
@@ -3874,6 +3963,7 @@
     if (isColorTool) {
       updateEyedropperActiveUI();
       renderRecentColors();
+      syncColorToolInspector();
     }
 
     if (field) {
@@ -5896,41 +5986,21 @@
     const isTargetDisplay = (event.target === displayCanvas);
     gestureChanged = false;
 
-    if (isTargetDisplay && (selectedTool === 'pick' || event.altKey)) {
+    if (isTargetDisplay && (selectedTool === 'pick' || selectedTool === 'colorPicker' || event.altKey)) {
+      const wasPickTool = selectedTool === 'pick';
       if (pickColorAt(point)) {
-        render();
+        if (wasPickTool && colorToolPrefs.pickReturn && toolBeforePick && toolBeforePick !== 'pick') {
+          activateTool(toolBeforePick);
+        } else {
+          syncToolUI();
+          render();
+        }
       }
       return;
     }
 
     if (isTargetDisplay && selectedTool === 'fill') {
-      let shapeHit = null;
-      for (let index = hmiFields.length - 1; index >= 0; index--) {
-        const f = hmiFields[index];
-        if (Number(f.page || 0) !== activePage) continue;
-        if (['RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(f.type)) {
-          if (isPointInsideShapeArea(point.x, point.y, f) || distanceToFieldBorder(point, f) <= 3.0) {
-            shapeHit = f;
-            break;
-          }
-        }
-      }
-
-      if (shapeHit) {
-        shapeHit.fill = true;
-        shapeHit.fillColor = selectedColor.value;
-        setSelectedKeys([shapeHit.key]);
-        syncInputsFromState();
-        syncToolUI();
-        render();
-        commitHistory();
-        return;
-      }
-
-      if (floodFill(point.x, point.y, selectedColor.value)) {
-        render();
-        commitHistory();
-      }
+      fillAt(point);
       return;
     }
 
@@ -6895,15 +6965,11 @@
           return;
         }
         if (key === 'g') {
-          selectedTool = 'fill';
-          syncToolUI();
-          render();
+          activateTool('fill');
           return;
         }
         if (key === 'i') {
-          selectedTool = 'pick';
-          syncToolUI();
-          render();
+          activateTool('pick');
           return;
         }
       }
@@ -7069,10 +7135,27 @@
     recentColors = [0x0000, 0xFFFF, 0xF800, 0x07E0, 0x001F, 0x07FF, 0xFFE0, 0xFD20];
     renderRecentColors();
   });
-  eyedropperUseFillBtn?.addEventListener('click', () => {
-    selectedTool = 'fill';
-    syncToolUI();
-    render();
+  eyedropperUseFillBtn?.addEventListener('click', () => activateTool('fill'));
+  document.getElementById('eyedropperUseBrushBtn')?.addEventListener('click', () => {
+    window.JWPLCHMIPixelMaps?.prepareBrush?.(selectedColor.value & 0xFFFF);
+    activateTool('pixel');
+  });
+  eyedropperSection?.querySelectorAll('[data-color-tool]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      if (btn.dataset.colorTool !== selectedTool) activateTool(btn.dataset.colorTool);
+    });
+  });
+  eyedropperSection?.querySelectorAll('[data-fill-mode]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      colorToolPrefs.fillMode = btn.dataset.fillMode === 'GLOBAL' ? 'GLOBAL' : 'CONTIGUOUS';
+      syncColorToolInspector();
+    });
+  });
+  document.getElementById('fillShapesToggle')?.addEventListener('change', (event) => {
+    colorToolPrefs.fillShapes = Boolean(event.target.checked);
+  });
+  document.getElementById('pickReturnToggle')?.addEventListener('change', (event) => {
+    colorToolPrefs.pickReturn = Boolean(event.target.checked);
   });
 
   // ── Shape Inspector Events ──────────────────────────────────────────────
@@ -7507,8 +7590,10 @@
     addTextField,
     addValueField,
     addRawTextField,
-    floodFill,
+    fillAt,
+    fillRegion,
     pickColorAt,
+    compositeColorAt,
     hitTestHandle: (e) => hitTestHandle(e),
     drawSelectionAndGuides: () => drawSelectionAndGuides(),
     ensureLayerOrder,

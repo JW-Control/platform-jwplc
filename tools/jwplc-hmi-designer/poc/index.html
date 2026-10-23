@@ -1885,35 +1885,35 @@
         </div>
       </section>
 
-      <section id="eyedropperSection" class="inspector-section" hidden>
-        <div class="inspector-title"><h2>Inspector · Cuentagotas &amp; Relleno</h2></div>
-        <details open>
-          <summary>Color detectado en vivo (Cursor)</summary>
-          <div class="eyedropper-live-card">
-            <div class="eyedropper-preview-row">
-              <div id="eyedropperLiveSwatch" class="eyedropper-preview-box" style="background:#000000;" title="Muestra en vivo"></div>
-              <div class="eyedropper-live-info">
-                <div class="live-color-title" id="eyedropperLiveName">NEGRO</div>
-                <div class="live-color-values">
-                  <span>565: <code id="eyedropperLive565">0x0000</code></span>
-                  <span>HEX: <code id="eyedropperLiveHex">#000000</code></span>
-                  <span id="eyedropperLiveRgb">RGB(0, 0, 0)</span>
-                </div>
-              </div>
-            </div>
-            <div class="readout live-coords-row">
-              <span>Posición cursor:</span>
-              <strong id="eyedropperLiveCoords">X: — · Y: —</strong>
-            </div>
-            <p class="helper-text-live">Pasa el cursor sobre el lienzo para inspeccionar cualquier pixel en tiempo real. Haz clic para capturarlo.</p>
-          </div>
-        </details>
+      <!-- Inspector Cuentagotas / Relleno (mismo estilo que PIXEL, Propuesta 2) -->
+      <section id="eyedropperSection" class="inspector-section bar-inspector-wrap" hidden>
+        <div class="inspector-title" style="margin-bottom: 6px;">
+          <h2 style="font-size: 13px; color: #dce9f1; font-weight: 700; display: flex; align-items: center; gap: 6px;">
+            <span id="colorToolIcon" style="color: #ff9a43; display: inline-flex;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m19 11-8-8-8.6 8.6a2 2 0 0 0 0 2.8l5.2 5.2c.8.8 2 .8 2.8 0L19 11Z"/><path d="m5 2 5 5"/><path d="M2 13h15"/><path d="M22 20a2 2 0 1 1-4 0c0-1.6 1.7-2.4 2-4 .3 1.6 2 2.4 2 4Z" fill="currentColor"/></svg></span>
+            <span>Inspector — <span id="colorToolTitle">RELLENO</span></span>
+          </h2>
+        </div>
 
-        <details open>
-          <summary>Color capturado / activo</summary>
-          <div class="inspector-body">
-            <div class="eyedropper-preview-row">
-              <div id="eyedropperActiveSwatch" class="eyedropper-preview-box" style="background:#FD20;" title="Color actual"></div>
+        <div class="insp-body">
+          <div class="bar-card">
+            <div class="bar-card-section-title">▾ Herramienta</div>
+            <div class="bar-visual-grid-2" id="colorToolGrid">
+              <button type="button" class="bar-visual-btn" data-color-tool="fill" title="Rellenar región contigua (G)">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m19 11-8-8-8.6 8.6a2 2 0 0 0 0 2.8l5.2 5.2c.8.8 2 .8 2.8 0L19 11Z"/><path d="m5 2 5 5"/><path d="M2 13h15"/><path d="M22 20a2 2 0 1 1-4 0c0-1.6 1.7-2.4 2-4 .3 1.6 2 2.4 2 4Z" fill="currentColor"/></svg>
+                <span>Relleno</span>
+              </button>
+              <button type="button" class="bar-visual-btn" data-color-tool="pick" title="Cuentagotas (I / Alt+clic)">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m14 7 3 3"/><path d="M19 2a2.83 2.83 0 0 1 2 4l-1 1-5-5 1-1a2.83 2.83 0 0 1 3-1Z"/><path d="m16 8-8.5 8.5a2.12 2.12 0 0 0-.6 1.5V20l-4 2 2-4h2a2.12 2.12 0 0 0 1.5-.6L17 9Z"/></svg>
+                <span>Cuentagotas</span>
+              </button>
+            </div>
+            <div class="insp-note" id="colorToolNote">Clic en el lienzo para rellenar con el color activo.</div>
+          </div>
+
+          <div class="bar-card">
+            <div class="bar-card-section-title">Color activo RGB565</div>
+            <div class="eyedropper-preview-row" style="margin-bottom: 8px;">
+              <div id="eyedropperActiveSwatch" class="eyedropper-preview-box" title="Color activo"></div>
               <div class="eyedropper-live-info">
                 <div class="live-color-title" id="eyedropperActiveName">ORANGE</div>
                 <div class="live-color-values">
@@ -1922,26 +1922,93 @@
                 </div>
               </div>
             </div>
-            <div class="eyedropper-actions-row">
-              <button id="eyedropperUseFillBtn" class="small-action-btn" type="button" title="Activar herramienta Rellenar con este color">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m19 11-8-8-8.6 8.6a2 2 0 0 0 0 2.8l5.2 5.2c.8.8 2 .8 2.8 0L19 11Z"/><path d="m5 2 5 5"/><path d="M2 13h15"/><path d="M22 20a2 2 0 1 1-4 0c0-1.6 1.7-2.4 2-4 .3 1.6 2 2.4 2 4Z" fill="currentColor"/></svg>
-                Usar en Rellenar (G)
-              </button>
+            <div class="menu-palette">
+              <div class="insp-note">Ajusta el color con el editor fijo o las pastillas rápidas RGB565:</div>
+              <div id="colorToolEditorHost"></div>
             </div>
           </div>
-        </details>
 
-        <details open>
-          <summary>Colores previos / Recientes</summary>
-          <div class="inspector-body">
+          <!-- ===== Sólo Relleno ===== -->
+          <div class="bar-card" data-color-tool-pane="fill">
+            <div class="bar-card-section-title">Modo de relleno</div>
+            <div class="bar-visual-grid-2">
+              <button type="button" class="bar-visual-btn active" data-fill-mode="CONTIGUOUS" title="Sólo los píxeles conectados del mismo color">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><rect x="7" y="7" width="6" height="6" fill="currentColor"/></svg>
+                <span>Región contigua</span>
+              </button>
+              <button type="button" class="bar-visual-btn" data-fill-mode="GLOBAL" title="Todos los píxeles de ese color en la página">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" fill="currentColor"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7" fill="currentColor"/></svg>
+                <span>Mismo color</span>
+              </button>
+            </div>
+            <div class="insp-note">Región contigua: 4 vecinos del mismo color que el píxel pulsado. Mismo color: todos los píxeles de ese color en la página activa.</div>
+          </div>
+
+          <div class="bar-card" data-color-tool-pane="fill">
+            <div class="bar-card-section-title">Figuras y destino</div>
+            <div class="menu-legend-row">
+              <span class="menu-legend-label">Rellenar figuras cerradas</span>
+              <label class="bar-toggle-switch" title="Clic dentro de una figura activa su relleno sólido">
+                <input id="fillShapesToggle" type="checkbox" checked />
+                <span class="bar-toggle-slider"></span>
+              </label>
+            </div>
+            <div class="insp-note">Con esto activo, un clic dentro de un rectángulo, elipse, triángulo o polígono activa su relleno con el color activo en vez de pintar píxeles.</div>
+            <div class="insp-note" id="fillTargetNote">El resto se pinta en una capa PIXEL (la seleccionada si es del mismo color; si no, una nueva) y se exporta al firmware como cualquier PIXEL.</div>
+          </div>
+
+          <!-- ===== Sólo Cuentagotas ===== -->
+          <div class="bar-card" data-color-tool-pane="pick">
+            <div class="bar-card-section-title">Muestra bajo el cursor</div>
+            <div class="eyedropper-preview-row">
+              <div id="eyedropperLiveSwatch" class="eyedropper-preview-box" title="Muestra en vivo"></div>
+              <div class="eyedropper-live-info">
+                <div class="live-color-title" id="eyedropperLiveName">—</div>
+                <div class="live-color-values">
+                  <span>565: <code id="eyedropperLive565">—</code></span>
+                  <span>HEX: <code id="eyedropperLiveHex">—</code></span>
+                  <span id="eyedropperLiveRgb">—</span>
+                </div>
+              </div>
+            </div>
+            <div class="readout live-coords-row" style="margin-top: 8px;">
+              <span>Posición cursor:</span>
+              <strong id="eyedropperLiveCoords">Fuera del lienzo</strong>
+            </div>
+            <div class="insp-note">Lee el color final del lienzo (objetos y capas PIXEL visibles). Clic para capturarlo como color activo.</div>
+          </div>
+
+          <div class="bar-card" data-color-tool-pane="pick">
+            <div class="bar-card-section-title">Después de capturar</div>
+            <div class="menu-legend-row">
+              <span class="menu-legend-label">Volver a la herramienta anterior</span>
+              <label class="bar-toggle-switch" title="Tras capturar, regresa a la herramienta que usabas">
+                <input id="pickReturnToggle" type="checkbox" />
+                <span class="bar-toggle-slider"></span>
+              </label>
+            </div>
+            <div class="bar-visual-grid-2" style="margin-top: 8px;">
+              <button id="eyedropperUseFillBtn" class="bar-visual-btn" type="button" title="Activar Rellenar con el color activo">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m19 11-8-8-8.6 8.6a2 2 0 0 0 0 2.8l5.2 5.2c.8.8 2 .8 2.8 0L19 11Z"/><path d="m5 2 5 5"/><path d="M2 13h15"/><path d="M22 20a2 2 0 1 1-4 0c0-1.6 1.7-2.4 2-4 .3 1.6 2 2.4 2 4Z" fill="currentColor"/></svg>
+                <span>Usar en Relleno (G)</span>
+              </button>
+              <button id="eyedropperUseBrushBtn" class="bar-visual-btn" type="button" title="Activar el Pincel con el color activo">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/><path d="m15 5 4 4"/></svg>
+                <span>Usar en Pincel (B)</span>
+              </button>
+            </div>
+            <div class="insp-note">Usar en Pincel abre una capa PIXEL con ese color (una capa PIXEL tiene un solo color).</div>
+          </div>
+
+          <div class="bar-card">
             <div class="recent-colors-header">
-              <span class="label-sub">Historial de muestreo:</span>
+              <div class="bar-card-section-title" style="margin: 0;">Colores recientes</div>
               <button id="clearRecentColorsBtn" class="link-btn" type="button">Limpiar</button>
             </div>
             <div id="recentColorsGrid" class="recent-colors-grid"></div>
-            <span class="helper-text-live">Haz clic en cualquier color para seleccionarlo y aplicarlo inmediatamente con el balde o al objeto seleccionado.</span>
+            <div class="insp-note">Clic en un color para hacerlo el color activo.</div>
           </div>
-        </details>
+        </div>
       </section>
 
       <section class="pixel-controls">
