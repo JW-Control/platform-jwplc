@@ -278,7 +278,7 @@
             loadScript('./designer-pages.js?v=1793801300', () => {
               loadScript('./designer-flasher.js?v=1793801500', () => {
                 loadScript('./designer-port-picker.js?v=1793801500');
-                loadScript('./designer-live.js?v=1793801500');
+                loadScript('./designer-live.js?v=1793801600');
               });
             });
           });

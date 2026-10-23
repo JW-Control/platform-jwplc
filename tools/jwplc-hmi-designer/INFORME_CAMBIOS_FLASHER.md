@@ -30,7 +30,10 @@
 > - **selector de puertos propio** en la app de escritorio (`poc/designer-port-picker.js`): reemplaza el cuadro
 >   de Windows; muestra COM, nombre, VID:PID en hexadecimal y el chip (CH340, CP210x…), pone primero el del
 >   PLC y se actualiza al enchufar o desenchufar. En Chrome/Edge sigue el selector del navegador;
-> - las secciones 2 a 5 se actualizaron al estado actual (`flash_args`, 4 partes, caché v40, 13 tests).
+> - **LIVE más fluido:** el bridge dibuja cada bloque con `JWPLC_TFT.pushImage` (API nueva; antes iba tramo
+>   a tramo con `drawPixel`/`drawFastHLine`), lee el puerto en bloque y acepta el protocolo v2 (`JWH3`/`JWH4`,
+>   repeticiones + píxeles literales). Con un bridge viejo el Designer sigue en v1. Se reemplazó el firmware;
+> - las secciones 2 a 5 se actualizaron al estado actual (`flash_args`, 4 partes, caché v41, 13 tests).
 >
 > Ver `ALPHA15_STATUS.md`.
 
@@ -43,7 +46,7 @@ Se implementaron y validaron al 100% las 4 fases técnicas planificadas para res
 ```mermaid
 flowchart TD
     subgraph Fase1["Fase 1: Firmware Base"]
-        FW["Corrección JWPLC_HMI_Live_Bridge.ino<br/>Mutex SPI 80 MHz + Batch Drawing"]
+        FW["Corrección JWPLC_HMI_Live_Bridge.ino<br/>Mutex SPI 80 MHz + pushImage por bloque"]
         BIN["Compilación core jwplcbasic<br/>Generación de binarios"]
     end
 
@@ -148,7 +151,7 @@ flowchart TD
        - Queda operativo el streaming diferencial continuo a 30-60 FPS mediante *dirty rects*.
 * **Actualización del Service Worker y Cadena de Carga:**
   - **`poc/ux-foundation.js`:** Se encadena `designer-flasher.js` justo antes de `designer-live.js`.
-  - **`poc/service-worker.js`:** `./designer-flasher.js`, `./esptool-bundle.js` y `./firmware/jwplc.esp32.jwplcbasic/flash_args` están en la lista de caché `CORE` (versión actual `jwplc-hmi-designer-a15-v40`).
+  - **`poc/service-worker.js`:** `./designer-flasher.js`, `./esptool-bundle.js` y `./firmware/jwplc.esp32.jwplcbasic/flash_args` están en la lista de caché `CORE` (versión actual `jwplc-hmi-designer-a15-v41`).
 
 ---
 
@@ -195,7 +198,7 @@ Todos los archivos JavaScript del directorio `poc/` y `electron/` pasaron la val
 | [`poc/designer-flasher.js`](poc/designer-flasher.js) | Creado | Módulo UI y controlador de flasheo (`window.JWPLCHMIFlasher`). |
 | [`poc/designer-live.js`](poc/designer-live.js) | Modificado | Detección automática en 2.5s, botón manual y reconexión post-reinicio. |
 | [`poc/ux-foundation.js`](poc/ux-foundation.js) | Modificado | Incorporación de `designer-flasher.js` en la secuencia de carga. |
-| [`poc/service-worker.js`](poc/service-worker.js) | Modificado | Registro de assets en caché (versión actual `v40`). |
+| [`poc/service-worker.js`](poc/service-worker.js) | Modificado | Registro de assets en caché (versión actual `v41`). |
 | [`electron/main.js`](electron/main.js) | Modificado | Soporte de tipo MIME para archivos `.bin`. |
 | [`JWPLC-HMI-Server.ps1`](JWPLC-HMI-Server.ps1) | Modificado | Soporte de tipo MIME para archivos `.bin` en servidor estático PowerShell. |
 | [`tests/live-bridge-flasher.test.cjs`](tests/live-bridge-flasher.test.cjs) | Creado | Suite de 13 pruebas unitarias y de integración del flasheador. |

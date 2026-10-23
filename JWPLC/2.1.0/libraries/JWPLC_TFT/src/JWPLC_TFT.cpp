@@ -613,6 +613,35 @@ bool JWPLC_TFTClass::drawPixel(
     return true;
 }
 
+bool JWPLC_TFTClass::pushImage(
+    int16_t x,
+    int16_t y,
+    int16_t w,
+    int16_t h,
+    const uint16_t *pixels,
+    uint32_t timeoutMs)
+{
+    if (pixels == nullptr || w <= 0 || h <= 0)
+    {
+        return false;
+    }
+
+    if (!acquireForOperation(timeoutMs))
+    {
+        return false;
+    }
+
+    // Los colores llegan en el orden de la CPU (little-endian), igual que en
+    // drawPixel; el ST7789 los espera con el byte alto primero.
+    const bool swap = g_backend.getSwapBytes();
+    g_backend.setSwapBytes(true);
+    g_backend.pushImage(x, y, w, h, pixels);
+    g_backend.setSwapBytes(swap);
+
+    releaseAfterOperation();
+    return true;
+}
+
 void JWPLC_TFTClass::syncTextState()
 {
     g_backend.setTextSize(_textSize);

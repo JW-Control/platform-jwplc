@@ -406,6 +406,19 @@ MENU_NODE_COUNT_LIMIT=64 por menú, 4 menús, 1 por página (9 nodos = +952 B RA
   - [ejecutado] en Chromium, `JWPLCHMIFlasher.loadBinaries()` lee `flash_args` y descarga las 4 partes con sus
     direcciones y encabezados. `live-bridge-flasher.test.cjs` pasa 10/10, con tests nuevos de `flash_args`,
     de la partición y de `keep`.
+- 2026-10-23 — **LIVE más fluido** (prueba en placa: el flasheo funciona, pero el LIVE iba más lento que en Alpha11):
+  - causa [visto]: al pasar a la 2.1.0 el bridge cambió `drawRGBBitmap` por `drawPixel`/`drawFastHLine`
+    tramo a tramo; cada tramo abre su propia ventana SPI y el texto multiplica el tiempo de dibujo;
+  - `JWPLC_TFT.pushImage(x, y, w, h, pixels)` (API nueva; TFT_eSPI `pushImage` con `setSwapBytes(true)`).
+    [ejecutado] `regenerate_libJWPLC_TFT.sh build --install`: `ABI_COMPAT=PASS`, 1 símbolo añadido, 0 quitados.
+    Falta el benchmark de compilación en la PC del jefe antes del cierre;
+  - bridge: un `pushImage` por bloque de 32 filas, lectura serie en bloque y protocolo v2 (`JWH3`/`JWH4`:
+    repeticiones + píxeles literales). READY anuncia la versión; con un bridge v1 el Designer sigue en
+    `JWH1`/`JWH2`. [ejecutado] firmware recompilado (`build_live_bridge_firmware.sh --install`);
+  - [ejecutado] `live-bridge-host-sim.cjs`: el `.ino` real en host (g++) con el codificador real del
+    Designer deja la TFT idéntica al lienzo en v1 y v2, sólo con `pushImage`; región de píxeles sueltos
+    50% más chica en v2;
+  - [no verificado] FPS en placa: reinstalar el Live Bridge (⚡) y mirar `draw_us_avg` en Diagnóstico.
 - 2026-10-23 — **flasher: el PLC no arrancaba tras flashear y selector de puertos propio** (prueba en placa):
   - la app decía «instalado» pero el PLC seguía igual: `loader.after('hard_reset')` de esptool-js 0.7 no
     pulsa RTS y deja DTR=1 (IO0 a tierra), así que el chip quedaba en el stub. `hardResetToApp` hace

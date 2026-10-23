@@ -217,6 +217,18 @@ public:
         uint16_t color,
         uint32_t timeoutMs = 50);
 
+    // Envía un bloque w x h de píxeles RGB565 (valores nativos, como los de
+    // drawPixel) en una sola ventana SPI. Es la forma rápida de pintar una
+    // imagen o un framebuffer parcial: una transferencia en vez de un
+    // drawPixel por píxel.
+    bool pushImage(
+        int16_t x,
+        int16_t y,
+        int16_t w,
+        int16_t h,
+        const uint16_t *pixels,
+        uint32_t timeoutMs = 50);
+
     void setCursor(int16_t x, int16_t y);
     int16_t cursorX() const;
     int16_t cursorY() const;

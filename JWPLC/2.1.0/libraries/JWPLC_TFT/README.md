@@ -544,6 +544,12 @@ JWPLC_TFT.drawFastVLine(
 JWPLC_TFT.drawPixel(
     x, y,
     color);
+
+// Bloque de píxeles RGB565 (uint16_t, w * h) en una sola transferencia.
+JWPLC_TFT.pushImage(
+    x, y,
+    width, height,
+    pixels);
 ```
 
 ### Cursor y texto — Básico

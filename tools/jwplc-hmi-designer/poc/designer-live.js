@@ -13,6 +13,13 @@
 
   const FULL_MAGIC = [0x4A, 0x57, 0x48, 0x31]; // JWH1
   const REGION_MAGIC = [0x4A, 0x57, 0x48, 0x32]; // JWH2
+  // Bridge versión 2: ítems mixtos (repeticiones + píxeles literales).
+  const FULL_MIXED_MAGIC = [0x4A, 0x57, 0x48, 0x33]; // JWH3
+  const REGION_MIXED_MAGIC = [0x4A, 0x57, 0x48, 0x34]; // JWH4
+  const MIXED_LITERAL = 0x8000;
+  const MIXED_MAX_COUNT = 0x7FFF;
+  // Una repetición cuesta 4 bytes; como literal, 2 por píxel.
+  const MIXED_MIN_RUN = 3;
   const PROBE = new Uint8Array([0x4A, 0x57, 0x48, 0x3F]); // JWH?
 
   const previewCanvas = document.getElementById('previewCanvas');
@@ -134,6 +141,8 @@
   let writer = null;
   let reader = null;
   let bridgeReady = false;
+  // Versión que anuncia JWHMI_LIVE_READY (1 = sólo JWH1/JWH2).
+  let bridgeVersion = 1;
   let sequence = 0;
   let sendInFlight = false;
   let dirtyRequested = false;
@@ -340,6 +349,81 @@
     });
   }
 
+  // Ítems del protocolo mixto (JWH3/JWH4) como palabras u16:
+  //   [n, color]                -> n repeticiones (n <= 0x7FFF)
+  //   [0x8000 | n, c1 .. cn]    -> n píxeles literales
+  function buildMixedItems(frame, rect) {
+    const total = rect.width * rect.height;
+    const pixels = new Uint16Array(total);
+    for (let y = 0, k = 0; y < rect.height; y += 1) {
+      const row = (rect.y + y) * WIDTH + rect.x;
+      pixels.set(frame.subarray(row, row + rect.width), k);
+      k += rect.width;
+    }
+
+    const words = new Uint16Array(total * 2 + 2);
+    let length = 0;
+    let items = 0;
+    let literalAt = -1;
+
+    const closeLiteral = () => {
+      if (literalAt < 0) return;
+      words[literalAt] = MIXED_LITERAL | (length - literalAt - 1);
+      literalAt = -1;
+    };
+
+    let i = 0;
+    while (i < total) {
+      const color = pixels[i];
+      let run = 1;
+      while (i + run < total && pixels[i + run] === color && run < MIXED_MAX_COUNT) run += 1;
+
+      // Un par repetido dentro de un literal cuesta lo mismo (4 bytes) y
+      // evita abrir otro literal después; fuera de un literal va como
+      // repetición. Así un paquete v2 nunca pesa más que el RLE v1.
+      if (run >= MIXED_MIN_RUN || (run === 2 && literalAt < 0)) {
+        closeLiteral();
+        words[length++] = run;
+        words[length++] = color;
+        items += 1;
+      } else {
+        for (let p = 0; p < run; p += 1) {
+          if (literalAt < 0 || length - literalAt - 1 >= MIXED_MAX_COUNT) {
+            closeLiteral();
+            literalAt = length++;
+            items += 1;
+          }
+          words[length++] = color;
+        }
+      }
+      i += run;
+    }
+    closeLiteral();
+    return { words: words.subarray(0, length), items };
+  }
+
+  function encodeMixedPacket(frame, rect, full) {
+    const { words, items } = buildMixedItems(frame, rect);
+    const seq = nextSequence();
+    const headerBytes = full ? 16 : 20;
+    const packet = new Uint8Array(headerBytes + words.length * 2);
+    const view = new DataView(packet.buffer);
+    packet.set(full ? FULL_MIXED_MAGIC : REGION_MIXED_MAGIC, 0);
+    view.setUint32(4, seq, true);
+    view.setUint32(8, items, true);
+    if (full) {
+      view.setUint16(12, WIDTH, true);
+      view.setUint16(14, HEIGHT, true);
+    } else {
+      view.setUint16(12, rect.x, true);
+      view.setUint16(14, rect.y, true);
+      view.setUint16(16, rect.width, true);
+      view.setUint16(18, rect.height, true);
+    }
+    for (let w = 0, o = headerBytes; w < words.length; w += 1, o += 2) view.setUint16(o, words[w], true);
+    return { packet, seq, runs: items, rect, mode: full ? 'FULL' : 'REGION' };
+  }
+
   function encodeFullPacket(frame) {
     const rect = { x: 0, y: 0, width: WIDTH, height: HEIGHT };
     const runs = buildRuns(frame, rect);
@@ -474,9 +558,10 @@
 
     if (!rect) rect = { x: 0, y: 0, width: WIDTH, height: HEIGHT };
     const areaRatio = (rect.width * rect.height) / FRAME_PIXELS;
-    const encoded = (forceFull || !lastAckFrame || areaRatio >= REGION_MAX_AREA_RATIO)
-      ? encodeFullPacket(frame)
-      : encodeRegionPacket(frame, rect);
+    const full = forceFull || !lastAckFrame || areaRatio >= REGION_MAX_AREA_RATIO;
+    const encoded = bridgeVersion >= 2
+      ? encodeMixedPacket(frame, full ? { x: 0, y: 0, width: WIDTH, height: HEIGHT } : rect, full)
+      : (full ? encodeFullPacket(frame) : encodeRegionPacket(frame, rect));
 
     dirtyRequested = false;
     forceFull = false;
@@ -539,6 +624,10 @@
       logLine(`RX ${clean}`);
       if (bridgeReady) return;
       bridgeReady = true;
+      bridgeVersion = Number(clean.split(/\s+/)[1]) || 1;
+      if (bridgeVersion < 2) {
+        logLine('Bridge v1: reinstala el Live Bridge (⚡ Flashear Live Bridge) para el modo rápido');
+      }
       stopProbeTimer();
       stopNoBridgeTimer();
       liveButton.classList.remove('waiting');
@@ -842,6 +931,13 @@
     disconnect: disconnectLive,
     openDiagnostic: showDiagnostic,
     flash: () => triggerFlashSequence(port),
-    startFlashingFlow: triggerFlashSequence
+    startFlashingFlow: triggerFlashSequence,
+    // Para tests (live-bridge-host-sim.cjs): mismo codificador que el envío.
+    captureFrame: captureFrame565,
+    encodePacket: (frame, rect, mixed) => {
+      const full = rect.x === 0 && rect.y === 0 && rect.width === WIDTH && rect.height === HEIGHT;
+      if (mixed) return encodeMixedPacket(frame, rect, full).packet;
+      return (full ? encodeFullPacket(frame) : encodeRegionPacket(frame, rect)).packet;
+    }
   };
 })();
