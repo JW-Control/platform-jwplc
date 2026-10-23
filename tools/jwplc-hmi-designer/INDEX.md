@@ -29,6 +29,11 @@ tools/jwplc-hmi-designer/
 │   ├── desktop-responsive.js                     <- Adaptabilidad a ventanas de escritorio y paneles
 │   └── styles.css / desktop-responsive.css       <- Estilos y temas visuales
 │
+├── cli/                                          <- CLI jwhmi: proyectos .jwhmi sin la UI (ver cli/INDEX.md)
+├── agent/                                        <- Guía para agentes y referencia del formato .jwhmi
+├── schema/                                       <- jwhmi.schema.json (generado desde cli/lib/spec.cjs)
+├── examples/                                     <- Proyectos de ejemplo en forma corta
+│
 ├── electron/                                     <- ENTORNO DE ESCRITORIO
 │   ├── INDEX.md                                  <- Índice del proceso principal, preload e IPC
 │   ├── main.js                                   <- Proceso Electron: ventana, servidor estático, WebSerial

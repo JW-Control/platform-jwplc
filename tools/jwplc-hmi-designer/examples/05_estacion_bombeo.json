@@ -1,0 +1,42 @@
+{
+  "$schema": "../schema/jwhmi.schema.json",
+  "projectName": "Estacion_Bombeo",
+  "display": { "start": "IDLE", "wake": "ANY", "back": "TIMEOUT", "timeoutS": 120 },
+  "pages": [
+    { "name": "Proceso", "shortName": "PROCESO", "color": "CYAN", "fields": [
+      { "type": "RECT", "x": 0, "y": 0, "x2": 319, "y2": 18, "fill": true, "fillColor": "NAVY", "frameColor": "NAVY" },
+      { "type": "RAW_TEXT", "text": "Estación de bombeo", "x": 4, "y": 6, "font": "GLCD", "textColor": "WHITE" },
+      { "type": "VALUE", "id": "FIELD_HORA", "x": 262, "y": 3, "valueKind": "DATETIME", "dateTimePattern": "HH_MM", "valueSize": 1, "valueColor": "WHITE", "backgroundColor": "NAVY" },
+      { "type": "BAR", "id": "FIELD_NIVEL", "variable": "nivelTanque", "barLabel": "Tanque", "barUnit": "%", "x": 4, "y": 24, "barWidth": 312, "frame": true, "valueColor": "CYAN", "trackColor": "#101820", "barValue": 72 },
+      { "type": "VALUE", "id": "FIELD_CAUDAL", "variable": "caudal", "label": "Caudal", "unit": "L/m", "x": 4, "y": 62, "integerDigits": 4, "decimalDigits": 1, "valueSize": 2 },
+      { "type": "VALUE", "id": "FIELD_PRESION", "variable": "presion", "label": "Presión", "unit": "bar", "x": 4, "y": 86, "integerDigits": 2, "decimalDigits": 2, "valueSize": 2 },
+      { "type": "BOOL", "id": "FIELD_BOMBA1", "variable": "bomba1", "label": "B1", "x": 196, "y": 62, "boolStyle": "PILOT", "falseColor": "DARKGREY", "trueColor": "GREEN", "valueSize": 2 },
+      { "type": "BOOL", "id": "FIELD_BOMBA2", "variable": "bomba2", "label": "B2", "x": 256, "y": 62, "boolStyle": "PILOT", "falseColor": "DARKGREY", "trueColor": "GREEN", "valueSize": 2 },
+      { "type": "TEXT", "id": "FIELD_MODO", "variable": "modo", "label": "Modo", "capacity": 10, "x": 196, "y": 96, "valueSize": 1, "preview": "AUTOMATICO" },
+      { "type": "VALUE", "id": "FIELD_HOROMETRO", "variable": "horometroSeg", "label": "Marcha", "x": 4, "y": 116, "valueKind": "DURATION", "durationPattern": "HH_MM_SS", "durationUnit": "S", "integerDigits": 3, "valueSize": 1, "valueColor": "LIGHTGREY" }
+    ] },
+    { "name": "Alarmas", "shortName": "ALARMAS", "color": "RED", "fields": [
+      { "type": "RAW_TEXT", "text": "Alarmas activas", "x": 4, "y": 4, "font": "SANS_BOLD_9", "textColor": "RED" },
+      { "type": "BOOL", "id": "FIELD_AL_NIVEL_BAJO", "variable": "alNivelBajo", "label": "Nivel bajo", "x": 4, "y": 30, "falseText": "OK", "trueText": "ALARMA", "stateColors": true, "falseColor": "GREEN", "trueColor": "WHITE", "trueBackground": "RED", "valueSize": 1, "frame": true },
+      { "type": "BOOL", "id": "FIELD_AL_SOBREPRESION", "variable": "alSobrepresion", "label": "Sobrepresión", "x": 4, "y": 56, "falseText": "OK", "trueText": "ALARMA", "stateColors": true, "falseColor": "GREEN", "trueColor": "WHITE", "trueBackground": "RED", "valueSize": 1, "frame": true },
+      { "type": "BOOL", "id": "FIELD_AL_TERMICO", "variable": "alTermico", "label": "Térmico B1/B2", "x": 4, "y": 82, "falseText": "OK", "trueText": "ALARMA", "stateColors": true, "falseColor": "GREEN", "trueColor": "WHITE", "trueBackground": "RED", "valueSize": 1, "frame": true },
+      { "type": "TEXT", "id": "FIELD_ULTIMA", "variable": "ultimaAlarma", "label": "Ultima", "capacity": 24, "x": 4, "y": 112, "valueSize": 1, "valueColor": "ORANGE", "preview": "10:32 Nivel bajo" }
+    ] },
+    { "name": "Ajustes", "shortName": "AJUSTES", "color": "ORANGE", "fields": [
+      { "type": "MENU", "id": "MENU_AJUSTES", "title": "Ajustes", "x": 4, "y": 2, "width": 312, "height": 140, "nodes": [
+        { "type": "VIEW", "label": "Nivel", "variable": "nivelTanque", "valueType": "float", "decimals": 0, "unit": "%" },
+        { "type": "EDIT_NUM", "label": "Arranque", "variable": "nivelArranque", "valueType": "float", "initial": 30, "min": 0, "max": 100, "step": 1, "decimals": 0, "unit": "%" },
+        { "type": "EDIT_NUM", "label": "Parada", "variable": "nivelParada", "valueType": "float", "initial": 90, "min": 0, "max": 100, "step": 1, "decimals": 0, "unit": "%" },
+        { "type": "EDIT_BOOL", "label": "Alternar bombas", "variable": "alternar", "initial": 1, "falseText": "NO", "trueText": "SI" },
+        { "type": "SUBMENU", "label": "Protecciones", "children": [
+          { "type": "EDIT_NUM", "label": "Presión máx", "variable": "presionMax", "valueType": "float", "initial": 6, "min": 1, "max": 10, "step": 0.1, "decimals": 1, "unit": "bar" },
+          { "type": "EDIT_NUM", "label": "Retardo", "variable": "retardoArranque", "valueType": "int32", "initial": 10, "min": 0, "max": 300, "step": 5, "unit": "s" }
+        ] },
+        { "type": "GO_IDLE", "label": "Salir al inicio" }
+      ] }
+    ] }
+  ],
+  "fields": [
+    { "type": "NAV_BAR", "preset": "industrial-color", "position": "bottom", "height": 22 }
+  ]
+}

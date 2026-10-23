@@ -169,6 +169,15 @@ Estado de adopción por tipo: ver `ALPHA15_STATUS.md` (§Inspector).
   `electron/package.json`). El comentario `// API pública JWPLC_UI · Alpha11 A11-4` del header generado es un
   marcador interno de las capas del codegen: no cambiarlo.
 
+## Proyectos por JSON (agentes, sin UI)
+
+- CLI `cli/jwhmi.cjs` (`validate`, `preview`, `check`, `build --sketch`): normaliza la forma corta, valida,
+  y genera el header con el Designer real en Chromium headless (byte a byte igual que «Escribir en sketch»).
+  Guía: `agent/GUIA_AGENTES.md`; ejemplos: `examples/`; skill del repo `hmi-designer-proyectos`.
+- `cli/lib/spec.cjs` es la fuente del formato (esquema `schema/jwhmi.schema.json` y `agent/REFERENCIA_JWHMI.md`
+  se generan con `node cli/jwhmi.cjs schema`). Una propiedad o enumerado nuevo del Designer va también ahí;
+  `tests/agent-cli.test.cjs` compara la spec con lo que crea el Designer.
+
 ## Probar sin hardware
 
 ```bash
@@ -181,6 +190,7 @@ node tests/menu-smoke.cjs               # MENU: Designer + paridad lienzo/firmwa
 node tests/sketch-menu-smoke.cjs        # Escribir en sketch + menú del sketch
 node tests/sketch-guide.test.cjs        # guía JWPLC_HMI_LEEME.md + su sketch base compila
 node tests/live-bridge-flasher.test.cjs # flasheador Live Bridge: manifiesto, binarios ESP32, integración
+node tests/agent-cli.test.cjs           # CLI para agentes: spec, validación, golden, ejemplos, build
 cd poc && python3 -m http.server 8765 --bind 127.0.0.1   # abrir /desktop.html
 ```
 

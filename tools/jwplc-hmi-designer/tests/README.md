@@ -15,6 +15,7 @@ Sin `g++` (por ejemplo Windows sin MSYS2) se omiten los pasos que compilan C++; 
 | `inspector-smoke.cjs` | Inspector TEXT/VALUE/BOOL operado como usuario (tarjetas, chips, paleta, páginas, undo). BAR: opciones sin firmware deshabilitadas y geometría del lienzo == `computeFieldGeometry()` del firmware (16 casos). | Playwright |
 | `menu-smoke.cjs` | MENU: herramienta, inspector del árbol, undo, guardar/abrir, profundidad 3, header. Con g++: lienzo == framebuffer del firmware píxel a píxel y el header compila. | Playwright (+ g++, nm) |
 | `menu-host-sim.cjs` | Compila el `JWPLC_UI_Menu.cpp` real con g++ contra stubs (`menu-host/stub`) y recorre un guion de teclas (39 verificaciones). Guarda capturas PNG del framebuffer. | g++ |
+| `agent-cli.test.cjs` | CLI para agentes (`cli/jwhmi.cjs`): valores por defecto de `cli/lib/spec.cjs` == los que crea el Designer, esquema y referencia al día, normalización y errores típicos, header de la CLI == golden, ejemplos de `examples/` sin avisos y compilando, `build` en un sketch. | Playwright (+ g++ opcional) |
 | `codegen-smoke.cjs` | Headers de varios proyectos compilan con `g++ -fsyntax-only` contra los headers reales y cada llamada existe en los `.a` (`nm`). | Playwright, g++, nm, python3 |
 
 `host-stub/` y `menu-host/stub/` sólo reemplazan `Arduino.h`, la botonera, la TFT y los
