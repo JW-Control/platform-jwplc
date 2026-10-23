@@ -52,6 +52,7 @@ ni tomarlos como referencia para el HMI Designer.
 ACTIVE_ALPHA=v2.1.0-alpha.15 (DEV_CLOSED 2026-10-19; se publica como 2.1.0-alpha.14)
 ACTIVE_BRANCH=v2.1.0-alpha.15-HmiDesigner
 CIERRE=docs/v2.1.0-alpha.15/A15_CIERRE_Y_TRANSFERENCIA_20261019.md (integración con Alpha13 y publicación)
+INTEGRATION_BRANCH=v2.1.0-alpha.14/feature/hmi-designer (desde release/v2.1.x con Alpha13 cerrada; fase 1 en modo fuente)
 PARENT_BRANCH=v2.0.1-alpha.15-(HmiDesigner)   (rama anterior de André; congelada, NO modificar)
 PARENT_LAST_MERGED=af797d79 (2026-10-16, fusionado en la rama activa el 2026-10-17)
 ALPHA12_MERGED=4e869985 (Kenyi, VPP 2.1.0-alpha.29; fusionado el 2026-10-18)
@@ -113,8 +114,8 @@ JW-Control/platform-jwplc  rama v2.1.0-alpha.12/feature/openplc-engineering-clos
    Nunca publicar header y `.a` desalineados. **Durante el alpha**, la librería
    que va a cambiar se pone en modo fuente (se retira sólo `precompiled=full`)
    y su `.a` se regenera una vez antes del cierre, seguido del benchmark de
-   compilación en la PC del jefe. Hoy: `JWPLC_Display` en modo fuente,
-   `JWPLC_TFT` precompilada (su `.a` incluye TFT_eSPI).
+   compilación en la PC del jefe. Hoy (integración 2.1.0-alpha.14): `JWPLC_Display`,
+   `JWPLC_TFT` (su `.a` incluye TFT_eSPI) y `JWPLC_ModbusRTU` en modo fuente.
 5. **El Display no consume los latches de la botonera de la aplicación**
    (Alpha8). Si un widget de menú necesita teclas, debe declararlo
    explícitamente y respetar la limpieza CONTENT -> SELECT (Alpha11).

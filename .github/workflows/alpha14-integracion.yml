@@ -1,0 +1,70 @@
+# Workflow temporal de la integración 2.1.0-alpha.14 (HMI Designer sobre Alpha13).
+# Se retira en el PR de cierre de la alpha (PRESUPUESTO_TOKENS_Y_CI §3.6).
+name: Alpha14 integración
+
+on:
+  workflow_dispatch:
+    inputs:
+      gate:
+        description: "designer-tests: tests del HMI Designer | regen-tft / regen-display: regenerar el .a (fase de congelado)"
+        required: true
+        type: choice
+        options:
+          - designer-tests
+          - regen-tft
+          - regen-display
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.gate }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Dependencias de los tests del Designer
+        if: inputs.gate == 'designer-tests'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq g++ python3 binutils
+          npm install -g playwright@1.48.2
+          npx playwright@1.48.2 install --with-deps chromium
+
+      - name: Tests del HMI Designer
+        if: inputs.gate == 'designer-tests'
+        run: |
+          export NODE_PATH="$(npm root -g)"
+          node tools/jwplc-hmi-designer/tests/run-all.cjs
+
+      - name: Regenerar libJWPLC_TFT.a
+        if: inputs.gate == 'regen-tft'
+        run: |
+          tools/alpha15/regenerate_libJWPLC_TFT.sh setup
+          tools/alpha15/regenerate_libJWPLC_TFT.sh build --install | tee regen.log
+
+      - name: Regenerar libJWPLC_Display.a
+        if: inputs.gate == 'regen-display'
+        run: |
+          tools/alpha15/regenerate_libJWPLC_TFT.sh setup
+          tools/alpha15/regenerate_libJWPLC_Display.sh build --install | tee regen.log
+
+      - name: Publicar el .a regenerado
+        if: inputs.gate != 'designer-tests'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.gate }}
+          path: |
+            regen.log
+            JWPLC/2.1.0/libraries/JWPLC_TFT/src/esp32/libJWPLC_TFT.a
+            JWPLC/2.1.0/libraries/JWPLC_Display/src/esp32/libJWPLC_Display.a
+          retention-days: 14
