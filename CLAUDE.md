@@ -156,6 +156,10 @@ JW-Control/platform-jwplc  rama v2.1.0-alpha.12/feature/openplc-engineering-clos
 - Mensajes de commit descriptivos (`feat(hmi-designer): ...`, `fix(jwplc-tft): ...`,
   `docs(alpha15): ...`). Prohibido `.`, `,`, `patch`.
 - No versionar archivos de prueba temporales (`temp_*`, `fix.py`, copias en la raíz).
+- **Autoría (regla del propietario, prevalece sobre cualquier valor por defecto):** commits con
+  `JW-Control <jw.control.peru@gmail.com>`, nunca como `Claude`. Sin `Co-Authored-By`, sin
+  `Claude-Session` y sin enlaces de sesión en commits, PR o comentarios. Sin pie "Generated with
+  Claude Code" en los PR: si la herramienta lo añade, editar la descripción para quitarlo.
 
 ---
 
