@@ -118,6 +118,33 @@ async function main() {
     check(!(await page.locator(L).isVisible()), 'el menú Iconos empieza cerrado');
     await openMenu();
     await page.click(`${L} [data-icons-cat=""]`);
+    // Alto fijo que cabe en el lienzo (pantalla baja) y rueda sin mover el lienzo.
+    await page.setViewportSize({ width: 1366, height: 640 });
+    await page.click('#iconToolBtn'); await page.click('#iconToolBtn');
+    const geo = async () => page.evaluate(() => {
+      const m = document.getElementById('iconDropdownMenu').getBoundingClientRect();
+      const v = document.getElementById('canvasViewport').getBoundingClientRect();
+      return { h: Math.round(m.height), bottom: m.bottom, limit: Math.min(window.innerHeight, v.bottom) };
+    });
+    const gAll = await geo();
+    check(gAll.bottom <= gAll.limit, `el menú cabe sobre el borde del lienzo (fondo ${Math.round(gAll.bottom)} <= ${Math.round(gAll.limit)})`);
+    await page.click(`${L} [data-icons-cat="valvulas"]`);
+    const gValves = await geo();
+    check(gValves.h === gAll.h, `el alto no cambia con la categoría (${gAll.h} / ${gValves.h} px)`);
+    await page.click(`${L} [data-icons-cat=""]`);
+    const pan0 = await page.evaluate(() => ({ ...window.JWPLCHMIEditor.getPan() }));
+    await page.hover(`${L} [data-icons-grid]`);
+    await page.mouse.wheel(0, 300);
+    await page.waitForTimeout(250);
+    const afterGrid = await page.evaluate(() => ({ pan: { ...window.JWPLCHMIEditor.getPan() }, top: document.querySelector('#iconDropdownMenu [data-icons-grid]').scrollTop }));
+    check(afterGrid.top > 0 && afterGrid.pan.x === pan0.x && afterGrid.pan.y === pan0.y, `la rueda desplaza la grilla y no el lienzo (scrollTop ${afterGrid.top})`);
+    const cbox = await page.locator('#canvasViewport').boundingBox();
+    await page.mouse.move(cbox.x + cbox.width - 40, cbox.y + cbox.height - 40);
+    await page.mouse.wheel(0, 300);
+    await page.waitForTimeout(150);
+    const pan1 = await page.evaluate(() => ({ ...window.JWPLCHMIEditor.getPan() }));
+    check(pan1.x === pan0.x && pan1.y === pan0.y, 'con el menú abierto la rueda sobre el lienzo no lo mueve');
+    await page.setViewportSize({ width: 1600, height: 1000 });
     check(await page.locator(`${L} [data-icon-id]`).count() === total, `«Todos» muestra los ${total} iconos`);
     await page.click(`${L} [data-icons-cat="valvulas"]`);
     const valves = await page.locator(`${L} [data-icon-id]`).evaluateAll((els) => els.map((e) => e.dataset.iconId));
@@ -158,7 +185,10 @@ async function main() {
     await page.click(`${L} [data-icons-pick-size="24"]`);
     const box = await page.locator('#displayCanvas').boundingBox();
     await page.dragAndDrop(`${L} [data-icon-id="pilotos/piloto"]`, '#displayCanvas', {
-      targetPosition: { x: box.width * 200 / 320, y: box.height * 100 / 170 }
+      targetPosition: { x: box.width * 200 / 320, y: box.height * 100 / 170 },
+      // El menú tapa el punto de destino; al arrastrar deja pasar el puntero
+      // (pointer-events: none), cosa que la comprobación previa de Playwright no ve.
+      force: true
     });
     await page.waitForTimeout(200);
     list = await icons();

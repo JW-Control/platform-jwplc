@@ -134,7 +134,7 @@
     .icons-block .icons-tools input { flex: 1; min-width: 0; }
     .icons-block .icons-size { display: flex; gap: 3px; }
     .icons-block .icons-size .insp-chip { font-size: 10px; padding: 2px 5px; }
-    .icons-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); gap: 4px; max-height: min(320px, 50vh); overflow-y: auto; padding-right: 2px; }
+    .icons-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); gap: 4px; align-content: start; overflow-y: auto; overscroll-behavior: contain; padding-right: 2px; }
     .icon-tile { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 5px 2px 3px; border: 1px solid rgba(255,255,255,.08); border-radius: 6px; background: #05080b; color: inherit; cursor: grab; font: inherit; }
     .icon-tile:hover { border-color: rgba(82,201,255,.6); }
     .icon-tile canvas { width: 32px; height: 32px; image-rendering: pixelated; }
@@ -196,11 +196,39 @@
   if (textContainer) textContainer.insertAdjacentElement('afterend', container);
   else (document.querySelector('.canvas-toolbar') || leftPanel).appendChild(container);
 
+  // Alto fijo de la grilla (no cambia con la categoría) que cabe sobre el
+  // borde inferior del lienzo, sin bajar de una fila ni pasar de 300 px.
+  const GRID_MIN = 72;
+  const GRID_MAX = 300;
+  function fitMenu() {
+    if (block.style.display === 'none') return;
+    const grid = block.querySelector('[data-icons-grid]');
+    grid.style.height = `${GRID_MIN}px`;
+    const chrome = block.offsetHeight - grid.offsetHeight;
+    const viewportBox = document.getElementById('canvasViewport')?.getBoundingClientRect();
+    const bottom = Math.min(window.innerHeight, viewportBox ? viewportBox.bottom : window.innerHeight) - 12;
+    const free = bottom - block.getBoundingClientRect().top - chrome;
+    grid.style.height = `${Math.max(GRID_MIN, Math.min(GRID_MAX, Math.floor(free)))}px`;
+  }
+  window.addEventListener('resize', fitMenu);
+
   function setMenuOpen(open) {
     block.style.display = open ? 'flex' : 'none';
     container.classList.toggle('open', open);
-    if (open) block.querySelector('[data-icons-search]')?.focus({ preventScroll: true });
+    if (open) {
+      fitMenu();
+      block.querySelector('[data-icons-search]')?.focus({ preventScroll: true });
+    }
   }
+
+  // Con el menú abierto la rueda nunca mueve el lienzo: dentro del menú
+  // desplaza la grilla y fuera de él no hace nada (el lienzo está tapado).
+  block.addEventListener('wheel', (e) => e.stopPropagation(), { passive: true });
+  document.getElementById('canvasViewport')?.addEventListener('wheel', (e) => {
+    if (block.style.display === 'none' || e.composedPath().includes(block)) return;
+    e.preventDefault();
+    e.stopPropagation();
+  }, { capture: true, passive: false });
   toolBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     // Cierra los otros menús de la barra (Variables, Texto).
