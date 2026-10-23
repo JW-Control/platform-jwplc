@@ -36,6 +36,9 @@ namespace
 
         char value[VALUE_BUFFER_SIZE];
         float barValue;
+        // BAR: ancho de relleno que hay en pantalla; -1 = desconocido
+        // (repintado completo). Con él sólo se pinta o borra el tramo que cambió.
+        int16_t barDrawnW;
 
         int16_t fieldX;
         int16_t fieldY;
@@ -55,6 +58,7 @@ namespace
               boolState(false),
               staticDirty(false),
               barValue(0.0f),
+              barDrawnW(-1),
               fieldX(0),
               fieldY(0),
               fieldW(0),
@@ -494,6 +498,31 @@ namespace
         return def.style.colors.background;
     }
 
+    int16_t barFillWidth(const FieldRuntime &field)
+    {
+        float minValue = field.def.options.barRange.min;
+        float maxValue = field.def.options.barRange.max;
+
+        if (maxValue <= minValue)
+        {
+            maxValue = minValue + 1.0f;
+        }
+
+        float normalized =
+            (field.barValue - minValue) / (maxValue - minValue);
+
+        if (normalized < 0.0f)
+        {
+            normalized = 0.0f;
+        }
+        else if (normalized > 1.0f)
+        {
+            normalized = 1.0f;
+        }
+
+        return (int16_t)lroundf(normalized * field.valueW);
+    }
+
     void drawFieldStatic(JWPLC_TFTClass &tft, FieldRuntime &field)
     {
         computeFieldGeometry(tft, field);
@@ -511,6 +540,9 @@ namespace
                 field.fieldH,
                 background);
         }
+
+        // El fondo del campo dejó la barra vacía.
+        field.barDrawnW = 0;
 
         if (def.style.frame && field.fieldW > 1 && field.fieldH > 1)
         {
@@ -586,6 +618,55 @@ namespace
             return;
         }
 
+        // BAR con relleno conocido en pantalla: sólo el tramo que cambió
+        // (añade al subir, borra el sobrante al bajar), sin limpiar la barra.
+        if (def.meta.type == JWPLC_UI_FIELD_BAR &&
+            field.hasValue &&
+            field.barDrawnW >= 0)
+        {
+            const int16_t fillW = barFillWidth(field);
+            const int16_t oldW = field.barDrawnW;
+            const uint32_t printStartUs = profile ? micros() : 0U;
+
+            if (fillW > oldW)
+            {
+                tft.fillRect(
+                    field.valueX + oldW,
+                    field.valueY,
+                    fillW - oldW,
+                    field.valueH,
+                    def.style.colors.value);
+            }
+            else if (fillW < oldW)
+            {
+                tft.fillRect(
+                    field.valueX + fillW,
+                    field.valueY,
+                    oldW - fillW,
+                    field.valueH,
+                    fieldBackground(field));
+            }
+
+            field.barDrawnW = fillW;
+            field.dirty = false;
+
+            if (profile)
+            {
+                jwplcH3E1RecordFieldDraw(
+                    def.meta.id,
+                    (uint8_t)def.meta.type,
+                    (uint16_t)field.valueW,
+                    (uint16_t)field.valueH,
+                    0U,
+                    (uint32_t)(micros() - totalStartUs),
+                    0U,
+                    0U,
+                    (uint32_t)(micros() - printStartUs));
+            }
+
+            return;
+        }
+
         // Al cambiar una variable solo se limpia su region VALUE. El layout
         // usa el cuerpo nominal 5x7, pero la fuente clasica puede usar la fila
         // 8 (descenders), por eso la limpieza vertical cubre una escala extra.
@@ -635,6 +716,11 @@ namespace
                 (uint32_t)(micros() - clearStartUs);
         }
 
+        if (def.meta.type == JWPLC_UI_FIELD_BAR)
+        {
+            field.barDrawnW = 0;
+        }
+
         if (!field.hasValue)
         {
             field.dirty = false;
@@ -658,28 +744,7 @@ namespace
 
         if (def.meta.type == JWPLC_UI_FIELD_BAR)
         {
-            float minValue = def.options.barRange.min;
-            float maxValue = def.options.barRange.max;
-
-            if (maxValue <= minValue)
-            {
-                maxValue = minValue + 1.0f;
-            }
-
-            float normalized =
-                (field.barValue - minValue) / (maxValue - minValue);
-
-            if (normalized < 0.0f)
-            {
-                normalized = 0.0f;
-            }
-            else if (normalized > 1.0f)
-            {
-                normalized = 1.0f;
-            }
-
-            const int16_t fillW =
-                (int16_t)lroundf(normalized * field.valueW);
+            const int16_t fillW = barFillWidth(field);
 
             const uint32_t printStartUs =
                 profile ? micros() : 0U;
@@ -693,6 +758,8 @@ namespace
                     field.valueH,
                     def.style.colors.value);
             }
+
+            field.barDrawnW = fillW;
 
             if (profile)
             {
@@ -1092,6 +1159,7 @@ namespace JWPLCUI
                 g_fields[i].def.meta.page == g_page)
             {
                 g_fields[i].dirty = true;
+                g_fields[i].barDrawnW = -1;
             }
         }
 
@@ -1122,6 +1190,8 @@ namespace JWPLCUI
             return;
         }
 
+        // Invalidación explícita: la pantalla pudo cambiar, barra completa.
+        field->barDrawnW = -1;
         markFieldDirty(*field);
     }
 
@@ -1132,6 +1202,7 @@ namespace JWPLCUI
             if (g_fields[i].used)
             {
                 g_fields[i].dirty = true;
+                g_fields[i].barDrawnW = -1;
             }
         }
 
@@ -1153,6 +1224,7 @@ namespace JWPLCUI
                 g_fields[i].def.meta.page == g_page)
             {
                 g_fields[i].dirty = true;
+                g_fields[i].barDrawnW = -1;
             }
         }
 
