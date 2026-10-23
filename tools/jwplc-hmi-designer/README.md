@@ -40,7 +40,8 @@ repositorio, sin compilar ni instalar (la primera vez instala Electron en `elect
 La ventana dice `[desarrollo]` en el título.
 
 - Al guardar cualquier archivo de `poc\` la ventana se recarga sola y **conserva el diseño en pantalla**.
-- `F5` (o `Ctrl+R`) recarga a mano; `F12` abre las DevTools.
+- `F5` (o `Ctrl+R`) es como cerrar y volver a abrir la app: diseño en blanco y sin sketch vinculado.
+  `F12` abre las DevTools.
 - Si cambian `electron\main.js` o `electron\preload.cjs`, cierra la app y vuelve a abrir el `.cmd`.
 - La app instalada no se toca y puede estar abierta a la vez. El modo desarrollo no registra el enlace
   `jwplc-hmi://` del Arduino IDE (sigue abriendo la app instalada).

@@ -5,7 +5,7 @@ cd /d "%~dp0electron"
 
 rem Abre la app de escritorio directo desde el repositorio, sin compilar ni
 rem instalar: sirve ..\poc y recarga la ventana al guardar un archivo del
-rem Designer (conserva el diseno en pantalla). F5 recarga, F12 abre DevTools.
+rem Designer (conserva el diseno). F5 empieza limpio, F12 abre DevTools.
 rem Si cambias electron\main.js o preload.cjs, cierra la app y vuelve a abrir
 rem este archivo. La app instalada no se toca y puede estar abierta a la vez.
 

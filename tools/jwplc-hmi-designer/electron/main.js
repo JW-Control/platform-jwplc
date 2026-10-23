@@ -522,9 +522,18 @@ const installNativeIpc = () => {
 };
 
 // --- Modo desarrollo ---------------------------------------------------------
-// Recarga conservando el diseño: se guarda en sessionStorage (sobrevive a la
-// recarga de la misma ventana) y se vuelve a aplicar cuando el Designer arranca.
+// F5 / Ctrl+R: como reabrir la app (diseño en blanco y sin sketch vinculado).
+// Guardar un archivo de poc/: recarga conservando el diseño, que se guarda en
+// sessionStorage (sobrevive a la recarga de la misma ventana) y se vuelve a
+// aplicar cuando el Designer arranca.
 const DEV_SNAPSHOT_KEY = "jwplc-hmi.dev.snapshot";
+
+const devRestart = async () => {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  linkedSketchPath = null;
+  await clearPersistedLinkedSketch();
+  mainWindow.webContents.reloadIgnoringCache();
+};
 
 const devReload = async () => {
   if (!mainWindow || mainWindow.isDestroyed()) return;
@@ -563,7 +572,7 @@ const installDevMode = () => {
     const key = input.key.toLowerCase();
     if (key === "f5" || ((input.control || input.meta) && key === "r")) {
       event.preventDefault();
-      devReload();
+      devRestart();
     } else if (key === "f12") {
       event.preventDefault();
       contents.toggleDevTools();
