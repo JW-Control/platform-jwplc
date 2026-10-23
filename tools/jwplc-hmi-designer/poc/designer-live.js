@@ -728,7 +728,11 @@
       return;
     }
 
+    // Mientras se graba, Conectar/Desconectar LIVE cerraría el puerto a mitad
+    // de la escritura.
     await window.JWPLCHMIFlasher.runFlashWithModal(p, {
+      onFlashStart: () => { liveButton.disabled = true; },
+      onFlashEnd: () => { liveButton.disabled = false; },
       onSuccess: async () => {
         logLine('Flasheo completado con éxito. Iniciando autoconexión LIVE...');
         await reconnectLive(p);

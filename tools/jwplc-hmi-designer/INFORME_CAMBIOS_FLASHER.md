@@ -18,7 +18,14 @@
 > - el flasher lee `flash_args` en lugar de `manifest.json` (retirado) y graba con `keep`;
 > - `firmware.merged.bin` (4 MB, sin uso) se retiró.
 >
-> Las secciones 2 a 4 describen la versión original. Ver `ALPHA15_STATUS.md` (2026-10-21).
+> **Revisión 2026-10-23:**
+> - si el flasheo falla (p. ej. no sincroniza con el bootloader), `executeFlash` cierra el puerto; antes
+>   quedaba abierto y «Reintentar» fallaba siempre con «port already open» hasta recargar la app;
+> - el botón «Conectar/Desconectar LIVE» queda desactivado mientras se graba, para no cerrar el puerto a
+>   mitad de la escritura;
+> - las secciones 2 a 5 se actualizaron al estado actual (`flash_args`, 4 partes, caché v39, 12 tests).
+>
+> Ver `ALPHA15_STATUS.md`.
 
 ---
 
@@ -34,7 +41,7 @@ flowchart TD
     end
 
     subgraph Fase2["Fase 2: Motor WebSerial & Assets"]
-        ASSETS["poc/firmware/: bootloader, partitions, app, merged, manifest.json"]
+        ASSETS["poc/firmware/jwplc.esp32.jwplcbasic/: bootloader, partitions, boot_app0, app, flash_args"]
         ESPTOOL["poc/esptool-bundle.js (esptool-js v0.7.0 con zlib inlined)"]
         SERVER["MIME application/octet-stream en electron/main.js y Server.ps1"]
     end
@@ -47,7 +54,7 @@ flowchart TD
 
     subgraph Fase4["Fase 4: Autoconexión & Pruebas"]
         RESET["RTS Hard Reset + Reconexión automática a 921,600 baudios"]
-        TESTS["tests/live-bridge-flasher.test.cjs (7/7 tests PASS)<br/>Integrado en tests/run-all.cjs"]
+        TESTS["tests/live-bridge-flasher.test.cjs (12/12 tests PASS)<br/>Integrado en tests/run-all.cjs"]
     end
 
     Fase1 --> Fase2 --> Fase3 --> Fase4
@@ -66,34 +73,29 @@ flowchart TD
     - `tft.endBatch()`: libera el bus SPI para los demás periféricos del PLC (Ethernet, SD, FRAM).
 * **Compilación y Artefactos:**
   - Compilado con core `jwplc:esp32:jwplcbasic` con 0 errores y 0 warnings.
-  - Generados los binarios en `gates/A11_LivePreview_WebSerial/JWPLC_HMI_Live_Bridge/build/`.
+  - Los binarios se regeneran con `tools/alpha15/build_live_bridge_firmware.sh`, que compila el `.ino` y
+    compara el resultado con `poc/firmware/jwplc.esp32.jwplcbasic/`.
 
 ---
 
 ### Fase 2: Paquetización del Binario y Motor de Flasheo WebSerial
-* **Empaquetado de artefactos precompilados (`poc/firmware/`):**
-  - Se creó la carpeta `poc/firmware/` que contiene las imágenes binarias requeridas para el ESP32:
-    - `bootloader.bin` (25,072 bytes, cargado en `0x1000` con magic byte `0xE9`).
-    - `partitions.bin` (3,072 bytes, cargado en `0x8000` con magic bytes `0xAA 0x50`).
-    - `firmware.bin` (427,392 bytes, cargado en `0x10000` con magic byte `0xE9`).
-    - `firmware.merged.bin` (4,194,304 bytes, imagen monolítica completa @ `0x0`).
-    - `manifest.json`: Descriptor estructurado del microcontrolador objetivo:
-      ```json
-      {
-        "target": "esp32",
-        "chip": "ESP32",
-        "flashMode": "dio",
-        "flashFreq": "40m",
-        "flashSize": "4MB",
-        "baudRate": 921600,
-        "romBaudRate": 115200,
-        "parts": [
-          { "name": "bootloader", "path": "./firmware/bootloader.bin", "address": 4096 },
-          { "name": "partitions", "path": "./firmware/partitions.bin", "address": 32768 },
-          { "name": "app", "path": "./firmware/firmware.bin", "address": 65536 }
-        ]
-      }
+* **Empaquetado de artefactos precompilados (`poc/firmware/jwplc.esp32.jwplcbasic/`):**
+  - Es la misma carpeta que deja «Exportar binario compilado» del package JWPLC, con sus nombres originales:
+    - `JWPLC_HMI_Live_Bridge.ino.bootloader.bin` (@ `0x1000`, magic `0xE9`).
+    - `JWPLC_HMI_Live_Bridge.ino.partitions.bin` (@ `0x8000`, magic `0xAA 0x50`; tabla `jwplc_max_app_4mb`).
+    - `boot_app0.bin` (@ `0xE000`, otadata que arranca app0; idéntico al del package).
+    - `JWPLC_HMI_Live_Bridge.ino.bin` (@ `0x10000`, magic `0xE9`).
+    - `flash_args`: el manifiesto, con las mismas partes y direcciones que la subida de Arduino:
       ```
+      --flash-mode dio --flash-freq 40m --flash-size 4MB
+      0x1000 JWPLC_HMI_Live_Bridge.ino.bootloader.bin
+      0x8000 JWPLC_HMI_Live_Bridge.ino.partitions.bin
+      0xe000 boot_app0.bin
+      0x10000 JWPLC_HMI_Live_Bridge.ino.bin
+      ```
+  - `designer-flasher.js` lee `flash_args` (`parseFlashArgs`) y graba con `flash-mode/freq/size keep`, como el
+    package. Si `flash_args` no carga, usa una copia interna con el mismo contenido. No se borra el resto de
+    la flash (`eraseAll: false`).
 * **Motor Universal `esptool-js` (`poc/esptool-bundle.js`):**
   - Se incorporó la distribución bundle de `esptool-js` v0.7.0 (con la librería de compresión `pako` inlined).
   - 100% autosuficiente en navegador y Electron: no requiere Python, Node en tiempo de ejecución, ni binarios externos.
@@ -112,9 +114,11 @@ flowchart TD
        - `[⚡ Instalar Firmware Live]` (Acción principal con degradado naranja).
        - `[Seguir esperando]` (Cierra el modal y mantiene el puerto en escucha).
        - `[Cancelar]` (Desconecta el puerto serie limpiamente).
-    2. **Estado `flashing`:** Muestra una barra de progreso lineal (0% a 100%), cálculo acumulativo de KB transferidos y un mini-terminal plegable que refleja los logs en tiempo real emitidos por `esptool-js`.
+       - Avisa que instalar el Live Bridge reemplaza el programa del PLC (sin lógica y con las salidas apagadas
+         hasta volver a subir el sketch).
+    2. **Estado `flashing`:** Muestra una barra de progreso lineal (0% a 100%), cálculo acumulativo de KB transferidos y un mini-terminal plegable que refleja los logs en tiempo real emitidos por `esptool-js`. Mientras dura, el botón «Conectar/Desconectar LIVE» queda desactivado.
     3. **Estado `success`:** Indica confirmación visual (icono verde ✓) y ejecuta la transición automática a la Fase 4.
-    4. **Estado `error`:** Ofrece mensaje claro del error, recomendación de usar el botón `BOOT/IO0` del PLC si el auto-reset fallase, y botones de `[Reintentar]` y `[Cerrar]`.
+    4. **Estado `error`:** El puerto ya quedó cerrado, así que `[Reintentar]` puede volver a abrirlo. Ofrece mensaje claro del error, recomendación de usar el botón `BOOT/IO0` del PLC si el auto-reset fallase, y botones de `[Reintentar]` y `[Cerrar]`.
 * **Integración en `poc/designer-live.js`:**
   - **Detección de timeout de 2.5s (`armNoBridgeTimer`):** Al hacer clic en "Conectar JWPLC", se abre el puerto a 921,600 baudios y se envía el comando `JWH?`. Si pasan 2.5 segundos sin recibir `JWHMI_LIVE_READY 1`, se dispara automáticamente el modal de flasheo.
   - **Botón manual en Monitor LIVE:** Se agregó `<button id="diagFlashButton">⚡ Flashear Live Bridge</button>` en la barra de herramientas del panel Diagnóstico para permitir flashear o reinstalar a demanda en cualquier momento.
@@ -137,7 +141,7 @@ flowchart TD
        - Queda operativo el streaming diferencial continuo a 30-60 FPS mediante *dirty rects*.
 * **Actualización del Service Worker y Cadena de Carga:**
   - **`poc/ux-foundation.js`:** Se encadena `designer-flasher.js` justo antes de `designer-live.js`.
-  - **`poc/service-worker.js`:** Se agregaron `./designer-flasher.js`, `./esptool-bundle.js` y `./firmware/manifest.json` a la lista de caché `CORE`, actualizando la versión de caché a `jwplc-hmi-designer-a15-flasher-v34`.
+  - **`poc/service-worker.js`:** `./designer-flasher.js`, `./esptool-bundle.js` y `./firmware/jwplc.esp32.jwplcbasic/flash_args` están en la lista de caché `CORE` (versión actual `jwplc-hmi-designer-a15-v39`).
 
 ---
 
@@ -148,14 +152,19 @@ Se creó una prueba completa que valida de extremo a extremo los componentes del
 ```bash
 node tools/jwplc-hmi-designer/tests/live-bridge-flasher.test.cjs
 ```
-**Resultados (7 de 7 pasadas):**
-1. `manifest.json existe y tiene la estructura correcta`: Valida chip `esp32`, baudrates y direcciones `0x1000`, `0x8000`, `0x10000`.
-2. `Binarios de firmware existen y tienen encabezados ESP32 válidos`: Valida magic bytes `0xE9` (bootloader y app) y `0xAA 0x50` (particiones), así como el tamaño exacto de 4MB de la imagen merged.
-3. `esptool-bundle.js se carga e implementa ESPLoader y Transport`: Valida la exportación de clases y métodos (`main`, `writeFlash`, `after`).
-4. `designer-flasher.js expone API pública JWPLCHMIFlasher`: Valida `showPromptModal`, `runFlashWithModal` y `executeFlash`.
-5. `designer-live.js integra detección de timeout de 2.5s y flasheo en 1 clic`: Valida `armNoBridgeTimer`, `stopNoBridgeTimer`, `triggerFlashSequence`, `reconnectLive` y `diagFlashButton`.
-6. `ux-foundation.js y service-worker.js integran designer-flasher y esptool-bundle`: Valida la presencia en la cadena de carga asíncrona y pre-caché.
-7. `Mapeo de direcciones flash`: Valida las direcciones hexadecimales estándar de arranque de Espressif.
+**Resultados (12 de 12 pasadas):**
+1. `flash_args` del package: mismas partes y direcciones que la subida de Arduino.
+2. La tabla de particiones grabada es `jwplc_max_app_4mb` del package.
+3. El flasher graba con `flash-mode/freq/size keep`, como la subida del package.
+4. `boot_app0.bin` es otadata válida que arranca app0 (`0xE000`).
+5. Binarios de firmware existen y tienen encabezados ESP32 válidos.
+6. `esptool-bundle.js` se carga e implementa `ESPLoader` y `Transport`.
+7. `designer-flasher.js` expone la API pública `JWPLCHMIFlasher`.
+8. Si el flasheo falla, el puerto se cierra y el reintento puede volver a abrirlo (esptool simulado).
+9. El botón LIVE se desactiva mientras se graba.
+10. `designer-live.js` integra la detección de timeout de 2.5s y el flasheo en 1 clic.
+11. `ux-foundation.js` y `service-worker.js` integran `designer-flasher` y `esptool-bundle`.
+12. Mapeo de direcciones flash (`0x1000`, `0x8000`, `0x10000`).
 
 ### 3.2. Integración en `tests/run-all.cjs`
 El test fue integrado en la suite general del proyecto para que se ejecute en cada ciclo de integración continua o validación local.
@@ -170,19 +179,16 @@ Todos los archivos JavaScript del directorio `poc/` y `electron/` pasaron la val
 | Archivo | Tipo | Descripción |
 | :--- | :---: | :--- |
 | [`gates/.../JWPLC_HMI_Live_Bridge.ino`](gates/A11_LivePreview_WebSerial/JWPLC_HMI_Live_Bridge/JWPLC_HMI_Live_Bridge.ino) | Modificado | Corrección de dibujo por lotes (`beginBatch`/`endBatch`) compatible con `JWPLC_TFTClass`. |
-| [`poc/firmware/bootloader.bin`](poc/firmware/bootloader.bin) | Creado | Bootloader compilado del ESP32 (@ `0x1000`). |
-| [`poc/firmware/partitions.bin`](poc/firmware/partitions.bin) | Creado | Tabla de particiones con soporte de app grande (@ `0x8000`). |
-| [`poc/firmware/firmware.bin`](poc/firmware/firmware.bin) | Creado | Imagen de la aplicación Live Bridge (@ `0x10000`). |
-| [`poc/firmware/firmware.merged.bin`](poc/firmware/firmware.merged.bin) | Creado | Imagen binaria completa monolítica de 4MB (@ `0x0`). |
-| [`poc/firmware/manifest.json`](poc/firmware/manifest.json) | Creado | Descriptor de artefactos, baudrates y direcciones flash. |
+| [`poc/firmware/jwplc.esp32.jwplcbasic/`](poc/firmware/jwplc.esp32.jwplcbasic/) | Creado | Bootloader, particiones, `boot_app0`, app del Live Bridge y `flash_args` (formato de exportación del package). |
+| [`../../tools/alpha15/build_live_bridge_firmware.sh`](../../tools/alpha15/build_live_bridge_firmware.sh) | Creado | Regenera los binarios desde el `.ino` y los compara con el repo. |
 | [`poc/esptool-bundle.js`](poc/esptool-bundle.js) | Creado | Motor `esptool-js` empaquetado para navegador/Electron sobre WebSerial. |
 | [`poc/designer-flasher.js`](poc/designer-flasher.js) | Creado | Módulo UI y controlador de flasheo (`window.JWPLCHMIFlasher`). |
 | [`poc/designer-live.js`](poc/designer-live.js) | Modificado | Detección automática en 2.5s, botón manual y reconexión post-reinicio. |
 | [`poc/ux-foundation.js`](poc/ux-foundation.js) | Modificado | Incorporación de `designer-flasher.js` en la secuencia de carga. |
-| [`poc/service-worker.js`](poc/service-worker.js) | Modificado | Registro de assets en caché y actualización de versión a `v34`. |
+| [`poc/service-worker.js`](poc/service-worker.js) | Modificado | Registro de assets en caché (versión actual `v39`). |
 | [`electron/main.js`](electron/main.js) | Modificado | Soporte de tipo MIME para archivos `.bin`. |
 | [`JWPLC-HMI-Server.ps1`](JWPLC-HMI-Server.ps1) | Modificado | Soporte de tipo MIME para archivos `.bin` en servidor estático PowerShell. |
-| [`tests/live-bridge-flasher.test.cjs`](tests/live-bridge-flasher.test.cjs) | Creado | Suite de 7 pruebas unitarias y de integración del flasheador. |
+| [`tests/live-bridge-flasher.test.cjs`](tests/live-bridge-flasher.test.cjs) | Creado | Suite de 12 pruebas unitarias y de integración del flasheador. |
 | [`tests/run-all.cjs`](tests/run-all.cjs) | Modificado | Incorporación del test flasher a la suite general de pruebas. |
 | [`PLAN_LIVE_BRIDGE_FLASHER.md`](PLAN_LIVE_BRIDGE_FLASHER.md) | Modificado | Actualización del documento del plan marcando las 4 fases como completadas. |
 
@@ -196,8 +202,10 @@ Todos los archivos JavaScript del directorio `poc/` y `electron/` pasaron la val
    - Si el PLC no tiene el firmware Live Bridge, a los 2.5 segundos aparecerá el diálogo:
      > *"Dispositivo detectado pero sin firmware Live Preview"*
    - Haz clic en **"⚡ Instalar Firmware Live"**.
-   - La barra de progreso alcanzará el 100% en ~3 a 4 segundos, el PLC se reiniciará automáticamente y el Live Preview comenzará a transmitir en vivo a la pantalla TFT física ST7789.
+   - La barra de progreso alcanzará el 100% en pocos segundos, el PLC se reiniciará automáticamente y el Live Preview comenzará a transmitir en vivo a la pantalla TFT física ST7789.
 2. **Uso Manual (Reinstalación bajo Demanda):**
    - Abre la pestaña inferior **"Diagnóstico"** (*Monitor LIVE*).
    - Haz clic en el botón naranja **"⚡ Flashear Live Bridge"**.
    - El instalador guiará el flasheo y reconexión inmediata.
+3. **Si falla:** usa `[Reintentar]`. Si el PLC no entra solo en modo bootloader, mantén presionado **BOOT/IO0**
+   mientras reconectas.

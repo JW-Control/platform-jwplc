@@ -406,5 +406,12 @@ MENU_NODE_COUNT_LIMIT=64 por menú, 4 menús, 1 por página (9 nodos = +952 B RA
   - [ejecutado] en Chromium, `JWPLCHMIFlasher.loadBinaries()` lee `flash_args` y descarga las 4 partes con sus
     direcciones y encabezados. `live-bridge-flasher.test.cjs` pasa 10/10, con tests nuevos de `flash_args`,
     de la partición y de `keep`.
+- 2026-10-23 — **flasher del Live Bridge, revisión**:
+  - si el flasheo falla, `executeFlash` cierra el puerto. Antes quedaba abierto: «Reintentar» fallaba siempre
+    con «port already open» y «Cerrar» no lo liberaba, hasta recargar la app;
+  - «Conectar/Desconectar LIVE» queda desactivado mientras se graba (`onFlashStart`/`onFlashEnd`);
+  - `INFORME_CAMBIOS_FLASHER.md` actualizado al estado actual; caché del service worker `a15-v39`;
+  - [ejecutado] `live-bridge-flasher.test.cjs` 12/12 (el test del puerto falla sin la corrección);
+    en la placa sigue pendiente `P1_LIVE_BRIDGE_FISICO`, más un fallo forzado para probar «Reintentar».
 - 2026-10-21 — `scratch/` sale del repo y queda en `.gitignore` (`1b8e4d77`); se recupera con
   `git checkout d06e28c6 -- scratch`.

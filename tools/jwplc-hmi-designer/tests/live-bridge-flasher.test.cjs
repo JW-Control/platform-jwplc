@@ -14,12 +14,14 @@ const PKG = path.resolve(ROOT, '..', '..', 'JWPLC', '2.1.0');
 const APP = 'JWPLC_HMI_Live_Bridge.ino';
 
 // designer-flasher.js real en un contexto mínimo (sin DOM) para usar su parser.
-function loadFlasher() {
+function loadFlasher(globals = {}) {
   const vm = require('vm');
   const el = () => ({ style: {}, appendChild() {}, setAttribute() {}, addEventListener() {}, querySelector: () => null });
   const document = { baseURI: 'http://127.0.0.1/', createElement: el, head: el(), body: el(), getElementById: () => null, querySelector: () => null, addEventListener() {} };
   const ctx = { window: {}, document, navigator: {}, console, URL, setTimeout, clearTimeout };
   ctx.window.document = document;
+  Object.assign(ctx, globals);
+  Object.assign(ctx.window, globals);
   vm.createContext(ctx);
   vm.runInContext(fs.readFileSync(path.join(POC_DIR, 'designer-flasher.js'), 'utf8'), ctx);
   return ctx.window.JWPLCHMIFlasher;
@@ -143,6 +145,48 @@ async function run() {
     assert(flasherSource.includes('showPromptModal'), 'Debe incluir showPromptModal');
     assert(flasherSource.includes('runFlashWithModal'), 'Debe incluir runFlashWithModal');
     assert(flasherSource.includes('executeFlash'), 'Debe incluir executeFlash');
+  });
+
+  await testAsync('si el flasheo falla, el puerto se cierra y el reintento puede volver a abrirlo', async () => {
+    // Puerto Web Serial simulado: open() falla si ya está abierto, como el real.
+    const port = { opened: false };
+    let disconnects = 0;
+    class Transport {
+      constructor(p) { this.device = p; }
+      async connect() {
+        if (this.device.opened) throw new Error('The port is already open.');
+        this.device.opened = true;
+      }
+      async disconnect() { disconnects++; this.device.opened = false; }
+    }
+    class ESPLoader {
+      constructor(opts) { this.transport = opts.transport; }
+      async main() {
+        await this.transport.connect();
+        throw new Error('Failed to connect with the device');
+      }
+    }
+    const fetch = async (url) => {
+      const file = path.join(FW_DIR, decodeURIComponent(new URL(url).pathname.split('/').pop()));
+      const buf = fs.readFileSync(file);
+      return { ok: true, status: 200, text: async () => buf.toString('utf8'), arrayBuffer: async () => buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.length) };
+    };
+    const flasher = loadFlasher({ ESPLoader, ESPTransport: Transport, fetch });
+    for (const intento of [1, 2]) {
+      let message = '';
+      try { await flasher.flash(port, {}); } catch (e) { message = e.message; }
+      assert.strictEqual(message, 'Failed to connect with the device', `intento ${intento}: debe fallar por la sincronización, no por el puerto`);
+      assert.strictEqual(port.opened, false, `intento ${intento}: el puerto debe quedar cerrado`);
+    }
+    assert.strictEqual(disconnects, 2);
+  });
+
+  test('el botón LIVE se desactiva mientras se graba', () => {
+    const flasherSource = fs.readFileSync(path.join(POC_DIR, 'designer-flasher.js'), 'utf8');
+    const liveSource = fs.readFileSync(path.join(POC_DIR, 'designer-live.js'), 'utf8');
+    assert(/callbacks\.onFlashStart\?\.\(\)/.test(flasherSource) && /finally\s*\{\s*callbacks\.onFlashEnd\?\.\(\)/.test(flasherSource), 'runFlashWithModal debe avisar inicio y fin');
+    assert(/onFlashStart:\s*\(\)\s*=>\s*\{\s*liveButton\.disabled = true/.test(liveSource), 'designer-live.js debe desactivar el botón');
+    assert(/onFlashEnd:\s*\(\)\s*=>\s*\{\s*liveButton\.disabled = false/.test(liveSource), 'designer-live.js debe reactivar el botón');
   });
 
   test('designer-live.js integra detección de timeout de 2.5s y flasheo en 1 clic', () => {

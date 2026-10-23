@@ -459,6 +459,18 @@
       debugLogging: false
     });
 
+    // Si algo falla antes del hard reset, se cierra el puerto: si no, el
+    // reintento choca con «port already open» y el puerto queda tomado.
+    try {
+      return await writeWithLoader(loader, transport, firmware, onProgress, onLog);
+    } catch (error) {
+      try { await transport.disconnect(); } catch (_) {}
+      throw error;
+    }
+  }
+
+  async function writeWithLoader(loader, transport, firmware, onProgress, onLog) {
+    const baudRate = firmware.manifest.baudRate || 921600;
     onProgress?.(5, 'Sincronizando con bootloader ROM...', 0);
     const chipDesc = await loader.main();
     onLog?.(`Microcontrolador detectado: ${chipDesc}`);
@@ -542,7 +554,7 @@
       Mientras tanto la máquina no ejecuta su lógica y las salidas quedan apagadas; para volver,
       sube de nuevo tu sketch desde Arduino IDE. Hazlo sólo con la máquina detenida y segura.<br/><br/>
       <strong>¿Instalar el firmware Live Bridge?</strong>
-      El proceso toma ~3 segundos a 921,600 baudios y no requiere abrir Arduino IDE.
+      El proceso toma unos segundos a 921,600 baudios y no requiere abrir Arduino IDE.
     `;
     el.specs.hidden = false;
     el.progressBox.hidden = true;
@@ -590,14 +602,20 @@
     modal.log('--- INICIO DE INSTALACIÓN LIVE BRIDGE ---');
 
     try {
-      const result = await executeFlash(port, {
-        onProgress: (pct, msg) => {
-          modal.setProgress(pct, msg);
-        },
-        onLog: (text) => {
-          modal.log(text);
-        }
-      });
+      callbacks.onFlashStart?.();
+      let result;
+      try {
+        result = await executeFlash(port, {
+          onProgress: (pct, msg) => {
+            modal.setProgress(pct, msg);
+          },
+          onLog: (text) => {
+            modal.log(text);
+          }
+        });
+      } finally {
+        callbacks.onFlashEnd?.();
+      }
 
       // Estado Éxito
       el.icon.textContent = '✓';
