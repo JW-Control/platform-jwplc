@@ -33,6 +33,7 @@ tools/jwplc-hmi-designer/
 ├── agent/                                        <- Guía para agentes y referencia del formato .jwhmi
 ├── schema/                                       <- jwhmi.schema.json (generado desde cli/lib/spec.cjs)
 ├── examples/                                     <- Proyectos de ejemplo en forma corta
+├── pruebas-ia/                                   <- Pruebas de HMI completas generadas por IA con la CLI
 │
 ├── electron/                                     <- ENTORNO DE ESCRITORIO
 │   ├── INDEX.md                                  <- Índice del proceso principal, preload e IPC

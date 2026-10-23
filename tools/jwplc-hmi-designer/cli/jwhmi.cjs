@@ -9,6 +9,7 @@
 // Comandos:
 //   new <archivo.json> [--name N]       proyecto de partida (forma corta)
 //   describe [TIPO]                     propiedades de un tipo (o lista de tipos)
+//   icons [categoría|texto]             catálogo de iconos para ICON (id, estados, tamaños)
 //   normalize <proyecto> [-o salida]    forma corta -> .jwhmi completo (como lo guarda el Designer)
 //   validate <proyecto> [--fast]        errores y avisos (--fast: sin Chromium, sin geometría)
 //   generate <proyecto> [-o header.h]   JWPLC_HMI_Generated.h (stdout si no hay -o)
@@ -135,6 +136,24 @@ const COMMANDS = {
     starter.$schema = path.relative(path.dirname(path.resolve(file)), SCHEMA_FILE).split(path.sep).join('/');
     fs.writeFileSync(file, `${JSON.stringify(starter, null, 2)}\n`);
     log(args, `Creado ${file}. Siguiente: validate ${file}`);
+    return 0;
+  },
+
+  async icons(args) {
+    const { catalog, listIcons } = require('./lib/icons.cjs');
+    const query = args._[0] ? String(args._[0]).toLowerCase() : '';
+    const list = listIcons().filter((i) => !query || i.category === query || `${i.id} ${i.name}`.toLowerCase().includes(query));
+    if (args.json) {
+      process.stdout.write(`${JSON.stringify({ categories: catalog.categories, icons: list }, null, 2)}\n`);
+      return 0;
+    }
+    for (const cat of catalog.categories) {
+      const items = list.filter((i) => i.category === cat.id);
+      if (!items.length) continue;
+      console.log(`${cat.name} (${cat.id})`);
+      items.forEach((i) => console.log(`  ${i.id.padEnd(26)} ${i.sizes.join('/').padEnd(11)} ${i.stateNames.map((n, k) => `${k}=${n}`).join(' · ')}`));
+    }
+    if (!list.length) console.log(`Sin iconos para «${query}». Categorías: ${catalog.categories.map((c) => c.id).join(', ')}`);
     return 0;
   },
 
@@ -289,7 +308,7 @@ async function main() {
   const [command, ...rest] = process.argv.slice(2);
   const args = parseArgs(rest);
   if (!command || command === 'help' || command === '--help' || !COMMANDS[command]) {
-    const header = fs.readFileSync(__filename, 'utf8').split('\n').slice(1, 25).map((l) => l.replace(/^\/\/ ?/, '')).join('\n');
+    const header = fs.readFileSync(__filename, 'utf8').split('\n').slice(1, 26).map((l) => l.replace(/^\/\/ ?/, '')).join('\n');
     console.log(header);
     return command && command !== 'help' && command !== '--help' ? 2 : 0;
   }

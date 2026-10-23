@@ -1,0 +1,679 @@
+{
+  "$schema": "../../schema/jwhmi.schema.json",
+  "projectName": "Botonera_Interactiva",
+  "display": {
+    "start": "HMI"
+  },
+  "pages": [
+    {
+      "name": "Receta",
+      "shortName": "RECETA",
+      "color": "MAGENTA",
+      "fields": [
+        {
+          "type": "RECT",
+          "x": 0,
+          "y": 0,
+          "x2": 319,
+          "y2": 16,
+          "fill": true,
+          "fillColor": "PURPLE",
+          "frameColor": "PURPLE"
+        },
+        {
+          "type": "RAW_TEXT",
+          "text": "SELECTOR DE RECETA",
+          "x": 4,
+          "y": 5,
+          "font": "GLCD",
+          "textColor": "WHITE"
+        },
+        {
+          "type": "VALUE",
+          "id": "FIELD_R_NUM",
+          "variable": "recetaNum",
+          "label": "N.",
+          "x": 262,
+          "y": 2,
+          "integerDigits": 1,
+          "decimalDigits": 0,
+          "valueSize": 1,
+          "valueColor": "WHITE",
+          "labelColor": "WHITE",
+          "backgroundColor": "PURPLE",
+          "preview": "3"
+        },
+        {
+          "type": "TEXT",
+          "id": "FIELD_RECETA",
+          "variable": "receta",
+          "capacity": 14,
+          "x": 22,
+          "y": 26,
+          "valueSize": 2,
+          "valueColor": "YELLOW",
+          "preview": "Pan integral"
+        },
+        {
+          "type": "TRIANGLE",
+          "x": 6,
+          "y": 24,
+          "x2": 14,
+          "y2": 32,
+          "rotation": 0,
+          "fill": true,
+          "fillColor": "MAGENTA",
+          "frameColor": "MAGENTA"
+        },
+        {
+          "type": "TRIANGLE",
+          "x": 6,
+          "y": 36,
+          "x2": 14,
+          "y2": 44,
+          "rotation": 180,
+          "fill": true,
+          "fillColor": "MAGENTA",
+          "frameColor": "MAGENTA"
+        },
+        {
+          "type": "VALUE",
+          "id": "FIELD_R_TEMP",
+          "variable": "recetaTemp",
+          "label": "Horno",
+          "unit": "°C",
+          "x": 4,
+          "y": 56,
+          "integerDigits": 3,
+          "decimalDigits": 0,
+          "valueSize": 2,
+          "preview": "220"
+        },
+        {
+          "type": "VALUE",
+          "id": "FIELD_R_TIEMPO",
+          "variable": "recetaTiempo",
+          "label": "Tiempo",
+          "x": 4,
+          "y": 82,
+          "valueKind": "DURATION",
+          "durationPattern": "MM_SS",
+          "durationUnit": "S",
+          "integerDigits": 2,
+          "valueSize": 2,
+          "preview": "2100"
+        },
+        {
+          "type": "BOOL",
+          "id": "FIELD_R_CARGADA",
+          "variable": "recetaCargada",
+          "label": "Horneando",
+          "x": 200,
+          "y": 60,
+          "boolStyle": "PILOT",
+          "falseColor": "DARKGREY",
+          "trueColor": "GREEN",
+          "valueSize": 3,
+          "boolValue": true
+        },
+        {
+          "type": "RAW_TEXT",
+          "text": "arriba/abajo receta   OK hornear/parar",
+          "x": 4,
+          "y": 126,
+          "font": "GLCD",
+          "textColor": "DARKGREY"
+        }
+      ]
+    },
+    {
+      "name": "Reflejos",
+      "shortName": "JUEGO",
+      "color": "YELLOW",
+      "fields": [
+        {
+          "type": "RAW_TEXT",
+          "text": "REFLEJOS",
+          "x": 4,
+          "y": 2,
+          "font": "SANS_BOLD_12",
+          "textColor": "YELLOW"
+        },
+        {
+          "type": "BOOL",
+          "id": "FIELD_LUZ",
+          "variable": "luz",
+          "label": "",
+          "x": 250,
+          "y": 6,
+          "boolStyle": "PILOT",
+          "falseColor": "RED",
+          "trueColor": "GREEN",
+          "valueSize": 4
+        },
+        {
+          "type": "TEXT",
+          "id": "FIELD_ESTADO_JUEGO",
+          "variable": "estadoJuego",
+          "capacity": 12,
+          "x": 4,
+          "y": 40,
+          "valueSize": 3,
+          "valueColor": "WHITE",
+          "preview": "PULSA OK"
+        },
+        {
+          "type": "VALUE",
+          "id": "FIELD_REACCION",
+          "variable": "tiempoReaccion",
+          "label": "Tiempo",
+          "unit": "ms",
+          "x": 4,
+          "y": 80,
+          "integerDigits": 4,
+          "decimalDigits": 0,
+          "valueSize": 2,
+          "valueColor": "CYAN",
+          "preview": "231"
+        },
+        {
+          "type": "VALUE",
+          "id": "FIELD_RECORD",
+          "variable": "record",
+          "label": "Record",
+          "unit": "ms",
+          "x": 4,
+          "y": 106,
+          "integerDigits": 4,
+          "decimalDigits": 0,
+          "valueSize": 1,
+          "valueColor": "GOLD",
+          "preview": "198"
+        },
+        {
+          "type": "RAW_TEXT",
+          "text": "OK cuando la luz esté verde",
+          "x": 4,
+          "y": 128,
+          "font": "GLCD",
+          "textColor": "DARKGREY"
+        }
+      ]
+    },
+    {
+      "name": "Motor",
+      "shortName": "MOTOR",
+      "color": "CYAN",
+      "fields": [
+        {
+          "type": "RAW_TEXT",
+          "text": "CONTROL DE MOTOR",
+          "x": 4,
+          "y": 2,
+          "font": "SANS_BOLD_9",
+          "textColor": "CYAN"
+        },
+        {
+          "type": "BOOL",
+          "id": "FIELD_MARCHA",
+          "variable": "marcha",
+          "label": "",
+          "x": 226,
+          "y": 2,
+          "falseText": "PARADO",
+          "trueText": "MARCHA",
+          "stateColors": true,
+          "falseColor": "WHITE",
+          "trueColor": "BLACK",
+          "falseBackground": "MAROON",
+          "trueBackground": "GREEN",
+          "valueSize": 1,
+          "frame": true
+        },
+        {
+          "type": "VALUE",
+          "id": "FIELD_CONSIGNA",
+          "variable": "consigna",
+          "label": "Consigna",
+          "unit": "rpm",
+          "x": 4,
+          "y": 24,
+          "integerDigits": 4,
+          "decimalDigits": 0,
+          "valueSize": 2,
+          "preview": "1500"
+        },
+        {
+          "type": "TEXT",
+          "id": "FIELD_PASO",
+          "variable": "paso",
+          "label": "Paso",
+          "capacity": 4,
+          "x": 226,
+          "y": 26,
+          "valueSize": 1,
+          "valueColor": "ORANGE",
+          "preview": "x100"
+        },
+        {
+          "type": "BAR",
+          "id": "FIELD_BAR_CONSIGNA",
+          "variable": "barConsigna",
+          "barLabel": "Consigna",
+          "barUnit": "%",
+          "x": 4,
+          "y": 50,
+          "barWidth": 312,
+          "barMin": 0,
+          "barMax": 3000,
+          "barValue": 1500,
+          "valueColor": "CYAN",
+          "trackColor": "#101828",
+          "frame": true
+        },
+        {
+          "type": "BAR",
+          "id": "FIELD_BAR_VELOCIDAD",
+          "variable": "velocidad",
+          "barLabel": "Velocidad",
+          "barUnit": "%",
+          "x": 4,
+          "y": 84,
+          "barWidth": 312,
+          "barMin": 0,
+          "barMax": 3000,
+          "barValue": 900,
+          "valueColor": "GREEN",
+          "trackColor": "#101828",
+          "frame": true
+        },
+        {
+          "type": "TRIANGLE",
+          "x": 4,
+          "y": 124,
+          "x2": 12,
+          "y2": 132,
+          "rotation": 0,
+          "fill": true,
+          "fillColor": "LIGHTGREY",
+          "frameColor": "LIGHTGREY"
+        },
+        {
+          "type": "TRIANGLE",
+          "x": 14,
+          "y": 124,
+          "x2": 22,
+          "y2": 132,
+          "rotation": 180,
+          "fill": true,
+          "fillColor": "LIGHTGREY",
+          "frameColor": "LIGHTGREY"
+        },
+        {
+          "type": "RAW_TEXT",
+          "text": "valor",
+          "x": 26,
+          "y": 124,
+          "font": "GLCD",
+          "textColor": "DARKGREY"
+        },
+        {
+          "type": "TRIANGLE",
+          "x": 70,
+          "y": 124,
+          "x2": 78,
+          "y2": 132,
+          "rotation": -90,
+          "fill": true,
+          "fillColor": "LIGHTGREY",
+          "frameColor": "LIGHTGREY"
+        },
+        {
+          "type": "TRIANGLE",
+          "x": 80,
+          "y": 124,
+          "x2": 88,
+          "y2": 132,
+          "rotation": 90,
+          "fill": true,
+          "fillColor": "LIGHTGREY",
+          "frameColor": "LIGHTGREY"
+        },
+        {
+          "type": "RAW_TEXT",
+          "text": "paso   OK marcha",
+          "x": 92,
+          "y": 124,
+          "font": "GLCD",
+          "textColor": "DARKGREY"
+        }
+      ]
+    },
+    {
+      "name": "Ajustes",
+      "shortName": "AJUSTES",
+      "color": "ORANGE",
+      "fields": [
+        {
+          "type": "MENU",
+          "id": "MENU_AJUSTES",
+          "title": "Ajustes",
+          "x": 4,
+          "y": 2,
+          "width": 312,
+          "height": 140,
+          "nodes": [
+            {
+              "type": "EDIT_NUM",
+              "label": "Rampa motor",
+              "variable": "rampa",
+              "valueType": "float",
+              "initial": 500,
+              "min": 50,
+              "max": 3000,
+              "step": 50,
+              "decimals": 0,
+              "unit": "rpm/s"
+            },
+            {
+              "type": "EDIT_NUM",
+              "label": "Espera max juego",
+              "variable": "esperaMaxMs",
+              "valueType": "int32",
+              "initial": 4000,
+              "min": 1500,
+              "max": 8000,
+              "step": 500,
+              "unit": "ms"
+            },
+            {
+              "type": "VIEW",
+              "label": "Partidas",
+              "variable": "partidas",
+              "valueType": "int32"
+            },
+            {
+              "type": "EDIT_BOOL",
+              "label": "Borrar record",
+              "variable": "borrarRecord",
+              "falseText": "NO",
+              "trueText": "SI"
+            },
+            {
+              "type": "GO_IDLE",
+              "label": "Salir al inicio"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "fields": [
+    {
+      "type": "NAV_BAR",
+      "preset": "industrial-color",
+      "position": "bottom",
+      "height": 22
+    }
+  ],
+  "pixelMaps": [
+    {
+      "name": "Trofeo",
+      "page": 1,
+      "x": 110,
+      "y": 104,
+      "pixels": [
+        {
+          "x": 0,
+          "y": 0,
+          "color": "GOLD"
+        },
+        {
+          "x": 1,
+          "y": 0,
+          "color": "GOLD"
+        },
+        {
+          "x": 2,
+          "y": 0,
+          "color": "GOLD"
+        },
+        {
+          "x": 3,
+          "y": 0,
+          "color": "GOLD"
+        },
+        {
+          "x": 4,
+          "y": 0,
+          "color": "GOLD"
+        },
+        {
+          "x": 5,
+          "y": 0,
+          "color": "GOLD"
+        },
+        {
+          "x": 6,
+          "y": 0,
+          "color": "GOLD"
+        },
+        {
+          "x": 7,
+          "y": 0,
+          "color": "GOLD"
+        },
+        {
+          "x": 8,
+          "y": 0,
+          "color": "GOLD"
+        },
+        {
+          "x": 0,
+          "y": 1,
+          "color": "GOLD"
+        },
+        {
+          "x": 2,
+          "y": 1,
+          "color": "GOLD"
+        },
+        {
+          "x": 3,
+          "y": 1,
+          "color": "GOLD"
+        },
+        {
+          "x": 4,
+          "y": 1,
+          "color": "GOLD"
+        },
+        {
+          "x": 5,
+          "y": 1,
+          "color": "GOLD"
+        },
+        {
+          "x": 6,
+          "y": 1,
+          "color": "GOLD"
+        },
+        {
+          "x": 8,
+          "y": 1,
+          "color": "GOLD"
+        },
+        {
+          "x": 0,
+          "y": 2,
+          "color": "GOLD"
+        },
+        {
+          "x": 2,
+          "y": 2,
+          "color": "GOLD"
+        },
+        {
+          "x": 3,
+          "y": 2,
+          "color": "GOLD"
+        },
+        {
+          "x": 4,
+          "y": 2,
+          "color": "GOLD"
+        },
+        {
+          "x": 5,
+          "y": 2,
+          "color": "GOLD"
+        },
+        {
+          "x": 6,
+          "y": 2,
+          "color": "GOLD"
+        },
+        {
+          "x": 8,
+          "y": 2,
+          "color": "GOLD"
+        },
+        {
+          "x": 1,
+          "y": 3,
+          "color": "GOLD"
+        },
+        {
+          "x": 2,
+          "y": 3,
+          "color": "GOLD"
+        },
+        {
+          "x": 3,
+          "y": 3,
+          "color": "GOLD"
+        },
+        {
+          "x": 4,
+          "y": 3,
+          "color": "GOLD"
+        },
+        {
+          "x": 5,
+          "y": 3,
+          "color": "GOLD"
+        },
+        {
+          "x": 6,
+          "y": 3,
+          "color": "GOLD"
+        },
+        {
+          "x": 7,
+          "y": 3,
+          "color": "GOLD"
+        },
+        {
+          "x": 2,
+          "y": 4,
+          "color": "GOLD"
+        },
+        {
+          "x": 3,
+          "y": 4,
+          "color": "GOLD"
+        },
+        {
+          "x": 4,
+          "y": 4,
+          "color": "GOLD"
+        },
+        {
+          "x": 5,
+          "y": 4,
+          "color": "GOLD"
+        },
+        {
+          "x": 6,
+          "y": 4,
+          "color": "GOLD"
+        },
+        {
+          "x": 3,
+          "y": 5,
+          "color": "GOLD"
+        },
+        {
+          "x": 4,
+          "y": 5,
+          "color": "GOLD"
+        },
+        {
+          "x": 5,
+          "y": 5,
+          "color": "GOLD"
+        },
+        {
+          "x": 4,
+          "y": 6,
+          "color": "GOLD"
+        },
+        {
+          "x": 4,
+          "y": 7,
+          "color": "GOLD"
+        },
+        {
+          "x": 2,
+          "y": 8,
+          "color": "GOLD"
+        },
+        {
+          "x": 3,
+          "y": 8,
+          "color": "GOLD"
+        },
+        {
+          "x": 4,
+          "y": 8,
+          "color": "GOLD"
+        },
+        {
+          "x": 5,
+          "y": 8,
+          "color": "GOLD"
+        },
+        {
+          "x": 6,
+          "y": 8,
+          "color": "GOLD"
+        },
+        {
+          "x": 2,
+          "y": 9,
+          "color": "GOLD"
+        },
+        {
+          "x": 3,
+          "y": 9,
+          "color": "GOLD"
+        },
+        {
+          "x": 4,
+          "y": 9,
+          "color": "GOLD"
+        },
+        {
+          "x": 5,
+          "y": 9,
+          "color": "GOLD"
+        },
+        {
+          "x": 6,
+          "y": 9,
+          "color": "GOLD"
+        }
+      ]
+    }
+  ]
+}

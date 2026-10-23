@@ -4,7 +4,7 @@
 //   node tools/jwplc-hmi-designer/tests/run-all.cjs
 //
 // Sin g++ (p. ej. Windows sin MSYS2) se omiten los tests que compilan C++:
-// codegen-smoke y menu-host-sim; menu-smoke y codegen-core omiten sólo esos pasos.
+// codegen-smoke, menu-host-sim e icon-host-sim; menu-smoke, icon-smoke y codegen-core omiten sólo esos pasos.
 'use strict';
 
 const path = require('path');
@@ -18,10 +18,12 @@ const python = has(process.platform === 'win32' ? 'python' : 'python3', ['--vers
 
 const TESTS = [
   { file: 'codegen-core.test.cjs', what: 'codegen puro en node (núcleo + MENU)' },
+  { file: 'icon-catalog.test.cjs', what: 'catálogo de iconos al día y dentro de los límites del firmware' },
   { file: 'codegen-golden.cjs', what: 'headers generados == golden' },
   { file: 'value-format-parity.cjs', what: 'formato de VALUE: firmware real == Designer (sin g++ sólo casos fijos)' },
   { file: 'inspector-smoke.cjs', what: 'inspector TEXT/VALUE/BOOL/BAR + paridad BAR' },
   { file: 'menu-smoke.cjs', what: 'MENU en el Designer + paridad con el firmware' },
+  { file: 'icon-smoke.cjs', what: 'ICON en el Designer (panel, inspector, guardar) + paridad con el firmware' },
   { file: 'sketch-menu-smoke.cjs', what: 'Escribir en sketch + menú del sketch (app de escritorio simulada)' },
   { file: 'sketch-guide.test.cjs', what: 'guía JWPLC_HMI_LEEME.md: contenido + sketch base compila (sin g++ sólo contenido)' },
   { file: 'agent-cli.test.cjs', what: 'CLI para agentes: spec == Designer, validación, paridad con golden, ejemplos, build' },
@@ -29,6 +31,7 @@ const TESTS = [
   { file: 'live-bridge-flasher.test.cjs', what: 'flasheador Live Bridge (WebSerial + esptool-js + binarios ESP32)' },
   { file: 'live-bridge-host-sim.cjs', what: 'Live Bridge real en host (g++): TFT == lienzo, pushImage, protocolo v1/v2', needs: gpp ? null : 'g++' },
   { file: 'menu-host-sim.cjs', what: 'MENU: firmware real en host', needs: gpp ? null : 'g++' },
+  { file: 'icon-host-sim.cjs', what: 'ICON: firmware real en host (estados, transparente, repintado parcial)', needs: gpp ? null : 'g++' },
   { file: 'codegen-smoke.cjs', what: 'headers compilan contra el package', needs: gpp && python ? null : 'g++ y python3' }
 ];
 

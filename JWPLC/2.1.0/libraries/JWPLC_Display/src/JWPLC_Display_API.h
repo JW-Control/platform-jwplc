@@ -131,6 +131,8 @@ public:
     bool setText(uint8_t fieldId, const char *value);
     bool setBool(uint8_t fieldId, bool value);
     bool setBar(uint8_t fieldId, float value);
+    // ICON (JWPLC_UI_HAS_ICON): estado 0..N-1. setBool() también vale (0/1).
+    bool setIconState(uint8_t fieldId, uint8_t state);
 
     void invalidateField(uint8_t fieldId);
     void invalidateAllFields();

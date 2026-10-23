@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE_NAME = 'jwplc-hmi-designer-a15-v43';
+const CACHE_NAME = 'jwplc-hmi-designer-a16-v45';
 const CORE = [
   './desktop.html',
   './index.html',
@@ -22,6 +22,9 @@ const CORE = [
   './designer-field-inspector.js',
   './designer-value-format.js',
   './designer-codegen-core.js',
+  './designer-icon-catalog.js',
+  './designer-icons-core.js',
+  './designer-icons.js',
   './designer-dialog.js',
   './designer-menu.js',
   './designer-field-visibility.js',

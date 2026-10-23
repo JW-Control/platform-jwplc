@@ -39,6 +39,8 @@ namespace
         // BAR: ancho de relleno que hay en pantalla; -1 = desconocido
         // (repintado completo). Con él sólo se pinta o borra el tramo que cambió.
         int16_t barDrawnW;
+        // ICON: estado pedido (0..stateCount-1); se dibuja aunque no haya setter.
+        uint8_t iconState;
 
         int16_t fieldX;
         int16_t fieldY;
@@ -59,6 +61,7 @@ namespace
               staticDirty(false),
               barValue(0.0f),
               barDrawnW(-1),
+              iconState(0),
               fieldX(0),
               fieldY(0),
               fieldW(0),
@@ -73,6 +76,10 @@ namespace
     };
 
     FieldRuntime g_fields[JWPLC_UI_MAX_FIELDS];
+
+    // ICON: filas RGB565 decodificadas que van juntas en un pushImage (1 KB,
+    // 8 filas de un icono de 64 px). Fuera de la pila del loop.
+    uint16_t g_iconRows[JWPLC_UI_ICON_MAX_SIZE * 8];
     size_t g_fieldCount = 0;
 
     JWPLC_UIRefreshMode g_refreshMode = USER_REFRESH_ON_DEMAND;
@@ -379,6 +386,16 @@ namespace
             break;
         }
 
+        case JWPLC_UI_FIELD_ICON:
+            if (def.icon != nullptr &&
+                def.icon->width <= JWPLC_UI_ICON_MAX_SIZE &&
+                def.icon->height <= JWPLC_UI_ICON_MAX_SIZE)
+            {
+                valueW = def.icon->width;
+                valueH = def.icon->height;
+            }
+            break;
+
         case JWPLC_UI_FIELD_BAR:
         default:
             valueW =
@@ -523,6 +540,68 @@ namespace
         return (int16_t)lroundf(normalized * field.valueW);
     }
 
+    // ICON: decodifica el estado actual (4 bpp + paleta) por bloques de filas
+    // y lo envía con pushImage. El índice transparente toma el fondo del campo.
+    void drawIcon(JWPLC_TFTClass &tft, const FieldRuntime &field, uint16_t background)
+    {
+        const JWPLC_UIIcon *icon = field.def.icon;
+
+        if (icon == nullptr ||
+            icon->states == nullptr ||
+            icon->stateCount == 0 ||
+            icon->width == 0 ||
+            icon->height == 0 ||
+            icon->width > JWPLC_UI_ICON_MAX_SIZE ||
+            icon->height > JWPLC_UI_ICON_MAX_SIZE)
+        {
+            return;
+        }
+
+        const uint8_t stateIndex =
+            (field.iconState < icon->stateCount)
+                ? field.iconState
+                : (uint8_t)(icon->stateCount - 1);
+        const JWPLC_UIIconState &state = icon->states[stateIndex];
+
+        if (state.pixels == nullptr || state.palette == nullptr)
+        {
+            return;
+        }
+
+        const int16_t w = icon->width;
+        const int16_t h = icon->height;
+        const size_t stride = ((size_t)w + 1U) / 2U;
+        const int16_t rowsPerPush =
+            (int16_t)((sizeof(g_iconRows) / sizeof(g_iconRows[0])) / (size_t)w);
+
+        for (int16_t y0 = 0; y0 < h; y0 += rowsPerPush)
+        {
+            const int16_t rows = (h - y0 < rowsPerPush) ? (h - y0) : rowsPerPush;
+            uint16_t *out = g_iconRows;
+
+            for (int16_t r = 0; r < rows; ++r)
+            {
+                const uint8_t *row = state.pixels + (size_t)(y0 + r) * stride;
+
+                for (int16_t x = 0; x < w; ++x)
+                {
+                    const uint8_t packed = row[x >> 1];
+                    const uint8_t index = (x & 1) ? (packed & 0x0F) : (packed >> 4);
+                    *out++ = (index == icon->transparentIndex)
+                                 ? background
+                                 : state.palette[index];
+                }
+            }
+
+            tft.pushImage(
+                field.valueX,
+                field.valueY + y0,
+                w,
+                rows,
+                g_iconRows);
+        }
+    }
+
     void drawFieldStatic(JWPLC_TFTClass &tft, FieldRuntime &field)
     {
         computeFieldGeometry(tft, field);
@@ -648,6 +727,31 @@ namespace
             }
 
             field.barDrawnW = fillW;
+            field.dirty = false;
+
+            if (profile)
+            {
+                jwplcH3E1RecordFieldDraw(
+                    def.meta.id,
+                    (uint8_t)def.meta.type,
+                    (uint16_t)field.valueW,
+                    (uint16_t)field.valueH,
+                    0U,
+                    (uint32_t)(micros() - totalStartUs),
+                    0U,
+                    0U,
+                    (uint32_t)(micros() - printStartUs));
+            }
+
+            return;
+        }
+
+        // ICON: la imagen cubre todo su recuadro, no hace falta limpiar antes.
+        if (def.meta.type == JWPLC_UI_FIELD_ICON)
+        {
+            const uint32_t printStartUs = profile ? micros() : 0U;
+
+            drawIcon(tft, field, fieldBackground(field));
             field.dirty = false;
 
             if (profile)
@@ -1012,6 +1116,12 @@ namespace JWPLCUI
     {
         FieldRuntime *field = findField(fieldId);
 
+        if (field != nullptr &&
+            field->def.meta.type == JWPLC_UI_FIELD_ICON)
+        {
+            return setIconState(fieldId, value ? 1 : 0);
+        }
+
         if (field == nullptr ||
             field->def.meta.type != JWPLC_UI_FIELD_BOOL)
         {
@@ -1045,6 +1155,35 @@ namespace JWPLCUI
             markFieldDirty(*field);
         }
         return true;
+    }
+
+    bool setIconState(uint8_t fieldId, uint8_t state)
+    {
+        FieldRuntime *field = findField(fieldId);
+
+        if (field == nullptr ||
+            field->def.meta.type != JWPLC_UI_FIELD_ICON)
+        {
+            return false;
+        }
+
+        const uint8_t count =
+            (field->def.icon != nullptr) ? field->def.icon->stateCount : 0;
+        const bool valid = state < count;
+
+        // Fuera de rango se ve el último estado (drawIcon recorta).
+        if (field->hasValue && field->iconState == state)
+        {
+            jwplcH3E1RecordSetter(fieldId, false);
+            return valid;
+        }
+
+        field->iconState = state;
+        field->hasValue = true;
+        markFieldDirty(*field);
+
+        jwplcH3E1RecordSetter(fieldId, true);
+        return valid;
     }
 
     void pollClockFields()
@@ -1351,6 +1490,11 @@ bool JWPLC_DisplayClass::setBool(uint8_t fieldId, bool value)
 bool JWPLC_DisplayClass::setBar(uint8_t fieldId, float value)
 {
     return JWPLCUI::setBar(fieldId, value);
+}
+
+bool JWPLC_DisplayClass::setIconState(uint8_t fieldId, uint8_t state)
+{
+    return JWPLCUI::setIconState(fieldId, state);
 }
 
 void JWPLC_DisplayClass::invalidateField(uint8_t fieldId)

@@ -69,6 +69,7 @@
 
   function fieldFallbackId(field, index) {
     const serial = serialFor(field, index);
+    if (field?.type === 'ICON') return `FIELD_ICON_${serial}`;
     if (field?.type === 'VALUE') return `FIELD_VALUE_${serial}`;
     if (field?.type === 'BOOL') return `FIELD_BOOL_${serial}`;
     if (field?.type === 'BAR') return `FIELD_BAR_${serial}`;
@@ -77,6 +78,7 @@
 
   function variableFallback(field, index) {
     const serial = serialFor(field, index);
+    if (field?.type === 'ICON') return `icono${serial}`;
     if (field?.type === 'VALUE') return `valor${serial}`;
     if (field?.type === 'BOOL') return `estado${serial}`;
     if (field?.type === 'BAR') return `nivel${serial}`;
@@ -224,6 +226,7 @@
     if (field.type === 'VALUE' && window.JWPLCHMICodegenCore?.valueDeclaration) return window.JWPLCHMICodegenCore.valueDeclaration(field, variable);
     if (field.type === 'VALUE' || field.type === 'BAR') return `float ${variable} = 0.0f;`;
     if (field.type === 'BOOL') return `bool ${variable} = false;`;
+    if (field.type === 'ICON') return window.JWPLCIconsCore.iconDeclaration(field, variable, window.JWPLCHMIIcons?.iconInfo?.(field.iconId)?.stateNames || window.JWPLCIconsCore.stateNamesFor(window.JWPLCIconCatalog, field.iconId));
     return window.JWPLCHMICodegenCore.textDeclaration(field, variable);
   }
 
@@ -604,6 +607,7 @@ static void jwplcHMIDrawMicroText(JWPLC_TFTClass &tft, int16_t x, int16_t y, con
     const variable = canonicalFor(field, 'variable', field.variable, index);
     if (field.type === 'VALUE') return `JWPLC_Display.setValue(${id}, ${variable});`;
     if (field.type === 'BOOL') return `JWPLC_Display.setBool(${id}, ${variable});`;
+    if (field.type === 'ICON') return window.JWPLCIconsCore.iconSetter(id, variable);
     if (field.type === 'BAR') return `JWPLC_Display.setBar(${id}, ${variable});`;
     return `JWPLC_Display.setText(${id}, ${variable});`;
   }
