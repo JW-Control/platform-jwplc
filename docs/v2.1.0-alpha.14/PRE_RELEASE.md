@@ -36,6 +36,9 @@ Referencia adoptada: arduino-cli 1.5.1. Benchmark de la alpha.14 con todo precom
   fecha/hora leída del RTC sin variable ni `setValue()`.
 - **BOOL:** representación «Piloto» y texto y fondo por estado en todo el campo.
 - **Tildes, ñ y °** en la TFT: `setText()` convierte el UTF-8 del sketch a la fuente de la pantalla.
+- **ICON:** iconos con estado (hasta 8 estados por variable BOOL o entera, 4 bpp con paleta, hasta 64 px),
+  con fondo o transparentes sobre la gráfica estática. El Designer trae una biblioteca de 24 iconos en 8 categorías.
+- **BAR incremental:** al cambiar el valor solo se pinta o borra el tramo que cambia.
 - **Barra de pestañas:** la pestaña de la página actual distingue «posicionada» y «seleccionada»; color
   editable por página. Hook nuevo `jwplcUIPageModeChanged(page, selecting)`.
 - **Correcciones:** la tecla que despierta la IDLE ya no entra al contenido ni al MENU; el retorno por
@@ -47,6 +50,10 @@ Referencia adoptada: arduino-cli 1.5.1. Benchmark de la alpha.14 con todo precom
 - Conserva el arranque sin destellos de Alpha13 (DISPON diferido del ST7789).
 
 ### Periféricos
+
+- **Pines con nombre:** librerías y ejemplos usan las constantes `JWPLC_*` del Basic (botonera, RS-485, FRAM,
+  microSD, buzzer). Se corrigieron ejemplos de `JW_MatrixButtons` y `JW_RS485` que usaban pines de otra placa
+  y se retiraron dos que no tenían hardware en el Basic (76 ejemplos compilan en Basic y Basic Core).
 
 - **`JWPLC_Buzzer`** (en `JWPLC_GlobalPeripherals` 1.1.0): pitidos y melodías no bloqueantes con volumen;
   ejemplo `07.Buzzer_Basic`.
@@ -63,7 +70,9 @@ Referencia adoptada: arduino-cli 1.5.1. Benchmark de la alpha.14 con todo precom
   el Designer desde el Arduino IDE con el sketch ya vinculado.
 - **Live Bridge en un clic:** «⚡ Instalar Firmware Live» graba el firmware de vista previa desde la app,
   con selector de puertos propio. LIVE más fluido con `pushImage` y protocolo v2.
-- Proyectos recientes, aviso de cambios sin guardar y CLI `jwhmi` para crear proyectos sin la interfaz.
+- Objeto ICON con biblioteca de iconos en la barra del lienzo.
+- Proyectos recientes, aviso de cambios sin guardar y CLI `jwhmi` para crear proyectos sin la interfaz
+  (también para agentes de IA; ejemplos en `tools/jwplc-hmi-designer/pruebas-ia/`).
 
 ## Validación
 

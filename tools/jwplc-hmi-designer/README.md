@@ -5,18 +5,22 @@ Herramienta visual para diseñar la HMI/TFT del **JWPLC Basic** sobre `JWPLC_Dis
 Estado de cierre:
 
 ```text
-VERSION_SCOPE=v2.1.0-alpha.11
+VERSION_SCOPE=v2.1.0-alpha.14 (JWPLC_Display 1.1.0, JWPLC_TFT 0.3.0)
 TARGET=ST7789_320x170_ROT3_RGB565
 TEXT=PASS
-VALUE=PASS
-BOOL=PASS
-BAR=PASS
-PIXELMAP=PASS
-MULTIPAGE=PASS
-LIVE_WEB_SERIAL=PASS
+VALUE=PASS (miles, duración, fecha/hora del RTC)
+BOOL=PASS (texto, piloto, color por estado)
+BAR=PASS (repintado incremental)
+MENU=PASS_PHYSICAL
+ICON=PASS_HOST (biblioteca de 24 iconos; placa [no verificado])
+PIXELMAP=PASS (pincel, borrador, mover, relleno, cuentagotas)
+MULTIPAGE=PASS (pestañas con estado y color por página)
+LIVE_WEB_SERIAL=PASS (protocolo v2 con pushImage)
+LIVE_BRIDGE_FLASHER=PASS_HOST (instalación en un clic; placa pendiente)
 CODEGEN=PASS
+AGENT_CLI=PASS (jwhmi)
 DESKTOP_APP=PASS_USER_WINDOWS
-ARDUINO_IDE_2_3_4=PASS_EXPERIMENTAL
+ARDUINO_IDE=recomendado 2.3.10 o superior
 AUTOCOMPLETE_JWPLC_DISPLAY=PASS_USER
 ```
 

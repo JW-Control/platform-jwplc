@@ -104,6 +104,8 @@ pantalla necesitaba para usarse como HMI de máquina.
 - **Valores con formato industrial.** Separador de miles, duraciones
   (`05:03`, `1h05m`), fecha y hora del reloj de la placa, pilotos ON/OFF y
   colores por estado.
+- **Iconos con estado.** Bombas, válvulas, motores o alarmas que cambian
+  de imagen según una variable, elegidos de una biblioteca del Designer.
 - **Tildes, ñ y °** en los textos de la pantalla.
 - **Pestañas de páginas** más claras: se distingue la página elegida de la
   página en la que se está trabajando, con un color por página.
