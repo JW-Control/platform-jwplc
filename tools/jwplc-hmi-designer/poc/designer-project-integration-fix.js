@@ -127,8 +127,30 @@
     });
   }
 
+  // Escritorio: cuadro nativo; si el .jwhmi está junto a un .ino, main.js
+  // vincula ese sketch (y desvincula el anterior si no hay ninguno).
+  async function openProjectNative() {
+    const result = await native.openProjectFile();
+    if (result?.canceled) return;
+    if (!result?.ok) throw new Error(result?.error || 'No se pudo abrir el proyecto .jwhmi.');
+    const data = JSON.parse(result.text);
+    await window.JWPLCHMIProject.apply(data);
+    const sketch = result.sketch?.ok ? result.sketch : null;
+    window.dispatchEvent(sketch
+      ? new CustomEvent('jwplc:sketch-linked', { detail: { sketch: sketch.name } })
+      : new CustomEvent('jwplc:sketch-unlinked'));
+    const maps = Array.isArray(data.pixelMaps) ? data.pixelMaps.length : 0;
+    toast(sketch
+      ? `${result.fileName} abierto y sketch «${sketch.name}» vinculado. PixelMaps restaurados: ${maps}.`
+      : `${result.fileName} abierto (no está junto a un sketch: queda sin vincular). PixelMaps restaurados: ${maps}.`, 'ok');
+  }
+
   async function openProjectFixed() {
     try {
+      if (native?.openProjectFile) {
+        await openProjectNative();
+        return;
+      }
       const file = await chooseProjectFile();
       if (!file) return;
       const data = JSON.parse(await file.text());
@@ -237,7 +259,7 @@
       const text = await stableGeneratedHeaderText();
       let result = await native.writeGeneratedHeader(text, false);
       if (result?.requiresOverwrite) {
-        if (!window.confirm(`Se reemplazará ${HEADER_NAME} en el sketch “${info.name}”. ¿Continuar?`)) return;
+        if (!await window.JWPLCDialog.confirm(`Se reemplazará ${HEADER_NAME} en el sketch “${info.name}”. ¿Continuar?`)) return;
         result = await native.writeGeneratedHeader(text, true);
       }
       if (!result?.ok) throw new Error(result?.error || `No se pudo actualizar ${HEADER_NAME}.`);

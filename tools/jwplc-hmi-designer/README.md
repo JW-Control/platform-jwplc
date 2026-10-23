@@ -55,6 +55,15 @@ desarrollador; ahora el generador lo prepara en la caché de electron-builder si
 Sólo la app de escritorio puede **abrir el sketch en el Arduino IDE** y **abrir su
 carpeta** (menú «Sketch: nombre ▾»). La versión de navegador no puede lanzar programas.
 
+### Abrir y «Nuevo proyecto» con el sketch
+
+En la app de escritorio, **Abrir** un `.jwhmi` que está junto a un `.ino` vincula ese sketch; un `.jwhmi`
+suelto (sin `.ino` en su carpeta) deja el Designer sin sketch vinculado. **Nuevo proyecto** también
+desvincula el sketch. Necesita la app generada después del 2026-10-23.
+
+Los avisos y confirmaciones son del propio Designer (`poc/designer-dialog.js`); los cuadros de abrir y
+guardar archivos siguen siendo los de Windows.
+
 ### Crear un sketch nuevo desde el Designer
 
 «Vincular sketch…» ofrece **Elegir sketch existente…** o **Crear sketch nuevo…** (también en el menú

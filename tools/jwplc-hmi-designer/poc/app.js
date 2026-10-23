@@ -4994,7 +4994,7 @@
     const api = window.JWPLCHMIMenu;
     if (!api || hmiFields.length >= MAX_FIELDS) return;
     if (hmiFields.some((f) => f.type === 'MENU' && Number(f.page || 0) === activePage)) {
-      window.alert('Esta página ya tiene un MENU: el firmware atiende un solo MENU por página.');
+      window.JWPLCDialog.alert('Esta página ya tiene un MENU: el firmware atiende un solo MENU por página.');
       return;
     }
     fieldSerial += 1;

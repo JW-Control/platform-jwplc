@@ -117,7 +117,7 @@
       let result = await native.writeGeneratedHeader(text, false);
 
       if (result?.requiresOverwrite) {
-        if (!window.confirm(`Se reemplazará ${HEADER_NAME} en el sketch “${linked.name}”. ¿Continuar?`)) return;
+        if (!await window.JWPLCDialog.confirm(`Se reemplazará ${HEADER_NAME} en el sketch “${linked.name}”. ¿Continuar?`)) return;
         result = await native.writeGeneratedHeader(text, true);
       }
 
@@ -147,7 +147,7 @@
 
       let result = await native.writeProject(fileName, text, false);
       if (result?.requiresOverwrite) {
-        if (!window.confirm(`Se reemplazará ${fileName} en el sketch “${linked.name}”. ¿Continuar?`)) return;
+        if (!await window.JWPLCDialog.confirm(`Se reemplazará ${fileName} en el sketch “${linked.name}”. ¿Continuar?`)) return;
         result = await native.writeProject(fileName, text, true);
       }
       if (!result?.ok) throw new Error(result?.error || `No se pudo guardar ${fileName}.`);
@@ -165,7 +165,7 @@
     // Abrir desde Arduino IDE con el Designer ya en uso no debe perder un diseño
     // sin guardar: se pregunta antes de reemplazarlo (el sketch queda vinculado igual).
     if (window.JWPLCHMIProject?.isDirty?.() &&
-        !window.confirm(`El diseño en pantalla tiene cambios sin guardar.\n\n¿Abrir el HMI del sketch «${info.name}» (${info.projectFile})? El diseño actual se reemplaza.`)) {
+        !await window.JWPLCDialog.confirm(`El diseño en pantalla tiene cambios sin guardar.\n\n¿Abrir el HMI del sketch «${info.name}» (${info.projectFile})? El diseño actual se reemplaza.`, { okLabel: 'Abrir HMI', cancelLabel: 'Conservar diseño' })) {
       toast(`Sketch «${info.name}» vinculado; se conserva el diseño en pantalla.`, 'ok');
       return false;
     }

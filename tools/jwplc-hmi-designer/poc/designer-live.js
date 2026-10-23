@@ -880,7 +880,7 @@
 
   diag.flashButton?.addEventListener('click', async () => {
     if (!('serial' in navigator)) {
-      alert('Web Serial no está disponible en este entorno.');
+      window.JWPLCDialog.alert('Web Serial no está disponible en este entorno.');
       return;
     }
     if (port) {

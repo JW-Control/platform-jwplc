@@ -419,6 +419,35 @@ const installNativeIpc = () => {
     return { ...(await sketchInfo(linkedSketchPath)), created: true };
   });
 
+  // «Abrir»: el .jwhmi elegido y, si está junto a un .ino, ese sketch queda
+  // vinculado. Un .jwhmi suelto desvincula el anterior, como «Nuevo proyecto».
+  ipcMain.handle("jwplc-hmi:open-project-file", async () => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: "Abrir proyecto HMI",
+      filters: [{ name: "Proyecto JWPLC HMI", extensions: ["jwhmi"] }],
+      properties: ["openFile"]
+    });
+    if (result.canceled || !result.filePaths?.[0]) return { ok: false, canceled: true };
+
+    const filePath = result.filePaths[0];
+    let text;
+    try {
+      text = await fs.readFile(filePath, "utf8");
+    } catch (error) {
+      return { ok: false, error: `No se pudo leer ${path.basename(filePath)}: ${error?.message || error}` };
+    }
+
+    const directoryPath = path.dirname(filePath);
+    if (await directoryContainsSketch(directoryPath)) {
+      linkedSketchPath = directoryPath;
+      await persistLinkedSketch();
+    } else {
+      linkedSketchPath = null;
+      await clearPersistedLinkedSketch();
+    }
+    return { ok: true, fileName: path.basename(filePath), path: filePath, text, sketch: await sketchInfo(linkedSketchPath) };
+  });
+
   ipcMain.handle("jwplc-hmi:get-linked-sketch", async () => {
     await restoreLinkedSketchPath();
     return (await sketchInfo(linkedSketchPath)) || { ok: false };

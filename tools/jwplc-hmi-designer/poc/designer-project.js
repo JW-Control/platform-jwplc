@@ -196,6 +196,23 @@
     } catch (_) {}
   }
 
+  // Sin esta función unlinkSketch() fallaba tras desvincular en el escritorio
+  // y nunca avisaba (jwplc:sketch-unlinked): «Nuevo proyecto» dejaba el botón
+  // con el sketch anterior.
+  async function clearStoredHandle(key) {
+    try {
+      const db = await openDatabase();
+      if (!db) return;
+      await new Promise((resolve) => {
+        const tx = db.transaction(DB_STORE, 'readwrite');
+        tx.objectStore(DB_STORE).delete(key);
+        tx.oncomplete = resolve;
+        tx.onerror = resolve;
+      });
+      db.close();
+    } catch (_) {}
+  }
+
   async function loadHandle(key) {
     try {
       const db = await openDatabase();
@@ -395,7 +412,7 @@
 
     const fileName = canonicalProjectFileName();
     const existing = await directoryHasFile(linkedSketchDirectory, fileName);
-    if (existing && !window.confirm(`Se reemplazará ${fileName} en el sketch “${linkedSketchDirectory.name}”. ¿Continuar?`)) {
+    if (existing && !await window.JWPLCDialog.confirm(`Se reemplazará ${fileName} en el sketch “${linkedSketchDirectory.name}”. ¿Continuar?`)) {
       return false;
     }
 
@@ -630,7 +647,7 @@
         if (error?.name !== 'NotFoundError') throw error;
       }
 
-      if (existing && !window.confirm(`Se reemplazará ${HEADER_NAME} en el sketch “${linkedSketchDirectory.name}”. ¿Continuar?`)) {
+      if (existing && !await window.JWPLCDialog.confirm(`Se reemplazará ${HEADER_NAME} en el sketch “${linkedSketchDirectory.name}”. ¿Continuar?`)) {
         return;
       }
 

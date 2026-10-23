@@ -22,6 +22,7 @@ const CORE = [
   './designer-field-inspector.js',
   './designer-value-format.js',
   './designer-codegen-core.js',
+  './designer-dialog.js',
   './designer-menu.js',
   './designer-field-visibility.js',
   './designer-pixelmap-compat.js',

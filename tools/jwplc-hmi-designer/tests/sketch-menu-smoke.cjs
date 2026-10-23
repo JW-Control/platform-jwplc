@@ -113,7 +113,18 @@ async function main() {
   page.on('pageerror', (e) => errors.push(e.message));
   const dialogs = [];
   let dismissDialogs = false;
-  page.on('dialog', (d) => { dialogs.push(d.message()); if (dismissDialogs) d.dismiss(); else d.accept(); });
+  page.on('dialog', (d) => { dialogs.push(`NATIVO: ${d.message()}`); d.dismiss(); });
+  // Los avisos son del Designer (designer-dialog.js): se responden con sus botones.
+  await page.exposeFunction('__onAppDialog', (message) => { dialogs.push(message); return dismissDialogs; });
+  await page.addInitScript(() => {
+    new MutationObserver(async () => {
+      const box = document.querySelector('.jw-dialog:not([data-seen])');
+      if (!box) return;
+      box.dataset.seen = '1';
+      const dismiss = await window.__onAppDialog(box.querySelector('.jw-dialog-body').firstChild.textContent);
+      box.querySelector(`[data-jw-dialog="${dismiss ? 'cancel' : 'ok'}"]`).click();
+    }).observe(document, { childList: true, subtree: true });
+  });
   await page.addInitScript(nativeMock);
 
   try {

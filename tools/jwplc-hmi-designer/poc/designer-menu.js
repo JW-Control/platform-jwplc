@@ -1148,7 +1148,7 @@
 
     const action = t.closest('[data-menu-action]')?.dataset.menuAction;
     if (action === 'duplicate') {
-      window.alert('Un solo MENU por página: duplica el menú moviéndolo antes a otra página.');
+      window.JWPLCDialog.alert('Un solo MENU por página: duplica el menú moviéndolo antes a otra página.');
       return;
     }
     if (action === 'delete') { editor()?.deleteSelectedField?.(); return; }
@@ -1179,7 +1179,7 @@
     if (page) {
       const target = Number(page.dataset.menuPage);
       const busy = (editor()?.getAllFields?.() || []).some((f) => f.type === 'MENU' && f !== field && Number(f.page || 0) === target);
-      if (busy) { window.alert('Esa página ya tiene un MENU.'); return; }
+      if (busy) { window.JWPLCDialog.alert('Esa página ya tiene un MENU.'); return; }
       editor()?.moveSelectedFieldToPage?.(target);
       return;
     }

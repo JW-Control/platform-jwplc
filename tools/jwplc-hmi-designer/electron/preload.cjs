@@ -14,6 +14,7 @@ contextBridge.exposeInMainWorld('JWPLCHMINative', {
     ipcRenderer.invoke('jwplc-hmi:write-project', { fileName, text, overwrite }),
   writeGuide: (text) => ipcRenderer.invoke('jwplc-hmi:write-guide', { text }),
   readProject: () => ipcRenderer.invoke('jwplc-hmi:read-project'),
+  openProjectFile: () => ipcRenderer.invoke('jwplc-hmi:open-project-file'),
   openSketchIno: () => ipcRenderer.invoke('jwplc-hmi:open-sketch-ino'),
   openSketchFolder: () => ipcRenderer.invoke('jwplc-hmi:open-sketch-folder'),
   onSketchOpened: (callback) => {

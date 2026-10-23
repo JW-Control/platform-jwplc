@@ -112,7 +112,7 @@
     },
     canCreate: true,
     async create(name, inoText) {
-      const typed = window.prompt('Nombre del sketch nuevo (letras, números, _ . -):', name);
+      const typed = await window.JWPLCDialog.prompt('Nombre del sketch nuevo (letras, números, _ . -):', name);
       if (typed === null) return null;
       const clean = typed.trim().replace(/\.ino$/i, '');
       if (!SKETCH_NAME.test(clean)) throw new Error(`Nombre de sketch inválido: «${clean}». Empieza con letra o número, máximo 63.`);
@@ -158,7 +158,7 @@
     window.dispatchEvent(new CustomEvent('jwplc:sketch-linked', { detail: { sketch: info.name } }));
     refreshButtons(info);
     if (info.projectExists &&
-        window.confirm(`El sketch «${info.name}» ya tiene un HMI guardado (${info.projectFile}).\n\n¿Abrirlo? El diseño que está en pantalla se reemplaza.`)) {
+        await window.JWPLCDialog.confirm(`El sketch «${info.name}» ya tiene un HMI guardado (${info.projectFile}).\n\n¿Abrirlo? El diseño que está en pantalla se reemplaza.`, { okLabel: 'Abrir HMI', cancelLabel: 'Ahora no' })) {
       try {
         await openSketchProject(info);
       } catch (error) {
@@ -252,7 +252,7 @@
 
       const replaced = [info.headerExists && HEADER_NAME, info.projectExists && info.projectFile].filter(Boolean);
       if (replaced.length &&
-          !window.confirm(`Se reemplazará en el sketch «${info.name}»:\n\n${replaced.map((n) => `• ${n}`).join('\n')}\n\n¿Continuar?`)) {
+          !await window.JWPLCDialog.confirm(`Se reemplazará en el sketch «${info.name}»:\n\n${replaced.map((n) => `• ${n}`).join('\n')}\n\n¿Continuar?`, { okLabel: 'Reemplazar' })) {
         return;
       }
 
@@ -322,7 +322,7 @@
       closeMenu();
       try {
         if (action === 'open-project') {
-          if (window.confirm(`¿Abrir el HMI guardado en «${info?.name}»? El diseño que está en pantalla se reemplaza.`)) await openSketchProject(info);
+          if (await window.JWPLCDialog.confirm(`¿Abrir el HMI guardado en «${info?.name}»? El diseño que está en pantalla se reemplaza.`, { okLabel: 'Abrir HMI' })) await openSketchProject(info);
         } else if (action === 'open-ino') {
           const result = await backend.openIno();
           if (!result?.ok) throw new Error(result?.error || 'No se pudo abrir el .ino.');
