@@ -666,13 +666,16 @@
 
     // Modos de dibujo
     inspector.querySelectorAll('[data-pm-mode]').forEach((button) => button.addEventListener('click', () => {
-      mode = button.dataset.pmMode;
+      const nextMode = button.dataset.pmMode;
       const currentTool = editor()?.getSelectedTool?.() || 'pointer';
-      if (mode === 'DRAW' && currentTool !== 'pixel') {
-        editor()?.setSelectedTool?.('pixel');
-      } else if (mode === 'ERASE' && currentTool !== 'erase') {
-        editor()?.setSelectedTool?.('erase');
+      // El editor no expone setSelectedTool: se cambia la herramienta con su
+      // botón de la barra, igual que las teclas B / E.
+      if (nextMode === 'DRAW' && currentTool !== 'pixel') {
+        pixelTool?.click();
+      } else if (nextMode === 'ERASE' && currentTool !== 'erase') {
+        eraseTool?.click();
       }
+      mode = nextMode;
       syncTools();
       syncInspector();
       render();
@@ -1341,6 +1344,26 @@
     const p = pointFromEvent(event);
     if (!inside(p)) return;
 
+    // Modo Mover del panel PIXEL: arrastra la capa seleccionada (o la que
+    // está bajo el puntero) aunque la herramienta activa sea pincel/borrador.
+    if (isPixelTool && mode === 'MOVE') {
+      const hit = hitMap(p);
+      const map = hit || selected();
+      if (!map || Number(map.page || 0) !== page()) return;
+      selectedKey = map.key;
+      selectedKeys = [map.key];
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      pointer = event.pointerId;
+      lastPoint = p;
+      try { displayCanvas.setPointerCapture(pointer); } catch (_) {}
+      dragStart = p;
+      dragOrigins = [{ key: map.key, x: map.x, y: map.y }];
+      syncInspector();
+      refreshBase();
+      return;
+    }
+
     if (isPixelTool) {
       let map = null;
       if (currentTool === 'erase') {
@@ -1376,11 +1399,11 @@
       try { displayCanvas.setPointerCapture(pointer); } catch (_) {}
       const drawColor = color & 0xFFFF;
       if (mode === 'ERASE') {
-        eraseBrush(map, p.x, p.y, eraserSize);
+        if (eraseBrush(map, p.x, p.y, eraserSize)) scheduleEraseRefresh();
       } else {
         putBrush(map, p.x, p.y, drawColor, brushSize);
+        render();
       }
-      render();
       return;
     }
 
@@ -1467,14 +1490,29 @@
       refreshBase();
     } else if (lastPoint) {
       const drawColor = color & 0xFFFF;
+      let erased = false;
       rasterLine(lastPoint, p, (x, y) => {
-        if (mode === 'ERASE') eraseBrush(map, x, y, eraserSize);
+        if (mode === 'ERASE') erased = eraseBrush(map, x, y, eraserSize) || erased;
         else putBrush(map, x, y, drawColor, brushSize);
       });
       lastPoint = p;
-      render();
+      // render() sólo pinta píxeles encima del lienzo: lo borrado no
+      // desaparece hasta repintar la base, así que se repinta (1 vez por frame).
+      if (erased) scheduleEraseRefresh();
+      else if (mode !== 'ERASE') render();
     }
   }, true);
+
+  let eraseRefreshQueued = false;
+  function scheduleEraseRefresh() {
+    if (eraseRefreshQueued) return;
+    eraseRefreshQueued = true;
+    requestAnimationFrame(() => {
+      eraseRefreshQueued = false;
+      editor()?.render?.();
+      render();
+    });
+  }
 
   function endPointer(event) {
     if (pointer === null || (event?.pointerId !== undefined && event.pointerId !== pointer)) return;
