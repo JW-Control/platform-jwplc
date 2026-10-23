@@ -287,6 +287,8 @@
       display: window.JWPLCHMIIdle?.get?.() || null,
       pages,
       fields,
+      // Alpha16: copia de los iconos usados (se abre igual si cambia el catálogo).
+      iconAssets: window.JWPLCHMIIcons?.assetsFor?.(fields),
       declarativeOnly: true
     };
   }
@@ -374,6 +376,7 @@
     const currentFields = api.getAllFields();
     while (currentFields.length < desiredCount) api.addTextField?.();
 
+    window.JWPLCHMIIcons?.loadAssets?.(normalized.iconAssets);
     const liveFields = api.getAllFields();
     liveFields.splice(0, liveFields.length, ...importedFields);
 

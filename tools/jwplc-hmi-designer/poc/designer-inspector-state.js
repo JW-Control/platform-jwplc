@@ -53,6 +53,7 @@
       if (field.type === 'RAW_TEXT') return 'RAW';
       if (field.type === 'NAV_BAR') return 'NAV_BAR';
       if (field.type === 'MENU') return 'MENU';
+      if (field.type === 'ICON') return 'ICON';
       if (SHAPE_TYPES.includes(field.type)) return 'SHAPE';
       return 'FIELD';
     }
@@ -71,6 +72,7 @@
 
     setSectionVisible(navBarSection, mode === 'NAV_BAR');
     setSectionVisible(document.getElementById('menuInspectorSection'), mode === 'MENU');
+    setSectionVisible(document.getElementById('iconInspectorSection'), mode === 'ICON');
     setSectionVisible(fieldSection, mode === 'FIELD');
     setSectionVisible(shapeSection, mode === 'SHAPE');
     setSectionVisible(rawSection, mode === 'RAW');

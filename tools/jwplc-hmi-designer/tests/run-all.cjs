@@ -4,7 +4,7 @@
 //   node tools/jwplc-hmi-designer/tests/run-all.cjs
 //
 // Sin g++ (p. ej. Windows sin MSYS2) se omiten los tests que compilan C++:
-// codegen-smoke, menu-host-sim e icon-host-sim; menu-smoke y codegen-core omiten sólo esos pasos.
+// codegen-smoke, menu-host-sim e icon-host-sim; menu-smoke, icon-smoke y codegen-core omiten sólo esos pasos.
 'use strict';
 
 const path = require('path');
@@ -22,6 +22,7 @@ const TESTS = [
   { file: 'value-format-parity.cjs', what: 'formato de VALUE: firmware real == Designer (sin g++ sólo casos fijos)' },
   { file: 'inspector-smoke.cjs', what: 'inspector TEXT/VALUE/BOOL/BAR + paridad BAR' },
   { file: 'menu-smoke.cjs', what: 'MENU en el Designer + paridad con el firmware' },
+  { file: 'icon-smoke.cjs', what: 'ICON en el Designer (panel, inspector, guardar) + paridad con el firmware' },
   { file: 'sketch-menu-smoke.cjs', what: 'Escribir en sketch + menú del sketch (app de escritorio simulada)' },
   { file: 'sketch-guide.test.cjs', what: 'guía JWPLC_HMI_LEEME.md: contenido + sketch base compila (sin g++ sólo contenido)' },
   { file: 'agent-cli.test.cjs', what: 'CLI para agentes: spec == Designer, validación, paridad con golden, ejemplos, build' },

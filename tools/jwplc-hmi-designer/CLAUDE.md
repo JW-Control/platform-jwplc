@@ -20,8 +20,8 @@ de `index.html` e inyecta los scripts en orden.
 ## Orden de carga de módulos (importa)
 
 ```text
-index.html:      designer-cp437 -> gfx-classic-font -> designer-fonts-data -> designer-fonts -> designer-value-format -> designer-codegen-core -> app -> ux-foundation -> designer-codegen
-ux-foundation:   designer-color-editor -> designer-bool -> designer-bar -> designer-zone-indicator -> designer-field-inspector -> (designer-menu, designer-idle) -> designer-field-visibility -> designer-pages -> designer-flasher -> designer-live
+index.html:      designer-cp437 -> gfx-classic-font -> designer-fonts-data -> designer-fonts -> designer-value-format -> designer-codegen-core -> designer-icon-catalog -> designer-icons-core -> app -> ux-foundation -> designer-codegen
+ux-foundation:   designer-color-editor -> designer-bool -> designer-bar -> designer-zone-indicator -> designer-field-inspector -> (designer-menu, designer-icons, designer-idle) -> designer-field-visibility -> designer-pages -> designer-flasher -> designer-live
 field-visibility: designer-inspector-state, designer-pixelmap-compat -> designer-pixelmap -> designer-pixelmap-stability
 desktop.html:    designer-project, designer-native-project, designer-project-integration-fix,
                  designer-pixelmap-workbench/-optimizer/-codegen-guard, desktop-responsive,
@@ -49,6 +49,9 @@ window.JWPLCHMIIdle       designer-idle     Proyecto · Pantalla y arranque (IDL
 window.JWPLCHMISketchMenu designer-sketch-menu    «Escribir en sketch» (header + .jwhmi) y menú «Sketch: nombre ▾»
 window.JWPLCZoneIndicator designer-zone-indicator indicador A1 de Apariencia (contorno + ▶ + regla; campos y MENU)
 window.JWPLCColorEditor   designer-color-editor   editor de color fijo de Apariencia (campos, MENU, BAR); sin <input type=color>
+window.JWPLCIconCatalog   designer-icon-catalog   catálogo de iconos GENERADO por icons/build-catalog.cjs (no editar a mano)
+window.JWPLCIconsCore     designer-icons-core     ICON puro (decodificar 4 bpp, tamaños, assets C++, setter); también en node
+window.JWPLCHMIIcons      designer-icons          panel «Iconos» (izquierda), inspector ICON, iconAssets del .jwhmi
 window.JWPLCSketchGuide   designer-sketch-guide   JWPLC_HMI_LEEME.md: sketch base leído del header (puro, también en node)
 window.JWPLCCp437         designer-cp437          Unicode <-> cp437 de la fuente GLCD (lienzo y literales C++); gemelo de utf8ToGlcd
 window.JWPLCValueFormat   designer-value-format   formato de VALUE (número, miles, duración, fecha/hora); gemelo de JWPLC_UI_Format.cpp
@@ -120,6 +123,12 @@ Estado de adopción por tipo: ver `ALPHA15_STATUS.md` (§Inspector).
   `#menuInspectorSection`). El pintor replica `JWPLC_UI_Menu.cpp` línea por línea: si cambias uno,
   cambia el otro y corre `tests/menu-smoke.cjs` (compara píxel a píxel con el firmware en host).
   `nodes`/`colors` se reemplazan (copy-on-write): el historial copia los campos de forma superficial.
+- ICON (`JWPLC_UIIconField`, firmware `JWPLC_UI_HAS_ICON`): imagen por estado (BOOL 2 o `uint8_t` hasta 8),
+  4 bpp con paleta de 16 RGB565 por estado, índice 0 transparente (toma el fondo del campo), etiqueta opcional.
+  Cuenta en el límite de 32 campos. Iconos: `icons/library.cjs` (dibujo vectorial rasterizado) →
+  `node icons/build-catalog.cjs` regenera `poc/designer-icon-catalog.js` e `icons/catalogo.png` (`--check` en CI).
+  El `.jwhmi` guarda `iconAssets` (bitmaps usados) para abrir proyectos con iconos que ya no estén en el catálogo.
+  Paridad lienzo/firmware: `tests/icon-smoke.cjs` (+ `tests/icon-host-sim.cjs` para el firmware solo).
 
 ## Reglas del codegen (A15-1..A15-3)
 
@@ -162,9 +171,9 @@ Estado de adopción por tipo: ver `ALPHA15_STATUS.md` (§Inspector).
   emite TEXT/VALUE; BOOL/BAR salen como `JWPLC_UITextField` provisional que reemplazan sus capas.
 - Tras tocar el codegen: `node tests/codegen-golden.cjs` (salida byte a byte) y
   `node tests/codegen-smoke.cjs`. Un cambio intencional: `--update` y revisar el diff.
-- Tras tocar JS/CSS: subir el `?v=` del archivo tocado (hoy 1793801300; `app.js` 1793801400) en
+- Tras tocar JS/CSS: subir el `?v=` del archivo tocado (hoy 1793801300; `app.js` y los archivos de ICON 1793801700) en
   `index.html`/`desktop.html`/`ux-foundation.js`/`designer-field-visibility.js` y `CACHE_NAME` en
-  `service-worker.js` (hoy `jwplc-hmi-designer-a15-v38`).
+  `service-worker.js` (hoy `jwplc-hmi-designer-a16-v44`).
 - Versión visible: `2.1.0-alpha.14` (título, `.brand-badge`, `.gate` de la barra de estado, panel «Estado»,
   `electron/package.json`). El comentario `// API pública JWPLC_UI · Alpha11 A11-4` del header generado es un
   marcador interno de las capas del codegen: no cambiarlo.
@@ -187,6 +196,8 @@ node tests/value-format-parity.cjs      # formato de VALUE: JWPLC_UI_Format.cpp 
 node tests/inspector-smoke.cjs          # inspector TEXT/VALUE/BOOL/BAR + paridad BAR
 node tests/menu-host-sim.cjs            # MENU: JWPLC_UI_Menu.cpp real en host (g++)
 node tests/menu-smoke.cjs               # MENU: Designer + paridad lienzo/firmware + header
+node tests/icon-host-sim.cjs            # ICON: JWPLC_UI.cpp real en host (g++)
+node tests/icon-smoke.cjs               # ICON: Designer + paridad lienzo/firmware + header
 node tests/sketch-menu-smoke.cjs        # Escribir en sketch + menú del sketch
 node tests/sketch-guide.test.cjs        # guía JWPLC_HMI_LEEME.md + su sketch base compila
 node tests/live-bridge-flasher.test.cjs # flasheador Live Bridge: manifiesto, binarios ESP32, integración

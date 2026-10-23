@@ -71,10 +71,19 @@
     return icon.sizes[resolveSize(icon, size)] || null;
   }
 
-  // Bytes en flash de un icono: imágenes únicas + 16 colores por estado + descriptores.
+  // Colores de paleta que hacen falta: hasta el índice más alto usado en las
+  // imágenes (el firmware sólo lee palette[índice] de los píxeles).
+  function paletteLength(entry) {
+    let max = 0;
+    entry.images.forEach((b64) => base64ToBytes(b64).forEach((b) => { max = Math.max(max, b >> 4, b & 0x0F); }));
+    return max + 1;
+  }
+
+  // Bytes en flash de un icono: imágenes únicas + paleta por estado + descriptores.
   function flashBytes(entry) {
     if (!entry) return 0;
-    return entry.images.length * stride(entry.width) * entry.height + entry.states.length * (32 + 8) + 12;
+    return entry.images.length * stride(entry.width) * entry.height +
+      entry.states.length * (2 * paletteLength(entry) + 8) + 12;
   }
 
   function symbolFor(id, size) {
@@ -102,8 +111,9 @@
       const bytes = Array.from(base64ToBytes(b64), (b) => hex(b, 2));
       out.push(`static const uint8_t ${sym}_PX${k}[${bytes.length}] =\n{\n${wrap(bytes, 16, '    ')}\n};`);
     });
-    const pals = entry.states.map((st) => `    {${st.palette.map((c) => hex(c, 4)).join(', ')}}`);
-    out.push(`static const uint16_t ${sym}_PAL[${n}][16] =\n{\n${pals.join(',\n')}\n};`);
+    const colors = paletteLength(entry);
+    const pals = entry.states.map((st) => `    {${st.palette.slice(0, colors).map((c) => hex(c, 4)).join(', ')}}`);
+    out.push(`static const uint16_t ${sym}_PAL[${n}][${colors}] =\n{\n${pals.join(',\n')}\n};`);
     const states = entry.states.map((st, k) => `    {${sym}_PX${st.image}, ${sym}_PAL[${k}]}`);
     out.push(`static const JWPLC_UIIconState ${sym}_STATES[${n}] =\n{\n${states.join(',\n')}\n};`);
     out.push(`static const JWPLC_UIIcon ${sym}(${entry.width}, ${entry.height}, ${n}, ${sym}_STATES, ${entry.transparent});`);
@@ -157,6 +167,7 @@
     resolveSize,
     entryFor,
     flashBytes,
+    paletteLength,
     symbolFor,
     assetBlock,
     assetsSection,

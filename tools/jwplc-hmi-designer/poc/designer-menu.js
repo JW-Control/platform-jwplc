@@ -418,6 +418,7 @@
       if (!f.variable) return;
       if (f.type === 'VALUE' || f.type === 'BAR') map.set(f.variable, 'float');
       else if (f.type === 'BOOL') map.set(f.variable, 'bool');
+      else if (f.type === 'ICON') map.set(f.variable, f.iconVarType === 'uint8' ? 'uint8' : 'bool');
       else if (f.type === 'TEXT') map.set(f.variable, 'char[]');
     });
     return map;

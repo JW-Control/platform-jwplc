@@ -1301,6 +1301,7 @@
     if (field.type === 'TEXT') return 'textField';
     if (field.type === 'NAV_BAR') return 'navBarField';
     if (field.type === 'MENU') return 'menuField';
+    if (field.type === 'ICON') return 'iconField';
     return 'pointer';
   }
 
@@ -2388,9 +2389,12 @@
     const labelBounds = nominalTextBounds(field.label, field.labelSize);
     const unitBounds = nominalTextBounds(field.unit, field.labelSize);
     const pilotSide = 7 * Math.max(1, Math.trunc(Number(field.valueSize) || 1));
-    const valueBounds = isBoolPilot(field)
-      ? { width: pilotSide, height: pilotSide }
-      : nominalTextBounds(valueSampleForField(field), field.valueSize);
+    const icon = field.type === 'ICON' ? iconEntry(field) : null;
+    const valueBounds = field.type === 'ICON'
+      ? (icon ? { width: icon.width, height: icon.height } : { width: 0, height: 7 })
+      : isBoolPilot(field)
+        ? { width: pilotSide, height: pilotSide }
+        : nominalTextBounds(valueSampleForField(field), field.valueSize);
     let fieldW;
     let fieldH;
     let valueX;
@@ -2454,6 +2458,20 @@
     if (field.unit) {
       drawClassicTextAt(buffer, field.unit, g.valueX + g.valueW + FIELD_GAP, g.valueY, field.labelColor, textBg, field.labelSize);
     }
+    if (field.type === 'ICON') {
+      // JWPLC_UI.cpp:drawIcon: el índice transparente toma el fondo del campo.
+      const entry = iconEntry(field);
+      if (!entry) return g;
+      const img = window.JWPLCIconsCore.decode(entry, field.iconState);
+      for (let y = 0; y < img.height; y += 1) {
+        for (let x = 0; x < img.width; x += 1) {
+          const c = img.pixels[y * img.width + x];
+          if (c >= 0) setBufferPixel(buffer, g.valueX + x, g.valueY + y, c);
+          else if (textBg !== null) setBufferPixel(buffer, g.valueX + x, g.valueY + y, textBg);
+        }
+      }
+      return g;
+    }
     if (isBoolPilot(field)) {
       // JWPLC_UI.cpp: aro del color de la etiqueta y relleno del estado.
       const r = Math.floor((g.valueH - 1) / 2);
@@ -2475,7 +2493,7 @@
   function renderFieldPreview(field) {
     const buffer = new Uint16Array(WIDTH * HEIGHT);
     let g = null;
-    if (['TEXT', 'VALUE', 'BOOL'].includes(field.type)) {
+    if (['TEXT', 'VALUE', 'BOOL', 'ICON'].includes(field.type)) {
       g = drawField(buffer, field);
     } else if (field.type === 'RAW_TEXT') {
       const bg = field.transparentBackground ? null : (field.backgroundColor ?? 0x0000);
@@ -2559,7 +2577,7 @@
       const field = pageFields[i];
       if (field.hidden) continue;
       activeDrawingOrder = ensureLayerOrder(field);
-      if (['TEXT', 'VALUE', 'BOOL'].includes(field.type)) {
+      if (['TEXT', 'VALUE', 'BOOL', 'ICON'].includes(field.type)) {
         drawField(framebuffer, field);
       } else if (field.type === 'BAR') {
         drawBarToFramebuffer(framebuffer, field, true);
@@ -2646,6 +2664,7 @@
   }
 
   function fieldFallbackId(field, index) {
+    if (field.type === 'ICON') return `FIELD_ICON_${index + 1}`;
     if (field.type === 'VALUE') return `FIELD_VALUE_${index + 1}`;
     if (field.type === 'BOOL') return `FIELD_BOOL_${index + 1}`;
     if (field.type === 'BAR') return `FIELD_BAR_${index + 1}`;
@@ -2653,6 +2672,7 @@
   }
 
   function variableFallback(field, index) {
+    if (field.type === 'ICON') return `icono${index + 1}`;
     if (field.type === 'VALUE') return `valor${index + 1}`;
     if (field.type === 'BOOL') return `estado${index + 1}`;
     if (field.type === 'BAR') return `nivel${index + 1}`;
@@ -2664,6 +2684,7 @@
     if (field.type === 'VALUE') return window.JWPLCHMICodegenCore.valueDeclaration(field, variable);
     if (field.type === 'BAR') return `float ${variable} = 0.0f;`;
     if (field.type === 'BOOL') return `bool ${variable} = false;`;
+    if (field.type === 'ICON') return window.JWPLCIconsCore.iconDeclaration(field, variable);
     return window.JWPLCHMICodegenCore.textDeclaration(field, variable);
   }
 
@@ -2673,7 +2694,30 @@
   function fieldContract(field, index) {
     const id = sanitizeSymbol(field.id, fieldFallbackId(field, index));
     const core = window.JWPLCHMICodegenCore;
+    if (field.type === 'ICON') {
+      const entry = iconEntry(field);
+      const symbol = window.JWPLCIconsCore.symbolFor(field.iconId, entry ? entry.width : field.iconSize);
+      return window.JWPLCIconsCore.iconFieldBlock(field, id, symbol, core.cppString);
+    }
     return field.type === 'VALUE' ? core.valueFieldBlock(field, id) : core.textFieldBlock(field, id);
+  }
+
+  // Alpha16: un bloque por (icono, tamaño) usado, en orden de aparición.
+  function iconAssetsText(fields) {
+    const core = window.JWPLCIconsCore;
+    if (!core) return '';
+    const seen = new Set();
+    const assets = [];
+    fields.filter((field) => field.type === 'ICON').forEach((field) => {
+      const entry = iconEntry(field);
+      if (!entry) return;
+      const key = `${field.iconId}@${entry.width}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      const icon = window.JWPLCHMIIcons?.iconInfo?.(field.iconId) || core.findIcon(window.JWPLCIconCatalog, field.iconId);
+      assets.push({ id: field.iconId, name: icon?.name, stateNames: icon?.stateNames, entry });
+    });
+    return core.assetsSection(assets);
   }
 
   function setterHint(field, index) {
@@ -2682,6 +2726,7 @@
     if (window.JWPLCHMICodegenCore?.isClockField?.(field)) return `// ${id}: fecha/hora del RTC (la actualiza el firmware)`;
     if (field.type === 'VALUE') return `// JWPLC_Display.setValue(${id}, ${variable});`;
     if (field.type === 'BOOL') return `// JWPLC_Display.setBool(${id}, ${variable});`;
+    if (field.type === 'ICON') return `// ${window.JWPLCIconsCore.iconSetter(id, variable)}`;
     if (field.type === 'BAR') return `// JWPLC_Display.setBar(${id}, ${variable});`;
     return `// JWPLC_Display.setText(${id}, ${variable});`;
   }
@@ -2700,8 +2745,9 @@
     const variables = validFields.map(variableDeclaration).join('\n');
     const fields = validFields.map(fieldContract).join(',\n');
     const setters = validFields.map(setterHint).join('\n');
+    const icons = iconAssetsText(validFields);
 
-    return `// Código generado por JWPLC HMI Designer\n// API pública JWPLC_UI · Alpha11 A11-3E\n\nenum HMIFieldId : uint8_t\n{\n${enumLines}\n};\n\n// Variables HMI\n${variables}\n\n// Definición declarativa\nstatic const JWPLC_UIField HMI_FIELDS[] =\n{\n${fields}\n};\n\nvoid jwplcHMISetup()\n{\n    JWPLC_Display.setFields(\n        HMI_FIELDS,\n        sizeof(HMI_FIELDS) / sizeof(HMI_FIELDS[0]));\n}\n\n// jwplcUIUpdate() NO se genera.\n// El usuario alimenta las variables anteriores dentro de su jwplcUIUpdate().\n// Setters públicos que corresponden a este diseño:\n${setters}`;
+    return `// Código generado por JWPLC HMI Designer\n// API pública JWPLC_UI · Alpha11 A11-3E\n\nenum HMIFieldId : uint8_t\n{\n${enumLines}\n};\n\n${icons ? `${icons}\n` : ''}// Variables HMI\n${variables}\n\n// Definición declarativa\nstatic const JWPLC_UIField HMI_FIELDS[] =\n{\n${fields}\n};\n\nvoid jwplcHMISetup()\n{\n    JWPLC_Display.setFields(\n        HMI_FIELDS,\n        sizeof(HMI_FIELDS) / sizeof(HMI_FIELDS[0]));\n}\n\n// jwplcUIUpdate() NO se genera.\n// El usuario alimenta las variables anteriores dentro de su jwplcUIUpdate().\n// Setters públicos que corresponden a este diseño:\n${setters}`;
   }
 
   function buildStatusText() {
@@ -2914,6 +2960,7 @@
       else if (field.type === 'POLYGON') icon = '⬡';
       else if (field.type === 'NAV_BAR') icon = '☰';
       else if (field.type === 'MENU') icon = '▤';
+      else if (field.type === 'ICON') icon = '◈';
 
       button.innerHTML = `
         <span class="object-icon">${icon}</span>
@@ -3919,6 +3966,12 @@
     const isShape = Boolean(field && SHAPE_TYPES.includes(field.type));
     const isNavBar = selectedTool === 'navBarField' || field?.type === 'NAV_BAR';
     const isMenu = field?.type === 'MENU';
+    const isIcon = field?.type === 'ICON';
+    const iconSection = document.getElementById('iconInspectorSection');
+    if (iconSection) {
+      iconSection.hidden = !isIcon;
+      iconSection.style.display = isIcon ? '' : 'none';
+    }
     const menuSection = document.getElementById('menuInspectorSection');
     if (menuSection) {
       menuSection.hidden = !isMenu;
@@ -5138,6 +5191,73 @@
     syncToolUI();
     render();
     commitHistory();
+  }
+
+  // Alpha16: ICON (imagen por estado ligada a una variable). La biblioteca y
+  // el inspector viven en designer-icons.js; los datos en designer-icon-catalog.js.
+  function iconEntry(field) {
+    return window.JWPLCHMIIcons?.entryFor?.(field) ||
+      window.JWPLCIconsCore?.entryFor?.(window.JWPLCIconCatalog, field?.iconId, field?.iconSize) || null;
+  }
+
+  // Primer hueco libre de la página (barrido de 8 px) para no tapar otro objeto.
+  function placeIconInFreeSpot(field) {
+    const g = computeFieldGeometry({ ...field, x: 0, y: 0 });
+    const others = fieldsForPage(activePage).filter((f) => !f.hidden).map((f) => getFieldBounds(f));
+    for (let y = 4; y + g.fieldH <= HEIGHT; y += 8) {
+      for (let x = 4; x + g.fieldW <= WIDTH; x += 8) {
+        const free = others.every((b) => x + g.fieldW <= b.minX || x > b.maxX || y + g.fieldH <= b.minY || y > b.maxY);
+        if (free) { field.x = x; field.y = y; return; }
+      }
+    }
+    field.x = 20;
+    field.y = 20;
+  }
+
+  function addIconField(iconId, size, at = null) {
+    const core = window.JWPLCIconsCore;
+    const icon = window.JWPLCHMIIcons?.iconInfo?.(iconId) || core?.findIcon?.(window.JWPLCIconCatalog, iconId);
+    if (!icon) return null;
+    if (hmiFields.length >= MAX_FIELDS) {
+      showToastMessage(`Límite de ${MAX_FIELDS} campos: el ICON cuenta como campo.`, 'warning');
+      return null;
+    }
+    fieldSerial += 1;
+    const field = defaultTextField(`icon-${fieldSerial}`);
+    const base = String(iconId).split('/').pop().replace(/[^A-Za-z0-9]+/g, '_');
+    field.type = 'ICON';
+    field.name = uniqueName(`${icon.name} ${fieldSerial}`);
+    field.id = uniqueFieldSymbol(`FIELD_ICON_${fieldSerial}`);
+    field.variable = uniqueVariable(`${base}${fieldSerial}`);
+    field.iconId = iconId;
+    field.iconSize = core.resolveSize(icon, size || 32);
+    field.iconVarType = icon.stateNames.length > 2 ? 'uint8' : 'bool';
+    field.iconState = 0;
+    field.label = '';
+    field.preview = '';
+    field.unit = '';
+    field.capacity = 1;
+    field.valueSize = 1;
+    field.layout = 'STACKED';
+    field.align = 'LEFT';
+    field.valueColor = 0xFFFF;
+    field.page = activePage;
+    if (at) {
+      field.x = Math.round(at.x);
+      field.y = Math.round(at.y);
+    } else {
+      placeIconInFreeSpot(field);
+    }
+    placeNewField(field);
+    assignNewLayerOrder(field);
+    hmiFields.push(field);
+    setSelectedKeys([field.key]);
+    selectedTool = 'iconField';
+    syncInputsFromState();
+    syncToolUI();
+    render();
+    commitHistory();
+    return field;
   }
 
   function addValueField() {
@@ -7641,6 +7761,8 @@
     addTextField,
     addValueField,
     addRawTextField,
+    addIconField,
+    iconEntry,
     fillAt,
     fillRegion,
     pickColorAt,
