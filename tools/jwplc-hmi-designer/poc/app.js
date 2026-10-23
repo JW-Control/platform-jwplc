@@ -912,7 +912,7 @@
       const len2 = Math.hypot(dx2, dy2);
 
       if (len1 < 2 || len2 < 2) {
-        out.push({ x: Math.round(curr.x), y: Math.round(curr.y) });
+        out.push({ x: curr.x, y: curr.y });
         continue;
       }
 
@@ -933,14 +933,26 @@
       for (let s = 0; s <= steps; s++) {
         const t = s / steps;
         const omt = 1 - t;
-        // Curva cuadrática suave tangente a ambos lados del vértice
-        const px = Math.round(omt * omt * pStart.x + 2 * omt * t * curr.x + t * t * pEnd.x);
-        const py = Math.round(omt * omt * pStart.y + 2 * omt * t * curr.y + t * t * pEnd.y);
-        if (out.length === 0 || out[out.length - 1].x !== px || out[out.length - 1].y !== py) {
-          out.push({ x: px, y: py });
-        }
+        // Curva cuadrática suave tangente a ambos lados del vértice. Sin
+        // redondear: se redondea tras rotar/espejar (roundShapePoints).
+        out.push({
+          x: omt * omt * pStart.x + 2 * omt * t * curr.x + t * t * pEnd.x,
+          y: omt * omt * pStart.y + 2 * omt * t * curr.y + t * t * pEnd.y
+        });
       }
     }
+    return out;
+  }
+
+  // Vértices enteros (como los recibe la TFT) sin repetidos consecutivos.
+  function roundShapePoints(pts) {
+    const out = [];
+    for (const p of pts) {
+      const q = { x: Math.round(p.x), y: Math.round(p.y) };
+      const last = out[out.length - 1];
+      if (!last || last.x !== q.x || last.y !== q.y) out.push(q);
+    }
+    if (out.length > 1 && out[0].x === out[out.length - 1].x && out[0].y === out[out.length - 1].y) out.pop();
     return out;
   }
 
@@ -996,11 +1008,11 @@
       const bl = { x: x1, y: y2 };
       const br = { x: x2, y: y2 };
       const basePts = [topPt, br, bl];
-      return buildRoundedPolygonPoints(basePts, r).map(tf);
+      return roundShapePoints(buildRoundedPolygonPoints(basePts, r).map(tf));
     }
     if (field.type === 'POLYGON') {
       const basePts = getPolygonVertices(field);
-      return buildRoundedPolygonPoints(basePts, r).map(tf);
+      return roundShapePoints(buildRoundedPolygonPoints(basePts, r).map(tf));
     }
     if (field.type === 'ELLIPSE') {
       const minX = Math.min(x1, x2); const maxX = Math.max(x1, x2);
@@ -1835,99 +1847,69 @@
     }
   }
 
+  // Port de TFT_eSPI::fillTriangle / jwplcHMIFillTriangle: mismas filas y
+  // extremos que pinta el firmware (división entera truncada como en C).
+  function fillBufferTriangleTft(buffer, x0, y0, x1, y1, x2, y2, value) {
+    if (y0 > y1) { [y0, y1] = [y1, y0]; [x0, x1] = [x1, x0]; }
+    if (y1 > y2) { [y2, y1] = [y1, y2]; [x2, x1] = [x1, x2]; }
+    if (y0 > y1) { [y0, y1] = [y1, y0]; [x0, x1] = [x1, x0]; }
+
+    if (y0 === y2) {
+      const a = Math.min(x0, x1, x2);
+      const b = Math.max(x0, x1, x2);
+      fillBufferRect(buffer, a, y0, b - a + 1, 1, value);
+      return;
+    }
+
+    const dx01 = x1 - x0, dy01 = y1 - y0;
+    const dx02 = x2 - x0, dy02 = y2 - y0;
+    const dx12 = x2 - x1, dy12 = y2 - y1;
+    let sa = 0;
+    let sb = 0;
+    const last = (y1 === y2) ? y1 : y1 - 1;
+    let y = y0;
+
+    for (; y <= last; y++) {
+      let a = x0 + Math.trunc(sa / dy01);
+      let b = x0 + Math.trunc(sb / dy02);
+      sa += dx01;
+      sb += dx02;
+      if (a > b) [a, b] = [b, a];
+      fillBufferRect(buffer, a, y, b - a + 1, 1, value);
+    }
+
+    sa = dx12 * (y - y1);
+    sb = dx02 * (y - y0);
+    for (; y <= y2; y++) {
+      let a = x1 + Math.trunc(sa / dy12);
+      let b = x0 + Math.trunc(sb / dy02);
+      sa += dx12;
+      sb += dx02;
+      if (a > b) [a, b] = [b, a];
+      fillBufferRect(buffer, a, y, b - a + 1, 1, value);
+    }
+  }
+
+  // Polígono cerrado (TRIANGLE, POLYGON, RECT/ELLIPSE rotados) dibujado igual
+  // que el código generado (designer-codegen.js:staticDrawCode): relleno en
+  // abanico de fillTriangle desde el primer vértice y borde con drawLine entre
+  // vértices consecutivos, todo sobre vértices enteros.
   function drawShapePolygonScanline(buffer, pts, frameColor, fillColor, strokeSize, hasBorder, hasFill) {
     if (!pts || pts.length < 3) return;
-    const n = pts.length;
-    let minY = Infinity, maxY = -Infinity;
-    let minX = Infinity, maxX = -Infinity;
-    for (const p of pts) {
-      if (p.x < minX) minX = p.x;
-      if (p.x > maxX) maxX = p.x;
-      if (p.y < minY) minY = p.y;
-      if (p.y > maxY) maxY = p.y;
-    }
-    const yStart = Math.max(0, Math.floor(minY));
-    const yEnd = Math.min(HEIGHT - 1, Math.ceil(maxY));
+    const v = pts.map((p) => ({ x: Math.round(p.x), y: Math.round(p.y) }));
+    const n = v.length;
 
-    const borderOn = hasBorder && strokeSize > 0;
-    const effStroke = borderOn ? strokeSize : 0;
-
-    const segs = [];
-    for (let i = 0; i < n; i++) {
-      const p1 = pts[i];
-      const p2 = pts[(i + 1) % n];
-      segs.push({
-        x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y,
-        minX: Math.min(p1.x, p2.x), maxX: Math.max(p1.x, p2.x),
-        minY: Math.min(p1.y, p2.y), maxY: Math.max(p1.y, p2.y),
-        dx: p2.x - p1.x, dy: p2.y - p1.y,
-        l2: (p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2
-      });
+    if (hasFill) {
+      for (let i = 1; i < n - 1; i++) {
+        fillBufferTriangleTft(buffer, v[0].x, v[0].y, v[i].x, v[i].y, v[i + 1].x, v[i + 1].y, fillColor);
+      }
     }
 
-    for (let y = yStart; y <= yEnd; y++) {
-      const xNodes = [];
+    if (hasBorder && strokeSize > 0) {
       for (let i = 0; i < n; i++) {
-        const pA = pts[i];
-        const pB = pts[(i + 1) % n];
-        if (pA.y === y && pB.y === y) {
-          xNodes.push(pA.x, pB.x);
-        } else if ((pA.y <= y && pB.y > y) || (pB.y <= y && pA.y > y)) {
-          xNodes.push(pA.x + ((y - pA.y) * (pB.x - pA.x)) / (pB.y - pA.y));
-        } else if (y === yEnd && (pA.y === y || pB.y === y)) {
-          if (pA.y === y) xNodes.push(pA.x);
-          if (pB.y === y) xNodes.push(pB.x);
-        }
-      }
-      xNodes.sort((a, b) => a - b);
-      if (xNodes.length < 2) {
-        if (xNodes.length === 1) {
-          const xVal = Math.round(xNodes[0]);
-          if (xVal >= 0 && xVal < WIDTH) {
-            setBufferPixel(buffer, xVal, y, borderOn ? frameColor : (hasFill ? fillColor : frameColor));
-          }
-        }
-        continue;
-      }
-
-      const nearSegs = borderOn ? segs.filter(s => y >= s.minY - effStroke - 1 && y <= s.maxY + effStroke + 1) : [];
-
-      for (let i = 0; i < xNodes.length; i += 2) {
-        if (i + 1 >= xNodes.length) break;
-        const xL = Math.max(0, Math.round(xNodes[i]));
-        const xR = Math.min(WIDTH - 1, Math.round(xNodes[i + 1]));
-        if (xL > xR) continue;
-
-        if (!borderOn) {
-          if (hasFill) {
-            for (let x = xL; x <= xR; x++) setBufferPixel(buffer, x, y, fillColor);
-          }
-          continue;
-        }
-
-        for (let x = xL; x <= xR; x++) {
-          let isBorder = false;
-          if ((x - xL) < effStroke || (xR - x) < effStroke) {
-            isBorder = true;
-          } else {
-            for (let j = 0; j < nearSegs.length; j++) {
-              const s = nearSegs[j];
-              if (x < s.minX - effStroke || x > s.maxX + effStroke) continue;
-              const t = Math.max(0, Math.min(1, ((x - s.x1) * s.dx + (y - s.y1) * s.dy) / (s.l2 || 1)));
-              const dist = Math.hypot(x - (s.x1 + t * s.dx), y - (s.y1 + t * s.dy));
-              if (dist <= effStroke) {
-                isBorder = true;
-                break;
-              }
-            }
-          }
-
-          if (isBorder) {
-            setBufferPixel(buffer, x, y, frameColor);
-          } else if (hasFill) {
-            setBufferPixel(buffer, x, y, fillColor);
-          }
-        }
+        const a = v[i];
+        const b = v[(i + 1) % n];
+        rasterLineThick(buffer, a.x, a.y, b.x, b.y, frameColor, strokeSize);
       }
     }
   }
