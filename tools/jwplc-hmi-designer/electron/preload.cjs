@@ -15,6 +15,17 @@ contextBridge.exposeInMainWorld('JWPLCHMINative', {
   writeGuide: (text) => ipcRenderer.invoke('jwplc-hmi:write-guide', { text }),
   readProject: () => ipcRenderer.invoke('jwplc-hmi:read-project'),
   openProjectFile: () => ipcRenderer.invoke('jwplc-hmi:open-project-file'),
+  chooseSaveTarget: (suggestedName) => ipcRenderer.invoke('jwplc-hmi:choose-save-target', { suggestedName }),
+  applySaveTarget: (action, extra = {}) => ipcRenderer.invoke('jwplc-hmi:apply-save-target', { ...extra, action }),
+  // Cerrar la app con cambios sin guardar (poc/designer-save-flow.js).
+  registerCloseGuard: (onCloseRequested) => {
+    ipcRenderer.on('jwplc-hmi:close-requested', () => {
+      ipcRenderer.send('jwplc-hmi:close-guard-ack');
+      onCloseRequested();
+    });
+    ipcRenderer.send('jwplc-hmi:close-guard-ready');
+  },
+  confirmClose: () => ipcRenderer.send('jwplc-hmi:close-confirmed'),
   openSketchIno: () => ipcRenderer.invoke('jwplc-hmi:open-sketch-ino'),
   openSketchFolder: () => ipcRenderer.invoke('jwplc-hmi:open-sketch-folder'),
   onSketchOpened: (callback) => {

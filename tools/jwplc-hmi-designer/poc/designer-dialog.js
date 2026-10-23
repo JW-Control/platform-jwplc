@@ -7,6 +7,7 @@
   //   await JWPLCDialog.confirm(mensaje, { okLabel, cancelLabel, danger })  -> true/false
   //   await JWPLCDialog.alert(mensaje)                                       -> undefined
   //   await JWPLCDialog.prompt(mensaje, valorInicial)                        -> texto o null
+  //   await JWPLCDialog.choose(mensaje, [{ id, label, primary }], { cancelId }) -> id elegido
   //
   // Son asíncronas: quien las usa hace «await». Enter acepta, Esc cancela; el
   // foco queda dentro del cuadro mientras está abierto. Los cuadros de abrir y
@@ -69,7 +70,7 @@
   // Un cuadro a la vez: los siguientes esperan su turno.
   let queue = Promise.resolve();
 
-  function open({ kind, title, message, okLabel, cancelLabel, input, danger }) {
+  function open({ kind, title, message, okLabel, cancelLabel, input, danger, choices, cancelId }) {
     const run = () => new Promise((resolve) => {
       ensureStyle();
       const previousFocus = document.activeElement;
@@ -108,14 +109,27 @@
       ok.dataset.jwDialog = 'ok';
       ok.textContent = okLabel;
       let cancel = null;
-      if (cancelLabel) {
+      // choose: botones libres; el último con primary es el de Enter.
+      const extra = (choices || []).map((choice) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.dataset.jwDialog = choice.id;
+        button.textContent = choice.label;
+        if (choice.primary) button.className = 'is-primary';
+        button.addEventListener('click', () => finish(choice.id));
+        return button;
+      });
+      if (choices) {
+        actions.append(...extra);
+      } else if (cancelLabel) {
         cancel = document.createElement('button');
         cancel.type = 'button';
         cancel.dataset.jwDialog = 'cancel';
         cancel.textContent = cancelLabel;
         actions.appendChild(cancel);
       }
-      actions.appendChild(ok);
+      if (!choices) actions.appendChild(ok);
+      const primary = choices ? (extra.filter((b) => b.className === 'is-primary').pop() || extra[extra.length - 1]) : ok;
       box.append(head, body, actions);
       backdrop.appendChild(box);
       document.body.appendChild(backdrop);
@@ -124,7 +138,8 @@
         document.removeEventListener('keydown', onKey, true);
         backdrop.remove();
         try { previousFocus?.focus?.(); } catch (_) {}
-        if (kind === 'prompt') resolve(accepted ? field.value : null);
+        if (kind === 'choose') resolve(accepted === true ? primary.dataset.jwDialog : accepted === false ? cancelId : accepted);
+        else if (kind === 'prompt') resolve(accepted ? field.value : null);
         else resolve(kind === 'alert' ? undefined : accepted);
       };
 
@@ -137,7 +152,7 @@
           event.preventDefault(); event.stopImmediatePropagation();
           finish(true);
         } else if (event.key === 'Tab') {
-          const focusable = [field, cancel, ok].filter(Boolean);
+          const focusable = choices ? extra : [field, cancel, ok].filter(Boolean);
           const index = focusable.indexOf(document.activeElement);
           event.preventDefault(); event.stopImmediatePropagation();
           focusable[(index + (event.shiftKey ? -1 : 1) + focusable.length) % focusable.length].focus();
@@ -152,7 +167,7 @@
         if (event.target === backdrop) event.preventDefault(); // no se cierra por accidente
       });
 
-      if (field) { field.focus(); field.select(); } else ok.focus();
+      if (field) { field.focus(); field.select(); } else primary.focus();
     });
     const result = queue.then(run, run);
     queue = result.catch(() => {});
@@ -168,6 +183,10 @@
     }),
     alert: (message, options = {}) => open({
       kind: 'alert', title: options.title || TITLE, message, okLabel: options.okLabel || 'Entendido'
+    }),
+    choose: (message, choices, options = {}) => open({
+      kind: 'choose', title: options.title || TITLE, message, choices, danger: options.danger,
+      cancelId: options.cancelId ?? null
     }),
     prompt: (message, value = '', options = {}) => open({
       kind: 'prompt', title: options.title || TITLE, message, input: value,

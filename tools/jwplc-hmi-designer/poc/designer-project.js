@@ -752,8 +752,10 @@
   }
 
   function bindDirtyTracking() {
+    // Con designer-save-flow.js el «*» lo decide la comparación con lo guardado
+    // (un clic o el zoom también disparan editor-refresh).
     window.addEventListener('jwplc:editor-refresh', () => {
-      if (!suppressDirty) setDirty(true);
+      if (!suppressDirty && !window.JWPLCHMISaveFlow) setDirty(true);
     });
     document.getElementById('newProjectButton')?.addEventListener('click', () => {
       projectFileHandle = null;
@@ -832,6 +834,7 @@
     readLinkedFile,
     writeLinkedFile,
     linkedProjectFileName: canonicalProjectFileName,
+    setDirtyFlag: setDirty,
     headerName: HEADER_NAME
   };
 })();

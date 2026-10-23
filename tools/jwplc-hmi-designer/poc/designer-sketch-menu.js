@@ -198,6 +198,7 @@
     }
     if (!info) return null;
     window.dispatchEvent(new CustomEvent('jwplc:sketch-linked', { detail: { sketch: info.name, created: true } }));
+    ownSketches.add(sketchKey(info));
     refreshButtons(info);
     // El .ino incluye el header: se escribe ya para que compile al abrirlo.
     await writeToSketch();
@@ -237,12 +238,21 @@
     }
   }
 
-  // «Escribir en sketch»: header + .jwhmi (+ guía), una sola confirmación.
+  // Sketches cuyo HMI es el que está en pantalla (se abrió, se creó o ya se
+  // escribió en esta sesión): «Guardar» los reescribe sin preguntar cada vez.
+  const ownSketches = new Set();
+  const sketchKey = (info) => info?.path || info?.name || '';
+  window.addEventListener('jwplc:project-loaded', (event) => { if (event.detail?.sketch) backend.info().then((info) => info && ownSketches.add(sketchKey(info))); });
+  window.addEventListener('jwplc:sketch-own', (event) => { if (event.detail?.key) ownSketches.add(event.detail.key); });
+
+  // «Escribir en sketch»: header + .jwhmi (+ guía). Confirma sólo la primera
+  // vez que reemplaza archivos de un sketch ajeno al diseño en pantalla.
+  // Devuelve true si escribió.
   async function writeToSketch() {
     try {
       let info = await backend.info();
       if (!info) info = await linkFlow();
-      if (!info) return;
+      if (!info) return false;
 
       const header = await headerText();
       const data = project().serialize();
@@ -251,9 +261,9 @@
       const projectText = `${JSON.stringify(data, null, 2)}\n`;
 
       const replaced = [info.headerExists && HEADER_NAME, info.projectExists && info.projectFile].filter(Boolean);
-      if (replaced.length &&
+      if (replaced.length && !ownSketches.has(sketchKey(info)) &&
           !await window.JWPLCDialog.confirm(`Se reemplazará en el sketch «${info.name}»:\n\n${replaced.map((n) => `• ${n}`).join('\n')}\n\n¿Continuar?`, { okLabel: 'Reemplazar' })) {
-        return;
+        return false;
       }
 
       await backend.write(HEADER_NAME, header);
@@ -262,9 +272,12 @@
       toast(`Escrito en «${info.name}»: ${HEADER_NAME}, ${info.projectFile}${guideNote}.`, 'ok');
       window.dispatchEvent(new CustomEvent('jwplc:header-written', { detail: { sketch: info.name, header: HEADER_NAME } }));
       window.dispatchEvent(new CustomEvent('jwplc:project-written', { detail: { sketch: info.name, project: info.projectFile } }));
+      ownSketches.add(sketchKey(info));
       refreshButtons(await backend.info());
+      return true;
     } catch (error) {
       toast(error?.message || 'No se pudo escribir en el sketch.', 'error');
+      return false;
     }
   }
 
@@ -401,5 +414,9 @@
     closeMenu();
   });
 
-  window.JWPLCHMISketchMenu = { writeToSketch, linkFlow, createFlow, openMenu, closeMenu, backend };
+  window.JWPLCHMISketchMenu = {
+    writeToSketch, linkFlow, createFlow, openMenu, closeMenu, backend, baseSketchText, suggestedSketchName,
+    markOwn: (info) => ownSketches.add(sketchKey(info)),
+    refresh: async () => refreshButtons(await backend.info().catch(() => null))
+  };
 })();

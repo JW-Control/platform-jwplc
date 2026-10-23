@@ -43,6 +43,7 @@ const CORE = [
   './desktop-responsive.js',
   './designer-sketch-guide.js',
   './designer-sketch-menu.js',
+  './designer-save-flow.js',
   './manifest.webmanifest',
   './jwplc-hmi-icon.svg'
 ];

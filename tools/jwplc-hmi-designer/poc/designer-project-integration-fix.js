@@ -136,6 +136,8 @@
     const data = JSON.parse(result.text);
     await window.JWPLCHMIProject.apply(data);
     const sketch = result.sketch?.ok ? result.sketch : null;
+    // Ese .jwhmi es el del sketch: «Guardar» lo reescribe sin preguntar.
+    if (sketch) window.dispatchEvent(new CustomEvent('jwplc:sketch-own', { detail: { key: sketch.path } }));
     window.dispatchEvent(sketch
       ? new CustomEvent('jwplc:sketch-linked', { detail: { sketch: sketch.name } })
       : new CustomEvent('jwplc:sketch-unlinked'));

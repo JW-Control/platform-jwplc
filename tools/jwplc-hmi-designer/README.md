@@ -55,6 +55,19 @@ desarrollador; ahora el generador lo prepara en la caché de electron-builder si
 Sólo la app de escritorio puede **abrir el sketch en el Arduino IDE** y **abrir su
 carpeta** (menú «Sketch: nombre ▾»). La versión de navegador no puede lanzar programas.
 
+### Guardar y cambios sin guardar
+
+- **Guardar** (o `Ctrl+S`) con un sketch vinculado hace lo mismo que «Escribir en sketch»: header,
+  `.jwhmi` y guía. Sólo pregunta antes de reemplazar archivos de un sketch que no es el del diseño en
+  pantalla.
+- **Guardar sin sketch** (app de escritorio) abre el cuadro «Guardar» en `Documentos\Arduino` con el
+  nombre del proyecto. Si se elige un sketch existente (su carpeta o el nombre de una carpeta con
+  `.ino`), se vincula y se escribe ahí. Si no, ofrece **Crear sketch** (`<nombre>\<nombre>.ino` base,
+  vinculado y escrito) o **Solo guardar .jwhmi**.
+- **Nuevo**, **Abrir** y **cerrar la app** preguntan «¿Guardar los cambios?» (Guardar · No guardar ·
+  Cancelar) si el diseño cambió desde lo último guardado o abierto. Zoom, selección y herramienta no
+  cuentan como cambios. El `*` junto a «Proyecto:» usa la misma comparación.
+
 ### Abrir y «Nuevo proyecto» con el sketch
 
 En la app de escritorio, **Abrir** un `.jwhmi` que está junto a un `.ino` vincula ese sketch; un `.jwhmi`

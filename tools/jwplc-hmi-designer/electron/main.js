@@ -35,6 +35,10 @@ const preloadPath = path.join(__dirname, "preload.cjs");
 let mainWindow = null;
 let localServer = null;
 let linkedSketchPath = null;
+let pendingSaveTarget = null;
+let closeGuardReady = false;
+let closeGuardTimer = null;
+let allowClose = false;
 let ipcInstalled = false;
 
 const mimeTypes = new Map([
@@ -265,6 +269,28 @@ const mainInoPath = async (directoryPath) => {
   return first ? path.join(directoryPath, first.name) : null;
 };
 
+// Crea <directoryPath>/<name>.ino; nunca usa una carpeta que ya tenga archivos.
+const createSketchAt = async (directoryPath, name, inoText) => {
+  try {
+    if ((await fs.readdir(directoryPath)).length) {
+      return { ok: false, error: `Ya existe la carpeta «${directoryPath}» y no está vacía. Elige otro nombre o usa «Elegir sketch existente».` };
+    }
+  } catch (error) {
+    if (error?.code !== "ENOENT") return { ok: false, error: error?.message || String(error) };
+  }
+
+  try {
+    await fs.mkdir(directoryPath, { recursive: true });
+    await fs.writeFile(path.join(directoryPath, `${name}.ino`), inoText.endsWith("\n") ? inoText : `${inoText}\n`, { encoding: "utf8", flag: "wx" });
+  } catch (error) {
+    return { ok: false, error: `No se pudo crear el sketch: ${error?.message || error}` };
+  }
+
+  linkedSketchPath = directoryPath;
+  await persistLinkedSketch();
+  return { ...(await sketchInfo(linkedSketchPath)), created: true };
+};
+
 const sketchInfo = async (directoryPath) => {
   if (!directoryPath || !(await directoryContainsSketch(directoryPath))) return null;
   return {
@@ -399,24 +425,94 @@ const installNativeIpc = () => {
     // Si el usuario eligió como ubicación una carpeta con ese mismo nombre, se usa.
     const parent = path.dirname(result.filePath);
     const directoryPath = path.basename(parent) === name ? parent : path.join(parent, name);
-    try {
-      if ((await fs.readdir(directoryPath)).length) {
-        return { ok: false, error: `Ya existe la carpeta «${directoryPath}» y no está vacía. Elige otro nombre o usa «Elegir sketch existente».` };
+    return await createSketchAt(directoryPath, name, inoText);
+  });
+
+  // «Guardar» sin sketch vinculado, paso 1: el usuario elige nombre y carpeta y
+  // se clasifica el destino. main guarda la elección (pendingSaveTarget); el
+  // paso 2 actúa sólo sobre ella, la ventana nunca manda rutas.
+  ipcMain.handle("jwplc-hmi:choose-save-target", async (_event, payload = {}) => {
+    pendingSaveTarget = null;
+    const suggested = SKETCH_NAME.test(String(payload.suggestedName || "")) ? payload.suggestedName : "JWPLC_HMI";
+    const result = await dialog.showSaveDialog(mainWindow, {
+      title: "Guardar HMI en un sketch Arduino",
+      defaultPath: path.join(app.getPath("documents"), "Arduino", `${suggested}.jwhmi`),
+      buttonLabel: "Guardar",
+      filters: [{ name: "Proyecto JWPLC HMI", extensions: ["jwhmi"] }],
+      properties: ["createDirectory", "showOverwriteConfirmation"]
+    });
+    if (result.canceled || !result.filePath) return { ok: false, canceled: true };
+
+    const filePath = /\.jwhmi$/i.test(result.filePath) ? result.filePath : `${result.filePath}.jwhmi`;
+    const name = path.basename(filePath).replace(/\.jwhmi$/i, "");
+    const parent = path.dirname(filePath);
+    let target;
+    if (await directoryContainsSketch(parent)) {
+      // Dentro de la carpeta de un sketch: ese sketch.
+      target = { kind: "existing", directoryPath: parent, name: path.basename(parent) };
+    } else if (await directoryContainsSketch(path.join(parent, name))) {
+      target = { kind: "existing", directoryPath: path.join(parent, name), name };
+    } else {
+      const directoryPath = path.join(parent, name);
+      let occupied = false;
+      try {
+        occupied = (await fs.readdir(directoryPath)).length > 0;
+      } catch {
+        occupied = false;
       }
-    } catch (error) {
-      if (error?.code !== "ENOENT") return { ok: false, error: error?.message || String(error) };
+      target = { kind: "new", directoryPath, name, canCreate: SKETCH_NAME.test(name) && !occupied, occupied };
     }
+    pendingSaveTarget = { ...target, filePath };
+    return { ok: true, ...target, filePath, folder: parent };
+  });
 
-    try {
-      await fs.mkdir(directoryPath, { recursive: true });
-      await fs.writeFile(path.join(directoryPath, `${name}.ino`), inoText.endsWith("\n") ? inoText : `${inoText}\n`, { encoding: "utf8", flag: "wx" });
-    } catch (error) {
-      return { ok: false, error: `No se pudo crear el sketch: ${error?.message || error}` };
+  // Paso 2: «existing» vincula el sketch; «create» crea <nombre>/<nombre>.ino y
+  // lo vincula; «jwhmi-only» escribe sólo el .jwhmi elegido, sin sketch.
+  ipcMain.handle("jwplc-hmi:apply-save-target", async (_event, payload = {}) => {
+    const target = pendingSaveTarget;
+    pendingSaveTarget = null;
+    if (!target) return { ok: false, error: "No hay un destino de guardado elegido." };
+    const action = String(payload.action || "");
+
+    if (action === "existing" && target.kind === "existing") {
+      linkedSketchPath = target.directoryPath;
+      await persistLinkedSketch();
+      return await sketchInfo(linkedSketchPath);
     }
+    if (action === "create" && target.kind === "new") {
+      const inoText = String(payload.inoText || "");
+      if (!inoText.startsWith(SKETCH_INCLUDE) || inoText.length > 256 * 1024) {
+        return { ok: false, error: "El contenido no corresponde al sketch base del HMI." };
+      }
+      if (!SKETCH_NAME.test(target.name)) {
+        return { ok: false, error: `Nombre de sketch inválido: «${target.name}». Usa letras, números, _ . - (empieza con letra o número, máximo 63).` };
+      }
+      return await createSketchAt(target.directoryPath, target.name, inoText);
+    }
+    if (action === "jwhmi-only") {
+      try {
+        await fs.writeFile(target.filePath, String(payload.text || ""), "utf8");
+      } catch (error) {
+        return { ok: false, error: `No se pudo guardar ${path.basename(target.filePath)}: ${error?.message || error}` };
+      }
+      linkedSketchPath = null;
+      await clearPersistedLinkedSketch();
+      return { ok: true, fileName: path.basename(target.filePath), path: target.filePath };
+    }
+    return { ok: false, error: "Acción de guardado no válida." };
+  });
 
-    linkedSketchPath = directoryPath;
-    await persistLinkedSketch();
-    return { ...(await sketchInfo(linkedSketchPath)), created: true };
+  // Cierre con cambios sin guardar: la ventana avisa que atiende la pregunta
+  // (close-guard-ready) y, al decidir, pide cerrar (close-confirmed).
+  ipcMain.on("jwplc-hmi:close-guard-ready", () => {
+    closeGuardReady = true;
+  });
+  ipcMain.on("jwplc-hmi:close-guard-ack", () => {
+    clearTimeout(closeGuardTimer);
+  });
+  ipcMain.on("jwplc-hmi:close-confirmed", () => {
+    allowClose = true;
+    mainWindow?.close();
   });
 
   // «Abrir»: el .jwhmi elegido y, si está junto a un .ino, ese sketch queda
@@ -649,6 +745,21 @@ const createWindow = async () => {
   mainWindow.once("ready-to-show", () => {
     mainWindow.show();
     mainWindow.maximize();
+  });
+  // Con la guarda de la ventana lista, cerrar pregunta primero por los cambios
+  // sin guardar. Si la ventana no contesta (se colgó), se cierra igual.
+  mainWindow.on("close", (event) => {
+    if (allowClose || !closeGuardReady || mainWindow.webContents.isCrashed()) return;
+    event.preventDefault();
+    mainWindow.webContents.send("jwplc-hmi:close-requested");
+    clearTimeout(closeGuardTimer);
+    closeGuardTimer = setTimeout(() => {
+      allowClose = true;
+      mainWindow?.close();
+    }, 2000);
+  });
+  mainWindow.webContents.on("did-start-navigation", (_event, _url, _isInPlace, isMainFrame) => {
+    if (isMainFrame) closeGuardReady = false; // la página nueva vuelve a registrarse
   });
   mainWindow.on("closed", () => {
     mainWindow = null;
