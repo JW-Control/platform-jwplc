@@ -290,25 +290,30 @@ bool begin(const uint8_t *rowPins, uint8_t nRows,
            uint32_t debounceMs = 35);
 ```
 
-Ejemplo:
+Ejemplo genérico (otra placa, con pines libres). En el JWPLC Basic / Basic Core
+la botonera frontal ya la escanea el objeto global `JWPLC_Buttons` sobre
+`JWPLC_BTN_ROW0_PIN`, `JWPLC_BTN_ROW1_PIN` y `JWPLC_BTN_COL0_PIN`..`JWPLC_BTN_COL2_PIN`
+(`jwplc_hardware_config.h`): no crear otra instancia sobre esos pines y usar
+`JWPLC_Buttons` como en los ejemplos `01`..`03`.
 
 ```cpp
 #include <Arduino.h>
 #include <JW_MatrixButtons.h>
 
-static const uint8_t ROWS[] = {25, 26};
-static const uint8_t COLS[] = {35, 34, 39, 36};
+// Pines de ejemplo: ajustar a la placa (no aplican al JWPLC Basic).
+static const uint8_t ROWS[] = {ROW0_PIN, ROW1_PIN};
+static const uint8_t COLS[] = {COL0_PIN, COL1_PIN, COL2_PIN, COL3_PIN};
 
 enum BtnId : uint8_t
 {
-    BTN_A,
-    BTN_B,
-    BTN_COUNT
+    KEY_A,
+    KEY_B,
+    KEY_COUNT
 };
 
 static const JW_MatrixButtons::BtnMapItem MAP[] = {
-    {BTN_A, 0, 0},
-    {BTN_B, 1, 1},
+    {KEY_A, 0, 0},
+    {KEY_B, 1, 1},
 };
 
 JW_MatrixButtons buttons;
@@ -319,7 +324,7 @@ void setup()
         ROWS, 2,
         COLS, 4,
         MAP, sizeof(MAP) / sizeof(MAP[0]),
-        BTN_COUNT,
+        KEY_COUNT,
         false,
         35);
 }
@@ -328,7 +333,7 @@ void loop()
 {
     buttons.update();
 
-    if (buttons.pressed(BTN_A))
+    if (buttons.pressed(KEY_A))
     {
         // Acción
     }
@@ -352,7 +357,10 @@ bool beginDirect(const uint8_t *buttonPins,
 Ejemplo:
 
 ```cpp
-static const uint8_t PINS[] = {35, 34, 39};
+// Pines de ejemplo: ajustar a la placa. El JWPLC Basic no tiene botones
+// directos libres (GPIO34/35/36 son columnas de la botonera y GPIO39 es la
+// detección de la microSD).
+static const uint8_t PINS[] = {BUTTON0_PIN, BUTTON1_PIN, BUTTON2_PIN};
 
 JW_MatrixButtons buttons;
 

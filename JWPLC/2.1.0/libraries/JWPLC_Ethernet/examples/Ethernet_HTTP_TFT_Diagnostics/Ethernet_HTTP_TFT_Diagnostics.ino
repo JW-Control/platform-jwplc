@@ -133,19 +133,6 @@ const char *buttonName(uint8_t id)
   }
 }
 
-bool lockEthernet(uint32_t timeoutMs)
-{
-  if (!jwplcSPI_acquire(timeoutMs))
-    return false;
-  jwplcSPI_deselectAll();
-  return true;
-}
-
-void unlockEthernet()
-{
-  jwplcSPI_release();
-}
-
 bool saveData()
 {
   const size_t total = sizeof(JW_FRAM::BlockHeader) + sizeof(DiagnosticData);
@@ -406,9 +393,10 @@ void runHttpTest()
   size_t stored = 0;
   bool connected = false;
   bool received = false;
-  bool busLocked = lockEthernet(1000);
-
-  if (busLocked)
+  // EthernetClient toma el bus SPI en cada operacion (acceso seguro al W5500).
+  // No se envuelve la transaccion con jwplcSPI_acquire(): ese mutex no es
+  // recursivo y la libreria no hereda un bloqueo tomado fuera de ella, asi
+  // que DNS y connect fallarian siempre.
   {
     connected = httpClient.connect(HTTP_HOST, HTTP_PORT) == 1;
     if (connected)
@@ -440,14 +428,11 @@ void runHttpTest()
       }
       httpClient.stop();
     }
-    unlockEthernet();
   }
 
   response[stored] = '\0';
 
-  if (!busLocked)
-    copyText(httpState, sizeof(httpState), "SPI LOCK TIMEOUT");
-  else if (!connected)
+  if (!connected)
     copyText(httpState, sizeof(httpState), "FALLO CONNECT/DNS");
   else if (!received)
     copyText(httpState, sizeof(httpState), "SIN RESPUESTA HTTP");

@@ -7,6 +7,10 @@ void setup()
 
     // ID local 247 solo para iniciar el stack en modo master.
     JWPLC_ModbusRTU.begin(247, 19200, SERIAL_8E1);
+    // Este ejemplo usa la lectura bloqueante: con el motor ASYNC (default del
+    // package) readHoldingRegisters() solo inicia la transaccion y la respuesta
+    // nunca se procesaria sin task().
+    JWPLC_ModbusRTU.motor(SYNC);
     JWPLC_ModbusRTU.printStatus(Serial);
 }
 

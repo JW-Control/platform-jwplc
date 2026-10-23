@@ -113,7 +113,7 @@ Por tanto, un resultado `HTTP 200 OK` no apaga una falla independiente de FRAM o
 
 ## Consideraciones SPI
 
-El W5500 comparte SPI con TFT, FRAM y microSD. La consulta realizada con `EthernetClient` toma el mutex SPI global del JWPLC durante la transacción. Por ello, la TFT puede dejar de refrescar brevemente mientras se espera la respuesta HTTP; al terminar solo se actualizan las filas relacionadas con el resultado.
+El W5500 comparte SPI con TFT, FRAM y microSD. `EthernetClient` y `DNSClient` toman el bus SPI en cada operación (acceso seguro al W5500 de `JWPLC_Ethernet`), así que el sketch **no** envuelve la consulta con `jwplcSPI_acquire()`: ese mutex no es recursivo y la librería no hereda un bloqueo tomado fuera de ella, por lo que DNS y `connect()` fallarían siempre ("FALLO CONNECT/DNS"). Entre operaciones la TFT puede seguir refrescando; al terminar solo se actualizan las filas relacionadas con el resultado.
 
 Los callbacks gráficos no consultan Ethernet, RTC ni FRAM directamente: solo dibujan valores cacheados por `loop()`.
 

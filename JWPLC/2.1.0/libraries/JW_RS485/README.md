@@ -28,7 +28,7 @@ Ninguna.
 ```cpp
 #include <JW_RS485.h>
 
-JW_RS485 rs485(Serial2, 16, 17);  // UART, RX, TX
+JW_RS485 rs485(Serial2, JWPLC_RS485_RX_PIN, JWPLC_RS485_TX_PIN);  // UART, RX (GPIO16), TX (GPIO17)
 
 void setup()
 {

@@ -55,7 +55,7 @@ depends=Adafruit BusIO
 ```cpp
 #include <JW_FRAM.h>
 
-JW_FRAM fram(5);  // Pin CS
+JW_FRAM fram(JWPLC_FRAM_CS);  // CS de la FRAM del JWPLC Basic (GPIO13; GPIO5 es el CS del W5500)
 
 void setup() {
   Serial.begin(115200);
