@@ -277,6 +277,12 @@ JWPLC_UIBoolText JWPLC_UIBoolPilot(
 //   static const JWPLC_UIIcon MOTOR(32, 32, 2, MOTOR_STATES, 0);
 //   JWPLC_UIIconField(ID_MOTOR, JWPLC_UIRect(10, 20), &MOTOR, JWPLC_UIText("Motor"))
 //   JWPLC_Display.setIconState(ID_MOTOR, marcha);   // 0..stateCount-1
+//
+// Sin fondo (último parámetro de JWPLC_UIIconField en true): el recuadro del
+// campo no se pinta y la etiqueta va sin fondo; los píxeles transparentes en
+// todos los estados no se tocan (se ve lo que dibujó jwplcUIPageEnter). Los
+// que son transparentes sólo en algunos estados toman el fondo del campo, así
+// un cambio de estado nunca deja restos del anterior.
 #define JWPLC_UI_HAS_ICON 1
 
 static constexpr uint8_t JWPLC_UI_ICON_MAX_SIZE = 64;
@@ -352,6 +358,9 @@ struct JWPLC_UIField
 
     // ICON: imagen por estado (JWPLC_UIIconField). nullptr en los demás tipos.
     const JWPLC_UIIcon *icon = nullptr;
+    // ICON sin fondo: no pinta el recuadro del campo ni los píxeles que son
+    // transparentes en todos los estados (ahí se ve la gráfica estática).
+    bool iconTransparent = false;
 
     JWPLC_UIField(
         JWPLC_UIFieldMeta metaValue = JWPLC_UIFieldMeta(),
@@ -442,7 +451,8 @@ JWPLC_UIField JWPLC_UIIconField(
     JWPLC_UIText text = JWPLC_UIText(),
     JWPLC_UIStyle style = JWPLC_UIIconStyle(),
     uint8_t page = 0,
-    JWPLC_UIColors colors = JWPLC_UIColors());
+    JWPLC_UIColors colors = JWPLC_UIColors(),
+    bool transparentBackground = false);
 
 // ---------------------------------------------------------------------
 // Helpers cortos para el caso comun.

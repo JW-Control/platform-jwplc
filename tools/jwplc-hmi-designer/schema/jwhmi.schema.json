@@ -1489,6 +1489,11 @@
                 "maximum": 7,
                 "default": 0
               },
+              "transparentBackground": {
+                "description": "Sin fondo: no pinta el recuadro ni detrás de la etiqueta, y lo transparente en todos los estados deja ver la gráfica estática (RECT, RAW_TEXT…). Lo que cambia entre estados usa backgroundColor.",
+                "type": "boolean",
+                "default": false
+              },
               "capacity": {
                 "description": "Uso interno.",
                 "type": "integer",

@@ -175,6 +175,7 @@ const TYPES = {
       layout: { ...FIELD.layout, default: 'STACKED' },
       valueColor: color('Sin uso (los colores salen del icono).', { default: 0xFFFF, internal: true }),
       backgroundColor: color('Fondo del campo; también el de los píxeles transparentes del icono.', { default: 0x0000 }),
+      transparentBackground: bool('Sin fondo: no pinta el recuadro ni detrás de la etiqueta, y lo transparente en todos los estados deja ver la gráfica estática (RECT, RAW_TEXT…). Lo que cambia entre estados usa backgroundColor.', { default: false }),
       valueSize: int(1, 4, 'Uso interno.', { default: 1, internal: true }),
       align: { ...FIELD.align, default: 'LEFT', internal: true },
       unit: str('Sin uso.', { default: '', internal: true }),

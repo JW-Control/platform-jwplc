@@ -540,6 +540,64 @@ namespace
         return (int16_t)lroundf(normalized * field.valueW);
     }
 
+    // ICON sin fondo: true si el píxel (x, y) es transparente en todos los
+    // estados (nunca se pinta, así se ve la gráfica estática de debajo).
+    bool iconAlwaysTransparent(const JWPLC_UIIcon &icon, size_t stride, int16_t x, int16_t y)
+    {
+        for (uint8_t s = 0; s < icon.stateCount; ++s)
+        {
+            const uint8_t *pixels = icon.states[s].pixels;
+            if (pixels == nullptr)
+            {
+                continue;
+            }
+            const uint8_t packed = pixels[(size_t)y * stride + ((size_t)x >> 1)];
+            const uint8_t index = (x & 1) ? (packed & 0x0F) : (packed >> 4);
+            if (index != icon.transparentIndex)
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // ICON sin fondo: cada fila se envía en tramos que saltan los píxeles
+    // transparentes en todos los estados.
+    void drawIconTransparent(JWPLC_TFTClass &tft, const FieldRuntime &field,
+                             const JWPLC_UIIcon &icon, const JWPLC_UIIconState &state,
+                             uint16_t background)
+    {
+        const int16_t w = icon.width;
+        const size_t stride = ((size_t)w + 1U) / 2U;
+
+        for (int16_t y = 0; y < icon.height; ++y)
+        {
+            const uint8_t *row = state.pixels + (size_t)y * stride;
+            int16_t x = 0;
+
+            while (x < w)
+            {
+                while (x < w && iconAlwaysTransparent(icon, stride, x, y))
+                {
+                    ++x;
+                }
+                const int16_t start = x;
+                uint16_t *out = g_iconRows;
+                while (x < w && !iconAlwaysTransparent(icon, stride, x, y))
+                {
+                    const uint8_t packed = row[x >> 1];
+                    const uint8_t index = (x & 1) ? (packed & 0x0F) : (packed >> 4);
+                    *out++ = (index == icon.transparentIndex) ? background : state.palette[index];
+                    ++x;
+                }
+                if (x > start)
+                {
+                    tft.pushImage(field.valueX + start, field.valueY + y, x - start, 1, g_iconRows);
+                }
+            }
+        }
+    }
+
     // ICON: decodifica el estado actual (4 bpp + paleta) por bloques de filas
     // y lo envía con pushImage. El índice transparente toma el fondo del campo.
     void drawIcon(JWPLC_TFTClass &tft, const FieldRuntime &field, uint16_t background)
@@ -565,6 +623,12 @@ namespace
 
         if (state.pixels == nullptr || state.palette == nullptr)
         {
+            return;
+        }
+
+        if (field.def.iconTransparent && icon->transparentIndex != JWPLC_UI_ICON_NO_TRANSPARENT)
+        {
+            drawIconTransparent(tft, field, *icon, state, background);
             return;
         }
 
@@ -608,9 +672,11 @@ namespace
 
         const JWPLC_UIField &def = field.def;
         const uint16_t background = fieldBackground(field);
+        // ICON sin fondo: ni recuadro ni fondo detrás de la etiqueta.
+        const bool transparent = def.meta.type == JWPLC_UI_FIELD_ICON && def.iconTransparent;
         field.staticDirty = false;
 
-        if (field.fieldW > 0 && field.fieldH > 0)
+        if (!transparent && field.fieldW > 0 && field.fieldH > 0)
         {
             tft.fillRect(
                 field.fieldX,
@@ -639,9 +705,16 @@ namespace
                 (def.style.labelTextSize == 0)
                     ? 1
                     : def.style.labelTextSize);
-            tft.setTextColor(
-                def.style.colors.label,
-                background);
+            if (transparent)
+            {
+                tft.setTextColor(def.style.colors.label);
+            }
+            else
+            {
+                tft.setTextColor(
+                    def.style.colors.label,
+                    background);
+            }
             tft.setCursor(
                 def.rect.x + FIELD_PADDING,
                 def.rect.y + FIELD_PADDING);

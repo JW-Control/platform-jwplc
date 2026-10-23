@@ -70,8 +70,12 @@ const PARITY = [
   ICON({ name: 'Tanque', id: 'ICON_TANQUE', variable: 'tanque', iconId: 'equipos/tanque', iconSize: 64, x: 120, y: 4, iconState: 2, iconVarType: 'uint8', label: 'T1', layout: 'INLINE', labelSize: 2 }),
   ICON({ name: 'Piloto', id: 'ICON_PILOTO', variable: 'piloto', iconId: 'pilotos/piloto', iconSize: 24, x: 4, y: 120, iconState: 3, iconVarType: 'uint8' }),
   ICON({ name: 'Pulsador', id: 'ICON_PULSADOR', variable: 'pulsador', iconId: 'botones/pulsador', iconSize: 24, x: 40, y: 120, iconState: 1, backgroundColor: 0x2104 }),
-  ICON({ name: 'Sensor', id: 'ICON_SENSOR', variable: 'sensor', iconId: 'sensores/proximidad', iconSize: 32, x: 230, y: 110, iconState: 1, label: 'S1' })
-];
+  ICON({ name: 'Sensor', id: 'ICON_SENSOR', variable: 'sensor', iconId: 'sensores/proximidad', iconSize: 32, x: 230, y: 110, iconState: 1, label: 'S1' }),
+  // Sin fondo sobre un RECT: se ve el RECT fuera de la silueta común de los estados.
+  ICON({ name: 'Bomba', id: 'ICON_BOMBA', variable: 'bomba', iconId: 'bombas/bomba', iconSize: 32, x: 140, y: 100, iconState: 1, iconVarType: 'uint8', label: 'B1', transparentBackground: true, labelColor: 0x0000 }),
+  ICON({ name: 'Valvula2', id: 'ICON_VALVULA2', variable: 'valvula2', iconId: 'valvulas/valvula', iconSize: 24, x: 186, y: 112, iconState: 0, iconVarType: 'uint8', transparentBackground: true, backgroundColor: 0x001F })
+].map((f, i) => ({ ...f, layerOrder: i }));
+const PARITY_RECT = { type: 'RECT', name: 'Placa', key: 'rect-paridad', x: 130, y: 96, x2: 222, y2: 150, fill: true, fillColor: 0xFD20, frameColor: 0xFD20, layerOrder: 90 };
 
 async function main() {
   fs.mkdirSync(OUT, { recursive: true });
@@ -101,11 +105,18 @@ async function main() {
       }
       return '';
     });
-    const L = '#iconsNavBlock';
+    const L = '#iconDropdownMenu';
+    const openMenu = async () => {
+      if (!(await page.locator(L).isVisible())) await page.click('#iconToolBtn');
+    };
     const S = '#iconInspectorSection';
 
     console.log('BIBLIOTECA');
     const total = await page.evaluate(() => window.JWPLCIconCatalog.icons.length);
+    check(await page.evaluate(() => Boolean(document.querySelector('.canvas-toolbar #iconToolBtn')) && !document.querySelector('.left-panel [data-icons-grid]')),
+      'la biblioteca está en la barra del lienzo, no en el panel izquierdo');
+    check(!(await page.locator(L).isVisible()), 'el menú Iconos empieza cerrado');
+    await openMenu();
     await page.click(`${L} [data-icons-cat=""]`);
     check(await page.locator(`${L} [data-icon-id]`).count() === total, `«Todos» muestra los ${total} iconos`);
     await page.click(`${L} [data-icons-cat="valvulas"]`);
@@ -117,8 +128,10 @@ async function main() {
     await page.fill(`${L} [data-icons-search]`, '');
     await page.click(`${L} [data-icons-cat="motores"]`);
     await page.click(`${L} [data-icons-pick-size="48"]`);
+    check(await page.locator(L).isVisible(), 'categorías, búsqueda y tamaño no cierran el menú');
     await page.click(`${L} [data-icon-id="motores/motor"]`);
     await page.waitForTimeout(200);
+    check(!(await page.locator(L).isVisible()), 'agregar un icono cierra el menú');
     let list = await icons();
     check(list.length === 1 && list[0].iconId === 'motores/motor' && list[0].iconSize === 48, 'clic agrega un ICON del tamaño elegido (48 px)');
     check(list[0].iconVarType === 'uint8', 'icono de 3 estados empieza con uint8_t');
@@ -127,6 +140,10 @@ async function main() {
       field: document.getElementById('textFieldControlsSection').hidden
     }));
     check(visible.icon && visible.field, 'se muestra el inspector ICON (y no el de campos)');
+    await openMenu();
+    await page.keyboard.press('Escape');
+    check(!(await page.locator(L).isVisible()), 'Escape cierra el menú');
+    await openMenu();
     await page.click(`${L} [data-icon-id="motores/motor"]`);
     await page.waitForTimeout(200);
     const overlap = await page.evaluate(() => {
@@ -136,6 +153,7 @@ async function main() {
     check(!overlap, 'el segundo icono va a un hueco libre');
 
     // Arrastrar al lienzo.
+    await openMenu();
     await page.click(`${L} [data-icons-cat="pilotos"]`);
     await page.click(`${L} [data-icons-pick-size="24"]`);
     const box = await page.locator('#displayCanvas').boundingBox();
@@ -158,6 +176,16 @@ async function main() {
     sel = await page.evaluate(() => ({ ...window.JWPLCHMIEditor.getSelectedField() }));
     check(sel.label === 'P1' && sel.layout === 'INLINE', 'etiqueta y posición');
     await page.click(`${S} [data-icon-sub="shape"]`);
+    await page.click(`${S} [data-icon-set="transparentBackground"][data-value="1"]`);
+    sel = await page.evaluate(() => ({ ...window.JWPLCHMIEditor.getSelectedField() }));
+    check(sel.transparentBackground === true, 'Fondo: «Sin fondo»');
+    check(/JWPLC_UIColors\([^;]*?\),\n {8}true\)/.test(await header()), 'sin fondo: el header pasa true a JWPLC_UIIconField');
+    // header() deja el lienzo sin selección: se vuelve a elegir el icono.
+    await page.evaluate((key) => { const E = window.JWPLCHMIEditor; E.setSelectedFieldKeys([key]); E.render(); window.JWPLCHMIInspectorState?.sync(); window.JWPLCHMIIcons?.sync(); }, sel.key);
+    await page.waitForTimeout(150);
+    await page.click(`${S} [data-icon-main="design"]`);
+    await page.click(`${S} [data-icon-sub="shape"]`);
+    await page.click(`${S} [data-icon-set="transparentBackground"][data-value="0"]`);
     await page.click(`${S} [data-icon-size="48"]`);
     sel = await page.evaluate(() => ({ ...window.JWPLCHMIEditor.getSelectedField(), w: window.JWPLCHMIEditor.getFieldBounds(window.JWPLCHMIEditor.getSelectedField()).width }));
     check(sel.iconSize === 48 && sel.w > 48, `tamaño 48 px (recuadro ${sel.w} px con etiqueta)`);
@@ -194,11 +222,11 @@ async function main() {
     check((await header()).includes('static const JWPLC_UIIcon HMI_ICON_PROPIO_BOMBA_VIEJA_48('), 'y se genera desde la copia');
 
     console.log('PARIDAD LIENZO (LIVE) / FIRMWARE');
-    const parity = await page.evaluate(async (fields) => {
+    const parity = await page.evaluate(async ([fields, rect]) => {
       const P = window.JWPLCHMIProject;
       const s = P.serialize();
       s.pages = [{ id: 0, name: 'Principal' }];
-      s.fields = fields;
+      s.fields = fields.concat([rect]);
       s.navigationBar = null;
       delete s.iconAssets;
       await P.apply(s);
@@ -211,8 +239,8 @@ async function main() {
       const rgba = canvas.getContext('2d').getImageData(0, 0, 320, 170).data;
       const frame = [];
       for (let i = 0; i < 320 * 170; i += 1) frame.push(((rgba[i * 4] >> 3) << 11) | ((rgba[i * 4 + 1] >> 2) << 5) | (rgba[i * 4 + 2] >> 3));
-      return { frame, states: E.getAllFields().map((f) => f.iconState) };
-    }, PARITY);
+      return { frame, states: E.getAllFields().filter((f) => f.type === 'ICON').map((f) => f.iconState) };
+    }, [PARITY, PARITY_RECT]);
     const parityHeader = await header();
     fs.writeFileSync(path.join(OUT, 'JWPLC_HMI_Generated.h'), parityHeader);
     fs.writeFileSync(path.join(OUT, 'iconos_paridad.jwhmi'), JSON.stringify(await page.evaluate(() => window.JWPLCHMIProject.serialize()), null, 2));
@@ -234,9 +262,15 @@ async function main() {
       let diff = 0;
       let first = -1;
       for (let i = 0; i < 320 * 170; i += 1) {
+        // RECT: el lienzo incluye la columna x2 y la fila y2 y el codegen no
+        // (fillRect de x2 - x): diferencia previa a los iconos, fuera de esta prueba.
+        const x = i % 320;
+        const y = Math.floor(i / 320);
+        const rectEdge = (x === PARITY_RECT.x2 && y >= PARITY_RECT.y && y <= PARITY_RECT.y2) || (y === PARITY_RECT.y2 && x >= PARITY_RECT.x && x <= PARITY_RECT.x2);
+        if (rectEdge) continue;
         if (buf.readUInt16LE(i * 2) !== parity.frame[i]) { diff += 1; if (first < 0) first = i; }
       }
-      check(diff === 0, `lienzo == framebuffer del firmware${diff ? ` (${diff} px distintos, primero en x=${first % 320} y=${Math.floor(first / 320)})` : ' (54400 px, 6 iconos de 24 a 64 px)'}`);
+      check(diff === 0, `lienzo == framebuffer del firmware${diff ? ` (${diff} px distintos, primero en x=${first % 320} y=${Math.floor(first / 320)})` : ' (8 iconos de 24 a 64 px, 2 sin fondo sobre un RECT; sin el borde x2/y2 del RECT)'}`);
     }
 
     console.log('LÍMITE DE CAMPOS');
