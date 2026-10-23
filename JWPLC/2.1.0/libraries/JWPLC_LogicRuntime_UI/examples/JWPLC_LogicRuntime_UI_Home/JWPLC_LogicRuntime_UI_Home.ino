@@ -17,6 +17,8 @@ void setup()
   const bool storageOk = runtime.storage().begin(JWPLC_FRAM);
   const bool runtimeOk =
       runtime.begin(JWPLCLogicStorageProfiles::FRAM_8K.framBytes);
+  // Desde Alpha8 la IDLE no despierta con botones salvo que se pida.
+  JWPLC_Display.setIdleWakeMode(IDLE_WAKE_ANY_BUTTON);
   const bool uiOk = JWPLC_LogicRuntime_UI.begin(runtime);
 
   Serial.print("Storage: ");

@@ -1,6 +1,6 @@
 #include <JW_FRAM.h>
 
-JW_FRAM fram(5);  // Pin CS
+JW_FRAM fram(13);  // Pin CS de la FRAM en el JWPLC Basic (GPIO5 es el CS del W5500)
 
 struct SystemConfig {
   uint8_t configVersion;

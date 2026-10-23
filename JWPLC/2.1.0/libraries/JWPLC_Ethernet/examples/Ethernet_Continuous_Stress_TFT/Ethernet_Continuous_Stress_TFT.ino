@@ -465,6 +465,11 @@ void incrementError(StressError error)
 // -----------------------------------------------------------------------------
 // SPI, alarma y fecha.
 // -----------------------------------------------------------------------------
+// Solo para leer el estado (hardware, enlace, IP) sin que la TFT se
+// intercale. Las operaciones de socket (DNS, connect, envio y recepcion) NO
+// se envuelven: EthernetClient y DNSClient toman el bus en cada operacion y no
+// heredan un jwplcSPI_acquire() hecho fuera de la libreria (no es recursivo),
+// asi que fallarian siempre.
 bool lockEthernet(uint32_t timeoutMs)
 {
   if (!jwplcSPI_acquire(timeoutMs))
@@ -837,8 +842,6 @@ bool probeTcp(IPAddress ip, uint16_t port, uint32_t &latency)
   latency = 0;
   if (!isValidIP(ip))
     return false;
-  if (!lockEthernet(1000))
-    return false;
 
   probeClient.stop();
   probeClient.setConnectionTimeout(TCP_CONNECT_TIMEOUT_MS);
@@ -846,7 +849,6 @@ bool probeTcp(IPAddress ip, uint16_t port, uint32_t &latency)
   bool connected = probeClient.connect(ip, port) == 1;
   latency = millis() - started;
   probeClient.stop();
-  unlockEthernet();
   return connected;
 }
 
@@ -1021,12 +1023,6 @@ StressError resolveTarget(IPAddress &remoteIp, char *detail, size_t detailSize)
     return STRESS_OK;
   }
 
-  if (!lockEthernet(1000))
-  {
-    copyText(detail, detailSize, "Timeout SPI antes de DNS");
-    return STRESS_ERR_SPI_LOCK;
-  }
-
   IPAddress dnsServer = Ethernet.dnsServerIP();
   formatIP(dnsServer, dnsServerText, sizeof(dnsServerText));
   dnsClient.begin(dnsServer);
@@ -1036,7 +1032,6 @@ StressError resolveTarget(IPAddress &remoteIp, char *detail, size_t detailSize)
       STRESS_HOST, remoteIp, DNS_STEP_TIMEOUT_MS);
   lastDnsResult = normalizeDnsResult(rawDnsResult);
   lastDnsMs = millis() - started;
-  unlockEthernet();
 
   if (lastDnsResult != 1 || !isValidIP(remoteIp))
   {
@@ -1079,12 +1074,6 @@ StressError executeHttpTransaction(
   lastFirstByteMs = 0;
   lastHttpMs = 0;
 
-  if (!lockEthernet(1000))
-  {
-    copyText(detail, detailSize, "Timeout SPI antes de TCP connect");
-    return STRESS_ERR_SPI_LOCK;
-  }
-
   stressClient.stop();
   stressClient.setConnectionTimeout(TCP_CONNECT_TIMEOUT_MS);
 
@@ -1096,7 +1085,6 @@ StressError executeHttpTransaction(
   if (!connected)
   {
     stressClient.stop();
-    unlockEthernet();
     lastHttpMs = millis() - totalStarted;
     snprintf(detail, detailSize,
              "TCP connect fallo a %s:%u en %lums",
@@ -1138,7 +1126,6 @@ StressError executeHttpTransaction(
 
   timedOut = stressClient.connected() || stressClient.available() > 0;
   stressClient.stop();
-  unlockEthernet();
 
   lastHttpMs = millis() - totalStarted;
   response[stored] = '\0';
