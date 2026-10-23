@@ -148,8 +148,18 @@
     return field.iconVarType === 'uint8' ? 'uint8_t' : 'bool';
   }
 
-  function iconDeclaration(field, variable) {
-    return iconCppType(field) === 'bool' ? `bool ${variable} = false;` : `uint8_t ${variable} = 0; // estado 0..N-1`;
+  // El comentario nombra los estados (la guía del sketch lo copia en su ejemplo).
+  function iconDeclaration(field, variable, stateNames = []) {
+    const names = (stateNames || []).map((n) => String(n).replace(/[\r\n]+/g, ' '));
+    if (iconCppType(field) === 'bool') {
+      return names.length >= 2 ? `bool ${variable} = false; // ICON: false=${names[0]} true=${names[1]}` : `bool ${variable} = false;`;
+    }
+    const legend = names.length ? names.map((n, i) => `${i}=${n}`).join(' ') : 'estado 0..N-1';
+    return `uint8_t ${variable} = 0; // ICON: ${legend}`;
+  }
+
+  function stateNamesFor(catalog, id) {
+    return findIcon(catalog, id)?.stateNames || [];
   }
 
   function iconSetter(id, variable) {
@@ -174,6 +184,7 @@
     iconFieldBlock,
     iconCppType,
     iconDeclaration,
+    stateNamesFor,
     iconSetter
   });
 });

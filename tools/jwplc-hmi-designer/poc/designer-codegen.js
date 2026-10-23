@@ -226,7 +226,7 @@
     if (field.type === 'VALUE' && window.JWPLCHMICodegenCore?.valueDeclaration) return window.JWPLCHMICodegenCore.valueDeclaration(field, variable);
     if (field.type === 'VALUE' || field.type === 'BAR') return `float ${variable} = 0.0f;`;
     if (field.type === 'BOOL') return `bool ${variable} = false;`;
-    if (field.type === 'ICON') return window.JWPLCIconsCore.iconDeclaration(field, variable);
+    if (field.type === 'ICON') return window.JWPLCIconsCore.iconDeclaration(field, variable, window.JWPLCHMIIcons?.iconInfo?.(field.iconId)?.stateNames || window.JWPLCIconsCore.stateNamesFor(window.JWPLCIconCatalog, field.iconId));
     return window.JWPLCHMICodegenCore.textDeclaration(field, variable);
   }
 

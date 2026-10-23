@@ -81,6 +81,7 @@
   // Una línea de ejemplo por variable de pantalla (las de MENU las cambia el operador).
   function exampleLine(v) {
     if (v.type === 'char' && v.array) return `strncpy(${v.name}, "Listo", sizeof(${v.name}) - 1); // TEXT: ${v.comment || `${v.array - 1} bytes`}`;
+    if (/^ICON:/.test(v.comment)) return `${v.name} = ${v.type === 'bool' ? 'false' : '0'}; // ${v.comment}`;
     if (v.type === 'bool') return `${v.name} = false; // p. ej. digitalRead(I0_0) o el estado de tu lógica`;
     if (v.type === 'float' || v.type === 'double') return `${v.name} = 0.0f; // p. ej. la lectura de tu sensor`;
     return `${v.name} = 0; // p. ej. un contador de tu lógica`;

@@ -439,7 +439,7 @@
     const legend = field.iconVarType === 'uint8'
       ? names.map((n, i) => `//   ${i} = ${n}`).join('\n')
       : `//   false = ${names[0] || 'estado 0'}\n//   true  = ${names[1] || 'estado 1'}`;
-    return `// JWPLC_HMI_Generated.h declara:\n${core.iconDeclaration(field, variable)}\n\n` +
+    return `// JWPLC_HMI_Generated.h declara:\n${core.iconDeclaration(field, variable, names)}\n\n` +
       `// En el loop() o la lógica del PLC:\n${variable} = ...;\n${legend}\n\n` +
       `// jwplcUIUpdate() (generado) llama:\n${core.iconSetter(id, variable)}`;
   }

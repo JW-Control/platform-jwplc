@@ -41,6 +41,7 @@ Repite 2 a 4 hasta que `validate` no dé errores ni avisos y las vistas previas 
 |---|---|
 | `new <archivo> [--name N]` | Crea un proyecto de partida que valida. |
 | `describe [TIPO]` | Lista los tipos o las propiedades de uno (`describe VALUE`, `describe MENU_NODE`). |
+| `icons [categoría\|texto]` | Catálogo de iconos para `ICON`: `iconId`, tamaños y nombre de cada estado (`icons pilotos`, `icons valvula`). |
 | `validate <p> [--fast]` | Valida. Sin `--fast` también carga el proyecto en el Designer y avisa de campos que salen de la pantalla o se pisan. |
 | `preview <p> [-o dir] [--scale N]` | PNG de cada página tal como lo dibuja el lienzo (que replica el firmware). |
 | `generate <p> [-o archivo.h]` | Sólo el header. |
@@ -95,6 +96,11 @@ La CLI acepta un JSON mínimo y completa el resto con los mismos valores por def
   FreeFont (`SANS_*`, `SERIF_*`, `MONO_*`) y `FONT2`/`FONT4` sólo tienen ASCII.
 - `VALUE` reserva el ancho de `integerDigits` + decimales: elige los dígitos del peor caso.
 - BAR: el firmware dibuja sólo la barra horizontal lineal sólida; no hay medidor circular ni degradado.
+- ICON: imagen fija por estado del catálogo (`jwhmi icons`), sin animación. Ocupa `iconSize` (24, 32, 48;
+  64 en algunos) + 3 px de margen por lado, y con etiqueta STACKED suma ~9 px arriba (escala 1).
+  Con 2 estados la variable es `bool`; con más, `uint8_t` y el sketch asigna 0..N-1 (el nombre de cada
+  estado está en `icons`). Un estado fuera de rango deja el último dibujado. Cuenta en los 32 objetos;
+  dos ICON del mismo icono y tamaño comparten el bitmap en flash (una imagen de 64 px pesa 2 KB).
 - MENU: uno por página; necesita teclas (▲▼ OK ESC) y ocupa la página, así que suele ir en una
   página propia («Ajustes»).
 - Con varias páginas el firmware cambia de página con ◀ ▶ (`JWPLC_UI_Pages`); la `NAV_BAR` muestra las pestañas.
@@ -106,6 +112,9 @@ La CLI acepta un JSON mínimo y completa el resto con los mismos valores por def
 - **Indicador grande:** `VALUE` con `valueSize: 3`, `layout: "STACKED"` y etiqueta a escala 1.
 - **Estados de equipos:** `BOOL` con `boolStyle: "PILOT"` (círculo) o con texto y
   `stateColors: true` (`trueBackground: "RED"` para alarmas que llaman la atención).
+- **Equipos con símbolo:** `ICON` (`motores/motor`, `bombas/bomba`, `valvulas/valvula`…) con `label`;
+  para el estado de falla usa el estado 2 de los que lo tienen. Pilotos pequeños: `pilotos/piloto` de 24 px
+  con `layout: "INLINE"` (etiqueta a la izquierda). Ejemplo: `examples/06_iconos.json`.
 - **Nivel de tanque:** `BAR` con `barWidth` del ancho disponible, `frame: true` y `trackColor` oscuro.
 - **Ajustes:** página con un `MENU` de `EDIT_NUM` (consignas) y `EDIT_BOOL` (habilitaciones), un
   `SUBMENU` para lo avanzado y un `GO_IDLE` para volver al inicio.
@@ -149,6 +158,8 @@ como tipo de parámetro (usa `uint8_t`), o compila en host pero falla en ESP32.
 | `sale de la pantalla` / `se pisa con` | Mueve o achica el campo; mira la vista previa. |
 | `«Í» no existe en la fuente de la TFT` | Usa minúsculas acentuadas o quita la tilde. |
 | `la página ya tiene el MENU …` | Un MENU por página. |
+| `icono "motor" no está en el catálogo (¿motores/motor?)` | `iconId` es `categoria/nombre`: búscalo con `jwhmi icons`. |
+| `… tiene 4 estados … y con bool sólo se ven 0 y 1` | Quita `iconVarType: "bool"` (por defecto `uint8` con más de 2 estados). |
 
 ## 9. Abrir y seguir en el Designer
 

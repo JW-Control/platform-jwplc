@@ -1,0 +1,19 @@
+{
+  "$schema": "../schema/jwhmi.schema.json",
+  "projectName": "Iconos_Proceso",
+  "display": { "start": "HMI" },
+  "pages": [
+    { "name": "Proceso", "fields": [
+      { "type": "RECT", "x": 0, "y": 0, "x2": 319, "y2": 16, "fill": true, "fillColor": "NAVY", "frameColor": "NAVY" },
+      { "type": "RAW_TEXT", "text": "Planta de agua", "x": 4, "y": 5, "font": "GLCD", "textColor": "WHITE" },
+      { "type": "ICON", "id": "ICON_TANQUE", "variable": "nivelTanque", "iconId": "equipos/tanque", "iconSize": 64, "label": "Tanque", "iconState": 2, "x": 4, "y": 22 },
+      { "type": "ICON", "id": "ICON_BOMBA", "variable": "estadoBomba", "iconId": "bombas/bomba", "iconSize": 64, "label": "Bomba", "iconState": 1, "x": 84, "y": 22 },
+      { "type": "ICON", "id": "ICON_VALVULA", "variable": "estadoValvula", "iconId": "valvulas/valvula", "iconSize": 48, "label": "Válvula", "iconState": 1, "x": 164, "y": 22 },
+      { "type": "ICON", "id": "ICON_MOTOR", "variable": "estadoMotor", "iconId": "motores/motor", "iconSize": 48, "label": "Agitador", "iconState": 1, "x": 236, "y": 22 },
+      { "type": "ICON", "id": "ICON_PILOTO", "variable": "piloto", "iconId": "pilotos/piloto", "iconSize": 24, "label": "Marcha", "iconState": 1, "layout": "INLINE", "x": 4, "y": 112 },
+      { "type": "ICON", "id": "ICON_ALARMA", "variable": "alarma", "iconId": "alarmas/alarma", "iconSize": 24, "label": "Alarma", "layout": "INLINE", "x": 4, "y": 140 },
+      { "type": "ICON", "id": "ICON_PARO", "variable": "paroEmergencia", "iconId": "botones/paro_emergencia", "iconSize": 32, "label": "Paro", "layout": "INLINE", "frame": true, "x": 164, "y": 112 },
+      { "type": "VALUE", "id": "FIELD_CAUDAL", "variable": "caudal", "label": "Caudal", "unit": "L/m", "x": 164, "y": 150, "integerDigits": 4, "decimalDigits": 1, "valueSize": 1 }
+    ] }
+  ]
+}

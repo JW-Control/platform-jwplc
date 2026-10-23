@@ -4,6 +4,7 @@
 'use strict';
 
 const spec = require('./spec.cjs');
+const icons = require('./icons.cjs');
 
 const COLOR_SCHEMA = {
   description: 'RGB565 (0..65535), "0xF800", "#RRGGBB", "#RGB" o un nombre: ' + Object.keys(spec.NAMED_COLORS).join(', '),
@@ -174,6 +175,12 @@ function buildReference() {
       out.push('#### Nodos de MENU (`nodes[]`)', '', table(spec.MENU_NODE), '',
         'Colores del MENU (`colors`), por defecto:', '',
         Object.entries(spec.MENU_COLORS).map(([k, v]) => `\`${k}\` = \`0x${v.toString(16).toUpperCase().padStart(4, '0')}\``).join(' · '), '');
+    }
+    if (type === 'ICON') {
+      out.push('#### Iconos del catálogo (`iconId`)', '',
+        'El estado `k` de la variable muestra la imagen `k` (bool: 0 = false, 1 = true). También: `jwhmi icons [categoría]`.', '',
+        '| `iconId` | Nombre | Tamaños (px) | Estados (0..N-1) |', '|---|---|---|---|',
+        ...icons.listIcons().map((i) => `| \`${i.id}\` | ${cell(i.name)} | ${i.sizes.join(', ')} | ${cell(i.stateNames.join(' · '))} |`), '');
     }
   }
   out.push('## Capas de píxeles (`pixelMaps[]`)', '', table(spec.PIXELMAP), '',

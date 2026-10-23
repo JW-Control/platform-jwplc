@@ -7,6 +7,7 @@ Cada carpeta es una prueba de hasta dónde llega un agente diseñando una HMI co
 |---|---|---|---|
 | [`01_caldera`](01_caldera/README.md) | 2026-10-23 | HMI exigente libre para mostrar el alcance | 5 páginas, 31/32 objetos, 0 avisos, compila en host y en ESP32. Placa: [no verificado] |
 | [`02_botonera`](02_botonera/README.md) | 2026-10-23 | Algo más creativo e interactivo con la botonera | Receta con cuenta atrás, juego de reflejos con récord, motor con rampa y MENU. 0 avisos, compila en ESP32. Placa: [no verificado] |
+| [`03_iconos`](03_iconos/README.md) | 2026-10-23 | Iconos con estado (tipo ICON) desde la CLI | Planta de agua simulada: 15 ICON de 24 a 64 px en 2 páginas, paro, auto/manual y falla con la botonera. 0 avisos, compila en ESP32. Placa: [no verificado] |
 
 ## Cómo agregar una prueba
 

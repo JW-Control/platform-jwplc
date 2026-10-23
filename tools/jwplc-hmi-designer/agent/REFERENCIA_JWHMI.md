@@ -191,6 +191,63 @@ Barra de nivel horizontal (JWPLC_UIBarField). Declara `float`. El firmware dibuj
 | `barWidth` | entero 20..320 | `110` | Ancho total del campo (px). |
 | `trackColor` | color | `0x0000` | Fondo de la pista (parte vacía). |
 
+### `ICON`
+
+Icono con estado (motor, piloto, válvula…; JWPLC_UIIconField): una imagen por estado, sin animación. Declara `bool` (2 estados) o `uint8_t` (0..N-1, hasta 8). Catálogo: «Iconos del catálogo» o `jwhmi icons`.
+
+| Propiedad | Tipo / valores | Por defecto | Descripción |
+|---|---|---|---|
+| `type` **(obligatoria)** | texto |  | Tipo de objeto. |
+| `name` | texto |  | Nombre visible en la lista de objetos del Designer (no llega al C++). |
+| `id` | identificador C++ |  | Identificador C++ del objeto (único en el proyecto). Si falta se genera FIELD_<TIPO>_<n>. |
+| `page` | entero 0..15 | `0` | Página (id) donde se dibuja. |
+| `layerOrder` | entero 0..9999 |  | Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima). |
+| `x` **(obligatoria)** | entero 0..319 |  | Esquina superior izquierda, X (px). |
+| `y` **(obligatoria)** | entero 0..169 |  | Esquina superior izquierda, Y (px). |
+| `variable` | identificador C++ |  | Variable C++ que el header declara y tu sketch asigna. Si falta se genera. |
+| `label` | texto | `""` | Etiqueta opcional (arriba con STACKED, a la izquierda con INLINE). Vacía = sin etiqueta. |
+| `labelSize` | entero 1..4 | `1` | Escala de la etiqueta (celda GLCD 6×8 px × escala). |
+| `frame` | bool | `false` | Marco alrededor del campo. |
+| `layout` | `"INLINE"` · `"STACKED"` | `"STACKED"` | INLINE: etiqueta y valor en una fila. STACKED: etiqueta arriba, valor abajo. |
+| `labelColor` | color | `0xFFFF` | Color de la etiqueta. |
+| `backgroundColor` | color | `0x0000` | Fondo del campo; también el de los píxeles transparentes del icono. |
+| `frameColor` | color | `0xFFFF` | Color del marco. |
+| `iconId` **(obligatoria)** | texto |  | Icono del catálogo, `categoria/nombre` (p. ej. `motores/motor`). |
+| `iconSize` | `24` · `32` · `48` · `64` | `32` | Lado del icono (px). Sólo los tamaños que tiene ese icono (64 en algunos). |
+| `iconVarType` | `"bool"` · `"uint8"` | `"bool"` | Tipo de la variable: bool usa los estados 0 y 1; uint8 todos (0..N-1). Por defecto bool con 2 estados y uint8 con más. |
+| `iconState` | entero 0..7 | `0` | Estado de muestra en el lienzo. |
+
+#### Iconos del catálogo (`iconId`)
+
+El estado `k` de la variable muestra la imagen `k` (bool: 0 = false, 1 = true). También: `jwhmi icons [categoría]`.
+
+| `iconId` | Nombre | Tamaños (px) | Estados (0..N-1) |
+|---|---|---|---|
+| `motores/motor` | Motor | 24, 32, 48, 64 | Parado · En marcha · Falla |
+| `motores/motor_dos_sentidos` | Motor dos sentidos | 24, 32, 48 | Parado · Adelante · Atrás |
+| `bombas/bomba` | Bomba | 24, 32, 48, 64 | Parado · En marcha · Falla |
+| `bombas/ventilador` | Ventilador | 24, 32, 48, 64 | Parado · En marcha · Falla |
+| `bombas/compresor` | Compresor | 24, 32, 48 | Parado · En marcha · Falla |
+| `pilotos/piloto` | Piloto | 24, 32, 48 | Apagado · Verde · Amarillo · Rojo |
+| `pilotos/baliza` | Torre de señalización | 24, 32, 48 | Apagada · Verde · Amarilla · Roja |
+| `valvulas/valvula` | Válvula | 24, 32, 48, 64 | Cerrada · Abierta · Falla |
+| `valvulas/valvula_motorizada` | Válvula motorizada | 24, 32, 48 | Cerrada · Abierta · Falla |
+| `valvulas/valvula_solenoide` | Electroválvula | 24, 32, 48 | Cerrada · Abierta · Falla |
+| `equipos/tanque` | Tanque (nivel) | 24, 32, 48, 64 | Vacío · Bajo · Medio · Lleno |
+| `equipos/silo` | Silo / tolva | 24, 32, 48, 64 | Vacío · Con material · Falla |
+| `equipos/resistencia` | Resistencia / calefactor | 24, 32, 48 | Apagada · Encendida |
+| `equipos/transportador` | Cinta transportadora | 24, 32, 48, 64 | Parado · En marcha · Falla |
+| `sensores/proximidad` | Sensor de proximidad | 24, 32, 48 | Sin detección · Detección |
+| `sensores/termometro` | Temperatura | 24, 32, 48 | Baja · Normal · Alta |
+| `sensores/manometro` | Presión | 24, 32, 48 | Baja · Normal · Alta |
+| `alarmas/alarma` | Alarma | 24, 32, 48 | Normal · Activa |
+| `alarmas/campana` | Campana / bocina | 24, 32, 48 | Silencio · Sonando |
+| `alarmas/sirena` | Baliza giratoria | 24, 32, 48 | Apagada · Encendida |
+| `botones/pulsador` | Pulsador | 24, 32, 48 | Suelto · Presionado |
+| `botones/paro_emergencia` | Paro de emergencia | 24, 32, 48 | Normal · Activado |
+| `botones/selector` | Selector 0-1 | 24, 32, 48 | Posición 0 · Posición 1 |
+| `botones/contacto` | Contacto / interruptor | 24, 32, 48 | Abierto · Cerrado |
+
 ### `MENU`
 
 Árbol de menús para ver y editar variables con la botonera. Uno por página, hasta 4 en el proyecto, 64 nodos y 3 niveles.

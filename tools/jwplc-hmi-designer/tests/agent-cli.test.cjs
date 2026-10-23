@@ -45,7 +45,7 @@ async function main() {
   try {
     console.log('1. Valores por defecto == Designer');
     // Propiedades de contenido/identidad: el Designer pone ejemplos, la CLI valores neutros.
-    const EXEMPT = new Set(['key', 'name', 'id', 'variable', 'label', 'unit', 'preview', 'x', 'y', 'page', 'layerOrder', 'text', 'textColor', 'backgroundColor', 'height']);
+    const EXEMPT = new Set(['key', 'name', 'id', 'variable', 'label', 'unit', 'preview', 'x', 'y', 'page', 'layerOrder', 'text', 'textColor', 'backgroundColor', 'height', 'iconId', 'iconVarType']);
     const created = await session.page.evaluate(async () => {
       const E = window.JWPLCHMIEditor;
       const r = {};
@@ -53,12 +53,13 @@ async function main() {
       E.addValueField(); r.VALUE = { ...E.getSelectedField() };
       window.JWPLCHMIBool.addBoolField(); await new Promise((x) => setTimeout(x, 80)); r.BOOL = { ...E.getSelectedField() };
       window.JWPLCHMIBar.addBarField(); await new Promise((x) => setTimeout(x, 80)); r.BAR = { ...E.getSelectedField() };
+      r.ICON = { ...E.addIconField('pilotos/piloto', 32) };
       r.RAW_TEXT = { ...E.addRawTextField() };
       r.MENU = window.JWPLCHMIMenu.createDefault('m', 1, []);
       r.DISPLAY = window.JWPLCHMIIdle.defaults();
       return r;
     });
-    for (const type of ['TEXT', 'VALUE', 'BOOL', 'BAR', 'RAW_TEXT', 'MENU']) {
+    for (const type of ['TEXT', 'VALUE', 'BOOL', 'BAR', 'ICON', 'RAW_TEXT', 'MENU']) {
       const props = spec.TYPES[type].props;
       const diffs = Object.entries(created[type])
         .filter(([key]) => !EXEMPT.has(key) && !['nodes', 'colors'].includes(key))
@@ -93,6 +94,12 @@ async function main() {
     check(menu.nodes.length === 2 && menu.nodes[1].parent === menu.nodes[0].key && menu.nodes[1].decimals === 0, 'MENU: children aplanados con parent');
     check(short.fields[0].layerOrder > short.fields[1].layerOrder, 'layerOrder por orden del arreglo (el último queda encima)');
     check(validateProject(short).errors.length === 0, 'la forma corta valida sin errores');
+    const ic = normalizeProject({ pages: ['P'], fields: [
+      { type: 'icon', iconId: 'pilotos/piloto', x: 4, y: 4, iconSize: 44 },
+      { type: 'ICON', iconId: 'alarmas/alarma', x: 60, y: 4 }
+    ] }).fields;
+    check(ic[0].iconSize === 48 && ic[0].iconVarType === 'uint8' && ic[0].variable === 'icon_1' && ic[0].layout === 'STACKED', 'ICON: tamaño más cercano, uint8 con 4 estados, variable y layout por defecto');
+    check(ic[1].iconSize === 32 && ic[1].iconVarType === 'bool', 'ICON de 2 estados: bool y 32 px');
 
     console.log('4. Errores típicos');
     const bad = validateProject(normalizeProject({
@@ -102,7 +109,10 @@ async function main() {
         { type: 'VALUE', id: 'FIELD_A', variable: 'a', x: 4, y: 40, page: 3 },
         { type: 'BOOL', id: 'FIELD_B', variable: 'a', x: 400, y: 4, valueColor: 'rojo' },
         { type: 'CIRCLE', x: 1, y: 1 },
-        { type: 'MENU', x: 0, y: 0, nodes: [{ type: 'EDIT_BOOL', label: 'X', variable: 'x', valueType: 'float' }] }
+        { type: 'MENU', x: 0, y: 0, nodes: [{ type: 'EDIT_BOOL', label: 'X', variable: 'x', valueType: 'float' }] },
+        { type: 'ICON', id: 'ICON_A', x: 4, y: 100, iconId: 'motor' },
+        { type: 'ICON', id: 'ICON_B', x: 60, y: 100, iconId: 'pilotos/piloto', iconVarType: 'bool', iconState: 5 },
+        { type: 'IMAGE', x: 100, y: 100 }
       ]
     }));
     check(has(bad, /align: valor "MIDDLE" no válido.*\(¿CENTER\?\)/), 'enum inválido con sugerencia por sinónimo (MIDDLE -> CENTER)');
@@ -115,6 +125,9 @@ async function main() {
     check(has(bad, /color no válido "rojo"/), 'color inválido');
     check(has(bad, /tipo "CIRCLE" desconocido/), 'tipo desconocido');
     check(has(bad, /tipo float no válido para EDIT_BOOL/), 'MENU: reglas del Designer');
+    check(has(bad, /ICON_A\)\.iconId: icono "motor" no está en el catálogo \(¿motores\/motor\?\)/), 'ICON: icono desconocido con sugerencia por nombre');
+    check(has(bad, /ICON_B\)\.iconVarType:.*usa "uint8"/, 'warnings') && has(bad, /ICON_B\)\.iconState/, 'warnings'), 'ICON: bool con 4 estados y estado fuera de rango (avisos)');
+    check(has(bad, /tipo "IMAGE" desconocido.*\(¿ICON\?\)/), 'ICON: sinónimo IMAGE -> ICON');
 
     const geo = normalizeProject({ pages: ['P'], fields: [
       { type: 'VALUE', id: 'FIELD_X', variable: 'x', x: 280, y: 4, valueSize: 3 },
@@ -135,7 +148,7 @@ async function main() {
 
     console.log('6. Ejemplos');
     const examples = fs.readdirSync(path.join(DESIGNER, 'examples')).filter((f) => f.endsWith('.json')).sort();
-    check(examples.length >= 5, `${examples.length} ejemplos`);
+    check(examples.length >= 6, `${examples.length} ejemplos`);
     for (const file of examples) {
       const project = normalizeProject(JSON.parse(fs.readFileSync(path.join(DESIGNER, 'examples', file), 'utf8')));
       const report = validateProject(project);

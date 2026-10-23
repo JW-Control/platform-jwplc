@@ -173,7 +173,7 @@ async function main() {
 
     const text = await header();
     check(/JWPLC_UIIconField\(\n {8}FIELD_ICON_\d+,/.test(text) && text.includes('#ifndef JWPLC_UI_HAS_ICON'), 'header con JWPLC_UIIconField y guarda de versión');
-    check(text.includes('JWPLC_Display.setIconState(') && /uint8_t \w+ = 0; \/\/ estado 0..N-1/.test(text), 'variable uint8_t y setIconState en jwplcUIUpdate()');
+    check(text.includes('JWPLC_Display.setIconState(') && /uint8_t \w+ = 0; \/\/ ICON: 0=\S+/.test(text), 'variable uint8_t y setIconState en jwplcUIUpdate()');
     check((text.match(/static const JWPLC_UIIcon HMI_ICON_MOTORES_MOTOR_48\(/g) || []).length === 1, 'dos ICON del mismo icono y tamaño comparten un solo JWPLC_UIIcon');
 
     console.log('GUARDAR / ABRIR');

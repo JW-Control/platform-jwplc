@@ -171,16 +171,16 @@ Estado de adopción por tipo: ver `ALPHA15_STATUS.md` (§Inspector).
   emite TEXT/VALUE; BOOL/BAR salen como `JWPLC_UITextField` provisional que reemplazan sus capas.
 - Tras tocar el codegen: `node tests/codegen-golden.cjs` (salida byte a byte) y
   `node tests/codegen-smoke.cjs`. Un cambio intencional: `--update` y revisar el diff.
-- Tras tocar JS/CSS: subir el `?v=` del archivo tocado (hoy 1793801300; `app.js` y los archivos de ICON 1793801700) en
+- Tras tocar JS/CSS: subir el `?v=` del archivo tocado (hoy 1793801300; ICON 1793801700; `app.js`, `designer-codegen`, `designer-icons*` y `designer-sketch-guide` 1793801800) en
   `index.html`/`desktop.html`/`ux-foundation.js`/`designer-field-visibility.js` y `CACHE_NAME` en
-  `service-worker.js` (hoy `jwplc-hmi-designer-a16-v44`).
+  `service-worker.js` (hoy `jwplc-hmi-designer-a16-v45`).
 - Versión visible: `2.1.0-alpha.14` (título, `.brand-badge`, `.gate` de la barra de estado, panel «Estado»,
   `electron/package.json`). El comentario `// API pública JWPLC_UI · Alpha11 A11-4` del header generado es un
   marcador interno de las capas del codegen: no cambiarlo.
 
 ## Proyectos por JSON (agentes, sin UI)
 
-- CLI `cli/jwhmi.cjs` (`validate`, `preview`, `check`, `build --sketch`): normaliza la forma corta, valida,
+- CLI `cli/jwhmi.cjs` (`validate`, `preview`, `check`, `build --sketch`, `icons`): normaliza la forma corta, valida,
   y genera el header con el Designer real en Chromium headless (byte a byte igual que «Escribir en sketch»).
   Guía: `agent/GUIA_AGENTES.md`; ejemplos: `examples/`; skill del repo `hmi-designer-proyectos`.
 - `cli/lib/spec.cjs` es la fuente del formato (esquema `schema/jwhmi.schema.json` y `agent/REFERENCIA_JWHMI.md`
@@ -196,6 +196,7 @@ node tests/value-format-parity.cjs      # formato de VALUE: JWPLC_UI_Format.cpp 
 node tests/inspector-smoke.cjs          # inspector TEXT/VALUE/BOOL/BAR + paridad BAR
 node tests/menu-host-sim.cjs            # MENU: JWPLC_UI_Menu.cpp real en host (g++)
 node tests/menu-smoke.cjs               # MENU: Designer + paridad lienzo/firmware + header
+node tests/icon-catalog.test.cjs        # catálogo de iconos al día y dentro de los límites
 node tests/icon-host-sim.cjs            # ICON: JWPLC_UI.cpp real en host (g++)
 node tests/icon-smoke.cjs               # ICON: Designer + paridad lienzo/firmware + header
 node tests/sketch-menu-smoke.cjs        # Escribir en sketch + menú del sketch

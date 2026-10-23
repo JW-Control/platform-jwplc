@@ -7,11 +7,13 @@
 //   - colores como número, "0xF800", "#FF8800" o nombre ("RED");
 //   - valores por defecto de cada tipo (spec.cjs), ids y variables únicos;
 //   - nodos de MENU anidados con `children`;
+//   - ICON: tamaño disponible más cercano y bool/uint8_t según sus estados;
 //   - layerOrder por orden del arreglo (el último queda encima).
 // Nunca lanza: lo que no puede arreglar lo deja para validate.cjs.
 'use strict';
 
 const spec = require('./spec.cjs');
+const icons = require('./icons.cjs');
 
 const clone = (value) => JSON.parse(JSON.stringify(value === undefined ? null : value));
 const isObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -201,7 +203,18 @@ function normalizeField(raw, index, ctx) {
   if (field.type === 'VALUE' && field.preview === undefined) field.preview = valueSample(field);
   if (field.type === 'TEXT' && field.preview === undefined) field.preview = 'X'.repeat(Math.max(1, Math.min(39, Number(field.capacity) || 1)));
   if (field.type === 'MENU') normalizeMenu(field);
+  if (field.type === 'ICON') normalizeIcon(field, raw, ctx);
   return field;
+}
+
+// Como app.js addIconField: tamaño que exista y uint8_t con más de 2 estados.
+function normalizeIcon(field, raw, ctx) {
+  field.iconId = String(field.iconId || '').trim();
+  const info = icons.iconInfo(field.iconId, ctx.iconAssets);
+  if (!info) return;
+  if (!raw.name) field.name = `${info.name} (${field.id})`;
+  if (info.sizes.length) field.iconSize = icons.resolveSize(info, field.iconSize);
+  if (field.iconVarType === undefined) field.iconVarType = info.stateNames.length > 2 ? 'uint8' : 'bool';
 }
 
 function valueSample(field) {
@@ -249,7 +262,8 @@ function normalizeProject(input, options = {}) {
   normalizePages(project);
 
   const explicit = (key) => new Set(project.fields.filter((f) => isObject(f) && f[key]).map((f) => String(f[key])));
-  const ctx = { ids: explicit('id'), variables: explicit('variable') };
+  const iconAssets = isObject(project.iconAssets) ? project.iconAssets : undefined;
+  const ctx = { ids: explicit('id'), variables: explicit('variable'), iconAssets };
   const fields = project.fields.map((field, index) => normalizeField(field, index, ctx));
   assignLayerOrder(fields);
 
@@ -268,7 +282,8 @@ function normalizeProject(input, options = {}) {
     pages: project.pages,
     fields,
     declarativeOnly: true,
-    pixelMaps: (Array.isArray(project.pixelMaps) ? project.pixelMaps : []).map(normalizePixelMap)
+    pixelMaps: (Array.isArray(project.pixelMaps) ? project.pixelMaps : []).map(normalizePixelMap),
+    ...(iconAssets ? { iconAssets } : {})
   };
 }
 

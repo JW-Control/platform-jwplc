@@ -11,6 +11,7 @@ const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 const spec = require('./spec.cjs');
+const icons = require('./icons.cjs');
 
 const POC = path.resolve(__dirname, '..', '..', 'poc');
 const SYMBOL = /^[A-Za-z_][A-Za-z0-9_]*$/;
@@ -50,7 +51,8 @@ function levenshtein(a, b) {
 // Sinónimos frecuentes (en inglés o de otras librerías) de los valores enumerados.
 const ALIASES = { MIDDLE: 'CENTER', CENTRE: 'CENTER', MID: 'CENTER', ROW: 'INLINE', HORIZONTAL: 'INLINE', COLUMN: 'STACKED', VERTICAL: 'STACKED',
   STACK: 'STACKED', LED: 'PILOT', LAMP: 'PILOT', CIRCLE: 'ELLIPSE', SQUARE: 'RECT', RECTANGLE: 'RECT', LABEL: 'RAW_TEXT', NUMBER: 'VALUE',
-  TIME: 'DURATION', CLOCK: 'DATETIME', DATE: 'DATETIME', PROGRESS: 'BAR', GAUGE: 'BAR', SWITCH: 'BOOL', BUTTON: 'BOOL' };
+  TIME: 'DURATION', CLOCK: 'DATETIME', DATE: 'DATETIME', PROGRESS: 'BAR', GAUGE: 'BAR', SWITCH: 'BOOL', BUTTON: 'BOOL',
+  IMAGE: 'ICON', IMAGEN: 'ICON', ICONO: 'ICON', SYMBOL: 'ICON', BITMAP: 'ICON' };
 
 function closest(word, candidates) {
   const alias = ALIASES[String(word).toUpperCase()];
@@ -153,6 +155,7 @@ function cppType(field) {
   if (field.type === 'TEXT') return 'char[]';
   if (field.type === 'BOOL') return 'bool';
   if (field.type === 'BAR') return 'float';
+  if (field.type === 'ICON') return field.iconVarType === 'uint8' ? 'uint8_t' : 'bool';
   if (field.type === 'VALUE') {
     if (field.valueKind === 'DATETIME') return null;
     const integer = field.valueKind === 'DURATION' || ([',', '.', ' '].includes(field.thousandsSep) && !(Number(field.decimalDigits) > 0));
@@ -182,6 +185,7 @@ function validateField(field, i, project, report) {
     case 'VALUE':
     case 'BOOL':
     case 'BAR':
+    case 'ICON':
       noGlyph(report, where, `${field.label || ''}${field.unit || ''}${field.falseText || ''}${field.trueText || ''}${field.barLabel || ''}${field.barUnit || ''}`);
       break;
     case 'RAW_TEXT':
@@ -202,6 +206,7 @@ function validateField(field, i, project, report) {
       if (field[key] !== undefined && field[key] !== ok) report.warn(`${where}.${key}`, `el firmware sólo dibuja ${key} = ${ok}; se generará así`);
     }
   }
+  if (field.type === 'ICON') validateIcon(field, where, project, report);
   if (spec.SHAPE_TYPES.includes(field.type)) {
     if (field.type !== 'LINE' && (field.x === field.x2 || field.y === field.y2)) report.warn(where, 'la caja tiene ancho o alto 0: no se verá');
   }
@@ -216,6 +221,26 @@ function validateField(field, i, project, report) {
       }
     }
   }
+}
+
+function validateIcon(field, where, project, report) {
+  const info = icons.iconInfo(field.iconId, project.iconAssets);
+  if (!info) {
+    const ids = icons.listIcons().map((i) => i.id);
+    const wanted = String(field.iconId || '');
+    const byName = ids.filter((id) => id.split('/').pop() === wanted.split('/').pop().toLowerCase());
+    const hint = byName.length ? byName.join(' o ') : closest(wanted, ids);
+    report.error(`${where}.iconId`, `icono ${JSON.stringify(field.iconId)} no está en el catálogo${hint ? ` (¿${hint}?)` : ''}; lista: jwhmi icons`);
+    return;
+  }
+  if (!info.sizes.includes(Number(field.iconSize))) {
+    report.error(`${where}.iconSize`, `${info.id} no tiene ${field.iconSize} px; tamaños: ${info.sizes.join(', ')}`);
+  }
+  const states = info.stateNames.length;
+  if (field.iconVarType !== 'uint8' && states > 2) {
+    report.warn(`${where}.iconVarType`, `${info.id} tiene ${states} estados (${info.stateNames.join(', ')}) y con bool sólo se ven 0 y 1; usa "uint8"`);
+  }
+  if (Number(field.iconState) >= states) report.warn(`${where}.iconState`, `${info.id} tiene los estados 0..${states - 1}`);
 }
 
 function validateProject(project) {

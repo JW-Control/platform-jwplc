@@ -8,6 +8,8 @@ description: Crear o modificar un proyecto completo del JWPLC HMI Designer (.jwh
 1. Lee `tools/jwplc-hmi-designer/agent/GUIA_AGENTES.md` (flujo, reglas de la TFT, recetas) y, para
    cada propiedad, `agent/REFERENCIA_JWHMI.md` o `node tools/jwplc-hmi-designer/cli/jwhmi.cjs describe <TIPO>`.
 2. Parte de un ejemplo de `tools/jwplc-hmi-designer/examples/` o de `jwhmi new`.
+   Para equipos con símbolo (motor, bomba, válvula, piloto…) usa `ICON`: `jwhmi icons` lista los
+   `iconId`, tamaños y estados (`examples/06_iconos.json`).
 3. Itera con `validate` hasta 0 errores y 0 avisos, y **mira** los PNG de `preview` antes de entregar.
 4. `check` (compila en host) y `build --sketch <carpeta>` para escribir header, `.jwhmi` y guía.
    El `.ino` del usuario nunca se escribe (sólo `--create-ino` crea uno si no existe).

@@ -162,6 +162,26 @@ const TYPES = {
       transparentBackground: { kind: 'bool', desc: 'Sin uso.', internal: true }
     }
   },
+  ICON: {
+    group: 'campo',
+    desc: 'Icono con estado (motor, piloto, válvula…; JWPLC_UIIconField): una imagen por estado, sin animación. Declara `bool` (2 estados) o `uint8_t` (0..N-1, hasta 8). Catálogo: «Iconos del catálogo» o `jwhmi icons`.',
+    props: {
+      ...FIELD,
+      iconId: str('Icono del catálogo, `categoria/nombre` (p. ej. `motores/motor`).', { required: true }),
+      iconSize: oneOf([24, 32, 48, 64], 'Lado del icono (px). Sólo los tamaños que tiene ese icono (64 en algunos).', { default: 32 }),
+      iconVarType: oneOf(['bool', 'uint8'], 'Tipo de la variable: bool usa los estados 0 y 1; uint8 todos (0..N-1). Por defecto bool con 2 estados y uint8 con más.', { doc: 'bool' }),
+      iconState: int(0, 7, 'Estado de muestra en el lienzo.', { default: 0 }),
+      label: str('Etiqueta opcional (arriba con STACKED, a la izquierda con INLINE). Vacía = sin etiqueta.', { default: '' }),
+      layout: { ...FIELD.layout, default: 'STACKED' },
+      valueColor: color('Sin uso (los colores salen del icono).', { default: 0xFFFF, internal: true }),
+      backgroundColor: color('Fondo del campo; también el de los píxeles transparentes del icono.', { default: 0x0000 }),
+      valueSize: int(1, 4, 'Uso interno.', { default: 1, internal: true }),
+      align: { ...FIELD.align, default: 'LEFT', internal: true },
+      unit: str('Sin uso.', { default: '', internal: true }),
+      preview: str('Sin uso.', { internal: true }),
+      capacity: int(1, 39, 'Uso interno.', { default: 1, internal: true })
+    }
+  },
   MENU: {
     group: 'menu',
     desc: 'Árbol de menús para ver y editar variables con la botonera. Uno por página, hasta 4 en el proyecto, 64 nodos y 3 niveles.',
@@ -316,6 +336,7 @@ const PROJECT = {
   pages: { kind: 'array', desc: 'Páginas (1 a 16).', required: true },
   fields: { kind: 'array', desc: 'Objetos (máximo 32 contando la NAV_BAR).', default: [] },
   pixelMaps: { kind: 'array', desc: 'Capas de píxeles (máximo 16).', default: [] },
+  iconAssets: { kind: 'object', desc: 'Copia de los bitmaps de los ICON usados (la guarda el Designer).', internal: true },
   declarativeOnly: { kind: 'bool', desc: 'Siempre true.', default: true, internal: true },
   $schema: { kind: 'string', desc: 'Ruta opcional al esquema JSON (para editores).', internal: true }
 };
@@ -324,6 +345,6 @@ const TARGET = Object.freeze({ display: 'ST7789', width: 320, height: 170, rotat
 
 module.exports = {
   SCREEN, LIMITS, NAMED_COLORS, FONTS, TYPES, MENU_NODE, MENU_COLORS, MENU_KINDS, PAGE, DISPLAY, PIXELMAP, PROJECT, TARGET,
-  FIELD_TYPES: ['TEXT', 'VALUE', 'BOOL', 'BAR'],
+  FIELD_TYPES: ['TEXT', 'VALUE', 'BOOL', 'BAR', 'ICON'],
   SHAPE_TYPES: Object.keys(SHAPE_DESC)
 };
