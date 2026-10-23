@@ -1,0 +1,72 @@
+{
+  "format": "JWPLC_HMI_PROJECT",
+  "version": 1,
+  "target": {
+    "display": "ST7789",
+    "width": 320,
+    "height": 170,
+    "rotation": 3,
+    "pixelFormat": "RGB565"
+  },
+  "projectName": "A15_F0_OpenPLC_Bool_Rele",
+  "savedAt": "2026-10-17T13:30:08.752Z",
+  "activePage": 0,
+  "navigationBar": {
+    "enabled": false,
+    "preset": "industrial-color",
+    "position": "bottom",
+    "height": 22,
+    "showIndicator": true,
+    "showArrows": true
+  },
+  "display": {
+    "start": "IDLE",
+    "wake": "ANY",
+    "wakeButton": "BTN_OK",
+    "back": "ESC",
+    "backButton": "BTN_LEFT",
+    "timeoutS": 15
+  },
+  "pages": [
+    {
+      "id": 0,
+      "name": "Rele"
+    }
+  ],
+  "fields": [
+    {
+      "type": "BOOL",
+      "name": "Relé Q0_0",
+      "id": "FIELD_RELE_Q0_0",
+      "variable": "rele_q0_0",
+      "capacity": 3,
+      "x": 40,
+      "y": 50,
+      "preview": "OFF",
+      "label": "Rele Q0.0",
+      "unit": "",
+      "valueSize": 4,
+      "labelSize": 2,
+      "frame": true,
+      "layout": "INLINE",
+      "align": "CENTER",
+      "page": 0,
+      "labelColor": 65535,
+      "valueColor": 65535,
+      "backgroundColor": 0,
+      "frameColor": 65535,
+      "layerOrder": 1,
+      "falseText": "OFF",
+      "trueText": "ON",
+      "boolValue": false,
+      "stateColors": true,
+      "falseColor": 65535,
+      "trueColor": 0,
+      "falseBackground": 63488,
+      "trueBackground": 2016,
+      "cornerRadius": 0
+    }
+  ],
+  "declarativeOnly": true,
+  "pixelMaps": []
+}

@@ -29,15 +29,13 @@
   }
 
   function numericSample(field) {
-    const integers = Math.max(1, Math.trunc(Number(field.integerDigits) || 1));
-    const decimals = Math.max(0, Math.trunc(Number(field.decimalDigits) || 0));
-    return `${field.signedValue ? '-' : ''}${'8'.repeat(integers)}${decimals ? `.${'8'.repeat(decimals)}` : ''}`;
+    return window.JWPLCValueFormat.sample(field);
   }
 
   function barRect(field) {
     const labelText = String(field.barLabel ?? field.label ?? 'Nivel');
     const unitText = String(field.barUnit ?? field.unit ?? '%');
-    const pad = Math.max(FIELD_PADDING, Math.max(1, Math.trunc(Number(field.labelSize) || 1)));
+    const pad = Math.max(FIELD_PADDING, Math.max(1, Math.trunc(Number(field.labelSize) || 1)) + 1);
     const label = textBounds(labelText, field.labelSize);
     const unit = textBounds(unitText, field.labelSize);
     let valueW = BAR_W;
@@ -46,25 +44,27 @@
 
     if (field.barAutoWidth === false) {
       width = Math.max(24, Math.min(WIDTH, Math.trunc(Number(field.barWidth) || 110)));
-      let available = width - 2 * pad;
+      let available = width - (FIELD_PADDING + pad);
       if (field.layout === 'INLINE' && label.width) available -= label.width + FIELD_GAP;
       if (unit.width) available -= unit.width + FIELD_GAP;
       valueW = Math.max(1, available);
     }
 
     if (field.layout === 'STACKED') {
-      if (field.barAutoWidth !== false) width = 2 * pad + Math.max(label.width, valueW + (unit.width ? FIELD_GAP + unit.width : 0));
-      height = 2 * pad + label.height + (label.height ? FIELD_GAP : 0) + Math.max(BAR_H, unit.height);
+      if (field.barAutoWidth !== false) width = (FIELD_PADDING + pad) + Math.max(label.width, valueW + (unit.width ? FIELD_GAP + unit.width : 0));
+      height = (FIELD_PADDING + pad) + label.height + (label.height ? FIELD_GAP : 0) + Math.max(BAR_H, unit.height);
     } else {
-      if (field.barAutoWidth !== false) width = 2 * pad + label.width + (label.width ? FIELD_GAP : 0) + valueW + (unit.width ? FIELD_GAP + unit.width : 0);
-      height = 2 * pad + Math.max(label.height, BAR_H, unit.height);
+      if (field.barAutoWidth !== false) width = (FIELD_PADDING + pad) + label.width + (label.width ? FIELD_GAP : 0) + valueW + (unit.width ? FIELD_GAP + unit.width : 0);
+      height = (FIELD_PADDING + pad) + Math.max(label.height, BAR_H, unit.height);
     }
     return { x: Number(field.x) || 0, y: Number(field.y) || 0, width, height };
   }
 
   function fieldRect(field) {
+    const exact = editor()?.getFieldBounds?.(field);
+    if (exact) return exact;
     if (field.type === 'BAR') return barRect(field);
-    const pad = Math.max(FIELD_PADDING, Number(field.labelSize) || 1, Number(field.valueSize) || 1);
+    const pad = Math.max(FIELD_PADDING, (Number(field.labelSize) || 1) + 1, (Number(field.valueSize) || 1) + 1);
     const label = textBounds(field.label, field.labelSize);
     const unit = textBounds(field.unit, field.labelSize);
     let valueText;
@@ -78,11 +78,11 @@
     let width;
     let height;
     if (field.layout === 'STACKED') {
-      width = 2 * pad + Math.max(label.width, value.width + (unit.width ? FIELD_GAP + unit.width : 0));
-      height = 2 * pad + label.height + (label.height ? FIELD_GAP : 0) + Math.max(value.height, unit.height);
+      width = (FIELD_PADDING + pad) + Math.max(label.width, value.width + (unit.width ? FIELD_GAP + unit.width : 0));
+      height = (FIELD_PADDING + pad) + label.height + (label.height ? FIELD_GAP : 0) + Math.max(value.height, unit.height);
     } else {
-      width = 2 * pad + label.width + (label.width ? FIELD_GAP + 0 : 0) + value.width + (unit.width ? FIELD_GAP + unit.width : 0);
-      height = 2 * pad + Math.max(label.height, value.height, unit.height);
+      width = (FIELD_PADDING + pad) + label.width + (label.width ? FIELD_GAP + 0 : 0) + value.width + (unit.width ? FIELD_GAP + unit.width : 0);
+      height = (FIELD_PADDING + pad) + Math.max(label.height, value.height, unit.height);
     }
     return { x: Number(field.x) || 0, y: Number(field.y) || 0, width, height };
   }
@@ -120,20 +120,31 @@
   function restoreFields() {
     restoreQueued = false;
     if (!haveBase) return;
-    const zoom = display.width / WIDTH;
-    const dctx = display.getContext('2d');
-    const pctx = preview.getContext('2d');
-    (editor()?.getFieldsForPage?.(activePage()) || []).forEach((field) => {
-      const rect = fieldRect(field);
-      if (!rect || rect.width <= 0 || rect.height <= 0) return;
-      const sx = Math.max(0, rect.x);
-      const sy = Math.max(0, rect.y);
-      const sw = Math.min(WIDTH - sx, rect.width);
-      const sh = Math.min(HEIGHT - sy, rect.height);
-      if (sw <= 0 || sh <= 0) return;
-      dctx.drawImage(baseDisplay, sx * zoom, sy * zoom, sw * zoom, sh * zoom, sx * zoom, sy * zoom, sw * zoom, sh * zoom);
-      pctx.drawImage(basePreview, sx, sy, sw, sh, sx, sy, sw, sh);
-    });
+    if (typeof editor()?.getPixelFieldOrder !== 'function') {
+      const zoom = display.width / WIDTH;
+      const dctx = display.getContext('2d');
+      const pctx = preview.getContext('2d');
+      const pageMaps = (window.JWPLCHMIPixelMaps?.getAll?.() || []).filter(
+        (m) => Number(m.page || 0) === activePage() && m.editorVisible !== false
+      );
+      const minMapOrder = pageMaps.reduce((min, m) => Math.min(min, Number(m.layerOrder) || Infinity), Infinity);
+      (editor()?.getFieldsForPage?.(activePage()) || []).forEach((field) => {
+        if (field.hidden) return;
+        if ((Number(field.layerOrder) || 0) > minMapOrder) return;
+        const rect = fieldRect(field);
+        if (!rect || rect.width <= 0 || rect.height <= 0) return;
+        const sx = Math.max(0, rect.minX ?? rect.x ?? 0);
+        const sy = Math.max(0, rect.minY ?? rect.y ?? 0);
+        const sw = Math.min(WIDTH - sx, rect.width);
+        const sh = Math.min(HEIGHT - sy, rect.height);
+        if (sw <= 0 || sh <= 0) return;
+        dctx.drawImage(baseDisplay, sx * zoom, sy * zoom, sw * zoom, sh * zoom, sx * zoom, sy * zoom, sw * zoom, sh * zoom);
+        pctx.drawImage(basePreview, sx, sy, sw, sh, sx, sy, sw, sh);
+      });
+    }
+    if (editor()?.hasFieldSelection?.()) {
+      editor()?.drawSelectionAndGuides?.();
+    }
   }
 
   function queueRestore() {
@@ -150,9 +161,18 @@
     captureBase();
     queueRestore();
   });
-  document.addEventListener('pointerdown', queueRestore, true);
-  document.addEventListener('pointermove', (event) => { if (event.buttons) queueRestore(); }, true);
-  document.addEventListener('click', queueRestore, true);
+  document.addEventListener('pointerdown', () => {
+    const tool = editor()?.getSelectedTool?.();
+    if (tool !== 'pixel' && tool !== 'erase') queueRestore();
+  }, true);
+  document.addEventListener('pointermove', (event) => {
+    const tool = editor()?.getSelectedTool?.();
+    if (tool !== 'pixel' && tool !== 'erase' && event.buttons) queueRestore();
+  }, true);
+  document.addEventListener('click', () => {
+    const tool = editor()?.getSelectedTool?.();
+    if (tool !== 'pixel' && tool !== 'erase') queueRestore();
+  }, true);
 
   function wrapCodegen() {
     const cg = window.JWPLCHMICodegen;

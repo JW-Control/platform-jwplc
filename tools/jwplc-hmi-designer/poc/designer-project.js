@@ -73,11 +73,21 @@
     style.id = 'a11-project-integration-style';
     style.textContent = `
       .a11-project-button.linked {
-        border-color:#3da98a !important;
-        box-shadow:0 0 0 1px rgba(61,169,138,.22) inset;
+        border-color: rgba(67, 209, 122, 0.48) !important;
+        background: rgba(67, 209, 122, 0.11) !important;
+        color: #7af0ae !important;
+        box-shadow: inset 0 1px 0 rgba(67, 209, 122, 0.18);
       }
-      .a11-project-button.update-ready {
-        border-color:#ff8a2a !important;
+      .a11-project-button.update-ready:not(:disabled) {
+        border-color: rgba(0, 215, 239, 0.55) !important;
+        background: linear-gradient(180deg, rgba(0, 215, 239, 0.15) 0%, rgba(0, 215, 239, 0.07) 100%) !important;
+        color: #52c9ff !important;
+        box-shadow: inset 0 -2px 0 rgba(0, 215, 239, 0.45);
+      }
+      .a11-project-button.update-ready:not(:disabled):hover {
+        border-color: #00d7ef !important;
+        background: linear-gradient(180deg, rgba(0, 215, 239, 0.24) 0%, rgba(0, 215, 239, 0.12) 100%) !important;
+        color: #ffffff !important;
       }
       .a11-project-status {
         display:inline-flex;
@@ -255,15 +265,43 @@
       projectName,
       savedAt: new Date().toISOString(),
       activePage: Number(api?.getActivePage?.() || 0),
+      navigationBar: api?.getNavBarConfig?.() || null,
+      // A15-7: entrada/salida de la pantalla IDLE (designer-idle.js).
+      display: window.JWPLCHMIIdle?.get?.() || null,
       pages,
       fields,
       declarativeOnly: true
     };
   }
 
+  // A15-2: proyectos guardados tras borrar una página intermedia podían tener
+  // ids no contiguos (p. ej. [0, 2]). Se renumeran al abrir en lugar de
+  // rechazarlos; los PixelMaps de páginas inexistentes se descartan.
+  function normalizePageIds(data) {
+    const sorted = data.pages.slice().sort((a, b) => Number(a.id) - Number(b.id));
+    if (sorted.every((page, index) => Number(page.id) === index)) return;
+    const remap = new Map(sorted.map((page, index) => [Number(page.id), index]));
+    const isGlobal = (field) => field.type === 'NAV_BAR' || field.global;
+
+    data.pages = sorted.map((page) => ({ ...page, id: remap.get(Number(page.id)) }));
+    data.fields = data.fields
+      .filter((field) => isGlobal(field) || remap.has(Number(field.page || 0)))
+      .map((field) => isGlobal(field) ? field : { ...field, page: remap.get(Number(field.page || 0)) });
+    if (Array.isArray(data.pixelMaps)) {
+      const before = data.pixelMaps.length;
+      data.pixelMaps = data.pixelMaps
+        .filter((map) => remap.has(Number(map.page || 0)))
+        .map((map) => ({ ...map, page: remap.get(Number(map.page || 0)) }));
+      if (data.pixelMaps.length !== before) {
+        console.warn(`[JWPLC HMI] ${before - data.pixelMaps.length} PixelMap(s) de páginas borradas descartados al abrir.`);
+      }
+    }
+    data.activePage = remap.get(Number(data.activePage || 0)) ?? 0;
+  }
+
   function validateProject(data) {
     if (!data || data.format !== PROJECT_FORMAT || Number(data.version) !== PROJECT_VERSION) {
-      throw new Error('El archivo no es un proyecto JWPLC HMI compatible con Alpha11.');
+      throw new Error('El archivo no es un proyecto compatible con el JWPLC HMI Designer.');
     }
     if (!Array.isArray(data.pages) || !data.pages.length || data.pages.length > 16) {
       throw new Error('El proyecto contiene una cantidad de páginas inválida.');
@@ -272,11 +310,7 @@
       throw new Error('El proyecto contiene una cantidad de campos inválida.');
     }
 
-    const ids = data.pages.map((page) => Number(page.id)).sort((a, b) => a - b);
-    if (ids.some((id, index) => id !== index)) {
-      throw new Error('Alpha11 requiere páginas contiguas desde 0.');
-    }
-
+    normalizePageIds(data);
     return data;
   }
 
@@ -284,7 +318,8 @@
     return fields.map((field, index) => ({
       ...field,
       key: `${String(field.type || 'TEXT').toLowerCase()}-${index + 1}`,
-      page: Number(field.page || 0)
+      page: Number(field.page || 0),
+      cornerRadius: Number(field.cornerRadius || 0)
     }));
   }
 
@@ -299,12 +334,24 @@
     suppressDirty = true;
     document.getElementById('newProjectButton')?.click();
 
+    if (normalized.navigationBar && api.setNavBarConfig) {
+      api.setNavBarConfig(normalized.navigationBar);
+    }
+    // Proyectos sin `display` toman los valores por defecto.
+    window.JWPLCHMIIdle?.set?.(normalized.display || null);
+
     if (pages[0]?.name && pages[0].name !== 'Principal') {
       api.renamePage?.(0, pages[0].name);
     }
     for (let i = 1; i < pages.length; i += 1) {
       api.addPage?.(pages[i].name || `Página ${i + 1}`);
     }
+
+    pages.forEach((p) => {
+      if (api.setPageMetadata) {
+        api.setPageMetadata(p.id, { shortName: p.shortName, color: p.color });
+      }
+    });
 
     const desiredCount = Math.max(1, importedFields.length);
     const currentFields = api.getAllFields();
@@ -475,6 +522,16 @@
     if (updateButton()) updateButton().disabled = !linked;
   }
 
+  async function unlinkSketch() {
+    if (window.JWPLCHMINative?.unlinkSketch) {
+      try { await window.JWPLCHMINative.unlinkSketch(); } catch (_) {}
+    }
+    linkedSketchDirectory = null;
+    await clearStoredHandle(SKETCH_HANDLE_KEY);
+    updateLinkedUI('none');
+    window.dispatchEvent(new CustomEvent('jwplc:sketch-unlinked'));
+  }
+
   async function linkSketch() {
     if (!('showDirectoryPicker' in window)) {
       toast('Vincular sketch requiere Edge/Chrome de escritorio en contexto seguro.', 'error');
@@ -592,12 +649,9 @@
 
     const generateButton = document.getElementById('generateButton');
     if (generateButton && !document.getElementById('linkSketchButton')) {
-      const separator = document.createElement('span');
-      separator.className = 'separator';
-
       const link = document.createElement('button');
       link.id = 'linkSketchButton';
-      link.className = 'a11-project-button';
+      link.className = 'a11-project-button tb-btn tb-group-end';
       link.type = 'button';
       link.textContent = 'Vincular sketch…';
       link.title = 'Seleccionar la carpeta del sketch Arduino';
@@ -605,16 +659,20 @@
 
       const update = document.createElement('button');
       update.id = 'updateHmiButton';
-      update.className = 'a11-project-button update-ready';
+      update.className = 'a11-project-button update-ready tb-btn tb-group-mid';
       update.type = 'button';
-      update.textContent = 'Actualizar HMI';
-      update.title = `Escribir ${HEADER_NAME} en el sketch vinculado`;
+      update.textContent = 'Escribir en sketch';
+      update.title = `Escribir ${HEADER_NAME} y el proyecto .jwhmi en la carpeta del sketch vinculado`;
       update.disabled = true;
       update.addEventListener('click', updateGeneratedHeader);
 
       generateButton.insertAdjacentElement('afterend', update);
       update.insertAdjacentElement('afterend', link);
-      link.insertAdjacentElement('afterend', separator);
+      if (!link.nextElementSibling?.classList?.contains('separator')) {
+        const separator = document.createElement('span');
+        separator.className = 'separator';
+        link.insertAdjacentElement('afterend', separator);
+      }
     }
 
     if (!document.getElementById('installAppButton')) {
@@ -654,7 +712,10 @@
     document.getElementById('newProjectButton')?.addEventListener('click', () => {
       projectFileHandle = null;
       projectName = 'HMI_ST7789';
-      if (!suppressDirty) setDirty(true);
+      if (!suppressDirty) {
+        setDirty(true);
+        unlinkSketch();
+      }
     });
     setTimeout(() => {
       suppressDirty = false;
@@ -684,15 +745,45 @@
   bindDirtyTracking();
   restoreLinkedSketch();
 
+  // Primitivas del sketch vinculado (navegador) para designer-sketch-menu.js.
+  async function linkedFileExists(name) {
+    return Boolean(linkedSketchDirectory) && await directoryHasFile(linkedSketchDirectory, name);
+  }
+
+  async function readLinkedFile(name) {
+    const handle = await linkedSketchDirectory.getFileHandle(name, { create: false });
+    return (await handle.getFile()).text();
+  }
+
+  async function writeLinkedFile(name, text) {
+    if (!(await ensureDirectoryPermission(linkedSketchDirectory, true))) {
+      updateLinkedUI('permission');
+      throw new Error('El Designer necesita permiso para escribir en el sketch.');
+    }
+    const handle = await linkedSketchDirectory.getFileHandle(name, { create: true });
+    await writeFileHandle(handle, text);
+    if (/\.jwhmi$/i.test(name)) {
+      projectFileHandle = handle;
+      projectName = name.replace(/\.jwhmi$/i, '') || projectName;
+      setDirty(false);
+    }
+    updateLinkedUI('linked');
+  }
+
   window.JWPLCHMIProject = {
     serialize: serializeProject,
+    isDirty: () => dirty,
     apply: applyProject,
     open: openProject,
     save: saveProject,
     saveAs: saveProjectAs,
     linkSketch,
+    unlinkSketch,
     updateGeneratedHeader,
     linkedSketchName: () => linkedSketchDirectory?.name || null,
+    linkedFileExists,
+    readLinkedFile,
+    writeLinkedFile,
     linkedProjectFileName: canonicalProjectFileName,
     headerName: HEADER_NAME
   };

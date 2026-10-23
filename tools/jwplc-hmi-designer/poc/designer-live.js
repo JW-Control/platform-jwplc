@@ -18,7 +18,7 @@
   const previewCanvas = document.getElementById('previewCanvas');
   const toolbar = document.querySelector('.toolbar');
   const newProjectButton = document.getElementById('newProjectButton');
-  const componentTools = [...document.querySelectorAll('.component-tool[data-tool]')];
+  const componentTools = [...document.querySelectorAll('.canvas-tool[data-tool], .component-tool[data-tool]')];
   const demoButton = document.getElementById('demoButton');
   const demoValueButton = document.getElementById('demoValueButton');
   const codePanel = document.querySelector('.code-panel');
@@ -41,12 +41,17 @@
 
   const separator = document.createElement('span');
   separator.className = 'separator';
+  const postLiveSeparator = document.createElement('span');
+  postLiveSeparator.className = 'separator';
 
   const fitButton = document.getElementById('fitButton');
   if (toolbar && fitButton) {
-    toolbar.insertBefore(separator, fitButton);
+    if (!fitButton.previousElementSibling?.classList?.contains('separator')) {
+      toolbar.insertBefore(separator, fitButton);
+    }
     toolbar.insertBefore(liveButton, fitButton);
     toolbar.insertBefore(liveStatus, fitButton);
+    toolbar.insertBefore(postLiveSeparator, fitButton);
   }
 
   const diagnosticPanel = document.createElement('section');
@@ -57,6 +62,7 @@
       <strong>Monitor LIVE</strong>
       <span id="diagConnection">Desconectado</span>
       <span class="grow"></span>
+      <button id="diagFlashButton" type="button" style="border-color:#ff8a2a;color:#ff9a43;" title="Flashear firmware Live Bridge en 1 clic">⚡ Flashear Live Bridge</button>
       <button id="diagPauseButton" type="button">Pausar log</button>
       <button id="diagClearButton" type="button">Limpiar</button>
       <button id="diagCopyButton" type="button">Copiar</button>
@@ -120,7 +126,8 @@
     log: document.getElementById('diagLog'),
     pauseButton: document.getElementById('diagPauseButton'),
     clearButton: document.getElementById('diagClearButton'),
-    copyButton: document.getElementById('diagCopyButton')
+    copyButton: document.getElementById('diagCopyButton'),
+    flashButton: document.getElementById('diagFlashButton')
   };
 
   let port = null;
@@ -132,6 +139,7 @@
   let dirtyRequested = false;
   let forceFull = true;
   let probeTimer = null;
+  let noBridgeTimer = null;
   let fallbackTimer = null;
   let ackTimer = null;
   let syncRaf = null;
@@ -383,6 +391,32 @@
     probeTimer = null;
   }
 
+  function stopNoBridgeTimer() {
+    if (noBridgeTimer) clearTimeout(noBridgeTimer);
+    noBridgeTimer = null;
+  }
+
+  function armNoBridgeTimer() {
+    stopNoBridgeTimer();
+    noBridgeTimer = setTimeout(() => {
+      if (!bridgeReady && port && window.JWPLCHMIFlasher) {
+        logLine('Handshake no recibido tras 2.5s -> Abriendo modal de flasheo en 1 clic');
+        window.JWPLCHMIFlasher.showPromptModal({
+          port,
+          onInstall: async () => {
+            await triggerFlashSequence(port);
+          },
+          onWait: () => {
+            logLine('Usuario decidió esperar respuesta del bridge');
+          },
+          onCancel: async () => {
+            await disconnectLive();
+          }
+        });
+      }
+    }, 2500);
+  }
+
   function stopAckTimer() {
     if (ackTimer) clearTimeout(ackTimer);
     ackTimer = null;
@@ -506,6 +540,7 @@
       if (bridgeReady) return;
       bridgeReady = true;
       stopProbeTimer();
+      stopNoBridgeTimer();
       liveButton.classList.remove('waiting');
       liveButton.classList.add('live');
       liveButton.textContent = 'Desconectar LIVE';
@@ -635,9 +670,11 @@
     await sendProbe();
     probeTimer = setInterval(() => sendProbe(), PROBE_MS);
     fallbackTimer = setInterval(() => requestLiveSync(false), FALLBACK_SYNC_MS);
+    armNoBridgeTimer();
   }
 
   async function disconnectLive() {
+    stopNoBridgeTimer();
     if (fallbackTimer) clearInterval(fallbackTimer);
     fallbackTimer = null;
     stopProbeTimer();
@@ -664,6 +701,106 @@
     liveStatus.className = 'live-status';
     if (diag.connection) diag.connection.textContent = 'Desconectado';
     logLine('CLOSE LIVE');
+  }
+
+  async function triggerFlashSequence(targetPort) {
+    const p = targetPort || port;
+    if (!p) return;
+
+    stopNoBridgeTimer();
+    stopProbeTimer();
+    stopAckTimer();
+    if (fallbackTimer) clearInterval(fallbackTimer);
+    fallbackTimer = null;
+
+    logLine('Liberando puerto serie para flashear ESP32...');
+    try { await reader?.cancel(); } catch (_) {}
+    try { reader?.releaseLock(); } catch (_) {}
+    reader = null;
+
+    try { writer?.releaseLock(); } catch (_) {}
+    writer = null;
+
+    try { await p.close(); } catch (_) {}
+
+    if (!window.JWPLCHMIFlasher) {
+      logLine('ERROR: Módulo JWPLCHMIFlasher no disponible');
+      return;
+    }
+
+    await window.JWPLCHMIFlasher.runFlashWithModal(p, {
+      onSuccess: async () => {
+        logLine('Flasheo completado con éxito. Iniciando autoconexión LIVE...');
+        await reconnectLive(p);
+      },
+      onCancel: async () => {
+        logLine('Flasheo cancelado.');
+        port = null;
+        await disconnectLive();
+      }
+    });
+
+  async function reconnectLive(targetPort) {
+    port = targetPort;
+    bridgeReady = false;
+    lastAckFrame = null;
+    pendingFrame = null;
+    pendingMeta = null;
+    awaitingAckSequence = null;
+    readBuffer = '';
+    dirtyRequested = true;
+    forceFull = true;
+    lastAckAt = 0;
+
+    liveButton.classList.remove('live');
+    liveButton.classList.add('waiting');
+    liveButton.textContent = 'Autoconectando LIVE…';
+    liveStatus.textContent = 'Reiniciando PLC · buscando bridge';
+    liveStatus.className = 'live-status waiting';
+    if (diag.connection) diag.connection.textContent = `${portDescription()} · reconectando`;
+    logLine(`AUTOCONNECT ${portDescription()} @ ${BAUD_RATE}`);
+
+    // Espera para estabilización del USB tras RTS hard reset
+    await new Promise((r) => setTimeout(r, 450));
+
+    try {
+      await port.open({ baudRate: BAUD_RATE, bufferSize: 4096 });
+      writer = port.writable.getWriter();
+      reader = port.readable.getReader();
+      readLoop();
+
+      await sendProbe();
+      stopProbeTimer();
+      probeTimer = setInterval(() => sendProbe(), PROBE_MS);
+      if (fallbackTimer) clearInterval(fallbackTimer);
+      fallbackTimer = setInterval(() => requestLiveSync(false), FALLBACK_SYNC_MS);
+
+      armNoBridgeTimer();
+    } catch (err) {
+      logLine(`ERROR al reabrir puerto post-flasheo: ${err?.message || err}`);
+      console.error('[JWPLC LIVE] reopen failed', err);
+      liveStatus.textContent = 'LIVE · reconexión fallida';
+      liveStatus.className = 'live-status waiting';
+      await disconnectLive();
+    }
+  }
+
+  diag.flashButton?.addEventListener('click', async () => {
+    if (!('serial' in navigator)) {
+      alert('Web Serial no está disponible en este entorno.');
+      return;
+    }
+    if (port) {
+      await triggerFlashSequence(port);
+    } else {
+      try {
+        const p = await navigator.serial.requestPort();
+        await triggerFlashSequence(p);
+      } catch (err) {
+        logLine(`Selección de puerto cancelada: ${err?.message || err}`);
+      }
+    }
+  });
   }
 
   liveButton.addEventListener('click', async () => {
@@ -699,6 +836,8 @@
     isReady: () => bridgeReady,
     sendFrame: () => requestLiveSync(true),
     disconnect: disconnectLive,
-    openDiagnostic: showDiagnostic
+    openDiagnostic: showDiagnostic,
+    flash: () => triggerFlashSequence(port),
+    startFlashingFlow: triggerFlashSequence
   };
 })();

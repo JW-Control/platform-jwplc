@@ -16,3 +16,8 @@ openplc-editor-installers/v4.2.7/vpp/signature.json text eol=lf
 
 # Signed binary payload.
 openplc-editor-installers/v4.2.7/vpp/assets/jwplcbasic.png -text
+openplc-editor-installers/v4.2.7/vpp/hal/jwplcbasic-remoteio-slave.cpp text eol=lf
+openplc-editor-installers/v4.2.7/vpp/screens/remote-io-slave.json text eol=lf
+
+# HMI Designer: generador de doble clic de la app de escritorio (cmd.exe espera CRLF).
+tools/jwplc-hmi-designer/Generar-e-Instalar-App-Escritorio.cmd text eol=crlf

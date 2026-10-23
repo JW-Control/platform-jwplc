@@ -41,6 +41,20 @@
 #endif
 
 // =====================================================
+// Buzzer (piezo pasivo, GPIO26 en JWPLC Basic v2)
+// =====================================================
+// Lo usa JWPLC_Buzzer (JWPLC_GlobalPeripherals). El pin se toma con LEDC sólo
+// en el primer uso; si nadie usa el buzzer, el GPIO26 queda sin configurar.
+
+#ifndef JWPLC_HAS_BUZZER
+#define JWPLC_HAS_BUZZER 1
+#endif
+
+#ifndef JWPLC_BUZZER_PIN
+#define JWPLC_BUZZER_PIN 26
+#endif
+
+// =====================================================
 // microSD
 // =====================================================
 

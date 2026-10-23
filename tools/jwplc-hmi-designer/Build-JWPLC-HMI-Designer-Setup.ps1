@@ -1,8 +1,9 @@
-param(
+﻿param(
     [switch]$SkipDependencies
 )
 
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'JWPLC-ElectronBuilderCache.ps1')
 
 $root = $PSScriptRoot
 $electronRoot = Join-Path $root 'electron'
@@ -68,6 +69,10 @@ try {
             throw "npm ci falló con código $LASTEXITCODE."
         }
     }
+
+    # Sin esto, electron-builder falla en PCs sin modo desarrollador (enlaces
+    # simbólicos de macOS dentro de winCodeSign). Ver JWPLC-ElectronBuilderCache.ps1.
+    Initialize-JwplcWinCodeSignCache -ElectronRoot $electronRoot
 
     Write-Host 'Generando instalador NSIS x64...' -ForegroundColor Cyan
     & $npm.Source run dist:setup

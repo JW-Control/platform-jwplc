@@ -19,6 +19,7 @@ function Get-ContentType([string]$Path) {
         '.svg' { return 'image/svg+xml' }
         '.png' { return 'image/png' }
         '.ico' { return 'image/x-icon' }
+        '.bin' { return 'application/octet-stream' }
         default { return 'application/octet-stream' }
     }
 }

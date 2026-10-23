@@ -4,10 +4,13 @@
   if (window.JWPLCHMIInspectorState) return;
 
   const fieldSection = document.getElementById('textFieldControlsSection');
+  const shapeSection = document.getElementById('shapeInspectorSection');
   const rawSection = document.getElementById('rawTextControlsSection');
   const pixelInspector = document.getElementById('pixelMapControlsSection');
   const legacyPixelSection = document.querySelector('.pixel-controls');
+  const navBarSection = document.getElementById('navBarInspectorSection');
   const rightPanel = document.querySelector('.right-panel');
+  const SHAPE_TYPES = ['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'];
 
   if (!rightPanel) return;
 
@@ -40,19 +43,41 @@
   }
 
   function currentMode() {
-    if (pixels()?.getSelected?.()) return 'PIXEL';
+    const field = editor()?.getSelectedField?.();
+    const hasFields = Boolean(editor()?.hasFieldSelection?.() && field);
+    const hasPixels = Boolean(pixels()?.getSelected?.());
+
+    if (hasFields) {
+      if (field.type === 'RAW_TEXT') return 'RAW';
+      if (field.type === 'NAV_BAR') return 'NAV_BAR';
+      if (field.type === 'MENU') return 'MENU';
+      if (SHAPE_TYPES.includes(field.type)) return 'SHAPE';
+      return 'FIELD';
+    }
+
+    if (hasPixels) return 'PIXEL';
+
     const selectedTool = editor()?.getSelectedTool?.() || 'none';
     if (selectedTool === 'rawText') return 'RAW';
-    if (editor()?.getSelectedField?.()) return 'FIELD';
+    if (selectedTool === 'navBarField') return 'NAV_BAR';
+    if (selectedTool === 'pixel' || selectedTool === 'erase') return 'PIXEL';
     return 'NONE';
   }
 
   function syncInspectorState() {
     const mode = currentMode();
 
+    setSectionVisible(navBarSection, mode === 'NAV_BAR');
+    setSectionVisible(document.getElementById('menuInspectorSection'), mode === 'MENU');
     setSectionVisible(fieldSection, mode === 'FIELD');
+    setSectionVisible(shapeSection, mode === 'SHAPE');
     setSectionVisible(rawSection, mode === 'RAW');
     setSectionVisible(pixelInspector, mode === 'PIXEL');
+    setSectionVisible(document.getElementById('idleConfigSection'), mode === 'NONE');
+
+    if (mode === 'NAV_BAR' && window.JWPLCHMIPages?.syncNavBarInspector) {
+      window.JWPLCHMIPages.syncNavBarInspector();
+    }
 
     // A11-7 ya dispone de color contextual en PIXEL y en Apariencia.
     // La sección global heredada mezcla estados y queda fuera del flujo normal.

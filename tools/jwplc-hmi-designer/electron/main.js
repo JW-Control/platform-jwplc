@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, session } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, session, shell } from "electron";
 import http from "node:http";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -9,6 +9,10 @@ const __dirname = path.dirname(__filename);
 const isPackaged = app.isPackaged;
 const appUserModelId = "com.jwcontrol.jwplc.hmidesigner";
 const HEADER_NAME = "JWPLC_HMI_Generated.h";
+// Guía del sketch (poc/designer-sketch-guide.js): nombre fijo y sólo se
+// reemplaza un archivo que el Designer escribió (primera línea con la marca).
+const GUIDE_NAME = "JWPLC_HMI_LEEME.md";
+const GUIDE_MARK = "<!-- Generado por JWPLC HMI Designer";
 
 const webRoot = isPackaged
   ? path.join(process.resourcesPath, "poc")
@@ -33,7 +37,8 @@ const mimeTypes = new Map([
   [".webmanifest", "application/manifest+json; charset=utf-8"],
   [".svg", "image/svg+xml"],
   [".png", "image/png"],
-  [".ico", "image/x-icon"]
+  [".ico", "image/x-icon"],
+  [".bin", "application/octet-stream"]
 ]);
 
 const resolveWebPath = (requestUrl) => {
@@ -151,13 +156,27 @@ const fileExists = async (filePath) => {
   }
 };
 
+// El HMI del sketch es <carpeta>.jwhmi junto al .ino (lo escribe "Escribir en sketch").
+const projectFileName = (directoryPath) => `${path.basename(directoryPath)}.jwhmi`;
+
+// El .ino principal se llama como la carpeta (regla del Arduino IDE); si no, el primero.
+const mainInoPath = async (directoryPath) => {
+  const preferred = path.join(directoryPath, `${path.basename(directoryPath)}.ino`);
+  if (await fileExists(preferred)) return preferred;
+  const entries = await fs.readdir(directoryPath, { withFileTypes: true });
+  const first = entries.find((entry) => entry.isFile() && /\.ino$/i.test(entry.name));
+  return first ? path.join(directoryPath, first.name) : null;
+};
+
 const sketchInfo = async (directoryPath) => {
   if (!directoryPath || !(await directoryContainsSketch(directoryPath))) return null;
   return {
     ok: true,
     name: path.basename(directoryPath),
     path: directoryPath,
-    headerExists: await fileExists(path.join(directoryPath, HEADER_NAME))
+    headerExists: await fileExists(path.join(directoryPath, HEADER_NAME)),
+    projectFile: projectFileName(directoryPath),
+    projectExists: await fileExists(path.join(directoryPath, projectFileName(directoryPath)))
   };
 };
 
@@ -168,6 +187,63 @@ const persistLinkedSketch = async () => {
   } catch {
     // Persistencia best-effort; la vinculación de la sesión sigue siendo válida.
   }
+};
+
+const clearPersistedLinkedSketch = async () => {
+  try {
+    await fs.rm(linkedStateFile(), { force: true });
+  } catch {
+    // Best-effort
+  }
+};
+
+const resolveSketchFromArg = async (arg) => {
+  if (!arg || typeof arg !== "string") return null;
+  let candidate = arg.trim();
+
+  if ((candidate.startsWith('"') && candidate.endsWith('"')) || (candidate.startsWith("'") && candidate.endsWith("'"))) {
+    candidate = candidate.slice(1, -1).trim();
+  }
+
+  if (candidate.startsWith("jwplc-hmi://") || candidate.startsWith("jwplc-hmi:")) {
+    try {
+      const parsedUrl = new URL(candidate);
+      const sketchParam = parsedUrl.searchParams.get("sketch");
+      if (sketchParam) candidate = sketchParam;
+      else if (parsedUrl.pathname) {
+        candidate = decodeURIComponent(parsedUrl.pathname.replace(/^\/+/, ""));
+      }
+    } catch (_) {}
+  }
+
+  if (candidate.startsWith("--sketch=")) {
+    candidate = candidate.slice("--sketch=".length);
+  }
+
+  if (/\.ino$/i.test(candidate)) {
+    candidate = path.dirname(candidate);
+  }
+
+  if (await directoryContainsSketch(candidate)) {
+    return path.resolve(candidate);
+  }
+
+  return null;
+};
+
+const extractSketchPathFromArgv = async (argv) => {
+  if (!Array.isArray(argv)) return null;
+  for (let i = 1; i < argv.length; i++) {
+    const arg = argv[i];
+    if (arg === "--sketch" && i + 1 < argv.length) {
+      const resolved = await resolveSketchFromArg(argv[i + 1]);
+      if (resolved) return resolved;
+    }
+    if (arg.startsWith("--") && !arg.startsWith("--sketch")) continue;
+    const resolved = await resolveSketchFromArg(arg);
+    if (resolved) return resolved;
+  }
+  return null;
 };
 
 const restoreLinkedSketchPath = async () => {
@@ -207,6 +283,22 @@ const installNativeIpc = () => {
     return (await sketchInfo(linkedSketchPath)) || { ok: false };
   });
 
+  ipcMain.handle("jwplc-hmi:unlink-sketch", async () => {
+    linkedSketchPath = null;
+    await clearPersistedLinkedSketch();
+    return { ok: true };
+  });
+
+  ipcMain.handle("jwplc-hmi:set-linked-sketch", async (_event, payload = {}) => {
+    const targetPath = payload.path ? path.resolve(payload.path) : null;
+    if (targetPath && await directoryContainsSketch(targetPath)) {
+      linkedSketchPath = targetPath;
+      await persistLinkedSketch();
+      return await sketchInfo(linkedSketchPath);
+    }
+    return { ok: false, error: "Ruta de sketch no válida." };
+  });
+
   ipcMain.handle("jwplc-hmi:write-generated-header", async (_event, payload = {}) => {
     await restoreLinkedSketchPath();
     const info = await sketchInfo(linkedSketchPath);
@@ -223,6 +315,49 @@ const installNativeIpc = () => {
 
     await fs.writeFile(target, text, "utf8");
     return { ok: true, name: info.name, path: target };
+  });
+
+  ipcMain.handle("jwplc-hmi:read-project", async () => {
+    await restoreLinkedSketchPath();
+    const info = await sketchInfo(linkedSketchPath);
+    if (!info) return { ok: false, error: "No hay un sketch vinculado válido." };
+    if (!info.projectExists) return { ok: false, missing: true, fileName: info.projectFile };
+    const text = await fs.readFile(path.join(linkedSketchPath, info.projectFile), "utf8");
+    return { ok: true, fileName: info.projectFile, text };
+  });
+
+  ipcMain.handle("jwplc-hmi:open-sketch-ino", async () => {
+    await restoreLinkedSketchPath();
+    if (!(await sketchInfo(linkedSketchPath))) return { ok: false, error: "No hay un sketch vinculado válido." };
+    const ino = await mainInoPath(linkedSketchPath);
+    if (!ino) return { ok: false, error: "El sketch no tiene archivo .ino." };
+    // Abre con el programa asociado a .ino (normalmente el Arduino IDE).
+    const error = await shell.openPath(ino);
+    return error ? { ok: false, error } : { ok: true, path: ino };
+  });
+
+  ipcMain.handle("jwplc-hmi:open-sketch-folder", async () => {
+    await restoreLinkedSketchPath();
+    if (!(await sketchInfo(linkedSketchPath))) return { ok: false, error: "No hay un sketch vinculado válido." };
+    const error = await shell.openPath(linkedSketchPath);
+    return error ? { ok: false, error } : { ok: true, path: linkedSketchPath };
+  });
+
+  ipcMain.handle("jwplc-hmi:write-guide", async (_event, payload = {}) => {
+    await restoreLinkedSketchPath();
+    const info = await sketchInfo(linkedSketchPath);
+    if (!info) return { ok: false, error: "No hay un sketch vinculado válido." };
+
+    const text = String(payload.text || "");
+    if (!text.startsWith(GUIDE_MARK)) return { ok: false, error: "El contenido no corresponde a la guía del HMI." };
+
+    const target = path.join(linkedSketchPath, GUIDE_NAME);
+    if (await fileExists(target)) {
+      const current = await fs.readFile(target, "utf8");
+      if (!current.startsWith(GUIDE_MARK)) return { ok: false, foreign: true, name: GUIDE_NAME };
+    }
+    await fs.writeFile(target, text, "utf8");
+    return { ok: true, name: GUIDE_NAME, path: target };
   });
 
   ipcMain.handle("jwplc-hmi:write-project", async (_event, payload = {}) => {
@@ -259,7 +394,7 @@ const createWindow = async () => {
     backgroundColor: "#101a21",
     icon: iconPath,
     autoHideMenuBar: true,
-    title: "JWPLC HMI Designer — Alpha11",
+    title: "JWPLC HMI Designer — 2.1.0-alpha.14",
     webPreferences: {
       preload: preloadPath,
       contextIsolation: true,
@@ -281,20 +416,42 @@ const createWindow = async () => {
   await mainWindow.loadURL(`${baseUrl}/desktop.html?app=alpha11-electron-v2`);
 };
 
-if (process.platform === "win32") app.setAppUserModelId(appUserModelId);
+if (process.platform === "win32") {
+  app.setAppUserModelId(appUserModelId);
+  app.setAsDefaultProtocolClient("jwplc-hmi");
+}
 
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
 if (!gotSingleInstanceLock) {
   app.quit();
 } else {
-  app.on("second-instance", () => {
+  app.on("second-instance", async (_event, commandLine) => {
     if (!mainWindow) return;
     if (mainWindow.isMinimized()) mainWindow.restore();
     mainWindow.show();
     mainWindow.focus();
+
+    const newSketch = await extractSketchPathFromArgv(commandLine);
+    if (newSketch) {
+      linkedSketchPath = newSketch;
+      await persistLinkedSketch();
+      const info = await sketchInfo(linkedSketchPath);
+      mainWindow.webContents.send("jwplc-hmi:sketch-opened", info);
+    }
   });
 
-  app.whenReady().then(createWindow).catch((error) => {
+  app.whenReady().then(async () => {
+    const cliSketch = await extractSketchPathFromArgv(process.argv);
+    if (cliSketch) {
+      linkedSketchPath = cliSketch;
+      await persistLinkedSketch();
+    } else {
+      // Iniciar proyecto nuevo limpio sin vincular
+      linkedSketchPath = null;
+      await clearPersistedLinkedSketch();
+    }
+    await createWindow();
+  }).catch((error) => {
     dialog.showErrorBox("JWPLC HMI Designer", `No se pudo iniciar la aplicación.\n\n${error?.stack || error}`);
     app.quit();
   });

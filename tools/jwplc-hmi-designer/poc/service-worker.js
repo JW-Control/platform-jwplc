@@ -1,18 +1,28 @@
 'use strict';
 
-const CACHE_NAME = 'jwplc-hmi-designer-alpha11-a11-7d-project-integration';
+const CACHE_NAME = 'jwplc-hmi-designer-a15-v38';
 const CORE = [
   './desktop.html',
   './index.html',
   './styles.css',
   './desktop-responsive.css',
   './desktop-responsive-compat.css',
+  './designer-cp437.js',
   './gfx-classic-font.js',
+  './designer-fonts-data.js',
+  './designer-fonts.js',
   './app.js',
   './ux-foundation.js',
   './designer-codegen.js',
+  './designer-color-editor.js',
   './designer-bool.js',
   './designer-bar.js',
+  './designer-zone-indicator.js',
+  './designer-idle.js',
+  './designer-field-inspector.js',
+  './designer-value-format.js',
+  './designer-codegen-core.js',
+  './designer-menu.js',
   './designer-field-visibility.js',
   './designer-pixelmap-compat.js',
   './designer-pixelmap.js',
@@ -23,9 +33,14 @@ const CORE = [
   './designer-project-integration-fix.js',
   './designer-inspector-state.js',
   './designer-pages.js',
+  './designer-flasher.js',
   './designer-live.js',
+  './esptool-bundle.js',
+  './firmware/jwplc.esp32.jwplcbasic/flash_args',
   './designer-project.js',
   './desktop-responsive.js',
+  './designer-sketch-guide.js',
+  './designer-sketch-menu.js',
   './manifest.webmanifest',
   './jwplc-hmi-icon.svg'
 ];

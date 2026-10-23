@@ -1,8 +1,9 @@
 (() => {
   'use strict';
 
-  const boolButton = [...document.querySelectorAll('.component-tool')]
-    .find((button) => button.querySelector('strong')?.textContent.trim() === 'BOOL');
+  const boolButton = document.querySelector('[data-tool="boolField"]') ||
+    [...document.querySelectorAll('.component-tool, .canvas-tool')]
+      .find((button) => button.querySelector('strong')?.textContent.trim() === 'BOOL');
   const gate = document.querySelector('.page-tabs .gate');
   const bottomSummary = document.querySelector('.bottom-summary');
   const fieldSection = document.getElementById('textFieldControlsSection');
@@ -74,18 +75,6 @@
     const cleaned = String(value || '').trim().replace(/[^A-Za-z0-9_]/g, '_');
     if (!cleaned) return fallback;
     return /^[A-Za-z_]/.test(cleaned) ? cleaned : `_${cleaned}`;
-  }
-
-  function cppString(value) {
-    return String(value || '').replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-  }
-
-  function cppBool(value) {
-    return value ? 'true' : 'false';
-  }
-
-  function hex565(value) {
-    return `0x${Number(value || 0).toString(16).toUpperCase().padStart(4, '0')}`;
   }
 
   function ensureBoolState(field) {
@@ -195,16 +184,15 @@
       : (field.trueText || '—');
     inspectorContract.textContent = `bool ${sanitizeSymbol(field.variable, 'estado')} = false;`;
 
-    document.querySelectorAll('.component-tool').forEach((button) => button.classList.remove('active'));
+    document.querySelectorAll('.component-tool, .canvas-tool').forEach((button) => button.classList.remove('active'));
     boolButton.classList.add('active');
   }
 
+  // A15-5: la definición C++ vive en designer-codegen-core.js.
   function boolFieldBlock(field) {
     ensureBoolState(field);
     const id = sanitizeSymbol(field.id, `FIELD_BOOL_${serialFor(field)}`);
-    const label = field.label ? `"${cppString(field.label)}"` : 'nullptr';
-    const unit = field.unit ? `"${cppString(field.unit)}"` : 'nullptr';
-    return `    JWPLC_UIBoolField(\n        ${id},\n        JWPLC_UIRect(${field.x}, ${field.y}),\n        JWPLC_UIText(${label}, ${unit}),\n        JWPLC_UIBoolText(\n            "${cppString(field.falseText)}",\n            "${cppString(field.trueText)}"),\n        JWPLC_UIBoolStyle(\n            ${field.valueSize},\n            ${field.labelSize},\n            ${cppBool(field.frame)},\n            JWPLC_UI_LAYOUT_${field.layout},\n            JWPLC_UI_ALIGN_${field.align}),\n        ${field.page || 0},\n        JWPLC_UIColors(\n            ${hex565(field.labelColor)},\n            ${hex565(field.valueColor)},\n            ${hex565(field.backgroundColor)},\n            ${hex565(field.frameColor)}))`;
+    return window.JWPLCHMICodegenCore.boolFieldBlock(field, id);
   }
 
   function replaceHelperCall(text, id, replacement) {
@@ -252,7 +240,7 @@
       const variable = sanitizeSymbol(field.variable, `estado${serialFor(field)}`);
       const legacyDeclaration = `bool ${variable} = false;`;
       if (!text.includes(legacyDeclaration)) {
-        const textDeclaration = `char ${variable}[${Math.max(1, field.capacity) + 1}] = {};`;
+        const textDeclaration = window.JWPLCHMICodegenCore.textDeclaration(field, variable);
         text = text.replace(textDeclaration, legacyDeclaration);
       }
       text = replaceHelperCall(text, id, boolFieldBlock(field));
@@ -264,17 +252,12 @@
   }
 
   function patchStatusText() {
-    if (!codeOutput?.textContent.startsWith('A11 UX Foundation:')) return;
+    // Resumen del panel «Estado» (app.js): se agrega el conteo de BOOL.
+    if (!codeOutput?.textContent.startsWith('JWPLC HMI Designer ')) return;
     const activePage = Number(editor()?.getActivePage?.() ?? 0);
     const boolCount = allBoolFields().filter((field) => Number(field.page || 0) === activePage).length;
 
-    let text = codeOutput.textContent
-      .replace('A11-3B VALUE: IN_PROGRESS', 'A11-3B VALUE: PASS')
-      .replace('A11-3C BOOL y A11-3D BAR permanecen pendientes.', 'A11-3D BAR permanece pendiente.');
-
-    if (!text.includes('A11-3C BOOL: IN_PROGRESS') && !text.includes('A11-3C BOOL: PASS')) {
-      text = text.replace('A11-3B VALUE: PASS', 'A11-3B VALUE: PASS\nA11-3C BOOL: IN_PROGRESS');
-    }
+    let text = codeOutput.textContent;
     if (!text.includes('\n- BOOL:')) {
       text = text.replace(/(\n- VALUE: \d+)/, `$1\n- BOOL: ${boolCount}`);
     } else {
@@ -286,8 +269,8 @@
   function patchUI() {
     const field = selectedField();
     if (field?.type === 'BOOL') ensureBoolState(field);
-    if (gate) gate.textContent = 'Gate: A11-3C BOOL · API pública';
-    if (bottomSummary) bottomSummary.textContent = 'A11-3C · BOOL sobre API pública';
+    if (gate) gate.textContent = 'v2.1.0-alpha.14';
+    if (bottomSummary) bottomSummary.textContent = 'BOOL sobre API pública';
     patchObjectList();
     patchInspector(field);
     patchGeneratedCode();

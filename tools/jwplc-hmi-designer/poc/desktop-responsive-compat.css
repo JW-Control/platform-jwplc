@@ -3,23 +3,17 @@
 
 .layout-wide #openProjectButton,
 .layout-wide #saveProjectButton {
-  display: inline-block !important;
+  display: inline-flex !important;
 }
 
-.layout-wide .object-id {
-  display: inline !important;
-}
-
-.layout-wide .toolbar {
-  overflow: visible;
-}
-
+.layout-wide .object-id,
 .layout-medium .object-id,
-.layout-compact .object-id {
+.layout-compact .object-id,
+.object-id {
   display: none !important;
 }
 
 /* En MEDIUM/COMPACT la visibilidad se decide por rol, no por nth-of-type. */
 .layout-medium #saveProjectButton {
-  display: inline-block !important;
+  display: inline-flex !important;
 }

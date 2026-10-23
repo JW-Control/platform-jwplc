@@ -27,5 +27,7 @@
 #define TFT_SPI_MODE SPI_MODE0
 #define SPI_FREQUENCY 80000000
 
-#define LOAD_GLCD
+#define LOAD_GLCD   // Font 1: 5x7 clásica
+#define LOAD_GFXFF  // FreeFonts: sólo se enlazan las que el sketch usa (0.3.0)
+// Font2/Font4 de TFT_eSPI NO: agregan ~9 KB a todo sketch aunque no se usen.
 #define SUPPORT_TRANSACTIONS

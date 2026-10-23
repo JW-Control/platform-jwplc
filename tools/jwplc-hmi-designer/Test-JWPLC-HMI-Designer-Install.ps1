@@ -1,4 +1,4 @@
-param(
+﻿param(
     [string]$InstallRoot = (Join-Path $env:LOCALAPPDATA 'JWPLC\HMI Designer'),
     [switch]$SkipShortcuts
 )

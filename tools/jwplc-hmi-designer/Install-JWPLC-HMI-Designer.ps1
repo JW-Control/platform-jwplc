@@ -1,9 +1,12 @@
-param(
+﻿param(
     [switch]$NoStartMenu,
     [switch]$NoDesktop,
     [switch]$NoArduinoIDEExtension,
     [switch]$InstallArduinoIDELauncher,
-    [string]$InstallRoot = (Join-Path $env:LOCALAPPDATA 'JWPLC\HMI Designer')
+    [string]$InstallRoot = (Join-Path $env:LOCALAPPDATA 'JWPLC\HMI Designer'),
+    # Generar-e-Instalar-App-Escritorio.cmd: sin app de escritorio compilada, falla
+    # en vez de instalar en silencio el lanzador de navegador (modo web).
+    [switch]$RequireElectron
 )
 
 $ErrorActionPreference = 'Stop'
@@ -151,6 +154,9 @@ if (Test-Path -LiteralPath $sourceElectronExe -PathType Leaf) {
     Write-Host 'Instalando ejecutable nativo Electron...' -ForegroundColor Cyan
     Copy-Item -LiteralPath $sourceElectronExe -Destination $installExe -Force
     $installMode = 'ELECTRON_NATIVE'
+}
+elseif ($RequireElectron) {
+    throw "No se encontró la app de escritorio compilada ($sourceElectronExe). Ejecuta Generar-e-Instalar-App-Escritorio.cmd."
 }
 else {
     Write-Host 'Ejecutable Electron no encontrado; usando launcher Chromium de compatibilidad.' -ForegroundColor Yellow

@@ -254,6 +254,18 @@ temperatura = 62.5f;
 Para textos generados como arreglos `char[]`, usa funciones con límite de
 tamaño.
 
+El arreglo reserva 2 bytes por carácter: en el sketch el texto es UTF-8 y cada
+tilde ocupa 2 bytes. `setText()` lo convierte a la fuente de la TFT, así que
+`"Presión 25°C"` se ve con su tilde y su `°`. La capacidad del campo cuenta
+caracteres de la pantalla, no bytes.
+
+Las etiquetas y unidades que genera el HMI Designer ya vienen convertidas, como
+`"Presi\242n"`. Si escribes una etiqueta a mano, usa el Designer o esos escapes:
+una etiqueta en UTF-8 se vería con dos símbolos por tilde.
+
+La fuente trae `á é í ó ú ñ Ñ ü É ¿ ¡ ° ± ² µ`. `Á Í Ó Ú` mayúsculas no existen y se ven
+sin tilde.
+
 Ejemplo:
 
 ```cpp
@@ -625,6 +637,11 @@ JWPLC_Display.idleWakeMode();
 JWPLC_Display.idleWakeButton();
 ```
 
+La tecla que despierta sólo despierta. Con varias páginas se llega al selector (NN/TT negro),
+aunque esa tecla haya sido OK, LEFT o RIGHT; con un MENU en la página de entrada, tampoco llega al
+MENU. Si la HMI no tiene páginas ni MENU, el sketch sigue recibiendo esa pulsación
+(`JWPLC_Buttons.pressed()`), como desde Alpha8.
+
 ### Retorno a IDLE — Básico / Intermedio
 
 Modos válidos:
@@ -743,8 +760,58 @@ bool seleccionando =
     JWPLC_Display.isUserPageSelection();
 ```
 
+Barra de pestañas del Designer (Alpha15). La pestaña de la página actual tiene dos estados:
+
+- **posicionada** en el selector (◀ ▶ recorren las páginas): fondo del color de la página;
+- **seleccionada** al entrar con OK: fondo blanco con doble marco hacia adentro.
+
+Las demás pestañas quedan sin fondo. Al pulsar OK o ESC sin cambiar de página, el Display llama a
+`jwplcUIPageModeChanged(page, selecting)` con el bus TFT tomado. El header generado redibuja ahí
+sólo la pestaña activa, no la página. Sin header (o con el estilo «Contador»), el hook queda
+vacío: el indicador NN/TT se repinta solo.
+
 Si Designer ya configura las páginas, no repitas esa configuración sin una
 razón específica.
+
+### Formatos de VALUE (miles, duración, fecha/hora) y BOOL «Piloto» — Intermedio
+
+El HMI Designer los genera desde las tarjetas *Formato* (VALUE) y
+*Representación* (BOOL). A mano se escriben así:
+
+```cpp
+// Contador con separador de miles: 1,234,567
+JWPLC_UIValueFormat(7, 0, false, false, ',')
+
+// Punto de miles y coma decimal: 1.234,5
+JWPLC_UIValueFormat(6, 1, false, false, '.')
+
+// Duración: la variable trae segundos (o ms) y la TFT muestra 05:03
+JWPLC_UIDurationFormat(JWPLC_UI_DURATION_MM_SS)
+JWPLC_UIDurationFormat(JWPLC_UI_DURATION_HH_MM_SS, JWPLC_UI_DURATION_MILLIS, 3)
+JWPLC_UIDurationFormat(JWPLC_UI_DURATION_COMPACT)        // 1h05m · 5m03s · 45s
+JWPLC_UIDurationFormat(JWPLC_UI_DURATION_MM_SS,
+                       JWPLC_UI_DURATION_SECONDS, 2, true) // -01:15 (restante)
+
+// Fecha/hora del RTC de la placa: sin variable ni setValue()
+JWPLC_UIDateTimeFormat(JWPLC_UI_DATETIME_HH_MM)          // 14:35
+JWPLC_UIDateTimeFormat(JWPLC_UI_DATETIME_HH_MM_SS)       // 14:35:07
+JWPLC_UIDateTimeFormat(JWPLC_UI_DATETIME_DD_MM_YYYY)     // 18/10/2026
+JWPLC_UIDateTimeFormat(JWPLC_UI_DATETIME_DD_MM_YYYY_HH_MM)
+
+// BOOL como piloto: círculo gris/verde; opcional, fondo del campo por estado
+JWPLC_UIBoolPilot(0x4208, 0x07E0)
+JWPLC_UIBoolPilot(0x4208, 0xFFE0, 0x0000, 0xF800)
+```
+
+- La duración la calcula el programa. VALUE sólo la muestra, truncada a segundos.
+- El tercer argumento de `JWPLC_UIDurationFormat` es el ancho de la primera unidad
+  (segundos, minutos u horas). Si el valor no cabe, se ve `--:--`.
+- Un VALUE de fecha/hora lee `jwplcGetRTCState()` y se repinta sólo cuando cambia lo
+  que muestra (con `HH:MM`, una vez por minuto). Sin RTC válido se ve `--:--`.
+- Para duraciones y contadores grandes conviene una variable entera (`uint32_t`).
+  `float` no representa exactos los valores mayores que 16 777 216.
+- El piloto mide 7 px por escala (`valueTextSize`). Tiene un aro del color de la
+  etiqueta y un relleno del color de cada estado.
 
 ### Refresco USER — Intermedio / Avanzado
 

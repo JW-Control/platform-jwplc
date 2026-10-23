@@ -18,5 +18,13 @@
 /tools/jwplc-hmi-designer/electron/node_modules/
 /tools/jwplc-hmi-designer/electron/release/
 
-# Archivos temporales CMake/VS Code en la carpeta raiz.
+# Carpeta que genera la extensión CMake Tools de VS Code al abrir el repo
+# (configura JWPLC/2.1.0/CMakeLists.txt con MSVC). No es parte del package.
 /build/
+
+# Scripts temporales de trabajo (no versionar; CLAUDE.md §5)
+/scratch/
+
+# Salidas de «Exportar binario compilado» del Arduino IDE dentro de los gates
+# (el hook savehex del package copia .bin/.elf/.map/sdkconfig a <sketch>/build/).
+/tools/jwplc-hmi-designer/gates/**/build/

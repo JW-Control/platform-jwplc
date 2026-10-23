@@ -113,29 +113,152 @@ struct JWPLC_UIStyle
 };
 
 // signedValue=true permite negativos y reserva espacio para '-'.
+//
+// Alpha15 (I1): además del número, VALUE sabe mostrar duraciones y el
+// separador de miles. El formateo vive en JWPLC_UI_Format.cpp.
+//
+//   JWPLC_UIValueFormat(6, 0, false, false, ',')   -> 123,456
+//   JWPLC_UIValueFormat(6, 2, false, false, '.')   -> 123.456,78
+//   JWPLC_UIDurationFormat(JWPLC_UI_DURATION_MM_SS) -> 05:03 (variable en s)
+//
+// Duraciones: la variable trae segundos o milisegundos (lo calcula el PLC; VALUE
+// sólo formatea, truncando a segundos). integerDigits es el ancho de la primera
+// unidad (SS, MM o HH): fija la reserva y el máximo; si no cabe se ve --:--.
+//
+// Alpha15 (I2): fecha/hora del RTC de la placa. El campo no tiene variable:
+// el firmware lee jwplcGetRTCState() y repinta sólo cuando cambia el texto
+// mostrado (el minuto en HH:MM, el segundo en HH:MM:SS). Sin RTC válido se
+// ve --:--.
+//   JWPLC_UIDateTimeFormat(JWPLC_UI_DATETIME_HH_MM)        -> 14:35
+//   JWPLC_UIDateTimeFormat(JWPLC_UI_DATETIME_DD_MM_YYYY)   -> 18/10/2026
+#define JWPLC_UI_HAS_VALUE_DURATION 1
+#define JWPLC_UI_HAS_VALUE_THOUSANDS 1
+#define JWPLC_UI_HAS_VALUE_DATETIME 1
+
+enum JWPLC_UIValueKind : uint8_t
+{
+    JWPLC_UI_VALUE_NUMBER = 0,
+    JWPLC_UI_VALUE_DURATION,
+    JWPLC_UI_VALUE_DATETIME
+};
+
+enum JWPLC_UIDateTimePattern : uint8_t
+{
+    JWPLC_UI_DATETIME_HH_MM = 0,       // 14:35
+    JWPLC_UI_DATETIME_HH_MM_SS,        // 14:35:07
+    JWPLC_UI_DATETIME_DD_MM,           // 18/10
+    JWPLC_UI_DATETIME_DD_MM_YYYY,      // 18/10/2026
+    JWPLC_UI_DATETIME_DD_MM_YYYY_HH_MM // 18/10/2026 14:35
+};
+
+enum JWPLC_UIDurationPattern : uint8_t
+{
+    JWPLC_UI_DURATION_SS = 0,   // 45      segundos totales
+    JWPLC_UI_DURATION_MM_SS,    // 05:03   minutos totales : segundos
+    JWPLC_UI_DURATION_HH_MM_SS, // 01:05:03
+    JWPLC_UI_DURATION_COMPACT   // 1h05m · 5m03s · 45s
+};
+
+enum JWPLC_UIDurationUnit : uint8_t
+{
+    JWPLC_UI_DURATION_SECONDS = 0,
+    JWPLC_UI_DURATION_MILLIS
+};
+
 struct JWPLC_UIValueFormat
 {
     uint8_t integerDigits;
     uint8_t decimalDigits;
     bool signedValue;
     bool leadingZeros;
+    char thousandsSeparator; // 0 = sin separador; ',' '.' o ' '. Con '.' el decimal es ','
+    JWPLC_UIValueKind kind;
+    JWPLC_UIDurationPattern durationPattern;
+    JWPLC_UIDurationUnit durationUnit;
+    JWPLC_UIDateTimePattern dateTimePattern;
 
     JWPLC_UIValueFormat(
         uint8_t integerDigitsValue = 3,
         uint8_t decimalDigitsValue = 0,
         bool signedValueValue = false,
-        bool leadingZerosValue = false);
+        bool leadingZerosValue = false,
+        char thousandsSeparatorValue = 0);
+};
+
+// Formato de duración para JWPLC_UIValueField (setValue con segundos o ms).
+JWPLC_UIValueFormat JWPLC_UIDurationFormat(
+    JWPLC_UIDurationPattern pattern = JWPLC_UI_DURATION_MM_SS,
+    JWPLC_UIDurationUnit unit = JWPLC_UI_DURATION_SECONDS,
+    uint8_t leadDigits = 2,
+    bool signedValue = false);
+
+// Fecha/hora del RTC para JWPLC_UIValueField (sin variable ni setValue).
+JWPLC_UIValueFormat JWPLC_UIDateTimeFormat(
+    JWPLC_UIDateTimePattern pattern = JWPLC_UI_DATETIME_HH_MM);
+
+// Alpha15: colores del valor por estado.
+//   (falso, verdadero)                          -> colors.value / colors.background
+//   (falso, verdadero, colorF, colorV)          -> texto por estado
+//   (falso, verdadero, colorF, colorV, fondoF, fondoV) -> texto por estado y
+//                                                  fondo de todo el campo por
+//                                                  estado (el marco no cambia)
+#define JWPLC_UI_HAS_BOOL_STATE_COLORS 1
+#define JWPLC_UI_HAS_BOOL_STATE_BACKGROUNDS 1
+
+static constexpr uint8_t JWPLC_UI_BOOL_STATE_TEXT = 0x01;
+static constexpr uint8_t JWPLC_UI_BOOL_STATE_BACKGROUND = 0x02;
+
+// Alpha15 (I1): representación del valor. PILOT dibuja un piloto (círculo de
+// 7 × escala px, a la altura del texto) con aro del color de la etiqueta y
+// relleno del color del estado. Se crea con JWPLC_UIBoolPilot().
+#define JWPLC_UI_HAS_BOOL_PILOT 1
+
+enum JWPLC_UIBoolRepresentation : uint8_t
+{
+    JWPLC_UI_BOOL_AS_TEXT = 0,
+    JWPLC_UI_BOOL_AS_PILOT
 };
 
 struct JWPLC_UIBoolText
 {
     const char *falseText;
     const char *trueText;
+    uint16_t falseColor;
+    uint16_t trueColor;
+    uint16_t falseBackground;
+    uint16_t trueBackground;
+    uint8_t stateColors; // JWPLC_UI_BOOL_STATE_TEXT | JWPLC_UI_BOOL_STATE_BACKGROUND
+    JWPLC_UIBoolRepresentation representation;
 
     JWPLC_UIBoolText(
         const char *falseTextValue = "OFF",
         const char *trueTextValue = "ON");
+
+    JWPLC_UIBoolText(
+        const char *falseTextValue,
+        const char *trueTextValue,
+        uint16_t falseColorValue,
+        uint16_t trueColorValue);
+
+    JWPLC_UIBoolText(
+        const char *falseTextValue,
+        const char *trueTextValue,
+        uint16_t falseColorValue,
+        uint16_t trueColorValue,
+        uint16_t falseBackgroundValue,
+        uint16_t trueBackgroundValue);
 };
+
+// Piloto: color del círculo por estado y, opcional, fondo del campo por estado.
+JWPLC_UIBoolText JWPLC_UIBoolPilot(
+    uint16_t falseColor,
+    uint16_t trueColor);
+
+JWPLC_UIBoolText JWPLC_UIBoolPilot(
+    uint16_t falseColor,
+    uint16_t trueColor,
+    uint16_t falseBackground,
+    uint16_t trueBackground);
 
 struct JWPLC_UIRange
 {
@@ -299,6 +422,10 @@ namespace JWPLCUI
     bool setBool(uint8_t fieldId, bool value);
     bool setBar(uint8_t fieldId, float value);
 
+    // Alpha15 I2: actualiza los VALUE de fecha/hora desde el RTC (cada ciclo
+    // USER, en jwplcUIRuntimeServiceInput). Sólo marca dirty si cambia el texto.
+    void pollClockFields();
+
     void setRefreshMode(JWPLC_UIRefreshMode mode);
     JWPLC_UIRefreshMode refreshMode();
 
@@ -320,5 +447,7 @@ namespace JWPLCUI
     void drawStatic(JWPLC_TFTClass &tft);
     void drawDirty(JWPLC_TFTClass &tft);
 }
+
+#include "JWPLC_UI_Menu.h"
 
 #endif // JWPLC_UI_H
