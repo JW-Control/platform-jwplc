@@ -9,6 +9,8 @@
   //   «Sketch: nombre ▾»    menú: Abrir HMI del sketch · Abrir en Arduino IDE ·
   //                         Abrir carpeta · Cambiar sketch…
   //   Al vincular un sketch que ya tiene .jwhmi, pregunta si abrirlo.
+//   «Crear sketch nuevo…» crea <nombre>/<nombre>.ino con el sketch base de la
+//                         guía, lo vincula y hace «Escribir en sketch».
   //   «Generar C++» se oculta: el panel «Código generado» ya muestra el header.
   //
   // Funciona con la app de escritorio (window.JWPLCHMINative, IPC de
@@ -23,6 +25,8 @@
   const native = window.JWPLCHMINative?.isNative ? window.JWPLCHMINative : null;
 
   const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  // Regla de nombres del Arduino IDE 2 (la misma que valida electron/main.js).
+  const SKETCH_NAME = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,62}$/;
 
   function toast(message, kind = '') {
     let node = document.getElementById('a15SketchToast');
@@ -53,6 +57,14 @@
       const result = await native.selectSketchDirectory();
       if (result?.canceled) return null;
       if (!result?.ok) throw new Error(result?.error || 'No se pudo vincular el sketch.');
+      return result;
+    },
+    // App generada antes de «Crear sketch»: main.js/preload.cjs van dentro del .exe.
+    canCreate: Boolean(native.createSketch),
+    async create(name, inoText) {
+      const result = await native.createSketch(name, inoText);
+      if (result?.canceled) return null;
+      if (!result?.ok) throw new Error(result?.error || 'No se pudo crear el sketch.');
       return result;
     },
     async readProject() {
@@ -96,6 +108,15 @@
       const after = project()?.linkedSketchName?.() || null;
       // Selector cancelado: sigue el mismo sketch, no hay nada nuevo que abrir.
       if (!after || after === before) return null;
+      return this.info();
+    },
+    canCreate: true,
+    async create(name, inoText) {
+      const typed = window.prompt('Nombre del sketch nuevo (letras, números, _ . -):', name);
+      if (typed === null) return null;
+      const clean = typed.trim().replace(/\.ino$/i, '');
+      if (!SKETCH_NAME.test(clean)) throw new Error(`Nombre de sketch inválido: «${clean}». Empieza con letra o número, máximo 63.`);
+      if (!(await project()?.createSketch?.(clean, inoText))) return null;
       return this.info();
     },
     async readProject() {
@@ -146,6 +167,40 @@
     } else {
       toast(`Sketch «${info.name}» vinculado.`, 'ok');
     }
+    return info;
+  }
+
+  function suggestedSketchName() {
+    const stem = String(project()?.serialize?.().projectName || '').replace(/[^A-Za-z0-9_.-]+/g, '_').replace(/^[^A-Za-z0-9]+/, '').slice(0, 63);
+    return stem && stem !== 'HMI_ST7789' ? stem : 'JWPLC_HMI';
+  }
+
+  // Sketch base con las variables del diseño; si el header todavía no se puede
+  // generar (p. ej. identificadores duplicados), el base mínimo.
+  async function baseSketchText() {
+    const guide = window.JWPLCSketchGuide;
+    let header = '';
+    try { header = await headerText(); } catch (_) {}
+    return `${guide.baseSketch(header)}\n`;
+  }
+
+  async function createFlow() {
+    if (!backend.canCreate || !window.JWPLCSketchGuide) {
+      toast('Para crear sketches desde el Designer, vuelve a generar la app de escritorio.', 'error');
+      return null;
+    }
+    let info;
+    try {
+      info = await backend.create(suggestedSketchName(), await baseSketchText());
+    } catch (error) {
+      toast(error?.message || 'No se pudo crear el sketch.', 'error');
+      return null;
+    }
+    if (!info) return null;
+    window.dispatchEvent(new CustomEvent('jwplc:sketch-linked', { detail: { sketch: info.name, created: true } }));
+    refreshButtons(info);
+    // El .ino incluye el header: se escribe ya para que compile al abrirlo.
+    await writeToSketch();
     return info;
   }
 
@@ -232,12 +287,13 @@
   async function openMenu(button) {
     closeMenu();
     const info = await backend.info();
-    if (!info) { await linkFlow(); return; }
     const escape = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
     menu = document.createElement('div');
     menu.className = 'sketch-menu';
     menu.setAttribute('role', 'menu');
-    menu.innerHTML = `
+    menu.innerHTML = !info ? `
+      ${menuItem('change', '🗀', 'Elegir sketch existente…', 'Una carpeta con un .ino')}
+      ${menuItem('create', '+', 'Crear sketch nuevo…', 'Carpeta y .ino base con las variables del HMI', !backend.canCreate)}` : `
       <div class="sketch-menu-head">
         <strong>${escape(info.name)}</strong>
         ${info.path ? `<small title="${escape(info.path)}">${escape(info.path)}</small>` : ''}
@@ -250,7 +306,8 @@
       ${backend.canOpenExternally ? menuItem('open-ino', '⧉', 'Abrir en Arduino IDE', 'Abre el .ino con el programa asociado') : ''}
       ${backend.canOpenExternally ? menuItem('open-folder', '🗀', 'Abrir carpeta', 'Explorador de archivos') : ''}
       <div class="sketch-menu-sep"></div>
-      ${menuItem('change', '⇄', 'Cambiar sketch…', 'Vincular otra carpeta de sketch')}`;
+      ${menuItem('change', '⇄', 'Cambiar sketch…', 'Vincular otra carpeta de sketch')}
+      ${menuItem('create', '+', 'Crear sketch nuevo…', 'Carpeta y .ino base con las variables del HMI', !backend.canCreate)}`;
     document.body.appendChild(menu);
     const r = button.getBoundingClientRect();
     menu.style.top = `${Math.round(r.bottom + 6)}px`;
@@ -265,7 +322,7 @@
       closeMenu();
       try {
         if (action === 'open-project') {
-          if (window.confirm(`¿Abrir el HMI guardado en «${info.name}»? El diseño que está en pantalla se reemplaza.`)) await openSketchProject(info);
+          if (window.confirm(`¿Abrir el HMI guardado en «${info?.name}»? El diseño que está en pantalla se reemplaza.`)) await openSketchProject(info);
         } else if (action === 'open-ino') {
           const result = await backend.openIno();
           if (!result?.ok) throw new Error(result?.error || 'No se pudo abrir el .ino.');
@@ -275,6 +332,8 @@
           if (!result?.ok) throw new Error(result?.error || 'No se pudo abrir la carpeta.');
         } else if (action === 'change') {
           await linkFlow();
+        } else if (action === 'create') {
+          await createFlow();
         }
       } catch (error) {
         toast(error?.message || 'No se pudo completar la acción.', 'error');
@@ -294,7 +353,7 @@
       link.classList.toggle('linked', Boolean(info));
       link.setAttribute('aria-haspopup', 'menu');
       link.classList.toggle('sketch-menu-button', Boolean(info));
-      link.title = info ? `Sketch vinculado${info.path ? `: ${info.path}` : ''} · clic para abrir el menú` : 'Seleccionar la carpeta del sketch Arduino';
+      link.title = info ? `Sketch vinculado${info.path ? `: ${info.path}` : ''} · clic para abrir el menú` : 'Elegir un sketch Arduino existente o crear uno nuevo';
     }
     const status = document.getElementById('sketchLinkStatus');
     if (status) {
@@ -342,5 +401,5 @@
     closeMenu();
   });
 
-  window.JWPLCHMISketchMenu = { writeToSketch, linkFlow, openMenu, closeMenu, backend };
+  window.JWPLCHMISketchMenu = { writeToSketch, linkFlow, createFlow, openMenu, closeMenu, backend };
 })();

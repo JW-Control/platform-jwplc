@@ -3,6 +3,8 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('JWPLCHMINative', {
   isNative: true,
   selectSketchDirectory: () => ipcRenderer.invoke('jwplc-hmi:select-sketch-directory'),
+  createSketch: (suggestedName, inoText) =>
+    ipcRenderer.invoke('jwplc-hmi:create-sketch', { suggestedName, inoText }),
   getLinkedSketch: () => ipcRenderer.invoke('jwplc-hmi:get-linked-sketch'),
   unlinkSketch: () => ipcRenderer.invoke('jwplc-hmi:unlink-sketch'),
   setLinkedSketch: (path) => ipcRenderer.invoke('jwplc-hmi:set-linked-sketch', { path }),

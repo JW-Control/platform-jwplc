@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Flujo con el sketch Arduino (Alpha15): «Escribir en sketch», menú «Sketch: nombre ▾»
-// y apertura del .jwhmi del sketch al vincular. Simula la app de escritorio con
+// Flujo con el sketch Arduino (Alpha15): «Escribir en sketch», menú «Sketch: nombre ▾»,
+// apertura del .jwhmi del sketch al vincular y «Crear sketch nuevo…». Simula la app de escritorio con
 // un window.JWPLCHMINative en memoria (mismos métodos que electron/preload.cjs).
 //
 // Uso: node tools/jwplc-hmi-designer/tests/sketch-menu-smoke.cjs [carpeta-salida]
@@ -69,10 +69,21 @@ function nativeMock() {
       projectExists: `${s.name}.jwhmi` in s.files
     };
   };
-  window.__sketchMock = { sketches, calls, setNextPick: (p) => { nextPick = p; } };
+  window.__sketchMock = { sketches, calls, setNextPick: (p) => { nextPick = p; }, unlink: () => { linked = null; } };
   window.JWPLCHMINative = {
     isNative: true,
     selectSketchDirectory: async () => { calls.push('select'); if (!nextPick) return { ok: false, canceled: true }; linked = nextPick; return info(); },
+    // Como el cuadro «Guardar» de main.js: el usuario acepta el nombre sugerido
+    // o escribe el de __sketchMock.typedName.
+    createSketch: async (suggestedName, inoText) => {
+      calls.push(`create:${suggestedName}`);
+      const name = window.__sketchMock.typedName || suggestedName;
+      const dir = `C:/Arduino/${name}`;
+      if (sketches[dir]) return { ok: false, error: `Ya existe la carpeta «${dir}» y no está vacía.` };
+      sketches[dir] = { name, files: { [`${name}.ino`]: inoText } };
+      linked = dir;
+      return { ...info(), created: true };
+    },
     getLinkedSketch: async () => info(),
     writeGeneratedHeader: async (text, overwrite) => { calls.push(`header:${overwrite}`); sketches[linked].files['JWPLC_HMI_Generated.h'] = text; return { ok: true }; },
     writeGuide: async (text) => {
@@ -151,7 +162,7 @@ async function main() {
     await page.click('#linkSketchButton');
     await page.waitForSelector('.sketch-menu');
     const items = await page.$$eval('.sketch-menu [data-sketch-action]', (els) => els.map((e) => `${e.dataset.sketchAction}${e.disabled ? '(off)' : ''}`).join(','));
-    check(items === 'open-project,open-ino,open-folder,change', `Abrir HMI · Arduino IDE · Carpeta · Cambiar (${items})`);
+    check(items === 'open-project,open-ino,open-folder,change,create', `Abrir HMI · Arduino IDE · Carpeta · Cambiar · Crear (${items})`);
     const menuEl = await page.$('.sketch-menu');
     if (menuEl) await menuEl.screenshot({ path: path.join(OUT, 'sketch_menu.png') });
     await page.click('[data-sketch-action="open-ino"]');
@@ -208,6 +219,38 @@ async function main() {
     await page.waitForTimeout(700);
     check((await page.evaluate(() => window.JWPLCHMIEditor.getAllFields().length)) === fieldsBefore,
       'al aceptar carga el HMI del sketch abierto desde Arduino IDE');
+
+    console.log('CREAR SKETCH NUEVO');
+    await page.evaluate(() => { window.__sketchMock.unlink(); window.dispatchEvent(new CustomEvent('jwplc:sketch-unlinked')); });
+    await page.click('#linkSketchButton');
+    await page.waitForSelector('.sketch-menu');
+    const unlinkedItems = await page.$$eval('.sketch-menu [data-sketch-action]', (els) => els.map((e) => `${e.dataset.sketchAction}${e.disabled ? '(off)' : ''}`).join(','));
+    check(unlinkedItems === 'change,create', `sin sketch, «Vincular sketch…» ofrece elegir o crear (${unlinkedItems})`);
+    const unlinkedMenu = await page.$('.sketch-menu');
+    if (unlinkedMenu) await unlinkedMenu.screenshot({ path: path.join(OUT, 'sketch_menu_unlinked.png') });
+    // El nombre sugerido es el del proyecto en pantalla («demo»), que ya existe: no se toca.
+    const demoBefore = await page.evaluate(() => JSON.stringify(window.__sketchMock.sketches['C:/Arduino/demo'].files));
+    await page.click('[data-sketch-action="create"]');
+    await page.waitForTimeout(900);
+    const demoAfter = await page.evaluate(() => JSON.stringify(window.__sketchMock.sketches['C:/Arduino/demo'].files));
+    check(demoBefore === demoAfter && /Ya existe/.test(await page.textContent('#a15SketchToast')) &&
+      (await page.evaluate(() => window.__sketchMock.calls.at(-1))) === 'create:demo',
+      'sugiere el nombre del proyecto y no reemplaza una carpeta que ya existe');
+    await page.evaluate(() => { window.__sketchMock.typedName = 'nuevo'; });
+    dialogs.length = 0;
+    await page.click('#linkSketchButton');
+    await page.click('[data-sketch-action="create"]');
+    await page.waitForTimeout(1500);
+    const created = await page.evaluate(() => {
+      const s = window.__sketchMock.sketches['C:/Arduino/nuevo'];
+      return { files: s ? s.files : {}, label: document.getElementById('linkSketchButton').textContent, calls: window.__sketchMock.calls.slice(-5) };
+    });
+    const ino = created.files['nuevo.ino'] || '';
+    check(ino.startsWith('#include "JWPLC_HMI_Generated.h"') && ino.includes('jwplcHMISetup();') && ino.includes(`${valueVar} = `),
+      `crea nuevo/nuevo.ino con el sketch base del diseño (usa «${valueVar}»)`);
+    check(/^\/\/ Código generado por JWPLC HMI Designer/.test(created.files['JWPLC_HMI_Generated.h'] || '') && 'nuevo.jwhmi' in created.files && 'JWPLC_HMI_LEEME.md' in created.files,
+      'y escribe header, .jwhmi y guía para que compile al abrirlo');
+    check(dialogs.length === 0 && /nuevo/.test(created.label), `sin confirmaciones y queda vinculado (${created.label} · ${JSON.stringify(dialogs)})`);
 
     check(errors.length === 0, `sin errores JS (${errors.join(' | ') || 'ninguno'})`);
   } finally {

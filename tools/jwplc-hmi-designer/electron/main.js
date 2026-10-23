@@ -1,5 +1,6 @@
 import { app, BrowserWindow, dialog, ipcMain, session, shell } from "electron";
 import http from "node:http";
+import { watch } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -7,12 +8,19 @@ import { fileURLToPath } from "node:url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const isPackaged = app.isPackaged;
+// Modo desarrollo (Abrir-Designer-Desarrollo.cmd): Electron sin empaquetar
+// sirve ../poc del repo y recarga la ventana al guardar un archivo.
+const devMode = !isPackaged;
 const appUserModelId = "com.jwcontrol.jwplc.hmidesigner";
 const HEADER_NAME = "JWPLC_HMI_Generated.h";
 // Guía del sketch (poc/designer-sketch-guide.js): nombre fijo y sólo se
 // reemplaza un archivo que el Designer escribió (primera línea con la marca).
 const GUIDE_NAME = "JWPLC_HMI_LEEME.md";
 const GUIDE_MARK = "<!-- Generado por JWPLC HMI Designer";
+// «Crear sketch nuevo»: el .ino base lo arma poc/designer-sketch-guide.js.
+const SKETCH_INCLUDE = `#include "${HEADER_NAME}"`;
+// Regla de nombres del Arduino IDE 2: letra o número, luego letras, números, _ . -
+const SKETCH_NAME = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,62}$/;
 
 const webRoot = isPackaged
   ? path.join(process.resourcesPath, "poc")
@@ -367,6 +375,50 @@ const installNativeIpc = () => {
     return await sketchInfo(linkedSketchPath);
   });
 
+  // Crea <carpeta>/<nombre>/<nombre>.ino con el sketch base y lo vincula.
+  // Nunca reemplaza: si la carpeta ya existe y no está vacía, no se toca.
+  ipcMain.handle("jwplc-hmi:create-sketch", async (_event, payload = {}) => {
+    const inoText = String(payload.inoText || "");
+    if (!inoText.startsWith(SKETCH_INCLUDE) || inoText.length > 256 * 1024) {
+      return { ok: false, error: "El contenido no corresponde al sketch base del HMI." };
+    }
+    const suggested = SKETCH_NAME.test(String(payload.suggestedName || "")) ? payload.suggestedName : "JWPLC_HMI";
+    const result = await dialog.showSaveDialog(mainWindow, {
+      title: "Crear sketch Arduino",
+      defaultPath: path.join(app.getPath("documents"), "Arduino", `${suggested}.ino`),
+      buttonLabel: "Crear sketch",
+      filters: [{ name: "Sketch Arduino", extensions: ["ino"] }],
+      properties: ["createDirectory"]
+    });
+    if (result.canceled || !result.filePath) return { ok: false, canceled: true };
+
+    const name = path.basename(result.filePath).replace(/\.ino$/i, "");
+    if (!SKETCH_NAME.test(name)) {
+      return { ok: false, error: `Nombre de sketch inválido: «${name}». Usa letras, números, _ . - (empieza con letra o número, máximo 63).` };
+    }
+    // Si el usuario eligió como ubicación una carpeta con ese mismo nombre, se usa.
+    const parent = path.dirname(result.filePath);
+    const directoryPath = path.basename(parent) === name ? parent : path.join(parent, name);
+    try {
+      if ((await fs.readdir(directoryPath)).length) {
+        return { ok: false, error: `Ya existe la carpeta «${directoryPath}» y no está vacía. Elige otro nombre o usa «Elegir sketch existente».` };
+      }
+    } catch (error) {
+      if (error?.code !== "ENOENT") return { ok: false, error: error?.message || String(error) };
+    }
+
+    try {
+      await fs.mkdir(directoryPath, { recursive: true });
+      await fs.writeFile(path.join(directoryPath, `${name}.ino`), inoText.endsWith("\n") ? inoText : `${inoText}\n`, { encoding: "utf8", flag: "wx" });
+    } catch (error) {
+      return { ok: false, error: `No se pudo crear el sketch: ${error?.message || error}` };
+    }
+
+    linkedSketchPath = directoryPath;
+    await persistLinkedSketch();
+    return { ...(await sketchInfo(linkedSketchPath)), created: true };
+  });
+
   ipcMain.handle("jwplc-hmi:get-linked-sketch", async () => {
     await restoreLinkedSketchPath();
     return (await sketchInfo(linkedSketchPath)) || { ok: false };
@@ -469,6 +521,68 @@ const installNativeIpc = () => {
   });
 };
 
+// --- Modo desarrollo ---------------------------------------------------------
+// Recarga conservando el diseño: se guarda en sessionStorage (sobrevive a la
+// recarga de la misma ventana) y se vuelve a aplicar cuando el Designer arranca.
+const DEV_SNAPSHOT_KEY = "jwplc-hmi.dev.snapshot";
+
+const devReload = async () => {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  const contents = mainWindow.webContents;
+  try {
+    await contents.executeJavaScript(`(() => {
+      try {
+        const project = window.JWPLCHMIProject;
+        if (project?.serialize) sessionStorage.setItem(${JSON.stringify(DEV_SNAPSHOT_KEY)}, JSON.stringify(project.serialize()));
+      } catch (_) {}
+    })()`);
+  } catch {
+    // Sin snapshot: se recarga igual.
+  }
+  contents.reloadIgnoringCache();
+};
+
+const devRestoreSnapshot = () => mainWindow?.webContents.executeJavaScript(`(async () => {
+  const key = ${JSON.stringify(DEV_SNAPSHOT_KEY)};
+  const text = sessionStorage.getItem(key);
+  if (!text) return;
+  sessionStorage.removeItem(key);
+  for (let i = 0; i < 100 && !(window.JWPLCHMIProject?.apply && window.JWPLCHMIPages); i++) {
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  // Los módulos terminan de montarse después de exponer la API.
+  await new Promise((resolve) => setTimeout(resolve, 400));
+  try { await window.JWPLCHMIProject.apply(JSON.parse(text)); } catch (error) { console.warn("[JWPLC HMI dev] No se pudo restaurar el diseño.", error); }
+})()`).catch(() => {});
+
+const installDevMode = () => {
+  const contents = mainWindow.webContents;
+  contents.on("did-finish-load", devRestoreSnapshot);
+  contents.on("before-input-event", (event, input) => {
+    if (input.type !== "keyDown") return;
+    const key = input.key.toLowerCase();
+    if (key === "f5" || ((input.control || input.meta) && key === "r")) {
+      event.preventDefault();
+      devReload();
+    } else if (key === "f12") {
+      event.preventDefault();
+      contents.toggleDevTools();
+    }
+  });
+
+  // Guardar un archivo en poc/ recarga la ventana (los editores escriben en ráfagas).
+  let timer = null;
+  try {
+    watch(webRoot, { recursive: true }, (_event, fileName) => {
+      if (fileName && /(^|[\\/])(\.|~)|\.(tmp|swp)$/i.test(fileName)) return;
+      clearTimeout(timer);
+      timer = setTimeout(devReload, 250);
+    });
+  } catch (error) {
+    console.warn("[JWPLC HMI dev] Sin recarga automática; usa F5.", error);
+  }
+};
+
 const createWindow = async () => {
   const baseUrl = await startStaticServer();
   installSerialPermissions();
@@ -501,11 +615,20 @@ const createWindow = async () => {
   mainWindow.on("closed", () => {
     mainWindow = null;
   });
+  if (devMode) {
+    // El <title> de la página reemplaza el de la ventana: se marca después.
+    mainWindow.on("page-title-updated", (event, title) => {
+      event.preventDefault();
+      mainWindow.setTitle(`${title} [desarrollo]`);
+    });
+    installDevMode();
+  }
 
   await mainWindow.loadURL(`${baseUrl}/desktop.html?app=alpha11-electron-v2`);
 };
 
-if (process.platform === "win32") {
+// En desarrollo no se registra jwplc-hmi:// (le quitaría el enlace a la app instalada).
+if (process.platform === "win32" && !devMode) {
   app.setAppUserModelId(appUserModelId);
   app.setAsDefaultProtocolClient("jwplc-hmi");
 }

@@ -561,6 +561,35 @@
     }
   }
 
+  // «Crear sketch nuevo» en el navegador: carpeta padre + nombre; crea
+  // <nombre>/<nombre>.ino y la vincula. Nunca reemplaza una carpeta con archivos.
+  async function createSketch(name, inoText) {
+    if (!('showDirectoryPicker' in window)) {
+      throw new Error('Crear un sketch requiere Edge/Chrome de escritorio en contexto seguro.');
+    }
+    let parent;
+    try {
+      parent = await window.showDirectoryPicker({ mode: 'readwrite', id: 'jwplc-sketch-parent' });
+    } catch (error) {
+      if (error?.name === 'AbortError') return null;
+      throw error;
+    }
+    if (!(await ensureDirectoryPermission(parent, true))) throw new Error('No se concedió permiso de escritura en esa carpeta.');
+    const directory = await parent.getDirectoryHandle(name, { create: true });
+    for await (const _entry of directory.values()) {
+      throw new Error(`La carpeta «${name}» ya existe y no está vacía. Elige otro nombre o usa «Elegir sketch existente».`);
+    }
+    const handle = await directory.getFileHandle(`${name}.ino`, { create: true });
+    await writeFileHandle(handle, inoText.endsWith('\n') ? inoText : `${inoText}\n`);
+    linkedSketchDirectory = directory;
+    projectFileHandle = null;
+    projectName = name.slice(0, 48);
+    setProjectStatus();
+    await storeHandle(SKETCH_HANDLE_KEY, directory);
+    updateLinkedUI('linked');
+    return directory.name;
+  }
+
   async function generatedHeaderText() {
     const cg = codegen();
     if (!cg) throw new Error('El generador C++ todavía no está listo.');
@@ -778,6 +807,7 @@
     save: saveProject,
     saveAs: saveProjectAs,
     linkSketch,
+    createSketch,
     unlinkSketch,
     updateGeneratedHeader,
     linkedSketchName: () => linkedSketchDirectory?.name || null,

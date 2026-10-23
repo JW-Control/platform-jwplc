@@ -31,7 +31,19 @@ Doble clic en **`Generar-e-Instalar-App-Escritorio.cmd`**. Requiere Node.js LTS
 2. La instala en `%LOCALAPPDATA%\JWPLC\HMI Designer`, con accesos en el Escritorio y el
    Menú Inicio y la extensión para Arduino IDE 2.
 
-Repetirlo después de cada `git pull` que cambie el Designer.
+Repetirlo después de cada `git pull` que cambie el Designer, o usar el modo desarrollo de abajo.
+
+### Ver los cambios sin reinstalar (modo desarrollo)
+
+Doble clic en **`Abrir-Designer-Desarrollo.cmd`**: abre la misma app de escritorio directo desde el
+repositorio, sin compilar ni instalar (la primera vez instala Electron en `electron\node_modules`).
+La ventana dice `[desarrollo]` en el título.
+
+- Al guardar cualquier archivo de `poc\` la ventana se recarga sola y **conserva el diseño en pantalla**.
+- `F5` (o `Ctrl+R`) recarga a mano; `F12` abre las DevTools.
+- Si cambian `electron\main.js` o `electron\preload.cjs`, cierra la app y vuelve a abrir el `.cmd`.
+- La app instalada no se toca y puede estar abierta a la vez. El modo desarrollo no registra el enlace
+  `jwplc-hmi://` del Arduino IDE (sigue abriendo la app instalada).
 
 Si una versión anterior del generador falló con `Cannot create symbolic link : El cliente no dispone de un
 privilegio requerido` (en `winCodeSign`), basta con hacer `git pull` y volver a ejecutarlo. El paquete
@@ -41,6 +53,16 @@ desarrollador; ahora el generador lo prepara en la caché de electron-builder si
 
 Sólo la app de escritorio puede **abrir el sketch en el Arduino IDE** y **abrir su
 carpeta** (menú «Sketch: nombre ▾»). La versión de navegador no puede lanzar programas.
+
+### Crear un sketch nuevo desde el Designer
+
+«Vincular sketch…» ofrece **Elegir sketch existente…** o **Crear sketch nuevo…** (también en el menú
+«Sketch: nombre ▾»). Al crear, se elige nombre y ubicación (por defecto `Documentos\Arduino`) y el
+Designer crea `<nombre>\<nombre>.ino` con el sketch base de la guía (el `#include`, `jwplcHMISetup()`
+y las variables del diseño ya usadas), lo vincula y hace «Escribir en sketch»: queda listo para abrir y
+compilar en el Arduino IDE. Nombre como en el Arduino IDE: letras, números, `_ . -`, empieza con letra o
+número, máximo 63. Nunca reemplaza una carpeta que ya tenga archivos. Ese `.ino` es tuyo desde ahí: el
+Designer no lo vuelve a modificar. Necesita la app generada después del 2026-10-23.
 
 ### Qué deja «Escribir en sketch» en la carpeta del sketch
 
@@ -59,6 +81,7 @@ después del 2026-10-19 (si no, se escriben el header y el `.jwhmi` y el aviso p
 | Archivo | Para qué | ¿Lo uso? |
 |---|---|---|
 | `Generar-e-Instalar-App-Escritorio.cmd` | Compila e instala la app de escritorio | **Sí: es el único paso** |
+| `Abrir-Designer-Desarrollo.cmd` | Abre la app de escritorio desde el repo, sin instalar; recarga al guardar | Para probar cambios |
 | `JWPLC-HMI-Designer.cmd` · `Start-JWPLC-HMI-Designer.ps1` · `JWPLC-HMI-Server.ps1` | Abre la versión de navegador desde el repo, sin instalar (desarrollo) | Opcional |
 | `Build-JWPLC-HMI-Designer-Electron.ps1` | Sólo compila la app (paso 1) | Lo llama el generador |
 | `Install-JWPLC-HMI-Designer.ps1` · `.cmd` | Sólo instala (paso 2). Sin app compilada instala el lanzador de navegador | Lo llama el generador |
