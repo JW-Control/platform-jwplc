@@ -110,7 +110,7 @@ async function main() {
     check(has(bad, /labelColour.*¿quisiste decir «labelColor»/, 'warnings'), 'propiedad mal escrita: aviso con sugerencia');
     check(has(bad, /el id FIELD_A ya lo usa/), 'id duplicado');
     check(has(bad, /la página 3 no existe/), 'página inexistente');
-    check(has(bad, /la variable a ya es float/), 'variable compartida con otro tipo');
+    check(has(bad, /la variable a ya la usa fields\[1\]/), 'variable repetida entre campos (como validateIdentifiers del Designer)');
     check(has(bad, /\.x: máximo 319/), 'coordenada fuera de rango');
     check(has(bad, /color no válido "rojo"/), 'color inválido');
     check(has(bad, /tipo "CIRCLE" desconocido/), 'tipo desconocido');
