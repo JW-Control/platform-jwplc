@@ -1,0 +1,23 @@
+# Pruebas de HMI generadas por IA
+
+Cada carpeta es una prueba de hasta dónde llega un agente diseñando una HMI completa con la CLI
+`jwhmi` (guía: [`../agent/GUIA_AGENTES.md`](../agent/GUIA_AGENTES.md)), sin abrir la UI.
+
+| Prueba | Fecha | Qué pidió | Resultado |
+|---|---|---|---|
+| [`01_caldera`](01_caldera/README.md) | 2026-10-23 | HMI exigente libre para mostrar el alcance | 5 páginas, 31/32 objetos, 0 avisos, compila en host. Placa: [no verificado] |
+
+## Cómo agregar una prueba
+
+Carpeta `NN_nombre/` con:
+
+- `<nombre>.json`: el proyecto que escribió el agente (forma corta, `$schema` a `../../schema/jwhmi.schema.json`);
+- `<Sketch>/`: salida de `jwhmi build <nombre>.json --sketch <Sketch> --create-ino --preview` (se abre en el Arduino IDE y en el Designer);
+- `<nombre>_todas.png`: las páginas juntas;
+- `README.md`: el pedido, lo que se verificó, lo que encontró el agente (fallos de la CLI o del Designer) y lo pendiente.
+
+Verificar desde la raíz del repo:
+
+```bash
+node tools/jwplc-hmi-designer/cli/jwhmi.cjs check tools/jwplc-hmi-designer/pruebas-ia/NN_nombre/<nombre>.json
+```
