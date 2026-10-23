@@ -523,7 +523,7 @@ para usarla como transporte de `JW_ModbusRTU`. Para otros puertos RS-485
 Documentado para:
 
 ```text
-JWPLC ESP32 v2.1.0-alpha.14 (candidata)
+JWPLC ESP32 v2.1.0-alpha.14
 JWPLC_RS485 1.1.0
 JW_RS485 0.1.1
 ```

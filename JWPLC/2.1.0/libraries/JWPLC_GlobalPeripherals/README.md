@@ -571,6 +571,6 @@ periféricos que el runtime ya administra.
 Documentado para:
 
 ```text
-JWPLC ESP32 v2.1.0-alpha.13 (candidata)
-JWPLC_GlobalPeripherals 1.0.0
+JWPLC ESP32 v2.1.0-alpha.14
+JWPLC_GlobalPeripherals 1.1.0
 ```

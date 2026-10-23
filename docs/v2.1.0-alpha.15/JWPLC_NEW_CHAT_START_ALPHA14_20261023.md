@@ -93,6 +93,10 @@ No usa `workflow_dispatch` porque exigiría el archivo en `main`, que debe segui
 6. Versiones: `JWPLC_Display` 1.1.0, `JWPLC_TFT` 0.3.0, package `2.1.0-alpha.14`.
 7. README raíz y de librerías, `PRE_RELEASE.md` (con la recomendación de Arduino IDE ≥ 2.3.10 y la tabla de arriba),
    `ALPHA15_STATUS.md` recortado a ≤ 150 líneas, `RAMAS_Y_TAGS.md` en jwplc-dev-mcp.
+   **Hecho el 23/10 (borrador, sin el marcador `JWPLC_RELEASE_VERSION`):** `docs/v2.1.0-alpha.14/PRE_RELEASE.md`
+   (con `[pendiente]` para fase 2, benchmark y CI final), README raíz, README de `JWPLC_Display` (sección MENU,
+   compilada), `JWPLC_TFT`, `JWPLC_GlobalPeripherals` 1.1.0 (Buzzer), `ALPHA15_STATUS.md` en 146 líneas con el
+   registro en `history/`. Falta: README del HMI Designer (lo revisa el operador) y `RAMAS_Y_TAGS.md`.
 8. Retirar `alpha14-integracion.yml`; añadir el README de versión; sacar el #141 de borrador.
    **Fusionar solo con autorización explícita del propietario: la fusión dispara la Release.**
 

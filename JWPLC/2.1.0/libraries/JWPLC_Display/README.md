@@ -813,6 +813,59 @@ JWPLC_UIBoolPilot(0x4208, 0xFFE0, 0x0000, 0xF800)
 - El piloto mide 7 px por escala (`valueTextSize`). Tiene un aro del color de la
   etiqueta y un relleno del color de cada estado.
 
+### MENU — Intermedio
+
+Un MENU es una lista de ajustes dentro de una página: el operador recorre
+submenús con la botonera, ve valores y cambia consignas sin que el sketch
+programe la navegación. Lo normal es dibujarlo en el HMI Designer; a mano se
+declara así:
+
+```cpp
+float consigna = 45.0f;
+bool bomba = false;
+int32_t retardo = 30;
+
+enum : uint8_t { N_CONSIGNA = 0, N_BOMBA, N_AVANZADO, N_RETARDO, N_INICIO };
+
+static const JWPLC_UIMenuNode nodos[] = {
+    JWPLC_UIMenuEditNum(JWPLC_UI_MENU_ROOT, "Consigna", &consigna, 0.0f, 100.0f, 0.5f, 1, "C"),
+    JWPLC_UIMenuEditBool(JWPLC_UI_MENU_ROOT, "Bomba", &bomba, "PARADA", "MARCHA"),
+    JWPLC_UIMenuSubmenu(JWPLC_UI_MENU_ROOT, "Avanzado"),
+    JWPLC_UIMenuEditNum(N_AVANZADO, "Retardo", &retardo, 0, 600, 5, "s"),
+    JWPLC_UIMenuGoIdle(JWPLC_UI_MENU_ROOT, "Ir al inicio")};
+
+static const JWPLC_UIMenu menus[] = {
+    JWPLC_UIMenuField(0, 10, 20, 300, 140, "Ajustes",
+                      nodos, sizeof(nodos) / sizeof(nodos[0]), 1)}; // página 1
+
+void setup()
+{
+    JWPLC_Display.setMenus(menus, sizeof(menus) / sizeof(menus[0]));
+    JWPLC_Display.setUserPageCount(2);
+}
+
+void loop()
+{
+    uint8_t nodo = 0;
+    if (JWPLC_Display.menuChanged(0, &nodo))
+    {
+        // el operador confirmó un valor nuevo en el nodo «nodo»
+    }
+}
+```
+
+Teclas dentro del MENU: UP/DOWN mueven la selección o cambian el valor;
+OK o RIGHT entran al submenú; OK empieza y confirma la edición; ESC cancela o
+sube un nivel. En una edición numérica, LEFT/RIGHT cambian de 10 en 10 pasos.
+
+- La variable solo cambia al confirmar con OK; ESC la deja como estaba.
+- Tipos: `float`, `int32_t` y `bool`. Las variables y la tabla de nodos deben
+  ser globales o `static`.
+- Hasta 3 niveles, 64 nodos por menú, 4 menús y uno por página.
+- Mientras su página está abierta, el MENU usa UP/DOWN/LEFT/RIGHT/OK; el
+  sketch no debe leer esas teclas para otra cosa en esa página.
+- `JWPLC_UIMenuView(...)` muestra un valor sin dejar editarlo.
+
 ### Refresco USER — Intermedio / Avanzado
 
 Modo bajo demanda:
@@ -1146,7 +1199,7 @@ auto &tft =
 Documentado para:
 
 ```text
-JWPLC ESP32 v2.1.0-alpha.12
-JWPLC_Display 1.0.1
+JWPLC ESP32 v2.1.0-alpha.14
+JWPLC_Display 1.1.0
 ```
 

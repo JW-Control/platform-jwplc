@@ -789,8 +789,8 @@ auto &tft =
 Documentado para:
 
 ```text
-JWPLC ESP32 v2.1.0-alpha.13 (candidata)
-JWPLC_TFT 0.1.0
+JWPLC ESP32 v2.1.0-alpha.14
+JWPLC_TFT 0.3.0
 ```
 
 Esta guía documenta la API gráfica de usuario. Los detalles del controlador

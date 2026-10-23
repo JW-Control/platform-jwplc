@@ -795,7 +795,7 @@ Desde 1.1.0, `JWPLC_ModbusRTU` es una instancia preconfigurada de
 Documentado para:
 
 ```text
-JWPLC ESP32 v2.1.0-alpha.14 (candidata)
+JWPLC ESP32 v2.1.0-alpha.14
 JWPLC_ModbusRTU 1.1.0
 JW_ModbusRTU 0.1.1
 ```
