@@ -22,7 +22,9 @@ NAV_BAR `industrial-color` con nombre corto y color por página. Arranque en IDL
 
 - `jwhmi validate`: 0 errores, 0 avisos. `[ejecutado]`
 - `jwhmi check`: el sketch base compila en host (g++) contra los headers del package y las llamadas existen. `[ejecutado]`
-- Compilación ESP32 real y prueba en la placa: `[no verificado]`.
+- Compilación ESP32 real (`tools/alpha15/regenerate_libJWPLC_TFT.sh compile`): 461 837 bytes de programa (11 %),
+  39 412 bytes de RAM (12 %). `[ejecutado]`
+- Prueba en la placa: `[no verificado]`.
 
 ## Lo que encontró el agente
 

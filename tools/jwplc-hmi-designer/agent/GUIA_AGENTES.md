@@ -125,6 +125,12 @@ La CLI acepta un JSON mínimo y completa el resto con los mismos valores por def
 En el `.ino`: `#include "JWPLC_HMI_Generated.h"`, `jwplcHMISetup();` en `setup()` y en `loop()` sólo
 asignar las variables (sin `delay()`, sin dibujar). El runtime redibuja lo que cambió.
 
+Si el `.ino` lee la botonera: sólo cuando la página está en modo contenido
+(`!JWPLC_Display.isUserPageSelection() && JWPLC_Display.userPage() == PAGE_X`), nunca en la página
+del MENU; ESC es del sistema. Ejemplo completo: [`../pruebas-ia/02_botonera/`](../pruebas-ia/02_botonera/README.md).
+El IDE de Arduino declara los prototipos de las funciones antes que tus `enum`/`struct`: no los uses
+como tipo de parámetro (usa `uint8_t`), o compila en host pero falla en ESP32.
+
 ## 7. Verificación
 
 1. `validate` sin errores ni avisos y las vistas previas revisadas.

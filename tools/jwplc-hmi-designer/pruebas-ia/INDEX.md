@@ -5,7 +5,8 @@ Cada carpeta es una prueba de hasta dónde llega un agente diseñando una HMI co
 
 | Prueba | Fecha | Qué pidió | Resultado |
 |---|---|---|---|
-| [`01_caldera`](01_caldera/README.md) | 2026-10-23 | HMI exigente libre para mostrar el alcance | 5 páginas, 31/32 objetos, 0 avisos, compila en host. Placa: [no verificado] |
+| [`01_caldera`](01_caldera/README.md) | 2026-10-23 | HMI exigente libre para mostrar el alcance | 5 páginas, 31/32 objetos, 0 avisos, compila en host y en ESP32. Placa: [no verificado] |
+| [`02_botonera`](02_botonera/README.md) | 2026-10-23 | Algo más creativo e interactivo con la botonera | Receta con cuenta atrás, juego de reflejos con récord, motor con rampa y MENU. 0 avisos, compila en ESP32. Placa: [no verificado] |
 
 ## Cómo agregar una prueba
 
