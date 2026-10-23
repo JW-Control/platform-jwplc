@@ -1,0 +1,22 @@
+{
+  "$schema": "../schema/jwhmi.schema.json",
+  "projectName": "Ejemplo_Paginas",
+  "display": { "start": "HMI" },
+  "pages": [
+    { "name": "Principal", "shortName": "INICIO", "color": "CYAN", "fields": [
+      { "type": "RAW_TEXT", "text": "Pagina principal", "x": 6, "y": 6, "font": "SANS_9" },
+      { "type": "VALUE", "id": "FIELD_CAUDAL", "variable": "caudal", "label": "Caudal", "unit": "L/m", "x": 6, "y": 40, "integerDigits": 3, "decimalDigits": 1, "valueSize": 3, "layout": "STACKED", "align": "LEFT" }
+    ] },
+    { "name": "Motores", "shortName": "MOTOR", "color": "GREEN", "fields": [
+      { "type": "BOOL", "id": "FIELD_M1", "variable": "motor1", "label": "M1", "x": 6, "y": 10, "boolStyle": "PILOT", "trueColor": "GREEN" },
+      { "type": "BOOL", "id": "FIELD_M2", "variable": "motor2", "label": "M2", "x": 6, "y": 40, "boolStyle": "PILOT", "trueColor": "GREEN" },
+      { "type": "BOOL", "id": "FIELD_M3", "variable": "motor3", "label": "M3", "x": 6, "y": 70, "boolStyle": "PILOT", "trueColor": "GREEN" }
+    ] },
+    { "name": "Alarmas", "shortName": "ALARM", "color": "RED", "fields": [
+      { "type": "TEXT", "id": "FIELD_ULTIMA", "variable": "ultimaAlarma", "label": "Ultima", "capacity": 20, "x": 6, "y": 10, "layout": "STACKED", "valueColor": "RED" }
+    ] }
+  ],
+  "fields": [
+    { "type": "NAV_BAR", "preset": "industrial-color", "position": "bottom", "height": 22 }
+  ]
+}
