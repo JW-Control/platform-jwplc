@@ -216,6 +216,7 @@ Icono con estado (motor, piloto, válvula…; JWPLC_UIIconField): una imagen por
 | `iconSize` | `24` · `32` · `48` · `64` | `32` | Lado del icono (px). Sólo los tamaños que tiene ese icono (64 en algunos). |
 | `iconVarType` | `"bool"` · `"uint8"` | `"bool"` | Tipo de la variable: bool usa los estados 0 y 1; uint8 todos (0..N-1). Por defecto bool con 2 estados y uint8 con más. |
 | `iconState` | entero 0..7 | `0` | Estado de muestra en el lienzo. |
+| `transparentBackground` | bool | `false` | Sin fondo: no pinta el recuadro ni detrás de la etiqueta, y lo transparente en todos los estados deja ver la gráfica estática (RECT, RAW_TEXT…). Lo que cambia entre estados usa backgroundColor. |
 
 #### Iconos del catálogo (`iconId`)
 

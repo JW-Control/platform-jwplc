@@ -49,6 +49,25 @@
     return { width: w, height: h, pixels };
   }
 
+  // ICON sin fondo (JWPLC_UI.cpp:iconAlwaysTransparent): 1 donde el píxel es
+  // transparente en todos los estados; ahí no se pinta nada.
+  function alwaysTransparentMask(entry) {
+    const w = entry.width;
+    const h = entry.height;
+    const s = stride(w);
+    const mask = new Uint8Array(w * h).fill(1);
+    entry.states.forEach((st) => {
+      const bytes = base64ToBytes(entry.images[st.image]);
+      for (let i = 0; i < w * h; i += 1) {
+        if (!mask[i]) continue;
+        const x = i % w;
+        const b = bytes[Math.floor(i / w) * s + (x >> 1)];
+        if (((x & 1) ? (b & 0x0F) : (b >> 4)) !== entry.transparent) mask[i] = 0;
+      }
+    });
+    return mask;
+  }
+
   function findIcon(catalog, id) {
     return (catalog?.icons || []).find((icon) => icon.id === id) || null;
   }
@@ -140,7 +159,7 @@
   function iconFieldBlock(field, id, symbol, cppString) {
     const label = field.label ? `"${cppString(field.label)}"` : 'nullptr';
     const layout = field.layout === 'INLINE' ? 'INLINE' : 'STACKED';
-    return `    JWPLC_UIIconField(\n        ${id},\n        JWPLC_UIRect(${field.x}, ${field.y}),\n        &${symbol},\n        JWPLC_UIText(${label}),\n        JWPLC_UIIconStyle(\n            ${Math.max(1, Number(field.labelSize) || 1)},\n            ${field.frame ? 'true' : 'false'},\n            JWPLC_UI_LAYOUT_${layout}),\n        ${field.page || 0},\n        JWPLC_UIColors(\n            ${hex565(field.labelColor)},\n            ${hex565(field.valueColor)},\n            ${hex565(field.backgroundColor)},\n            ${hex565(field.frameColor)}))`;
+    return `    JWPLC_UIIconField(\n        ${id},\n        JWPLC_UIRect(${field.x}, ${field.y}),\n        &${symbol},\n        JWPLC_UIText(${label}),\n        JWPLC_UIIconStyle(\n            ${Math.max(1, Number(field.labelSize) || 1)},\n            ${field.frame ? 'true' : 'false'},\n            JWPLC_UI_LAYOUT_${layout}),\n        ${field.page || 0},\n        JWPLC_UIColors(\n            ${hex565(field.labelColor)},\n            ${hex565(field.valueColor)},\n            ${hex565(field.backgroundColor)},\n            ${hex565(field.frameColor)})${field.transparentBackground ? ',\n        true' : ''})`;
   }
 
   // bool para 2 estados; uint8_t con más (0..N-1).
@@ -171,6 +190,7 @@
     MAX_STATES,
     base64ToBytes,
     decode,
+    alwaysTransparentMask,
     clampState,
     findIcon,
     sizesOf,

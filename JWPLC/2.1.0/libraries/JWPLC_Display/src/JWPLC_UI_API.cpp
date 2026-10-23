@@ -245,7 +245,8 @@ JWPLC_UIField JWPLC_UIIconField(
     JWPLC_UIText text,
     JWPLC_UIStyle style,
     uint8_t page,
-    JWPLC_UIColors colors)
+    JWPLC_UIColors colors,
+    bool transparentBackground)
 {
     JWPLC_UIField field(
         JWPLC_UIFieldMeta(id, page, JWPLC_UI_FIELD_ICON),
@@ -254,6 +255,7 @@ JWPLC_UIField JWPLC_UIIconField(
         style,
         colors);
     field.icon = icon;
+    field.iconTransparent = transparentBackground;
     return field;
 }
 

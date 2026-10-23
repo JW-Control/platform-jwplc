@@ -122,16 +122,19 @@
   const style = document.createElement('style');
   style.id = 'a16-icons-style';
   style.textContent = `
-    .icons-block { display: flex; flex-direction: column; min-height: 0; }
+    .icon-dropdown-container { position: relative; display: flex; }
+    .icon-tool-btn { width: 44px; min-width: 44px; height: 32px; padding: 0 4px; display: flex; align-items: center; justify-content: center; gap: 3px; }
+    .icon-tool-btn .dropdown-chevron { opacity: .65; transition: transform .18s ease; pointer-events: none; flex-shrink: 0; }
+    .icon-dropdown-container.open .dropdown-chevron { transform: rotate(180deg); }
+    .icon-dropdown-menu.icons-block { width: 344px; max-width: calc(100vw - 24px); padding: 0; }
     .icons-block .icons-body { display: flex; flex-direction: column; gap: 6px; padding: 6px 8px 8px; min-height: 0; }
-    .icons-block.is-collapsed .icons-body { display: none; }
     .icons-block .icons-cats { display: flex; flex-wrap: wrap; gap: 4px; }
     .icons-block .icons-cats .insp-chip { font-size: 10.5px; padding: 2px 7px; }
     .icons-block .icons-tools { display: flex; gap: 6px; align-items: center; }
     .icons-block .icons-tools input { flex: 1; min-width: 0; }
     .icons-block .icons-size { display: flex; gap: 3px; }
     .icons-block .icons-size .insp-chip { font-size: 10px; padding: 2px 5px; }
-    .icons-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(54px, 1fr)); gap: 4px; max-height: 236px; overflow-y: auto; padding-right: 2px; }
+    .icons-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); gap: 4px; max-height: min(320px, 50vh); overflow-y: auto; padding-right: 2px; }
     .icon-tile { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 5px 2px 3px; border: 1px solid rgba(255,255,255,.08); border-radius: 6px; background: #05080b; color: inherit; cursor: grab; font: inherit; }
     .icon-tile:hover { border-color: rgba(82,201,255,.6); }
     .icon-tile canvas { width: 32px; height: 32px; image-rendering: pixelated; }
@@ -154,7 +157,8 @@
   document.head.appendChild(style);
 
   // ---------------------------------------------------------------------------
-  // Biblioteca (barra izquierda)
+  // Biblioteca: botón «Iconos» de la barra del lienzo, junto a Variables y
+  // Texto; el menú se abre hacia abajo y se cierra al agregar un icono.
   // ---------------------------------------------------------------------------
 
   const lib = { category: catalog.categories[0]?.id || '', query: '', size: 32 };
@@ -166,30 +170,50 @@
     try { localStorage.setItem('jwplc.icons.library', JSON.stringify({ category: lib.category, size: lib.size })); } catch (_) { /* sin almacenamiento */ }
   };
 
-  const block = document.createElement('section');
-  block.className = 'nav-block icons-block';
-  block.id = 'iconsNavBlock';
-  block.innerHTML = `
-    <div class="section-heading" data-icons-toggle style="cursor:pointer">
-      <div class="heading-title-group">
-        <svg class="heading-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
-        <svg class="heading-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M8 15V9l4 4 4-4v6"/></svg>
-        <h2>Iconos</h2>
+  const container = document.createElement('div');
+  container.className = 'icon-dropdown-container';
+  container.id = 'iconDropdownContainer';
+  container.innerHTML = `
+    <button class="canvas-tool icon-tool-btn" id="iconToolBtn" type="button" title="Iconos con estado (motores, pilotos, válvulas…)">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 15V9l4 4 4-4v6"/></svg>
+      <svg class="dropdown-chevron" width="7" height="6" viewBox="0 0 8 6" fill="currentColor"><path d="M0 1l4 4 4-4z"/></svg>
+    </button>
+    <div class="text-dropdown-menu icon-dropdown-menu icons-block" id="iconDropdownMenu" style="display: none;">
+      <div class="var-menu-header">Iconos <span class="count-badge" data-icons-count>${catalog.icons.length}</span></div>
+      <div class="icons-body">
+        <div class="icons-cats" data-icons-cats></div>
+        <div class="icons-tools">
+          <input class="field-input" data-icons-search type="search" placeholder="Buscar (motor, válvula…)" />
+          <div class="icons-size" data-icons-size title="Tamaño del icono nuevo"></div>
+        </div>
+        <div class="icons-grid" data-icons-grid></div>
+        <div class="insp-note" style="font-size:10.5px;opacity:.75">Clic o arrastrar al lienzo. Cada icono cambia de imagen según su variable (sin animación).</div>
       </div>
-      <span class="count-badge" data-icons-count>${catalog.icons.length}</span>
-    </div>
-    <div class="icons-body">
-      <div class="icons-cats" data-icons-cats></div>
-      <div class="icons-tools">
-        <input class="field-input" data-icons-search type="search" placeholder="Buscar (motor, válvula…)" />
-        <div class="icons-size" data-icons-size title="Tamaño del icono nuevo"></div>
-      </div>
-      <div class="icons-grid" data-icons-grid></div>
-      <div class="insp-note" style="font-size:10.5px;opacity:.75">Clic o arrastrar al lienzo. Cada icono cambia de imagen según su variable (sin animación).</div>
     </div>`;
-  const objectsBlock = document.getElementById('objectsNavBlock');
-  if (objectsBlock) objectsBlock.insertAdjacentElement('afterend', block);
-  else leftPanel.appendChild(block);
+  const block = container.querySelector('#iconDropdownMenu');
+  const toolBtn = container.querySelector('#iconToolBtn');
+  const textContainer = document.getElementById('textDropdownContainer');
+  if (textContainer) textContainer.insertAdjacentElement('afterend', container);
+  else (document.querySelector('.canvas-toolbar') || leftPanel).appendChild(container);
+
+  function setMenuOpen(open) {
+    block.style.display = open ? 'flex' : 'none';
+    container.classList.toggle('open', open);
+    if (open) block.querySelector('[data-icons-search]')?.focus({ preventScroll: true });
+  }
+  toolBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    // Cierra los otros menús de la barra (Variables, Texto).
+    document.querySelectorAll('.var-dropdown-menu, .text-dropdown-menu').forEach((m) => { if (m !== block) m.style.display = 'none'; });
+    document.querySelectorAll('.var-dropdown-container.open, .text-dropdown-container.open').forEach((c) => c.classList.remove('open'));
+    setMenuOpen(block.style.display === 'none');
+  });
+  document.addEventListener('click', (e) => { if (!e.composedPath().includes(container)) setMenuOpen(false); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && block.style.display !== 'none') setMenuOpen(false); });
+  // Botón activo mientras hay un ICON seleccionado (como Variables y Texto).
+  const syncToolBtn = () => toolBtn.classList.toggle('active', editor()?.getSelectedField?.()?.type === 'ICON' && Boolean(editor()?.hasFieldSelection?.()));
+  window.addEventListener('jwplc:editor-refresh', syncToolBtn);
+  window.addEventListener('jwplc:tool-changed', () => setTimeout(syncToolBtn, 0));
 
   function renderLibrary() {
     const cats = block.querySelector('[data-icons-cats]');
@@ -220,14 +244,14 @@
   }
 
   function addIcon(id, at = null) {
+    setMenuOpen(false);
     const field = editor()?.addIconField?.(id, lib.size, at);
-    if (field) setTimeout(sync, 0);
+    if (field) setTimeout(() => { sync(); syncToolBtn(); }, 0);
     return field;
   }
 
   block.addEventListener('click', (e) => {
     const t = e.target;
-    if (t.closest('[data-icons-toggle]')) { block.classList.toggle('is-collapsed'); return; }
     const cat = t.closest('[data-icons-cat]');
     if (cat) { lib.category = cat.dataset.iconsCat; lib.query = ''; block.querySelector('[data-icons-search]').value = ''; remember(); renderLibrary(); return; }
     const size = t.closest('[data-icons-pick-size]');
@@ -243,7 +267,10 @@
     if (!tile) return;
     e.dataTransfer.setData('application/x-jwplc-icon', tile.dataset.iconId);
     e.dataTransfer.effectAllowed = 'copy';
+    // El menú tapa el lienzo: se vuelve transparente al arrastrar (ocultarlo cancelaría el arrastre).
+    requestAnimationFrame(() => { block.style.opacity = '0.15'; block.style.pointerEvents = 'none'; });
   });
+  block.addEventListener('dragend', () => { block.style.opacity = ''; block.style.pointerEvents = ''; setMenuOpen(false); });
   const viewport = document.getElementById('canvasViewport');
   const displayCanvas = document.getElementById('displayCanvas');
   viewport?.addEventListener('dragover', (e) => {
@@ -317,6 +344,14 @@
               <button type="button" class="bar-visual-btn" data-icon-set="frame" data-value="0"><span>Sin marco</span></button>
               <button type="button" class="bar-visual-btn" data-icon-set="frame" data-value="1"><span>Con marco</span></button>
             </div>
+          </div>
+          <div class="bar-card">
+            <div class="bar-card-section-title">Fondo</div>
+            <div class="bar-visual-grid-2">
+              <button type="button" class="bar-visual-btn" data-icon-set="transparentBackground" data-value="0"><span>Con color de fondo</span></button>
+              <button type="button" class="bar-visual-btn" data-icon-set="transparentBackground" data-value="1"><span>Sin fondo</span></button>
+            </div>
+            <div class="insp-note">Sin fondo se ve lo que hay debajo (figuras, texto fijo). Lo que cambia entre estados sigue usando el color de fondo para no dejar restos en la TFT.</div>
           </div>
         </div>
 
@@ -468,6 +503,7 @@
     section.querySelectorAll('[data-icon-set]').forEach((b) => {
       const prop = b.dataset.iconSet;
       const value = prop === 'frame' ? (b.dataset.value === '1') === Boolean(field.frame)
+        : prop === 'transparentBackground' ? (b.dataset.value === '1') === Boolean(field.transparentBackground)
         : prop === 'labelSize' ? Number(b.dataset.value) === Math.max(1, num(field.labelSize, 1))
           : prop === 'layout' ? b.dataset.value === (field.layout === 'INLINE' ? 'INLINE' : 'STACKED')
             : b.dataset.value === (field.iconVarType === 'uint8' ? 'uint8' : 'bool');
@@ -516,6 +552,7 @@
       const v = setBtn.dataset.value;
       mutate((f) => {
         if (prop === 'frame') f.frame = v === '1';
+        else if (prop === 'transparentBackground') f.transparentBackground = v === '1';
         else if (prop === 'labelSize') f.labelSize = Number(v);
         else if (prop === 'layout') f.layout = v;
         else if (prop === 'iconVarType') f.iconVarType = v;

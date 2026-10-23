@@ -127,6 +127,8 @@ Estado de adopción por tipo: ver `ALPHA15_STATUS.md` (§Inspector).
   4 bpp con paleta de 16 RGB565 por estado, índice 0 transparente (toma el fondo del campo), etiqueta opcional.
   Cuenta en el límite de 32 campos. Iconos: `icons/library.cjs` (dibujo vectorial rasterizado) →
   `node icons/build-catalog.cjs` regenera `poc/designer-icon-catalog.js` e `icons/catalogo.png` (`--check` en CI).
+  Biblioteca: botón «Iconos» de la barra del lienzo (`#iconToolBtn`, menú `#iconDropdownMenu`). «Sin fondo»
+  (`transparentBackground`): no pinta lo transparente en todos los estados (`alwaysTransparentMask` == `iconAlwaysTransparent`).
   El `.jwhmi` guarda `iconAssets` (bitmaps usados) para abrir proyectos con iconos que ya no estén en el catálogo.
   Paridad lienzo/firmware: `tests/icon-smoke.cjs` (+ `tests/icon-host-sim.cjs` para el firmware solo).
 
@@ -171,9 +173,9 @@ Estado de adopción por tipo: ver `ALPHA15_STATUS.md` (§Inspector).
   emite TEXT/VALUE; BOOL/BAR salen como `JWPLC_UITextField` provisional que reemplazan sus capas.
 - Tras tocar el codegen: `node tests/codegen-golden.cjs` (salida byte a byte) y
   `node tests/codegen-smoke.cjs`. Un cambio intencional: `--update` y revisar el diff.
-- Tras tocar JS/CSS: subir el `?v=` del archivo tocado (hoy 1793801300; ICON 1793801700; `app.js`, `designer-codegen`, `designer-icons*` y `designer-sketch-guide` 1793801800) en
+- Tras tocar JS/CSS: subir el `?v=` del archivo tocado (hoy 1793801300; `designer-codegen` y `designer-sketch-guide` 1793801800; `app.js`, `ux-foundation` y `designer-icons*` 1793801900) en
   `index.html`/`desktop.html`/`ux-foundation.js`/`designer-field-visibility.js` y `CACHE_NAME` en
-  `service-worker.js` (hoy `jwplc-hmi-designer-a16-v45`).
+  `service-worker.js` (hoy `jwplc-hmi-designer-a16-v46`).
 - Versión visible: `2.1.0-alpha.14` (título, `.brand-badge`, `.gate` de la barra de estado, panel «Estado»,
   `electron/package.json`). El comentario `// API pública JWPLC_UI · Alpha11 A11-4` del header generado es un
   marcador interno de las capas del codegen: no cambiarlo.

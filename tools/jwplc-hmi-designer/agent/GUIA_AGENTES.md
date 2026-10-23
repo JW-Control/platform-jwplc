@@ -101,6 +101,8 @@ La CLI acepta un JSON mínimo y completa el resto con los mismos valores por def
   Con 2 estados la variable es `bool`; con más, `uint8_t` y el sketch asigna 0..N-1 (el nombre de cada
   estado está en `icons`). Un estado fuera de rango deja el último dibujado. Cuenta en los 32 objetos;
   dos ICON del mismo icono y tamaño comparten el bitmap en flash (una imagen de 64 px pesa 2 KB).
+  `transparentBackground: true` (sin fondo) deja ver la figura o el texto fijo de debajo fuera de la
+  silueta del icono: úsalo para poner equipos sobre un `RECT` de color.
 - MENU: uno por página; necesita teclas (▲▼ OK ESC) y ocupa la página, así que suele ir en una
   página propia («Ajustes»).
 - Con varias páginas el firmware cambia de página con ◀ ▶ (`JWPLC_UI_Pages`); la `NAV_BAR` muestra las pestañas.

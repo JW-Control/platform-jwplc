@@ -2462,12 +2462,18 @@
       // JWPLC_UI.cpp:drawIcon: el índice transparente toma el fondo del campo.
       const entry = iconEntry(field);
       if (!entry) return g;
+      // Sin fondo: lo transparente en todos los estados no se pinta; lo que es
+      // transparente sólo en algunos toma el fondo del campo.
       const img = window.JWPLCIconsCore.decode(entry, field.iconState);
+      const mask = field.transparentBackground ? window.JWPLCIconsCore.alwaysTransparentMask(entry) : null;
+      const iconBg = mask ? (Number(field.backgroundColor) & 0xFFFF) : textBg;
       for (let y = 0; y < img.height; y += 1) {
         for (let x = 0; x < img.width; x += 1) {
-          const c = img.pixels[y * img.width + x];
+          const i = y * img.width + x;
+          const c = img.pixels[i];
           if (c >= 0) setBufferPixel(buffer, g.valueX + x, g.valueY + y, c);
-          else if (textBg !== null) setBufferPixel(buffer, g.valueX + x, g.valueY + y, textBg);
+          else if (mask && mask[i]) continue;
+          else if (iconBg !== null) setBufferPixel(buffer, g.valueX + x, g.valueY + y, iconBg);
         }
       }
       return g;
@@ -5233,6 +5239,7 @@
     field.iconSize = core.resolveSize(icon, size || 32);
     field.iconVarType = icon.stateNames.length > 2 ? 'uint8' : 'bool';
     field.iconState = 0;
+    field.transparentBackground = false;
     field.label = '';
     field.preview = '';
     field.unit = '';

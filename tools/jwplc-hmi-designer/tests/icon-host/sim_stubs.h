@@ -67,6 +67,7 @@ size_t JWPLC_TFTClass::write(uint8_t c)
     for (int row = 0; row < 8; ++row)
     {
       const bool on = col < 5 && ((g[col] >> row) & 1);
+      if (!on && fg == bg) continue; // setTextColor(fg): texto sin fondo, como TFT_eSPI
       for (int dy = 0; dy < size; ++dy) for (int dx = 0; dx < size; ++dx)
         pixel(cx + col * size + dx, cy + row * size + dy, on ? fg : bg);
     }
