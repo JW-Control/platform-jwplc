@@ -3,17 +3,17 @@
 > Documento único y corto (máximo 150 líneas). Se reescribe al cerrar cada hito; no se añaden cortes históricos.
 > Historial completo hasta el 21/10/2026: [history/ALPHA13_STATUS_HISTORIAL_HASTA_20261021.md](history/ALPHA13_STATUS_HISTORIAL_HASTA_20261021.md). Solo se consulta cuando hace falta evidencia de un gate concreto.
 
-**Actualizado:** 22/10/2026 · **Publicada:** [v2.1.0-alpha.13](https://github.com/JW-Control/platform-jwplc/releases/tag/v2.1.0-alpha.13) (PreRelease, índice dev)
+**Actualizado:** 23/10/2026 · **Cerrada.** **Publicada:** [v2.1.0-alpha.13](https://github.com/JW-Control/platform-jwplc/releases/tag/v2.1.0-alpha.13) (PreRelease, índice dev)
 
 ## 1. Ramas y sincronización
 
 | Rol | Rama | Estado |
 |---|---|---|
-| Base del alpha | `v2.1.0-alpha.13/feature/cleanup-robustness` | `6034bfb8` (PR #127 y #128); ya no recibe cambios |
+| Base del alpha | `v2.1.0-alpha.13/feature/cleanup-robustness` | `6034bfb8` (PR #127 y #128); se borra tras este cierre |
 | Publicación | `release/v2.1.x` | `11237c2c` (PR #129, squash) + este cierre |
 | Índice Boards Manager | `main` | índice dev con alpha.13 (PR #130); árbol sincronizado con `release/v2.1.x` |
 
-`BASE_SYNC=OK` · `KNOWLEDGE_SYNC=PENDING_PR_docs/presupuesto-tokens-ci` (`jwplc-dev-mcp`)
+`BASE_SYNC=OK` · `KNOWLEDGE_SYNC=OK` (`jwplc-dev-mcp` PR #30, `22f15a9`)
 
 ## 2. Qué contiene el package (`JWPLC/2.1.0`)
 
@@ -42,23 +42,22 @@
 | Guard F137-C | PASS en la fuente publicada | [#39739018771](https://github.com/JW-Control/platform-jwplc/actions/runs/39739018771) |
 | Package Smoke | PASS en el PR de publicación | [#39739102108](https://github.com/JW-Control/platform-jwplc/actions/runs/39739102108) |
 | Postpublicación CLI | Instalación limpia desde el índice dev publicado (Arduino CLI 1.3.1, Linux) y 6/6 compilaciones: `01.ModbusTCP_Server`, `02.ModbusTCP_Client` y `01.Ethernet_DHCP_Basic` en `jwplcbasic` y `jwplcbasiccore`. `JWPLC_Ethernet` y `JWPLC_ModbusTCP` se enlazan desde sus `.a` | sesión del 22/10 |
+| Postpublicación IDE y placa | PASS. `jwplc:esp32@2.1.0-alpha.13` instalado desde el índice dev con Arduino IDE 2.3.4 (GUI), reemplazando alpha.12. `01.ModbusTCP_Server` del package instalado compilado en `jwplcbasic` con el arduino-cli del IDE y sketchbook vacío (las 15 librerías desde el package; flash 443 881 B, RAM 30 356 B) y subido a COM4 (`COMMAND_SUCCESS`, 15 s). Arranque `POWERON_RESET` sin WDT; `Modbus TCP READY` por DHCP en unos 3 s. Desde la PC: FC01/02/03/04/05/06/15/16 correctos, excepción 02 fuera de rango y 200 lecturas FC03 seguidas sin error | sesión del 23/10 |
 
-**Límites que no se convierten en PASS:** Basic Core físico, R3 interno, R4 de 1805 s, renovación DHCP/DNS, E1/E2, marcador literal de BOOT por UART, tiempo de upload.
+**Límites que no se convierten en PASS:** upload con el botón del IDE (se usó su arduino-cli), Basic Core físico, R3 interno, R4 de 1805 s, renovación DHCP/DNS, E1/E2, marcador literal de BOOT por UART, tiempo de upload.
 
 ## 5. Pendiente
 
-1. Operador: instalar desde Arduino IDE (GUI) con el índice dev y subir un ejemplo a una placa desde el package distribuido. Con eso, `ALPHA13=CLOSED_PUBLISHED`.
-2. Revisar y fusionar en `jwplc-dev-mcp` la rama `docs/presupuesto-tokens-ci` (auditoría y regla de presupuesto).
-3. Borrar ramas obsoletas (`claude/sleepy-hopper-i4i23y` en los tres repositorios y las `codex/alpha13-*` ya fusionadas o cerradas).
+Ninguno para Alpha13. Hallazgo para el operador: copias de `JWPLC_ModbusRTU` y `JWPLC_RS485` en el sketchbook tapan a las del package (desde Alpha10 solo las librerías Adafruit llevan marcador `JWPLC_Bundled_*`). Retirarlas del sketchbook.
 
 ```text
-ALPHA13=PUBLISHED_PENDING_IDE_GUI_CHECK
+ALPHA13=CLOSED_PUBLISHED
 RELEASE_TAG=v2.1.0-alpha.13
 RELEASE_ZIP_SHA256=b3dc5ac710229bd272b0382fb56dd8988e242a66eebc872198cd82c5bdc57428
 PACKAGE_TREE=6b498f4a0797e2a1bb0054b005b91f985bc071e2
 POSTPUBLISH_CLI=PASS_6_OF_6
-POSTPUBLISH_IDE_GUI=NOT_RUN
-POSTPUBLISH_UPLOAD=NOT_RUN
+POSTPUBLISH_IDE_GUI=PASS
+POSTPUBLISH_UPLOAD=PASS_COM4_MODBUS_TCP
 NEXT_FAILURE_ID=F138
-NEXT_GATE=OPERATOR_IDE_GUI_INSTALL_AND_UPLOAD
+NEXT_GATE=NONE
 ```
