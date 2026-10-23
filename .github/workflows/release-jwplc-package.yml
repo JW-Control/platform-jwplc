@@ -16,6 +16,8 @@ jobs:
   release:
     name: Preparar y publicar package JWPLC
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.prepare.outputs.version }}
 
     steps:
       - name: Checkout repository
@@ -338,3 +340,11 @@ jobs:
             JWPLC/package_jwplc_index_dev.json
             JWPLC/package_jwplc_index.json
           if-no-files-found: error
+
+  hmi-designer:
+    name: HMI Designer Windows en la Release
+    needs: release
+    uses: ./.github/workflows/hmi-designer-windows.yml
+    with:
+      version: ${{ needs.release.outputs.version }}
+      upload: true

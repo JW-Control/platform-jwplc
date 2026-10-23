@@ -22,7 +22,25 @@ AUTOCOMPLETE_JWPLC_DISPLAY=PASS_USER
 
 ---
 
-## Instalar o actualizar la app de escritorio (Windows)
+## Instalar sin el repositorio (cualquier persona, Windows)
+
+Cada GitHub Release del package trae el Designer listo para usar, sin Node.js ni repositorio:
+
+- **`JWPLC-HMI-Designer-Setup-<versión>-x64.exe`** (recomendado): doble clic y *Siguiente*. Instala por
+  usuario, sin administrador, en `%LOCALAPPDATA%\JWPLC\HMI Designer`, con accesos en el Escritorio y
+  el Menú Inicio y la extensión para Arduino IDE 2. Se desinstala desde *Aplicaciones* de Windows.
+- **`JWPLC-HMI-Designer-Portable-<versión>-x64.exe`**: se abre sin instalar (por ejemplo, desde un USB).
+  No crea accesos ni instala la extensión, así que el botón del Arduino IDE no lo encuentra.
+- **`JWPLC-HMI-Designer-<versión>-SHA256.txt`**: sumas para verificar las descargas.
+
+El .exe no está firmado: Windows SmartScreen puede mostrar «Windows protegió su PC». Pulsa
+*Más información* y luego *Ejecutar de todas formas*.
+
+Los genera `.github/workflows/hmi-designer-windows.yml`, que se ejecuta al publicar la Release
+(`release-jwplc-package.yml`). Para regenerarlos en una Release ya publicada, ejecútalo a mano con la versión.
+En cada PR que toca el Designer solo compila y deja los .exe como artifact.
+
+## Instalar o actualizar la app de escritorio desde el repositorio (Windows)
 
 Doble clic en **`Generar-e-Instalar-App-Escritorio.cmd`**. Requiere Node.js LTS
 (`winget install OpenJS.NodeJS.LTS`); la primera vez descarga Electron.
@@ -110,7 +128,7 @@ después del 2026-10-19 (si no, se escriben el header y el `.jwhmi` y el aviso p
 | `JWPLC-HMI-Designer.cmd` · `Start-JWPLC-HMI-Designer.ps1` · `JWPLC-HMI-Server.ps1` | Abre la versión de navegador desde el repo, sin instalar (desarrollo) | Opcional |
 | `Build-JWPLC-HMI-Designer-Electron.ps1` | Sólo compila la app (paso 1) | Lo llama el generador |
 | `Install-JWPLC-HMI-Designer.ps1` · `.cmd` | Sólo instala (paso 2). Sin app compilada instala el lanzador de navegador | Lo llama el generador |
-| `Build-JWPLC-HMI-Designer-Setup.ps1` | Genera un instalador `Setup.exe` para repartir a otras PCs | Al publicar |
+| `Build-JWPLC-HMI-Designer-Setup.ps1` | Genera el instalador `Setup.exe` (y con `-Portable` el portable) para repartir a otras PCs | Lo hace el CI al publicar |
 | `Build-JWPLC-HMI-Designer-Exe.ps1` · `JWPLC-HMI-Designer-Launcher.cs` | Lanzador de compatibilidad (abre el navegador) | Interno |
 | `Build-ArduinoIDE-Launcher.ps1` · `Install-ArduinoIDE-Launcher.ps1` | Extensión de Arduino IDE 2 | Interno |
 | `Test-JWPLC-HMI-Designer-Install.ps1` | Verifica una instalación | Diagnóstico |
