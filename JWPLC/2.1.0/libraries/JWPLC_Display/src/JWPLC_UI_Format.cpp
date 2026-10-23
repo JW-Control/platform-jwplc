@@ -8,6 +8,15 @@ JWPLC_UIValueFormat::JWPLC_UIValueFormat(
     uint8_t integerDigitsValue,
     uint8_t decimalDigitsValue,
     bool signedValueValue,
+    bool leadingZerosValue)
+    : JWPLC_UIValueFormat(integerDigitsValue, decimalDigitsValue, signedValueValue, leadingZerosValue, 0)
+{
+}
+
+JWPLC_UIValueFormat::JWPLC_UIValueFormat(
+    uint8_t integerDigitsValue,
+    uint8_t decimalDigitsValue,
+    bool signedValueValue,
     bool leadingZerosValue,
     char thousandsSeparatorValue)
     : integerDigits(integerDigitsValue),

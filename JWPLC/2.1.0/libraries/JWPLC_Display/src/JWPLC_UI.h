@@ -178,12 +178,20 @@ struct JWPLC_UIValueFormat
     JWPLC_UIDurationUnit durationUnit;
     JWPLC_UIDateTimePattern dateTimePattern;
 
+    // Constructor de 4 argumentos de Alpha11/12: se conserva para que el .a
+    // mantenga su símbolo (ABI_COMPAT). Equivale a thousandsSeparator = 0.
     JWPLC_UIValueFormat(
         uint8_t integerDigitsValue = 3,
         uint8_t decimalDigitsValue = 0,
         bool signedValueValue = false,
-        bool leadingZerosValue = false,
-        char thousandsSeparatorValue = 0);
+        bool leadingZerosValue = false);
+
+    JWPLC_UIValueFormat(
+        uint8_t integerDigitsValue,
+        uint8_t decimalDigitsValue,
+        bool signedValueValue,
+        bool leadingZerosValue,
+        char thousandsSeparatorValue);
 };
 
 // Formato de duración para JWPLC_UIValueField (setValue con segundos o ms).
