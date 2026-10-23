@@ -431,6 +431,21 @@
     return activeModal;
   }
 
+  // Reinicio del ESP32 en modo aplicación, como el hard_reset de esptool
+  // (Python): IO0 libre (DTR=0) y un pulso en EN (RTS=1 -> 100 ms -> RTS=0).
+  // No se usa loader.after('hard_reset') de esptool-js 0.7: sólo pone RTS=0
+  // sin pulsarlo antes y, por un fallo de Transport.setSignals, vuelve a poner
+  // DTR=1 (IO0 a tierra). El chip seguía en el stub del flasher: la app decía
+  // «instalado» pero el PLC no arrancaba el Live Bridge.
+  async function hardResetToApp(transport) {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    await transport.setDTR(false);
+    await transport.setRTS(true);
+    await wait(100);
+    await transport.setRTS(false);
+    await wait(50);
+  }
+
   // =========================================================================
   // Flasher Core: ejecuta la secuencia esptool-js
   // =========================================================================
@@ -521,7 +536,7 @@
     onLog?.(`Flasheo completado con éxito (${duration}s). Ejecutando Hard Reset (RTS)...`);
 
     try {
-      await loader.after('hard_reset');
+      await hardResetToApp(transport);
     } catch (e) {
       onLog?.(`Aviso en hard_reset: ${e?.message || e}`);
     }

@@ -16,5 +16,13 @@ contextBridge.exposeInMainWorld('JWPLCHMINative', {
   openSketchFolder: () => ipcRenderer.invoke('jwplc-hmi:open-sketch-folder'),
   onSketchOpened: (callback) => {
     ipcRenderer.on('jwplc-hmi:sketch-opened', (_event, info) => callback(info));
-  }
+  },
+  // Selector de puertos serie propio (poc/designer-port-picker.js).
+  registerSerialPortPicker: ({ onRequest, onList }) => {
+    ipcRenderer.on('jwplc-hmi:serial-port-request', (_event, request) => onRequest(request));
+    ipcRenderer.on('jwplc-hmi:serial-port-list', (_event, update) => onList(update));
+    ipcRenderer.send('jwplc-hmi:serial-picker-ready');
+  },
+  chooseSerialPort: (requestId, portId) =>
+    ipcRenderer.send('jwplc-hmi:serial-port-chosen', { requestId, portId: portId || '' })
 });

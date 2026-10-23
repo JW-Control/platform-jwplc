@@ -406,6 +406,13 @@ MENU_NODE_COUNT_LIMIT=64 por menú, 4 menús, 1 por página (9 nodos = +952 B RA
   - [ejecutado] en Chromium, `JWPLCHMIFlasher.loadBinaries()` lee `flash_args` y descarga las 4 partes con sus
     direcciones y encabezados. `live-bridge-flasher.test.cjs` pasa 10/10, con tests nuevos de `flash_args`,
     de la partición y de `keep`.
+- 2026-10-23 — **flasher: el PLC no arrancaba tras flashear y selector de puertos propio** (prueba en placa):
+  - la app decía «instalado» pero el PLC seguía igual: `loader.after('hard_reset')` de esptool-js 0.7 no
+    pulsa RTS y deja DTR=1 (IO0 a tierra), así que el chip quedaba en el stub. `hardResetToApp` hace
+    DTR=0, RTS=1, 100 ms, RTS=0, como esptool (Python). Test con transporte simulado;
+  - `poc/designer-port-picker.js` reemplaza el cuadro de Windows de «Conectar JWPLC» en la app de
+    escritorio (`main.js` manda la lista por IPC, con respaldo al cuadro nativo). `port-picker-smoke.cjs`;
+  - pendiente en placa: flasheo → arranque del Live Bridge → LIVE conectado, y el selector nuevo.
 - 2026-10-23 — **flasher del Live Bridge, revisión**:
   - si el flasheo falla, `executeFlash` cierra el puerto. Antes quedaba abierto: «Reintentar» fallaba siempre
     con «port already open» y «Cerrar» no lo liberaba, hasta recargar la app;

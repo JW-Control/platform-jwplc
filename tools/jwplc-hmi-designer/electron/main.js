@@ -107,33 +107,122 @@ const installSerialPermissions = () => {
   ses.setPermissionRequestHandler((_webContents, permission, callback) => callback(permission === "serial"));
   ses.setDevicePermissionHandler((details) => details.deviceType === "serial");
 
-  ses.on("select-serial-port", (event, portList, _webContents, callback) => {
+  // Selector de puertos propio (poc/designer-port-picker.js): main manda la
+  // lista a la ventana y espera el puerto elegido. Si la ventana no registró
+  // el selector, se usa el cuadro de Windows como respaldo.
+  ses.on("select-serial-port", (event, portList, webContents, callback) => {
     event.preventDefault();
 
-    if (!portList.length) {
-      callback("");
+    if (serialPortRequest) serialPortRequest.finish("");
+
+    if (!serialPickerReady || !webContents || webContents.isDestroyed()) {
+      showNativeSerialPortDialog(portList, callback);
       return;
     }
 
-    const labels = portList.map((port, index) => {
-      const name = port.displayName || port.portName || `Puerto ${index + 1}`;
-      const detail = [port.vendorId, port.productId].filter(Boolean).join(":");
-      return detail ? `${name} (${detail})` : name;
-    });
-    labels.push("Cancelar");
-
-    dialog.showMessageBox(mainWindow, {
-      type: "question",
-      title: "Conectar JWPLC",
-      message: "Selecciona el puerto serie para LIVE",
-      buttons: labels,
-      cancelId: labels.length - 1,
-      defaultId: 0,
-      noLink: true
-    }).then(({ response }) => {
-      callback(response >= 0 && response < portList.length ? portList[response].portId : "");
-    }).catch(() => callback(""));
+    const requestId = ++serialPortRequestSeq;
+    const ports = new Map(portList.map((port) => [port.portId, port]));
+    serialPortRequest = {
+      requestId,
+      webContents,
+      ports,
+      finish(portId) {
+        if (serialPortRequest !== this) return;
+        serialPortRequest = null;
+        callback(portId && ports.has(portId) ? portId : "");
+      }
+    };
+    webContents.send("jwplc-hmi:serial-port-request", { requestId, ports: portList.map(describeSerialPort) });
   });
+
+  const sendSerialPortList = () => {
+    const request = serialPortRequest;
+    if (!request || request.webContents.isDestroyed()) return;
+    request.webContents.send("jwplc-hmi:serial-port-list", {
+      requestId: request.requestId,
+      ports: [...request.ports.values()].map(describeSerialPort)
+    });
+  };
+
+  ses.on("serial-port-added", (_event, port) => {
+    if (!serialPortRequest) return;
+    serialPortRequest.ports.set(port.portId, port);
+    sendSerialPortList();
+  });
+
+  ses.on("serial-port-removed", (_event, port) => {
+    if (!serialPortRequest) return;
+    serialPortRequest.ports.delete(port.portId);
+    sendSerialPortList();
+  });
+
+  ipcMain.on("jwplc-hmi:serial-picker-ready", () => {
+    serialPickerReady = true;
+  });
+
+  ipcMain.on("jwplc-hmi:serial-port-chosen", (_event, payload = {}) => {
+    if (serialPortRequest && serialPortRequest.requestId === payload.requestId) {
+      serialPortRequest.finish(String(payload.portId || ""));
+    }
+  });
+};
+
+let serialPickerReady = false;
+let serialPortRequest = null;
+let serialPortRequestSeq = 0;
+
+// Chips USB-serie habituales en placas ESP32 (vendorId en hexadecimal).
+const USB_SERIAL_CHIPS = {
+  "1a86": "CH340 / CH343",
+  "10c4": "CP210x",
+  "0403": "FTDI",
+  "303a": "Espressif USB"
+};
+
+const toHexId = (value) => {
+  if (value === undefined || value === null || value === "") return "";
+  const n = Number.parseInt(String(value), 10);
+  return Number.isFinite(n) ? n.toString(16).padStart(4, "0") : String(value);
+};
+
+const describeSerialPort = (port) => {
+  const vid = toHexId(port.vendorId);
+  const pid = toHexId(port.productId);
+  return {
+    portId: port.portId,
+    portName: port.portName || "",
+    displayName: port.displayName || "",
+    vendorId: vid,
+    productId: pid,
+    chip: USB_SERIAL_CHIPS[vid] || ""
+  };
+};
+
+const showNativeSerialPortDialog = (portList, callback) => {
+  if (!portList.length) {
+    callback("");
+    return;
+  }
+
+  const labels = portList.map((port, index) => {
+    const info = describeSerialPort(port);
+    const name = [info.portName, info.displayName].filter(Boolean).join(" · ") || `Puerto ${index + 1}`;
+    const detail = [info.vendorId, info.productId].filter(Boolean).join(":");
+    return detail ? `${name} (${detail})` : name;
+  });
+  labels.push("Cancelar");
+
+  dialog.showMessageBox(mainWindow, {
+    type: "question",
+    title: "Conectar JWPLC",
+    message: "Selecciona el puerto serie para LIVE",
+    buttons: labels,
+    cancelId: labels.length - 1,
+    defaultId: 0,
+    noLink: true
+  }).then(({ response }) => {
+    callback(response >= 0 && response < portList.length ? portList[response].portId : "");
+  }).catch(() => callback(""));
 };
 
 const linkedStateFile = () => path.join(app.getPath("userData"), "linked-sketch.json");

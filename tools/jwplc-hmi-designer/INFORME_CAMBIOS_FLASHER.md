@@ -23,7 +23,14 @@
 >   quedaba abierto y «Reintentar» fallaba siempre con «port already open» hasta recargar la app;
 > - el botón «Conectar/Desconectar LIVE» queda desactivado mientras se graba, para no cerrar el puerto a
 >   mitad de la escritura;
-> - las secciones 2 a 5 se actualizaron al estado actual (`flash_args`, 4 partes, caché v39, 12 tests).
+> - **el PLC no arrancaba el Live Bridge tras flashear** (probado en placa): `loader.after('hard_reset')` de
+>   esptool-js 0.7 sólo pone RTS=0 sin pulsarlo y, por un fallo de `Transport.setSignals`, deja DTR=1 (IO0 a
+>   tierra). El chip seguía en el stub del flasher. Ahora `hardResetToApp` hace DTR=0, RTS=1, 100 ms, RTS=0,
+>   como el `hard_reset` de esptool (Python);
+> - **selector de puertos propio** en la app de escritorio (`poc/designer-port-picker.js`): reemplaza el cuadro
+>   de Windows; muestra COM, nombre, VID:PID en hexadecimal y el chip (CH340, CP210x…), pone primero el del
+>   PLC y se actualiza al enchufar o desenchufar. En Chrome/Edge sigue el selector del navegador;
+> - las secciones 2 a 5 se actualizaron al estado actual (`flash_args`, 4 partes, caché v40, 13 tests).
 >
 > Ver `ALPHA15_STATUS.md`.
 
@@ -54,7 +61,7 @@ flowchart TD
 
     subgraph Fase4["Fase 4: Autoconexión & Pruebas"]
         RESET["RTS Hard Reset + Reconexión automática a 921,600 baudios"]
-        TESTS["tests/live-bridge-flasher.test.cjs (12/12 tests PASS)<br/>Integrado en tests/run-all.cjs"]
+        TESTS["tests/live-bridge-flasher.test.cjs (13/13 tests PASS)<br/>Integrado en tests/run-all.cjs"]
     end
 
     Fase1 --> Fase2 --> Fase3 --> Fase4
@@ -128,7 +135,7 @@ flowchart TD
 ### Fase 4: Autoconexión, Telemetría y Validación
 * **Secuencia de Autoconexión post-reinicio:**
   - Al completar la escritura en flash:
-    1. Se invoca `loader.after('hard_reset')`, el cual envía un pulso por RTS para reiniciar el ESP32 en modo aplicación.
+    1. `hardResetToApp` deja IO0 libre (DTR=0) y da un pulso en EN (RTS=1 → 100 ms → RTS=0) para reiniciar el ESP32 en modo aplicación.
     2. Se invoca `transport.disconnect()`, cerrando el puerto y liberando los bloqueos del stream WebSerial.
     3. `designer-live.js:reconnectLive` espera 450 ms a que el microcontrolador arranque y registre el dispositivo USB.
     4. Se reabre el mismo objeto `SerialPort` a 921,600 baudios (sin que el navegador vuelva a pedir permisos al usuario).
@@ -141,7 +148,7 @@ flowchart TD
        - Queda operativo el streaming diferencial continuo a 30-60 FPS mediante *dirty rects*.
 * **Actualización del Service Worker y Cadena de Carga:**
   - **`poc/ux-foundation.js`:** Se encadena `designer-flasher.js` justo antes de `designer-live.js`.
-  - **`poc/service-worker.js`:** `./designer-flasher.js`, `./esptool-bundle.js` y `./firmware/jwplc.esp32.jwplcbasic/flash_args` están en la lista de caché `CORE` (versión actual `jwplc-hmi-designer-a15-v39`).
+  - **`poc/service-worker.js`:** `./designer-flasher.js`, `./esptool-bundle.js` y `./firmware/jwplc.esp32.jwplcbasic/flash_args` están en la lista de caché `CORE` (versión actual `jwplc-hmi-designer-a15-v40`).
 
 ---
 
@@ -152,7 +159,7 @@ Se creó una prueba completa que valida de extremo a extremo los componentes del
 ```bash
 node tools/jwplc-hmi-designer/tests/live-bridge-flasher.test.cjs
 ```
-**Resultados (12 de 12 pasadas):**
+**Resultados (13 de 13 pasadas):**
 1. `flash_args` del package: mismas partes y direcciones que la subida de Arduino.
 2. La tabla de particiones grabada es `jwplc_max_app_4mb` del package.
 3. El flasher graba con `flash-mode/freq/size keep`, como la subida del package.
@@ -161,10 +168,11 @@ node tools/jwplc-hmi-designer/tests/live-bridge-flasher.test.cjs
 6. `esptool-bundle.js` se carga e implementa `ESPLoader` y `Transport`.
 7. `designer-flasher.js` expone la API pública `JWPLCHMIFlasher`.
 8. Si el flasheo falla, el puerto se cierra y el reintento puede volver a abrirlo (esptool simulado).
-9. El botón LIVE se desactiva mientras se graba.
-10. `designer-live.js` integra la detección de timeout de 2.5s y el flasheo en 1 clic.
-11. `ux-foundation.js` y `service-worker.js` integran `designer-flasher` y `esptool-bundle`.
-12. Mapeo de direcciones flash (`0x1000`, `0x8000`, `0x10000`).
+9. Tras grabar reinicia en modo aplicación: DTR=0 y pulso en RTS (no usa `loader.after`).
+10. El botón LIVE se desactiva mientras se graba.
+11. `designer-live.js` integra la detección de timeout de 2.5s y el flasheo en 1 clic.
+12. `ux-foundation.js` y `service-worker.js` integran `designer-flasher` y `esptool-bundle`.
+13. Mapeo de direcciones flash (`0x1000`, `0x8000`, `0x10000`).
 
 ### 3.2. Integración en `tests/run-all.cjs`
 El test fue integrado en la suite general del proyecto para que se ejecute en cada ciclo de integración continua o validación local.
@@ -182,13 +190,15 @@ Todos los archivos JavaScript del directorio `poc/` y `electron/` pasaron la val
 | [`poc/firmware/jwplc.esp32.jwplcbasic/`](poc/firmware/jwplc.esp32.jwplcbasic/) | Creado | Bootloader, particiones, `boot_app0`, app del Live Bridge y `flash_args` (formato de exportación del package). |
 | [`../../tools/alpha15/build_live_bridge_firmware.sh`](../../tools/alpha15/build_live_bridge_firmware.sh) | Creado | Regenera los binarios desde el `.ino` y los compara con el repo. |
 | [`poc/esptool-bundle.js`](poc/esptool-bundle.js) | Creado | Motor `esptool-js` empaquetado para navegador/Electron sobre WebSerial. |
+| [`poc/designer-port-picker.js`](poc/designer-port-picker.js) | Creado | Selector de puertos serie propio de la app de escritorio (lista desde `electron/main.js`). |
+| [`tests/port-picker-smoke.cjs`](tests/port-picker-smoke.cjs) | Creado | Prueba del selector en Chromium (orden, selección, lista en vivo, Escape). |
 | [`poc/designer-flasher.js`](poc/designer-flasher.js) | Creado | Módulo UI y controlador de flasheo (`window.JWPLCHMIFlasher`). |
 | [`poc/designer-live.js`](poc/designer-live.js) | Modificado | Detección automática en 2.5s, botón manual y reconexión post-reinicio. |
 | [`poc/ux-foundation.js`](poc/ux-foundation.js) | Modificado | Incorporación de `designer-flasher.js` en la secuencia de carga. |
-| [`poc/service-worker.js`](poc/service-worker.js) | Modificado | Registro de assets en caché (versión actual `v39`). |
+| [`poc/service-worker.js`](poc/service-worker.js) | Modificado | Registro de assets en caché (versión actual `v40`). |
 | [`electron/main.js`](electron/main.js) | Modificado | Soporte de tipo MIME para archivos `.bin`. |
 | [`JWPLC-HMI-Server.ps1`](JWPLC-HMI-Server.ps1) | Modificado | Soporte de tipo MIME para archivos `.bin` en servidor estático PowerShell. |
-| [`tests/live-bridge-flasher.test.cjs`](tests/live-bridge-flasher.test.cjs) | Creado | Suite de 12 pruebas unitarias y de integración del flasheador. |
+| [`tests/live-bridge-flasher.test.cjs`](tests/live-bridge-flasher.test.cjs) | Creado | Suite de 13 pruebas unitarias y de integración del flasheador. |
 | [`tests/run-all.cjs`](tests/run-all.cjs) | Modificado | Incorporación del test flasher a la suite general de pruebas. |
 | [`PLAN_LIVE_BRIDGE_FLASHER.md`](PLAN_LIVE_BRIDGE_FLASHER.md) | Modificado | Actualización del documento del plan marcando las 4 fases como completadas. |
 

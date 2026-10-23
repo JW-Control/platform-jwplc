@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE_NAME = 'jwplc-hmi-designer-a15-v39';
+const CACHE_NAME = 'jwplc-hmi-designer-a15-v40';
 const CORE = [
   './desktop.html',
   './index.html',
@@ -34,6 +34,7 @@ const CORE = [
   './designer-inspector-state.js',
   './designer-pages.js',
   './designer-flasher.js',
+  './designer-port-picker.js',
   './designer-live.js',
   './esptool-bundle.js',
   './firmware/jwplc.esp32.jwplcbasic/flash_args',

@@ -181,6 +181,32 @@ async function run() {
     assert.strictEqual(disconnects, 2);
   });
 
+  await testAsync('tras grabar, reinicia en modo aplicación: IO0 libre (DTR=0) y pulso en EN (RTS 1 -> 0)', async () => {
+    const signals = [];
+    class Transport {
+      constructor(p) { this.device = p; }
+      async setDTR(v) { signals.push(`DTR=${v ? 1 : 0}`); }
+      async setRTS(v) { signals.push(`RTS=${v ? 1 : 0}`); }
+      async disconnect() { signals.push('close'); }
+    }
+    let written = null;
+    class ESPLoader {
+      async main() { return 'ESP32-D0WD-V3'; }
+      async writeFlash(opts) { written = opts; }
+      // esptool-js 0.7 sólo pone RTS=0 sin pulso previo: no debe usarse.
+      async after() { signals.push('loader.after'); }
+    }
+    const fetch = async (url) => {
+      const buf = fs.readFileSync(path.join(FW_DIR, decodeURIComponent(new URL(url).pathname.split('/').pop())));
+      return { ok: true, status: 200, text: async () => buf.toString('utf8'), arrayBuffer: async () => buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.length) };
+    };
+    const flasher = loadFlasher({ ESPLoader, ESPTransport: Transport, fetch, performance });
+    const result = await flasher.flash({}, {});
+    assert.strictEqual(result.ok, true);
+    assert.strictEqual(written.fileArray.length, 4);
+    assert.deepStrictEqual(signals, ['DTR=0', 'RTS=1', 'RTS=0', 'close']);
+  });
+
   test('el botón LIVE se desactiva mientras se graba', () => {
     const flasherSource = fs.readFileSync(path.join(POC_DIR, 'designer-flasher.js'), 'utf8');
     const liveSource = fs.readFileSync(path.join(POC_DIR, 'designer-live.js'), 'utf8');
