@@ -1747,6 +1747,11 @@
                 <div class="insp-note">Ajusta el color con el editor fijo o las pastillas rápidas RGB565:</div>
                 <div id="pixelMapColorEditorHost"></div>
               </div>
+              <button id="pixelMapRecolor" class="bar-visual-btn" type="button" style="width: 100%; margin-top: 8px;" title="Pinta todos los píxeles de esta capa con el color activo">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m19 11-8-8-8.6 8.6a2 2 0 0 0 0 2.8l5.2 5.2c.8.8 2 .8 2.8 0L19 11Z"/><path d="M22 20a2 2 0 1 1-4 0c0-1.6 1.7-2.4 2-4 .3 1.6 2 2.4 2 4Z" fill="currentColor"/></svg>
+                <span>Recolorear toda la capa</span>
+              </button>
+              <div class="insp-note">El color elegido es el del pincel; una capa puede tener varios colores. Este botón pinta toda la capa con él.</div>
 
               <div id="pixelMapColor" style="display:none;"></div>
             </div>
@@ -1954,7 +1959,7 @@
               </label>
             </div>
             <div class="insp-note">Con esto activo, un clic dentro de un rectángulo, elipse, triángulo o polígono activa su relleno con el color activo en vez de pintar píxeles.</div>
-            <div class="insp-note" id="fillTargetNote">El resto se pinta en una capa PIXEL (la seleccionada si es del mismo color; si no, una nueva) y se exporta al firmware como cualquier PIXEL.</div>
+            <div class="insp-note" id="fillTargetNote">El resto se pinta en la capa PIXEL que rodea la región (el trazo cerrado que rellenas), así trazo y relleno quedan en un solo objeto. Si ninguna capa la rodea, va a la capa seleccionada o a una nueva.</div>
           </div>
 
           <!-- ===== Sólo Cuentagotas ===== -->
@@ -1997,7 +2002,7 @@
                 <span>Usar en Pincel (B)</span>
               </button>
             </div>
-            <div class="insp-note">Usar en Pincel abre una capa PIXEL con ese color (una capa PIXEL tiene un solo color).</div>
+            <div class="insp-note">Usar en Pincel deja ese color en el pincel sin cambiar los píxeles ya dibujados.</div>
           </div>
 
           <div class="bar-card">

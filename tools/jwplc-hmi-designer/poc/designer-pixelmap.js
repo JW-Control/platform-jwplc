@@ -271,30 +271,44 @@
     return map;
   }
 
-  // Una capa PIXEL tiene un solo color (setPixelColor recolorea toda la capa):
-  // pintar otro color va a una capa vacía de la página o a una nueva.
-  function mapForColor(value) {
+  function editableOnPage(m) {
+    return m && !m.locked && m.editorVisible !== false && Number(m.page || 0) === page();
+  }
+
+  // Capa que recibe un relleno: la que rodea la región (el trazo cerrado que
+  // se rellena), para que trazo y relleno sigan siendo un solo objeto; si
+  // ninguna capa la toca, la seleccionada, una vacía o una nueva.
+  function fillTargetMap(points) {
+    const owner = new Map();
+    mapsForPage().filter(editableOnPage).forEach((m) => {
+      m.pixels.forEach((p) => owner.set((m.y + p.y) * WIDTH + (m.x + p.x), m));
+    });
+    const region = new Set(points.map((pt) => pt.y * WIDTH + pt.x));
+    const votes = new Map();
+    points.forEach((pt) => {
+      [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([dx, dy]) => {
+        const x = pt.x + dx;
+        const y = pt.y + dy;
+        if (x < 0 || x >= WIDTH || y < 0 || y >= HEIGHT) return;
+        const k = y * WIDTH + x;
+        if (region.has(k)) return;
+        const m = owner.get(k);
+        if (m) votes.set(m, (votes.get(m) || 0) + 1);
+      });
+    });
+    let best = null;
+    votes.forEach((count, m) => { if (!best || count > votes.get(best)) best = m; });
+    if (best) return best;
     const current = selected();
-    if (current && Number(current.page || 0) === page() && current.editorVisible !== false &&
-      (!current.pixels.length || current.pixels.every((p) => (p.color & 0xFFFF) === value))) {
-      return current;
-    }
-    const pageMaps = mapsForPage().filter((m) => m.editorVisible !== false);
-    const reuse = pageMaps.find((m) => m.pixels?.length && m.pixels.every((p) => (p.color & 0xFFFF) === value)) ||
-      mapsForPage().find((m) => !m.pixels || m.pixels.length === 0);
-    if (reuse) {
-      selectedKey = reuse.key;
-      selectedKeys = [reuse.key];
-      return reuse;
-    }
-    return createMap();
+    if (editableOnPage(current)) return current;
+    return mapsForPage().find((m) => !m.locked && (!m.pixels || m.pixels.length === 0)) || createMap();
   }
 
   // Herramienta Relleno de app.js: agrega en bloque los puntos (coordenadas de
   // pantalla) a una capa del color pedido. Devuelve la capa o null.
   function paintPixels(points, value) {
     value = Number(value) & 0xFFFF;
-    const map = mapForColor(value);
+    const map = fillTargetMap(points);
     if (!map) return null;
     const all = new Map();
     map.pixels.forEach((p) => all.set((map.y + p.y) * WIDTH + (map.x + p.x), p.color & 0xFFFF));
@@ -320,10 +334,10 @@
     return map;
   }
 
-  // "Usar en Pincel" del cuentagotas: deja seleccionada una capa de ese color.
+  // "Usar en Pincel" del cuentagotas: color del pincel, sin tocar los píxeles.
   function prepareBrush(value) {
     value = Number(value) & 0xFFFF;
-    const map = mapForColor(value);
+    const map = editableOnPage(selected()) ? selected() : ensureActiveMap(true);
     if (!map) return null;
     color = value;
     updatePixelSwatch(color);
@@ -338,7 +352,7 @@
     const copy = {
       ...source,
       key: `pixelmap-${serial}`,
-      name: `${source.name} copia`.slice(0, 24),
+      name: (editor()?.nextSequentialName?.(source.name) || `${source.name} 2`).slice(0, 24),
       x: Math.min(WIDTH - 1, source.x + 4),
       y: Math.min(HEIGHT - 1, source.y + 4),
       editorVisible: true,
@@ -542,20 +556,21 @@
     updatePixelSwatch(color);
   }
 
-  function setPixelColor(v565, commit = true) {
+  // Color del pincel. Una capa PIXEL puede tener varios colores (el codegen
+  // emite un run por color), así que elegir color no recolorea la capa: eso
+  // lo hace el botón "Recolorear capa" (recolorSelected).
+  function setPixelColor(v565) {
     color = v565 & 0xFFFF;
     updatePixelSwatch(color);
+  }
+
+  function recolorSelected() {
     const map = selected();
-    if (map && Array.isArray(map.pixels) && map.pixels.length > 0) {
-      map.pixels.forEach((p) => {
-        p.color = color;
-      });
-      render();
-      refreshBase();
-    }
-    if (commit) {
-      changed();
-    }
+    if (!map || map.locked || !map.pixels?.length) return;
+    map.pixels.forEach((p) => { p.color = color; });
+    render();
+    refreshBase();
+    changed();
   }
 
   function updatePixelSwatch(v565) {
@@ -699,6 +714,7 @@
     brushSizeInput = document.getElementById('pixelBrushSize');
     eraserSizeInput = document.getElementById('pixelEraserSize');
     visibilityButton = document.getElementById('pixelMapVisibility');
+    document.getElementById('pixelMapRecolor')?.addEventListener('click', () => recolorSelected());
     onionButton = document.getElementById('pixelMapOnion');
     opacityInput = document.getElementById('pixelMapOpacity');
     opacityValue = document.getElementById('pixelMapOpacityValue');
@@ -893,10 +909,6 @@
     if (!map || hasFields || isColorTool) return;
 
     ensureEditorMeta(map);
-    if (map.pixels && map.pixels.length > 0) {
-      color = map.pixels[map.pixels.length - 1].color;
-      syncMainColor();
-    }
     const b = bounds(map);
     const displayName = map.name || 'PIXEL';
     const headerTitle = document.getElementById('pixelMapHeaderTitle');
@@ -1414,6 +1426,12 @@
       const hit = hitMap(p);
       const map = hit || selected();
       if (!map || Number(map.page || 0) !== page()) return;
+      if (map.locked) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        lockedNotice();
+        return;
+      }
       selectedKey = map.key;
       selectedKeys = [map.key];
       event.preventDefault();
@@ -1458,6 +1476,10 @@
       mode = (currentTool === 'erase') ? 'ERASE' : 'DRAW';
       event.preventDefault();
       event.stopImmediatePropagation();
+      if (map.locked) {
+        lockedNotice();
+        return;
+      }
       pointer = event.pointerId;
       lastPoint = p;
       try { displayCanvas.setPointerCapture(pointer); } catch (_) {}
@@ -1504,7 +1526,7 @@
       lastPoint = p;
       try { displayCanvas.setPointerCapture(pointer); } catch (_) {}
       dragStart = p;
-      dragOrigins = selectedMaps().map((m) => ({ key: m.key, x: m.x, y: m.y }));
+      dragOrigins = selectedMaps().filter((m) => !m.locked).map((m) => ({ key: m.key, x: m.x, y: m.y }));
       syncInspector();
       refreshBase();
       return;
@@ -1652,6 +1674,10 @@
       if (editor()?.hasFieldSelection?.()) return;
       event.preventDefault();
       event.stopImmediatePropagation();
+      if (map.locked) {
+        lockedNotice();
+        return;
+      }
       deleteMap();
       return;
     }
@@ -1661,6 +1687,7 @@
     if (editor()?.hasFieldSelection?.()) return;
     event.preventDefault();
     event.stopImmediatePropagation();
+    if (map.locked) return;
     const b = bounds(map);
     map.x = Math.max(0, Math.min(WIDTH - b.width, map.x + delta[0]));
     map.y = Math.max(0, Math.min(HEIGHT - b.height, map.y + delta[1]));
@@ -1728,7 +1755,8 @@
     getAll: () => maps,
     getSelected: selected,
     getActiveColor: () => color,
-    setActiveColor: (value) => { setPixelColor(Number(value) & 0xFFFF, true); syncMainColor(); syncInspector(); },
+    setActiveColor: (value) => { setPixelColor(Number(value) & 0xFFFF); syncMainColor(); syncInspector(); },
+    recolorSelected,
     getBrushSize: () => brushSize,
     paintPixels,
     prepareBrush,

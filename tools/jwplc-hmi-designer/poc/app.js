@@ -4816,6 +4816,44 @@
     restoreSnapshot(history[historyIndex]);
   }
 
+  // Nombre / ID / variable consecutivo para duplicar y pegar: "Rect 2" ->
+  // "Rect 3", FIELD_TEXT_1 -> FIELD_TEXT_2, texto1 -> texto2 (el primer
+  // número libre). Quita sufijos " copia" / _COPY / Copy de versiones previas.
+  const SEQUENCE_RULES = {
+    name: { strip: /(\s+copia(\s+\d+)?)+$/i, sep: ' ' },
+    id: { strip: /(_COPY(_\d+)?)+$/i, sep: '_' },
+    variable: { strip: /(Copy\d*)+$/, sep: '' }
+  };
+
+  function usedValues(kind) {
+    const used = new Set(hmiFields.map((field) => String(field[kind] ?? '')));
+    if (kind === 'name') (window.JWPLCHMIPixelMaps?.getAll?.() || []).forEach((m) => used.add(String(m.name ?? '')));
+    return used;
+  }
+
+  function nextSequential(value, kind) {
+    const rule = SEQUENCE_RULES[kind];
+    const used = usedValues(kind);
+    const base = String(value ?? '').trim().replace(rule.strip, '') || 'Objeto';
+    const match = base.match(/^(.*?)(\d+)$/);
+    const stem = match ? match[1] : `${base}${rule.sep}`;
+    let n = match ? Number(match[2]) + 1 : 2;
+    while (used.has(`${stem}${n}`)) n += 1;
+    return `${stem}${n}`;
+  }
+
+  // ID C++ y variable de la copia: consecutivos. Figuras y RAW_TEXT sólo
+  // tienen ID (y variable si la traían).
+  function assignSequentialSymbols(copy, source) {
+    const isStatic = ['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON', 'RAW_TEXT'].includes(source.type);
+    if (source.id || !isStatic) copy.id = nextSequential(sanitizeSymbol(source.id, fieldFallbackId(source, 0)), 'id');
+    if (source.variable || !isStatic) copy.variable = nextSequential(sanitizeSymbol(source.variable, variableFallback(source, 0)), 'variable');
+  }
+
+  function uniqueName(value) {
+    return usedValues('name').has(value) ? nextSequential(value, 'name') : value;
+  }
+
   function uniqueFieldSymbol(base) {
     const used = new Set(hmiFields.map((field) => field.id));
     let candidate = base;
@@ -4998,7 +5036,7 @@
     const field = {
       type: type,
       key: `shape-${fieldSerial}`,
-      name: `${typeLabel} ${fieldSerial}`,
+      name: uniqueName(`${typeLabel} ${fieldSerial}`),
       id: uniqueFieldSymbol(`FIELD_${type}_${fieldSerial}`),
       variable: '',
       x: startPoint.x,
@@ -5059,7 +5097,7 @@
     if (hmiFields.length >= MAX_FIELDS) return;
     fieldSerial += 1;
     const field = defaultTextField(`text-${fieldSerial}`);
-    field.name = `TEXT ${fieldSerial}`;
+    field.name = uniqueName(`TEXT ${fieldSerial}`);
     field.id = uniqueFieldSymbol(`FIELD_TEXT_${fieldSerial}`);
     field.variable = uniqueVariable(`texto${fieldSerial}`);
     field.label = `Texto ${fieldSerial}`;
@@ -5106,7 +5144,7 @@
     if (hmiFields.length >= MAX_FIELDS) return;
     fieldSerial += 1;
     const field = defaultValueField(`value-${fieldSerial}`);
-    field.name = `VALUE ${fieldSerial}`;
+    field.name = uniqueName(`VALUE ${fieldSerial}`);
     field.id = uniqueFieldSymbol(`FIELD_VALUE_${fieldSerial}`);
     field.variable = uniqueVariable(`valor${fieldSerial}`);
     field.label = `Valor ${fieldSerial}`;
@@ -5136,9 +5174,8 @@
         delete copy.layerOrder;
         const prefix = source.type.toLowerCase();
         copy.key = `${prefix}-${fieldSerial}`;
-        copy.name = `${source.name || source.type} copia`;
-        copy.id = uniqueFieldSymbol(`${sanitizeSymbol(source.id, fieldFallbackId(source, 0))}_COPY`);
-        copy.variable = uniqueVariable(`${sanitizeSymbol(source.variable, variableFallback(source, 0))}Copy`);
+        copy.name = nextSequential(source.name || source.type, 'name');
+        assignSequentialSymbols(copy, source);
         copy.page = activePage;
         copy.x = source.x + 8;
         copy.y = source.y + 8;
@@ -5160,6 +5197,13 @@
     syncToolUI();
     render();
     commitHistory();
+  }
+
+  // Selección en la que todo está bloqueado (campos y capas PIXEL): no se
+  // mueve, redimensiona ni borra desde el lienzo / teclado.
+  function selectionIsLocked() {
+    const items = [...selectedFields(), ...(window.JWPLCHMIPixelMaps?.getSelectedMaps?.() || [])];
+    return items.length > 0 && items.every((item) => item.locked);
   }
 
   function deleteSelectedField() {
@@ -6044,6 +6088,10 @@
 
     // 1. Check if clicking on an active selection handle (to resize / deform)
     const handle = hitTestHandle(event);
+    if (handle && selectionIsLocked()) {
+      showToastMessage('Objeto bloqueado: desbloquéalo en el árbol de objetos para editarlo.', 'warning');
+      return;
+    }
     if (handle) {
       resizingHandle = handle;
       const flds = selectedFields();
@@ -6103,11 +6151,11 @@
     // (Allows dragging without having to aim for the 1.5px contour)
     if (isPointInsideSelection(point)) {
       const curSelected = selectedFields();
-      if (!curSelected.some((f) => f.locked)) {
+      if (!selectionIsLocked()) {
         draggingObject = true;
         dragInitialPointer = { ...point, rawX: point.x, rawY: point.y };
-        dragInitialFields = curSelected.map((f) => ({ ...f }));
-        dragInitialPixelMaps = (window.JWPLCHMIPixelMaps?.getSelectedMaps?.() || []).map((m) => ({ key: m.key, x: m.x, y: m.y }));
+        dragInitialFields = curSelected.filter((f) => !f.locked).map((f) => ({ ...f }));
+        dragInitialPixelMaps = (window.JWPLCHMIPixelMaps?.getSelectedMaps?.() || []).filter((m) => !m.locked).map((m) => ({ key: m.key, x: m.x, y: m.y }));
         render();
         return;
       }
@@ -7002,17 +7050,16 @@
           fieldSerial += 1;
           const copy = JSON.parse(JSON.stringify(source));
           copy.key = `${source.type.toLowerCase()}-${fieldSerial}`;
-          copy.name = (source.name || source.type) + ' copia';
+          delete copy.layerOrder;
+          copy.name = nextSequential(source.name || source.type, 'name');
           copy.page = activePage;
           copy.x = (source.x || 0) + 10;
           copy.y = (source.y || 0) + 10;
           if (source.x2 !== undefined) copy.x2 = source.x2 + 10;
           if (source.y2 !== undefined) copy.y2 = source.y2 + 10;
-          if (!['LINE','RECT','ELLIPSE','TRIANGLE','POLYGON','RAW_TEXT'].includes(source.type)) {
-            copy.id = uniqueFieldSymbol(sanitizeSymbol(source.id, fieldFallbackId(source, 0)) + '_COPY');
-            copy.variable = uniqueVariable(sanitizeSymbol(source.variable, variableFallback(source, 0)) + 'Copy');
-          }
+          assignSequentialSymbols(copy, source);
           placeNewField(copy);
+          assignNewLayerOrder(copy);
           hmiFields.push(copy);
           newKeys.push(copy.key);
         });
@@ -7040,6 +7087,10 @@
       }
       if (event.key === 'Delete' || event.key === 'Backspace') {
         event.preventDefault();
+        if (selectedFields().some((f) => f.locked)) {
+          showToastMessage('Objeto bloqueado: desbloquéalo en el árbol de objetos para borrarlo.', 'warning');
+          return;
+        }
         deleteSelectedField();
         return;
       }
@@ -7607,6 +7658,7 @@
     getShapeVertices: (f) => getShapeTransformedVertices(f),
     getMaxCornerRadius: (f) => getMaxCornerRadius(f),
     showToast: (msg, kind) => showToastMessage(msg, kind),
+    nextSequentialName: (value) => nextSequential(value, 'name'),
     getPixelFieldOrder: (x, y) => {
       const px = Math.trunc(Number(x));
       const py = Math.trunc(Number(y));
