@@ -139,7 +139,7 @@ asignar las variables (sin `delay()`, sin dibujar). El runtime redibuja lo que c
 | `valor "MIDDLE" no válido; usa "LEFT" \| "CENTER" \| "RIGHT" (¿CENTER?)` | Valor enumerado fuera de la lista: usa uno de los propuestos. |
 | `propiedad desconocida «labelColour» … ¿quisiste decir «labelColor»?` | Nombre mal escrito: se ignora hasta que lo corrijas. |
 | `el id FIELD_X ya lo usa fields[n]` | Ids únicos en todo el proyecto. |
-| `la variable v ya es float en fields[n]` | Una variable sólo se comparte si el tipo C++ coincide (TEXT nunca). |
+| `la variable v ya la usa fields[n]` | Cada campo declara su variable. Para mostrar un valor en dos lugares usa dos variables; el MENU sí puede reutilizar la de un campo del mismo tipo. |
 | `sale de la pantalla` / `se pisa con` | Mueve o achica el campo; mira la vista previa. |
 | `«Í» no existe en la fuente de la TFT` | Usa minúsculas acentuadas o quita la tilde. |
 | `la página ya tiene el MENU …` | Un MENU por página. |

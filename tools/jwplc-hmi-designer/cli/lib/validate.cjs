@@ -257,16 +257,15 @@ function validateProject(project) {
     if (ids.has(f.id)) report.error(`fields[${i}].id`, `el id ${f.id} ya lo usa fields[${ids.get(f.id)}]`);
     else ids.set(f.id, i);
   });
-  // Una misma variable sólo si el tipo C++ coincide.
+  // Variables únicas entre campos (designer-codegen.js validationIssues); el MENU sí puede
+  // usar la variable de un campo si el tipo coincide (lo revisa designer-menu.js).
   const variables = new Map();
   objects.forEach((f) => {
-    const type = cppType(f);
-    if (!type || !f.variable) return;
+    if (!cppType(f) || !f.variable) return;
     const i = fields.indexOf(f);
-    const prev = variables.get(f.variable);
-    if (prev && (prev.type !== type || type === 'char[]')) {
-      report.error(`fields[${i}].variable`, `la variable ${f.variable} ya es ${prev.type} en fields[${prev.index}]${type === 'char[]' ? ' (dos TEXT no pueden compartir buffer)' : `; aquí sería ${type}`}`);
-    } else if (!prev) variables.set(f.variable, { type, index: i });
+    if (variables.has(f.variable)) {
+      report.error(`fields[${i}].variable`, `la variable ${f.variable} ya la usa fields[${variables.get(f.variable)}]: cada campo declara la suya (para mostrar un valor en dos lugares usa dos variables y asígnalas igual en el sketch)`);
+    } else variables.set(f.variable, i);
   });
   // NAV_BAR
   const navs = objects.filter((f) => f.type === 'NAV_BAR');
