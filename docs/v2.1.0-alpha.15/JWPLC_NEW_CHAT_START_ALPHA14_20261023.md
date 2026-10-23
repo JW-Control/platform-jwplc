@@ -58,9 +58,22 @@ No usa `workflow_dispatch` porque exigiría el archivo en `main`, que debe segui
    `ci-jwplc-package-smoke.yml` PASS.
 6. Compilación local (arduino-cli 1.5.1, package de la rama vía `hardware/jwplc_a14`, sketchbook vacío):
    16 PASS en JWPLC Basic (Display 01–04, gates A15_8_Menu, A15_8_Menu_Designer, A15_I1/I2/I3, Ethernet,
-   Modbus TCP Server/Client, Modbus RTU Slave/Master, RS485_Echo). Pendiente de repetir:
-   - `A15_1_3_Codegen_Static` y `A15_F0_OpenPLC_Bool_Rele`: el `.ino` está en una subcarpeta (ruta mal pasada);
-   - JWPLC Basic Core: se cortó por falta de recursos de la PC (`fork: Resource temporarily unavailable`), no por el código.
+   Modbus TCP Server/Client, Modbus RTU Slave/Master, RS485_Echo).
+7. Compilación en la nube `[ejecutado 2026-10-23]` (arduino-cli de `tools/alpha15/regenerate_libJWPLC_TFT.sh`,
+   `jwplc_local`, HEAD `8e5924f`, con `libJWPLC_TFT.a` de `161e406` con DISPON diferido). Cierra lo pendiente del punto 6:
+
+   ```text
+   A14_FASE1_COMPILE_BASIC=PASS        18/18 (los 16 de arriba repetidos con el .a nuevo + Codegen_Static + F0)
+   A14_FASE1_COMPILE_BASIC_CORE=PASS   18/18 (mismos sketches; fqbn jwplc_local:esp32:jwplcbasiccore)
+   A14_FASE1=CLOSED
+   ```
+
+   - `A15_1_3_Codegen_Static`: el sketch es `gates/A15_1_3_Codegen_Static/A15_1_3_Codegen_Static/`.
+     Basic 461 909 B flash / 36 092 B RAM; Core 419 331 B.
+   - `A15_F0_OpenPLC_Bool_Rele` no es un `.ino`: se arma con `gates/A15_F0_OpenPLC_Bool_Rele/check_f0_compile.sh [dir]`
+     (HAL del VPP + bloque F0 + stub de `openplc.h`). Basic 435 273 B / 37 060 B; Core 392 811 B.
+   - Flash en Basic: 436 713–456 177 B (Display 01–04 y gates A15_*, Ethernet, Modbus TCP/RTU, RS485_Echo).
+     Core (sin Ethernet/SD/FRAM): 392 811–413 687 B.
 
 ## 4. Lo que falta (en este orden)
 
