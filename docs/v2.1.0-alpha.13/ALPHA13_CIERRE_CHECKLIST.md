@@ -1,6 +1,6 @@
 # Alpha13 — Checklist de cierre técnico y publicación
 
-**Versión:** `v2.1.0-alpha.13`. **Rama base del alpha:** `v2.1.0-alpha.13/feature/cleanup-robustness`. **Fuente de verdad:** `ALPHA13_STATUS.md` en esta rama. **Publicada el 22/10/2026 como PreRelease de desarrollo.**
+**Versión:** `v2.1.0-alpha.13`. **Rama base del alpha:** `v2.1.0-alpha.13/feature/cleanup-robustness`. **Fuente de verdad:** `ALPHA13_STATUS.md` en esta rama. **Publicada el 22/10/2026 como PreRelease de desarrollo. Cerrada el 23/10/2026 (`ALPHA13=CLOSED_PUBLISHED`).** Las secciones posteriores a la primera son evidencia histórica: sus casillas abiertas quedaron cubiertas por la publicación y la postpublicación registradas en `ALPHA13_STATUS.md`.
 
 ## Cierre de integración C — estado VIGENTE de la BASE (21/10/2026)
 
@@ -11,8 +11,8 @@
 - [x] README didácticos, `README.md`, `PRE_RELEASE.md` y benchmark local Windows completados y conservados en BASE.
 - [x] Publicación autorizada por el propietario (22/10). PR #129 a `release/v2.1.x` (squash `11237c2c`), Release automática [#39740054387](https://github.com/JW-Control/platform-jwplc/actions/runs/39740054387).
 - [x] Postpublicación: asset `jwplc-esp32-2.1.0-alpha.13.zip`, SHA-256 `b3dc5ac710229bd272b0382fb56dd8988e242a66eebc872198cd82c5bdc57428`, 24 527 296 bytes, igual byte a byte al árbol `6b498f4a`; índice dev en `main` por PR #130; instalación limpia con Arduino CLI 1.3.1 desde el índice publicado y 6/6 compilaciones (Basic y Basic Core) con Ethernet y Modbus TCP precompilados.
-- [ ] Instalación desde Arduino IDE (GUI) y upload desde el package distribuido: pendientes del operador en su PC.
-- [ ] Declarar `ALPHA13=CLOSED_PUBLISHED` tras esa comprobación.
+- [x] Instalación desde Arduino IDE 2.3.4 (GUI) con el índice dev, compilación de `01.ModbusTCP_Server` desde el package instalado y upload a COM4: PASS, con Modbus TCP verificado desde la PC (23/10).
+- [x] `ALPHA13=CLOSED_PUBLISHED`.
 
 ### Evidencia anterior a integración (conservada para trazabilidad)
 
@@ -104,7 +104,7 @@ G10_IN_ALPHA13_BASE=YES
 G10_PHYSICAL=ACCEPTED_WITH_R3_R4_DISCLOSED_RISKS
 RELEASE_SOURCE_SHA=PENDING
 RELEASE_BRANCH_READINESS=PENDING
-ALPHA13_PRERELEASE=NOT_PUBLISHED
+ALPHA13_PRERELEASE=PUBLISHED
 ALPHA13_TECHNICAL_FINAL_AUDIT=PENDING
-ALPHA13_GLOBAL_STATUS=OPEN
+ALPHA13_GLOBAL_STATUS=CLOSED_PUBLISHED
 ```
