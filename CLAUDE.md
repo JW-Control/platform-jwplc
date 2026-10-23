@@ -52,7 +52,8 @@ ni tomarlos como referencia para el HMI Designer.
 ACTIVE_ALPHA=v2.1.0-alpha.15 (DEV_CLOSED 2026-10-19; se publica como 2.1.0-alpha.14)
 ACTIVE_BRANCH=v2.1.0-alpha.15-HmiDesigner
 CIERRE=docs/v2.1.0-alpha.15/A15_CIERRE_Y_TRANSFERENCIA_20261019.md (integración con Alpha13 y publicación)
-INTEGRATION_BRANCH=v2.1.0-alpha.14/feature/hmi-designer (desde release/v2.1.x con Alpha13 cerrada; fase 1 en modo fuente)
+INTEGRATION_BRANCH=v2.1.0-alpha.14/feature/hmi-designer (desde release/v2.1.x con Alpha13 cerrada; PR #141 borrador)
+HANDOFF=docs/v2.1.0-alpha.15/JWPLC_NEW_CHAT_START_ALPHA14_20261023.md (estado, fases pendientes y límites; leer primero)
 PARENT_BRANCH=v2.0.1-alpha.15-(HmiDesigner)   (rama anterior de André; congelada, NO modificar)
 PARENT_LAST_MERGED=af797d79 (2026-10-16, fusionado en la rama activa el 2026-10-17)
 ALPHA12_MERGED=4e869985 (Kenyi, VPP 2.1.0-alpha.29; fusionado el 2026-10-18)

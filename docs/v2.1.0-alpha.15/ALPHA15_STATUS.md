@@ -12,7 +12,9 @@ BASE_SHA=cc66d69aa1eca461b7111c856293e5f1f6e103b4
 OWNER_ALPHA15=André (HMI Designer)
 ALPHA15_STATUS=DEV_CLOSED (2026-10-19; cierre y transferencia: A15_CIERRE_Y_TRANSFERENCIA_20261019.md)
 ALPHA15_RELEASE=2.1.0-alpha.14 (por orden de publicación; ver «Organización de alphas»)
-ALPHA15_RELEASE_PR=NOT_OPENED (la integración con Alpha13 la hace el agente de publicación)
+ALPHA15_RELEASE_PR=#141 (borrador; rama v2.1.0-alpha.14/feature/hmi-designer desde release/v2.1.x)
+ALPHA14_INTEGRATION=FASE_1_PASS (CI d7afe353: designer-tests 10/10, package smoke PASS; TFT .a regenerado ABI_COMPAT=PASS)
+ALPHA14_NEXT=FASE_2_FISICA (ver JWPLC_NEW_CHAT_START_ALPHA14_20261023.md)
 ```
 
 ## Organización de alphas
