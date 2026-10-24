@@ -18,13 +18,13 @@ FASE_2_FISICA=PENDING          tools/jwplc-hmi-designer/gates/A14_F2_Combinado (
 BENCHMARK_PC=PENDING           tools/build-speed-benchmark/Compare-JWPLCBuildBenchmark.ps1 (#154); nube: tabla en PRE_RELEASE
 ```
 
-PRs hacia la rama de la alpha (esperan OK del propietario): #151 (instalador), #152 (READMEs), #153 (gate físico +
+PRs hacia la rama de la alpha (esperan OK del propietario): #156 (instalador; sustituye a #151, rama renombrada), #152 (READMEs), #153 (gate físico +
 Live Bridge), #154 (benchmark), PR de cierre (README/PRE_RELEASE/workflow). El de cierre va el último: al quitar
 `alpha14-integracion.yml` el #141 deja de correr `designer-tests`.
 
 Siguiente (merge y Release solo con autorización explícita del propietario):
 1. Prueba física con el checklist del gate y benchmark en la PC; anotar resultados en `PRE_RELEASE.md` (quitar `[pendiente]`).
-2. Fusionar #151–#154 y el de cierre en la rama de la alpha; sacar el #141 de borrador.
+2. Fusionar #152–#154, #156 y el de cierre (#155) en la rama de la alpha; sacar el #141 de borrador.
 3. Fusionar el #141 (publica la Release) y la fase 5 de §4.
 
 ## 1. Dónde está cada cosa
