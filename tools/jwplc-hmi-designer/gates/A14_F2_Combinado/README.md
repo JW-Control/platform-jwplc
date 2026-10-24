@@ -12,7 +12,7 @@ Compila en JWPLC Basic (498 728 B) y Basic Core `[ejecutado 24/10, nube]`. Seria
 ## Checklist (marcar PASS/FAIL y anotar en `docs/v2.1.0-alpha.14/PRE_RELEASE.md`)
 
 **A. Preparación**
-- [ ] Package de la rama `v2.1.0-alpha.14/feature/hmi-designer` enlazado como `jwplc_local`; sketchbook sin copias de librerías JWPLC.
+- [ ] Package de la rama `v2.1.0-alpha.14/HmiDesigner/main` enlazado como `jwplc_local`; sketchbook sin copias de librerías JWPLC.
 - [ ] COM14 ← `01.ModbusRTU_Slave_Holding`; COM4 ← `A14_F2_Combinado` (FQBN `jwplc_local:esp32:jwplcbasic`). Cable Ethernet a una red con DHCP.
 
 **B. Pantalla (COM4)**
