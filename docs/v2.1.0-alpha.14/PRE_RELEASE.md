@@ -2,7 +2,7 @@
 
 **Canal:** PreRelease de desarrollo (índice dev). No sustituye a `v2.0.0` estable.
 **Origen:** línea de trabajo `v2.1.0-alpha.15-HmiDesigner` (documentación en `docs/v2.1.0-alpha.15/`),
-integrada sobre la 2.1.0-alpha.13 publicada en la rama `v2.1.0-alpha.14/feature/hmi-designer` (PR #141).
+integrada sobre la 2.1.0-alpha.13 publicada en la rama `v2.1.0-alpha.14/HmiDesigner/main` (PR #157, antes #141).
 La numeración sigue el orden de publicación: el trabajo de OpenPLC se publicará como 2.1.0-alpha.15.
 
 ## Requisito recomendado: Arduino IDE 2.3.10 o superior
@@ -85,7 +85,7 @@ envoltorio de `JW_ModbusRTU`/`JW_RS485`, se compila desde la fuente en esta vers
 
 ### Compilación y CI `[ejecutado]`
 
-- CI del PR #141 en `9a27b13` (24/10): tests del HMI Designer y smoke del package en verde.
+- CI del PR #141 (hoy #157) en `9a27b13` (24/10): tests del HMI Designer y smoke del package en verde.
 - Tests del HMI Designer en la nube sobre la rama final: **16/16 PASS** (`run-all.cjs`: codegen puro y golden,
   inspector, MENU e ICON con paridad lienzo/firmware, firmware real en host, CLI para agentes, flasheador del
   Live Bridge y `codegen-smoke`, que compila los headers y verifica los símbolos en los `.a`).

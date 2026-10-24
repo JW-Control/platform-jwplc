@@ -12,10 +12,10 @@ BASE_SHA=cc66d69aa1eca461b7111c856293e5f1f6e103b4
 OWNER_ALPHA15=André (HMI Designer)
 ALPHA15_STATUS=DEV_CLOSED (2026-10-19; cierre y transferencia: A15_CIERRE_Y_TRANSFERENCIA_20261019.md)
 ALPHA15_RELEASE=2.1.0-alpha.14 (por orden de publicación; ver «Organización de alphas»)
-ALPHA15_RELEASE_PR=#141 (borrador; rama v2.1.0-alpha.14/feature/hmi-designer desde release/v2.1.x)
+ALPHA15_RELEASE_PR=#157 (borrador; rama v2.1.0-alpha.14/HmiDesigner/main desde release/v2.1.x; sustituye a #141)
 ALPHA14_INTEGRATION=FASE_1_CLOSED + FASE_3_FREEZE_DONE (Display .a ced1f93 y TFT .a 161e406: ABI_COMPAT=PASS, precompiled=full)
 ALPHA14_CLOSURE_CHECK=PASS (24/10: 83/83 sketches en Basic y Basic Core, Designer 16/16, .a reconstruidos sin cambios de ABI)
-ALPHA14_NEXT=FASE_2_FISICA (gates/A14_F2_Combinado) + benchmark en la PC del jefe -> merge #141 con autorización
+ALPHA14_NEXT=FASE_2_FISICA (gates/A14_F2_Combinado) + benchmark en la PC del jefe -> merge #157 con autorización
 ALPHA14_NOTES=docs/v2.1.0-alpha.14/PRE_RELEASE.md (final salvo prueba física y benchmark de PC; marcador del README en 2.1.0-alpha.14)
 ```
 

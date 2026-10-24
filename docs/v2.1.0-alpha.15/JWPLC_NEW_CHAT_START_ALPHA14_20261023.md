@@ -7,25 +7,27 @@ Leer antes: `CLAUDE.md` de este repo, `jwplc-dev-mcp/CLAUDE.md` y
 ## 0. Estado al 24/10/2026, tarde (leer primero; el resto del documento es la historia hasta el 23/10)
 
 ```text
-FASE_1_INTEGRACION=CLOSED      CI del #141 en verde (9a27b13)
+FASE_1_INTEGRACION=CLOSED      CI del #141 en verde (9a27b13); hoy PR #157
 FASE_3_FREEZE=DONE             Display .a ced1f93 y TFT .a 161e406 reconstruidos el 24/10: ABI_COMPAT=PASS,
                                0 símbolos +/-, ST7789_DISPON_DEFERRED=YES; solo JWPLC_ModbusRTU en modo fuente
 CIERRE_NUBE_24_10=PASS         83/83 sketches (76 ejemplos + 7 gates) en Basic y en Basic Core, sin warnings;
-                               tests del Designer 16/16; Live Bridge recompilado desde el package congelado (#153)
-FASE_4_DOCS=DONE               READMEs de librerías (#152), PRE_RELEASE.md y README raíz (marcador 2.1.0-alpha.14);
+                               tests del Designer 16/16; Live Bridge recompilado desde el package congelado (#160)
+FASE_4_DOCS=DONE               READMEs de librerías (#159), PRE_RELEASE.md y README raíz (marcador 2.1.0-alpha.14);
                                workflow temporal retirado (PR de cierre)
 FASE_2_FISICA=PENDING          tools/jwplc-hmi-designer/gates/A14_F2_Combinado (sketch + checklist), local
-BENCHMARK_PC=PENDING           tools/build-speed-benchmark/Compare-JWPLCBuildBenchmark.ps1 (#154); nube: tabla en PRE_RELEASE
+BENCHMARK_PC=PENDING           tools/build-speed-benchmark/Compare-JWPLCBuildBenchmark.ps1 (#161); nube: tabla en PRE_RELEASE
 ```
 
-PRs hacia la rama de la alpha (esperan OK del propietario): #156 (instalador; sustituye a #151, rama renombrada), #152 (READMEs), #153 (gate físico +
-Live Bridge), #154 (benchmark), PR de cierre (README/PRE_RELEASE/workflow). El de cierre va el último: al quitar
-`alpha14-integracion.yml` el #141 deja de correr `designer-tests`.
+Ramas (24/10): principal `v2.1.0-alpha.14/HmiDesigner/main`; features `v2.1.0-alpha.14/HmiDesigner/feature/<tema>` (CLAUDE.md §5).
+PR de release: #157 (borrador, sustituye a #141). PRs hacia la principal (esperan OK del propietario): #158 (instalador),
+#159 (READMEs), #160 (gate físico + Live Bridge), #161 (benchmark), #162 (consolidación de ramas) y #163 (cierre:
+README/PRE_RELEASE/workflow). El de cierre va el último: al quitar `alpha14-integracion.yml` el #157 deja de correr
+`designer-tests`. Los PRs #141 y #151–#156 quedan sustituidos y sus ramas `v2.1.0-alpha.14/feature/*` y `claude/*` se borran.
 
 Siguiente (merge y Release solo con autorización explícita del propietario):
 1. Prueba física con el checklist del gate y benchmark en la PC; anotar resultados en `PRE_RELEASE.md` (quitar `[pendiente]`).
-2. Fusionar #152–#154, #156 y el de cierre (#155) en la rama de la alpha; sacar el #141 de borrador.
-3. Fusionar el #141 (publica la Release) y la fase 5 de §4.
+2. Fusionar #158–#162 y, al final, #163 en la principal; sacar el #157 de borrador.
+3. Fusionar el #157 (publica la Release) y la fase 5 de §4.
 
 ## 1. Dónde está cada cosa
 

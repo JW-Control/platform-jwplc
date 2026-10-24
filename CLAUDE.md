@@ -50,15 +50,15 @@ ni tomarlos como referencia para el HMI Designer.
 
 ```text
 ACTIVE_ALPHA=v2.1.0-alpha.15 (DEV_CLOSED 2026-10-19; se publica como 2.1.0-alpha.14)
-ACTIVE_BRANCH=v2.1.0-alpha.14/feature/hmi-designer (rama de la alpha; la línea v2.1.0-alpha.15-HmiDesigner ya está fusionada en ella y se retira)
+ACTIVE_BRANCH=v2.1.0-alpha.14/HmiDesigner/main (rama de la alpha; antes v2.1.0-alpha.14/feature/hmi-designer; v2.1.0-alpha.15-HmiDesigner ya está fusionada en ella y se retira)
 CIERRE=docs/v2.1.0-alpha.15/A15_CIERRE_Y_TRANSFERENCIA_20261019.md (integración con Alpha13 y publicación)
-INTEGRATION_BRANCH=v2.1.0-alpha.14/feature/hmi-designer (desde release/v2.1.x con Alpha13 cerrada; PR #141 borrador)
+INTEGRATION_BRANCH=v2.1.0-alpha.14/HmiDesigner/main (desde release/v2.1.x con Alpha13 cerrada; PR #157 borrador, sustituye a #141)
 HANDOFF=docs/v2.1.0-alpha.15/JWPLC_NEW_CHAT_START_ALPHA14_20261023.md (estado, fases pendientes y límites; leer primero)
 PARENT_BRANCH=v2.0.1-alpha.15-(HmiDesigner)   (rama anterior de André; congelada, NO modificar)
 PARENT_LAST_MERGED=af797d79 (2026-10-16, fusionado en la rama activa el 2026-10-17)
 ALPHA12_MERGED=4e869985 (Kenyi, VPP 2.1.0-alpha.29; fusionado el 2026-10-18)
 OPENPLC_F0=docs/v2.1.0-alpha.15/A15_F0_OPENPLC_RUTA_KENYI_20261018.md
-EQUIPO=André y agentes: ramas de feature desde v2.1.0-alpha.14/feature/hmi-designer (§5)
+EQUIPO=André y agentes: ramas v2.1.0-alpha.14/HmiDesigner/feature/<tema> desde la principal (§5)
 SCOPE=JWPLC HMI Designer (editor + codegen + soporte firmware JWPLC_Display/JWPLC_TFT)
 DOCS=docs/v2.1.0-alpha.15/
 ```
@@ -154,22 +154,23 @@ JW-Control/platform-jwplc  rama v2.1.0-alpha.12/feature/openplc-engineering-clos
 ## 5. Convenciones de git
 
 - **Ramas (regla del propietario, 24/10/2026):** aparte de `main` y `release/v2.1.x`, una sola rama por
-  alpha (hoy la integración `v2.1.0-alpha.14/feature/hmi-designer`; la de OpenPLC, `v2.1.0-alpha.14-OpenPLC-HMI`).
-  Cada feature sale de la rama de su alpha con nombre descriptivo, `<rama-alpha>-<tema>` o
-  `v2.1.0-alpha.N/feature/<tema>` (p. ej. `v2.1.0-alpha.14/feature/designer-installer`), nunca con sufijos
-  aleatorios (`claude/project-thread-xxxx`). Se fusiona por PR hacia la rama de la alpha y se borra al fusionar.
+  alpha: `v2.1.0-alpha.N/<Línea>/main` (hoy `v2.1.0-alpha.14/HmiDesigner/main`; la de OpenPLC sigue como
+  `v2.1.0-alpha.14-OpenPLC-HMI`). Cada feature sale de esa rama como `v2.1.0-alpha.N/<Línea>/feature/<tema>`
+  (p. ej. `v2.1.0-alpha.14/HmiDesigner/feature/designer-installer`), nunca con sufijos aleatorios
+  (`claude/project-thread-xxxx`). La principal se llama `…/main` porque git no permite una rama
+  `v2.1.0-alpha.14/HmiDesigner` y otra `v2.1.0-alpha.14/HmiDesigner/feature/…` a la vez. Se fusiona por PR hacia la rama de la alpha y se borra al fusionar.
   Si la herramienta asigna una rama aleatoria, trabajar igual en una de nombre descriptivo.
 - Ramas remotas permitidas hoy (24/10/2026):
 
   ```text
   main, release/v2.1.x                         permanentes
-  v2.1.0-alpha.14/feature/hmi-designer         rama de la alpha 2.1.0-alpha.14 (HMI Designer, PR #141)
-  v2.1.0-alpha.14/feature/<tema>               features de esa alpha (PR hacia ella; se borran al fusionar)
+  v2.1.0-alpha.14/HmiDesigner/main            rama de la alpha 2.1.0-alpha.14 (HMI Designer, PR #157)
+  v2.1.0-alpha.14/HmiDesigner/feature/<tema>   features de esa alpha (PR hacia ella; se borran al fusionar)
   v2.1.0-alpha.14-OpenPLC-HMI                  rama de Kenyi (OpenPLC, se publicará como 2.1.0-alpha.15)
   ```
 
   En GitHub Desktop, «origin/…» sólo indica una rama remota que no está descargada en la PC; no es parte del nombre.
-- Antes de empezar: `git pull origin v2.1.0-alpha.14/feature/hmi-designer` (varias personas/agentes en la misma rama).
+- Antes de empezar: `git pull origin v2.1.0-alpha.14/HmiDesigner/main` (varias personas/agentes en la misma rama).
 - Mensajes de commit descriptivos (`feat(hmi-designer): ...`, `fix(jwplc-tft): ...`,
   `docs(alpha15): ...`). Prohibido `.`, `,`, `patch`.
 - No versionar archivos de prueba temporales (`temp_*`, `fix.py`, copias en la raíz).
