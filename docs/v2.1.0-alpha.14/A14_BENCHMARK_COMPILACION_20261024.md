@@ -20,7 +20,7 @@ Las dos versiones se alternan en cada repetición y se reporta la mediana.
 ### PC del jefe (Windows, el que vale para las notas)
 
 1. Arduino IDE / arduino-cli **1.5.1**; alpha.13 instalada desde Boards Manager (`jwplc:esp32@2.1.0-alpha.13`).
-2. `jwplc_local` (junction en Arduino15) apuntando a un checkout de `v2.1.0-alpha.14/feature/hmi-designer`.
+2. `jwplc_local` (junction en Arduino15) apuntando a un checkout de `v2.1.0-alpha.14/HmiDesigner/main`.
 3. Sketchbook sin copias de librerías JWPLC (las de `JW_RS485`/`JW_ModbusRTU` del Laundry HMI también tapan al package:
    moverlas fuera mientras dura la medida).
 4. Cerrar el Arduino IDE (comparte la caché) y correr:
