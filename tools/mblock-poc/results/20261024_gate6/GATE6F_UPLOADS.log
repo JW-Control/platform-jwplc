@@ -1,0 +1,40 @@
+[2026-10-24T20:48:40.421Z] {"type":"stage","stage":"compile","fqbn":"jwplc_a14:esp32:jwplcbasic"}
+[2026-10-24T20:50:48.398Z] {"type":"stage","stage":"upload","port":"COM14"}
+[2026-10-24T20:50:56.899Z]   Wrote 25040 bytes (16025 compressed) at 0x00001000 in 0.7 seconds (299.3 kbit/s).
+[2026-10-24T20:50:57.000Z]   Wrote 3072 bytes (121 compressed) at 0x00008000 in 0.1 seconds (371.4 kbit/s).
+[2026-10-24T20:50:57.175Z]   Wrote 8192 bytes (47 compressed) at 0x0000e000 in 0.1 seconds (483.8 kbit/s).
+[2026-10-24T20:51:07.766Z]   Wrote 1049168 bytes (686642 compressed) at 0x00010000 in 10.5 seconds (797.3 kbit/s).
+[2026-10-24T20:51:09.200Z]   Hard resetting via RTS pin...
+[2026-10-24T20:51:10.561Z] {"type":"result","ok":true,"stage":"upload","exit":0,"ms":150144}
+[2026-10-24T21:17:49.760Z] {"type":"stage","stage":"compile","fqbn":"jwplc_a14:esp32:jwplcbasic"}
+[2026-10-24T21:18:05.036Z] {"type":"stage","stage":"upload","port":"COM14"}
+[2026-10-24T21:18:12.135Z]   Wrote 25040 bytes (16025 compressed) at 0x00001000 in 0.7 seconds (302.0 kbit/s).
+[2026-10-24T21:18:12.287Z]   Wrote 3072 bytes (121 compressed) at 0x00008000 in 0.1 seconds (360.3 kbit/s).
+[2026-10-24T21:18:12.413Z]   Wrote 8192 bytes (47 compressed) at 0x0000e000 in 0.1 seconds (483.7 kbit/s).
+[2026-10-24T21:18:22.793Z]   Wrote 1049168 bytes (686642 compressed) at 0x00010000 in 10.3 seconds (817.5 kbit/s).
+[2026-10-24T21:18:24.227Z]   Hard resetting via RTS pin...
+[2026-10-24T21:18:25.647Z] {"type":"result","ok":true,"stage":"upload","exit":0,"ms":35893}
+[2026-10-24T21:23:33.277Z] {"type":"stage","stage":"compile","fqbn":"jwplc_a14:esp32:jwplcbasic"}
+[2026-10-24T21:23:48.543Z] {"type":"stage","stage":"upload","port":"COM14"}
+[2026-10-24T21:23:55.845Z]   Wrote 25040 bytes (16025 compressed) at 0x00001000 in 0.7 seconds (297.0 kbit/s).
+[2026-10-24T21:23:55.996Z]   Wrote 3072 bytes (121 compressed) at 0x00008000 in 0.1 seconds (360.4 kbit/s).
+[2026-10-24T21:23:56.175Z]   Wrote 8192 bytes (47 compressed) at 0x0000e000 in 0.1 seconds (482.9 kbit/s).
+[2026-10-24T21:24:06.963Z]   Wrote 1049168 bytes (686642 compressed) at 0x00010000 in 10.7 seconds (781.8 kbit/s).
+[2026-10-24T21:24:08.348Z]   Hard resetting via RTS pin...
+[2026-10-24T21:24:09.788Z] {"type":"result","ok":true,"stage":"upload","exit":0,"ms":36514}
+[2026-10-24T21:26:37.300Z] {"type":"stage","stage":"compile","fqbn":"jwplc_a14:esp32:jwplcbasic"}
+[2026-10-24T21:26:52.530Z] {"type":"stage","stage":"upload","port":"COM14"}
+[2026-10-24T21:26:59.623Z]   Wrote 25040 bytes (16025 compressed) at 0x00001000 in 0.7 seconds (301.4 kbit/s).
+[2026-10-24T21:26:59.775Z]   Wrote 3072 bytes (121 compressed) at 0x00008000 in 0.1 seconds (360.1 kbit/s).
+[2026-10-24T21:26:59.955Z]   Wrote 8192 bytes (47 compressed) at 0x0000e000 in 0.1 seconds (476.2 kbit/s).
+[2026-10-24T21:27:10.606Z]   Wrote 1049168 bytes (686642 compressed) at 0x00010000 in 10.6 seconds (792.0 kbit/s).
+[2026-10-24T21:27:12.039Z]   Hard resetting via RTS pin...
+[2026-10-24T21:27:13.465Z] {"type":"result","ok":true,"stage":"upload","exit":0,"ms":36171}
+[2026-10-24T21:28:39.655Z] {"type":"stage","stage":"compile","fqbn":"jwplc_a14:esp32:jwplcbasic"}
+[2026-10-24T21:28:54.702Z] {"type":"stage","stage":"upload","port":"COM14"}
+[2026-10-24T21:29:01.824Z]   Wrote 25040 bytes (16025 compressed) at 0x00001000 in 0.7 seconds (299.5 kbit/s).
+[2026-10-24T21:29:01.974Z]   Wrote 3072 bytes (121 compressed) at 0x00008000 in 0.1 seconds (360.1 kbit/s).
+[2026-10-24T21:29:02.104Z]   Wrote 8192 bytes (47 compressed) at 0x0000e000 in 0.1 seconds (476.7 kbit/s).
+[2026-10-24T21:29:12.482Z]   Wrote 1049168 bytes (686642 compressed) at 0x00010000 in 10.3 seconds (816.9 kbit/s).
+[2026-10-24T21:29:13.916Z]   Hard resetting via RTS pin...
+[2026-10-24T21:29:15.272Z] {"type":"result","ok":true,"stage":"upload","exit":0,"ms":35622}

@@ -13,8 +13,9 @@ GATE6B_PALETTE_WIFI=PASS              [ejecutado] categoría WiFi visible
 GATE6C_CODEGEN_PHASE3=PASS            [ejecutado]
 GATE6D_COMPILE_A14_FROM_MBLOCK=PASS   [ejecutado]
 GATE6E_NO_WIFI_COST_WITHOUT_BLOCKS=PASS [ejecutado] programa sin WiFi sigue en 425 608 B
-GATE6F_UPLOAD_AND_PHYSICAL=PENDING    [no verificado] sólo compilación por indicación del propietario;
-                                      la prueba entre placas necesita dos JWPLC y una red WiFi
+GATE6F_UPLOAD_AND_PHYSICAL=PARTIAL    [verificado por el usuario] conecta, muestra IP y envía;
+                                      recepción sin probar (PC en otra subred)
+GATE6G_UPLOAD_DIALOG_WITHOUT_FALSE_FAIL=PASS [ejecutado] sin «Fallo al subir» durante la subida
 ~~~
 
 ## Diseño
@@ -87,13 +88,62 @@ programa fase 2 sin WiFi 425 608 B (sin cambios): la librería WiFi no entra
 
 Log: `results/20261024_gate6/GATE6_COMPILE_A14.log`.
 
-## Prueba física pendiente (Gate 6F)
+## Gate 6F - Prueba en la placa
 
-Requiere dos JWPLC Basic (o una JWPLC y un emisor UDP en la PC) en la misma red
-WiFi, con el SSID/clave reales en el bloque «conectar a WiFi»:
+[ejecutado] El propietario escribió su red y clave en el bloque «conectar a
+WiFi» (no se registran en el repo) y el programa se subió desde mBlock a COM14
+(1 049 168 B, hash verificado). Logs: `results/20261024_gate6/GATE6F_UPLOADS.log`.
 
-1. La línea 1 muestra «IP x.x.x.x» tras conectar (o 0.0.0.0 si falla).
-2. Cada 2 s la línea 2 muestra «Enviado N»; en la otra placa, la línea 3 «Recibido N».
+[verificado por el usuario] La placa se conecta y muestra «IP 192.168.1.16» en
+la línea 1 y «Enviado N» subiendo cada 2 s en la línea 2.
+
+Recepción sin probar: la PC está en 192.168.0.4/24 (Ethernet) y la placa en la
+WiFi 192.168.1.x. [ejecutado] La PC no recibió los broadcast de la placa (escucha
+UDP 47821 durante 10 s) y los enviados por la PC (broadcast 192.168.0.255 y
+unicast 192.168.1.16) no llegaron; ping a 192.168.1.16 sin respuesta: no hay
+ruta entre las dos subredes. Para cerrar el gate hace falta la PC en la misma
+WiFi, una segunda JWPLC o un móvil con una app UDP en 192.168.1.x.
+
+### Avisos falsos de «Fallo al subir» (corregido)
+
+El propietario vio dos avisos «Fallo al subir el código» aunque la subida
+terminaba bien. Causas [visto] en `renderer/dist/mblock/js/index.*.js`:
+
+1. El cuadro de subida arma un temporizador de 5 s con cada progreso; si no
+   llega otro, muestra «Fallo al subir» y pasa a «Intentar otra vez». El driver
+   sólo informaba progreso con cada línea del compilador, y la compilación
+   pasa decenas de segundos en silencio.
+2. `ConnectService.disconnect()` emite «disconnect», que mBlock también muestra
+   como fallo.
+
+Correcciones:
+
+- Latido en el driver: reenvía el progreso cada 2 s y avanza despacio mientras
+  compila (hasta 48 %).
+- El COM se cierra con `setIgnoreError('close', true)` sobre el puerto de
+  `ConnectService`, como el `close(cb, true)` del driver `esptoolByExec` de
+  mBlock, sin emitir «disconnect».
+- El bridge sólo informa el progreso de la app (0x10000): antes bootloader,
+  particiones y boot_app0 llegaban cada uno a 100 % y la barra saltaba al final
+  antes de tiempo.
+
+[ejecutado] Subida instrumentada (hora de cada progreso y de cada aviso):
+progreso 2 -> 10 % durante la compilación, 50 % al empezar el upload, éxito a
+los 37 s y un único aviso: «El código se ha subido.» Tras la subida la interfaz
+sigue diciendo «conectado» aunque el COM está cerrado (igual que el driver
+oficial): para volver a usarlo, Desconectar y Conectar.
+
+Nota de pruebas: en los scripts de prueba los textos fijos se metían como bloque
+«texto» suelto encima del hueco y mBlock los pinta en blanco (el código sí los
+lleva). Corregido en `test/cdp-program-phase2.js` y `phase3.js`: el texto va en
+el propio hueco, como al usar la paleta.
+
+### Checklist pendiente para cerrar 6F
+
+Requiere dos JWPLC Basic (o una JWPLC y un emisor UDP) en la misma red WiFi:
+
+1. PASS: la línea 1 muestra «IP x.x.x.x» tras conectar.
+2. Cada 2 s la línea 2 muestra «Enviado N» (PASS); en la otra placa, la línea 3 «Recibido N».
 3. OK en una placa: la otra hace un pitido y muestra «Llego boton».
 4. Con canales distintos (`poner canal de red`) las placas no se oyen.
 5. Revisar convivencia con Ethernet activa y la carga del bus mientras llegan mensajes.

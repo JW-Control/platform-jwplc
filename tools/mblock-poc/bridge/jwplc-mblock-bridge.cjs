@@ -179,6 +179,10 @@ async function upload(port, fqbn, emit) {
     for (let attempt = 1; ; attempt++) {
         let lastPct = -1;
         let busy = false;
+        // esptool escribe bootloader, particiones, boot_app0 y la app, y cada
+        // uno llega a 100 %. Sólo se informa el progreso de la app (0x10000),
+        // que es casi todo el tiempo de escritura.
+        let appWriting = false;
         const exit = await runCli([
             'upload',
             '--fqbn', fqbn,
@@ -189,8 +193,10 @@ async function upload(port, fqbn, emit) {
             // esptool v5: "Writing at 0x... [===   ]  7.0% 16384/233911 bytes..."
             // (varias actualizaciones por línea, separadas o precedidas por \r);
             // esptool v4: "(7 %)".
+            if (/Writing '.*' at 0x0*10000\b/.test(line)) appWriting = true;
             const all = [...line.matchAll(/(\d+(?:\.\d+)?)\s*%/g)];
             if (/Writing at 0x/.test(line) && all.length) {
+                if (!appWriting) return;
                 const pct = Math.floor(Number(all[all.length - 1][1]));
                 if (pct !== lastPct) {
                     lastPct = pct;

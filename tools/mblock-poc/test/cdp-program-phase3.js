@@ -15,11 +15,13 @@
     const J = 'jwplc_basic.';
     const num = (n) => `<shadow type="math_number"><field name="NUM">${n}</field></shadow>`;
     const txt = (s) => `<shadow type="text"><field name="TEXT">${s}</field></shadow>`;
-    const lit = (s) => `<block type="text"><field name="TEXT">${s}</field></block>`;
-    const join = (a, c) => `<block type="operator_join"><value name="STRING1">${txt('')}${a}</value><value name="STRING2">${txt('')}${c}</value></block>`;
+    // Texto fijo: va dentro del hueco (sombra); un bloque "texto" suelto se ve en blanco.
+    const lit = (s) => ({ text: s });
+    const slot = (v) => (typeof v === "object" ? txt(v.text) : txt("") + v);
+    const join = (a, c) => `<block type="operator_join"><value name="STRING1">${slot(a)}</value><value name="STRING2">${slot(c)}</value></block>`;
     const v = '<block type="data_variable"><field name="VARIABLE" id="jwVarCuenta" variabletype="">cuenta</field></block>';
     const write = (line, value, next = '') =>
-        `<block type="${J}jwplc_screen_write"><field name="LINE">${line}</field><value name="TEXT">${txt('')}${value}</value>${next}</block>`;
+        `<block type="${J}jwplc_screen_write"><field name="LINE">${line}</field><value name="TEXT">${slot(value)}</value>${next}</block>`;
     const r = (op, inner = '') => `<block type="${J}${op}">${inner}</block>`;
 
     const xml = `<xml xmlns="http://www.w3.org/1999/xhtml">

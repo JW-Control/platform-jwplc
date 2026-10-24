@@ -33,31 +33,51 @@ async function jwplcReadBridgeToken() {
 
 // Libera el puerto serie que mLink mantiene abierto mientras mBlock está
 // "conectado"; si no, esptool no puede abrir el COM.
-// - app._mCtx.ConnectService.disconnect(id) cierra el puerto (lo que hace la
-//   GUI). _mCtx es interno de mBlock 5.4.3: revisar al cambiar de versión.
-// - app.getService('connect').disconnect() sólo emite el evento de UI.
+// - El puerto de app._mCtx.ConnectService se cierra con el evento "close"
+//   ignorado (setIgnoreError), como hace el driver esptoolByExec de mBlock con
+//   close(cb, true). Si se emite "disconnect", mBlock muestra "fallo al subir"
+//   aunque la subida siga. _mCtx es interno de mBlock 5.4.3: revisar al
+//   cambiar de versión.
 // - enviar "close" por el canal mLink no sirve: mLink lo ignora si el socket
 //   no es el que abrió el COM.
 async function jwplcReleasePort(app, port) {
     const ctx = app && (app.mCtx || app._mCtx);
     const cs = ctx && ctx.ConnectService;
-    let how = 'sin ConnectService';
-    if (cs && cs.ports && typeof cs.disconnect === 'function') {
-        const ids = [...cs.ports.keys()].filter((id) => String(id).toUpperCase().endsWith(port));
-        for (const id of ids) {
-            try { await cs.disconnect(id); } catch (_) {}
-        }
-        how = ids.length ? 'cerrado ' + ids.join(',') : 'no estaba abierto';
+    if (!cs || !cs.ports) return 'sin ConnectService';
+    const ids = [...cs.ports.keys()].filter((id) => String(id).toUpperCase().endsWith(port));
+    for (const id of ids) {
+        const p = cs.ports.get(id);
+        try {
+            if (p && typeof p.setIgnoreError === 'function') {
+                p.setIgnoreError('close', true);
+                await p.close();
+                p.setIgnoreError('close', false);
+                cs.ports.delete(id);
+            } else {
+                await cs.disconnect(id);
+            }
+        } catch (_) {}
     }
-    const connect = typeof app.getService === 'function' ? app.getService('connect') : null;
-    if (connect && typeof connect.disconnect === 'function') connect.disconnect();
     await new Promise((r) => setTimeout(r, 1000));
-    return how;
+    return ids.length ? 'cerrado ' + ids.join(',') : 'no estaba abierto';
 }
 
 const jwplcUploadDriver = (app, device, code, log, progress, onSuccess, onError) => {
     const say = (text) => { try { log('[JWPLC] ' + text); } catch (_) {} };
-    const pct = (n) => { try { progress(Math.max(0, Math.min(100, Math.round(n)))); } catch (_) {} };
+    let current = 0;
+    let compiling = false;
+    const pct = (n) => {
+        current = Math.max(0, Math.min(100, Math.round(n)));
+        try { progress(current); } catch (_) {}
+    };
+    // El cuadro de subida de mBlock da la subida por fallida si pasan 5 s sin
+    // progreso (muestra "Fallo al subir" y "Intentar otra vez" aunque siga).
+    // La compilación pasa decenas de segundos sin escribir nada: se reenvía el
+    // progreso cada 2 s y avanza despacio mientras compila (hasta 48 %).
+    const heartbeat = setInterval(() => {
+        if (compiling && current < 48) current += 1;
+        pct(current);
+    }, 2000);
 
     (async () => {
         const port = jwplcUploadState.port;
@@ -92,7 +112,6 @@ const jwplcUploadDriver = (app, device, code, log, progress, onSuccess, onError)
         const decoder = new TextDecoder();
         let buffer = '';
         let result = null;
-        let compileTicks = 0;
         for (;;) {
             const { value, done } = await reader.read();
             if (done) break;
@@ -104,9 +123,9 @@ const jwplcUploadDriver = (app, device, code, log, progress, onSuccess, onError)
                 const ev = JSON.parse(line);
                 if (ev.type === 'log') {
                     say(ev.line);
-                    if (compileTicks < 45) pct(2 + ++compileTicks);
                 } else if (ev.type === 'stage') {
                     say('etapa: ' + ev.stage);
+                    compiling = ev.stage === 'compile';
                     if (ev.stage === 'upload') pct(50);
                 } else if (ev.type === 'progress') {
                     pct(50 + ev.percent / 2);
@@ -120,8 +139,12 @@ const jwplcUploadDriver = (app, device, code, log, progress, onSuccess, onError)
         pct(100);
         say('upload completo en ' + Math.round(result.ms / 1000) + ' s');
     })().then(
-        () => onSuccess(),
+        () => {
+            clearInterval(heartbeat);
+            onSuccess();
+        },
         (err) => {
+            clearInterval(heartbeat);
             say('ERROR: ' + (err && err.message ? err.message : err));
             onError(err && err.message ? err.message : String(err));
         }
