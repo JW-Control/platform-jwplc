@@ -1,0 +1,126 @@
+name: HMI Designer Windows (Setup + portable)
+
+# Genera el instalador NSIS y el .exe portable del JWPLC HMI Designer.
+# - En un PR que toca el Designer: solo compila y deja los .exe como artifact.
+# - Desde release-jwplc-package.yml (workflow_call) o a mano (workflow_dispatch):
+#   además los sube como assets de la GitHub Release del tag indicado.
+
+on:
+  pull_request:
+    paths:
+      - tools/jwplc-hmi-designer/electron/**
+      - tools/jwplc-hmi-designer/poc/**
+      - tools/jwplc-hmi-designer/arduino-ide-launcher/**
+      - tools/jwplc-hmi-designer/assets/**
+      - tools/jwplc-hmi-designer/Build-*.ps1
+      - tools/jwplc-hmi-designer/JWPLC-ElectronBuilderCache.ps1
+      - .github/workflows/hmi-designer-windows.yml
+  workflow_call:
+    inputs:
+      version:
+        description: "Versión sin v inicial (p. ej. 2.1.0-alpha.14)"
+        required: true
+        type: string
+      upload:
+        description: "Subir los .exe a la Release v<version>"
+        required: false
+        default: true
+        type: boolean
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Versión sin v inicial (p. ej. 2.1.0-alpha.14). La Release v<version> debe existir para subir."
+        required: true
+        type: string
+      upload:
+        description: "Subir los .exe a la Release v<version>"
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Generar Setup y portable
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: tools/jwplc-hmi-designer/electron/package-lock.json
+
+      - name: Resolver versión
+        id: version
+        shell: pwsh
+        run: |
+          $version = '${{ inputs.version }}'
+          if (-not $version) {
+            $version = (Get-Content tools/jwplc-hmi-designer/electron/package.json -Raw | ConvertFrom-Json).version
+          }
+          $version = $version.TrimStart('v')
+          if ($version -notmatch '^[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z]+\.[0-9]+)?$') {
+            throw "Versión inválida: $version"
+          }
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "tag=v$version" >> $env:GITHUB_OUTPUT
+          Write-Host "Versión: $version"
+
+      - name: Generar Setup y portable
+        shell: pwsh
+        working-directory: tools/jwplc-hmi-designer
+        run: ./Build-JWPLC-HMI-Designer-Setup.ps1 -Portable -Version '${{ steps.version.outputs.version }}'
+
+      - name: Verificar y calcular SHA-256
+        shell: pwsh
+        working-directory: tools/jwplc-hmi-designer/dist
+        run: |
+          $v = '${{ steps.version.outputs.version }}'
+          $expected = @("JWPLC-HMI-Designer-Setup-$v-x64.exe", "JWPLC-HMI-Designer-Portable-$v-x64.exe")
+          foreach ($name in $expected) {
+            if (-not (Test-Path -LiteralPath $name -PathType Leaf)) {
+              Get-ChildItem | Format-Table Name, Length
+              throw "Falta $name"
+            }
+          }
+          $lines = foreach ($name in $expected) {
+            "$((Get-FileHash -LiteralPath $name -Algorithm SHA256).Hash.ToLower())  $name"
+          }
+          Set-Content -LiteralPath "JWPLC-HMI-Designer-$v-SHA256.txt" -Value $lines -Encoding ascii
+          Get-Content "JWPLC-HMI-Designer-$v-SHA256.txt"
+          Get-ChildItem *.exe | Format-Table Name, Length
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: jwplc-hmi-designer-${{ steps.version.outputs.version }}-windows
+          path: |
+            tools/jwplc-hmi-designer/dist/*.exe
+            tools/jwplc-hmi-designer/dist/*-SHA256.txt
+          if-no-files-found: error
+
+      - name: Subir a la GitHub Release
+        if: ${{ github.event_name != 'pull_request' && inputs.upload }}
+        shell: pwsh
+        working-directory: tools/jwplc-hmi-designer/dist
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $v = '${{ steps.version.outputs.version }}'
+          $tag = '${{ steps.version.outputs.tag }}'
+          gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
+          if ($LASTEXITCODE -ne 0) { throw "No existe la Release $tag." }
+          gh release upload $tag `
+            "JWPLC-HMI-Designer-Setup-$v-x64.exe" `
+            "JWPLC-HMI-Designer-Portable-$v-x64.exe" `
+            "JWPLC-HMI-Designer-$v-SHA256.txt" `
+            --repo $env:GITHUB_REPOSITORY --clobber
+          if ($LASTEXITCODE -ne 0) { throw "gh release upload falló con código $LASTEXITCODE." }
+          Write-Host "Subidos a https://github.com/$env:GITHUB_REPOSITORY/releases/tag/$tag"

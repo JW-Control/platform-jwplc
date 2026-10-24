@@ -106,6 +106,17 @@ Referencia adoptada: arduino-cli 1.5.1. Benchmark de la alpha.14 con todo precom
 - La app de escritorio del Designer es solo para Windows; la versión de navegador no puede abrir el
   Arduino IDE ni carpetas.
 
+## Instalar el HMI Designer (Windows)
+
+Descarga de los assets de esta Release:
+
+- `JWPLC-HMI-Designer-Setup-2.1.0-alpha.14-x64.exe`: instalador por usuario, sin administrador. Crea los
+  accesos e instala la extensión para Arduino IDE 2. Es la opción recomendada.
+- `JWPLC-HMI-Designer-Portable-2.1.0-alpha.14-x64.exe`: se abre sin instalar, pero no integra el Arduino IDE.
+
+No hace falta Node.js ni el repositorio. El .exe no está firmado: si aparece «Windows protegió su PC», pulsa
+*Más información* y luego *Ejecutar de todas formas*.
+
 ## Distribución
 
 Versión `2.1.0-alpha.14`, carpeta raíz `2.1.0/` dentro del ZIP, canal dev de Boards Manager. El índice dev se
