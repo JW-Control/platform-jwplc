@@ -1,6 +1,6 @@
 # Consolidación de ramas de 2.1.0-alpha.14 (24/10/2026)
 
-Rama de trabajo: `v2.1.0-alpha.14/feature/consolidacion-ramas` (desde `v2.1.0-alpha.14/feature/hmi-designer`).
+Rama de trabajo: `v2.1.0-alpha.14/HmiDesigner/feature/consolidacion-ramas` (desde `v2.1.0-alpha.14/HmiDesigner/main`).
 Se revisan las ramas en el orden que indica el propietario; lo pendiente se fusiona aquí y la rama revisada se borra.
 Cada rama borrada queda anotada con su último SHA para poder recuperarla (`git push origin <sha>:refs/heads/<rama>`).
 
@@ -27,3 +27,19 @@ DECISION=BORRAR
 - Las demás diferencias entre el tip HMI y la alpha son cambios posteriores en la alpha.
 
 Borrado remoto: lo hace el propietario en GitHub (la sesión en la nube no puede borrar ramas remotas: HTTP 403).
+
+## 0. Renombrado al esquema `v2.1.0-alpha.14/HmiDesigner/…` (24/10)
+
+Mismos commits, ramas nuevas; las viejas las borra el propietario en GitHub (la nube recibe HTTP 403 al borrar).
+
+| Rama vieja | Rama nueva | SHA | PR viejo → nuevo |
+|---|---|---|---|
+| `v2.1.0-alpha.14/feature/hmi-designer` | `v2.1.0-alpha.14/HmiDesigner/main` | `9a27b13` | #141 → #157 (borrador, hacia `release/v2.1.x`) |
+| `claude/project-thread-iuopjt`, `v2.1.0-alpha.14/feature/designer-installer` | `…/HmiDesigner/feature/designer-installer` | `7c25780` | #151, #156 → #158 |
+| `v2.1.0-alpha.14/feature/readmes-librerias` | `…/HmiDesigner/feature/readmes-librerias` | `b11d142` | #152 → #159 |
+| `v2.1.0-alpha.14/feature/prueba-fisica-combinada` | `…/HmiDesigner/feature/prueba-fisica-combinada` | `3477474` | #153 → #160 |
+| `v2.1.0-alpha.14/feature/benchmark-compilacion` | `…/HmiDesigner/feature/benchmark-compilation` | `d260628` | #154 → #161 |
+| `v2.1.0-alpha.14/feature/consolidacion-ramas` | `…/HmiDesigner/feature/consolidacion-ramas` | `6b46737` | — → #162 |
+| `v2.1.0-alpha.14/feature/cierre-alpha14` | `…/HmiDesigner/feature/cierre-alpha14` | `05866f3` | #155 → #163 |
+
+`v2.1.0-alpha.14-OpenPLC-HMI` (Kenyi) no se renombra.
