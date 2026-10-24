@@ -9,6 +9,20 @@ Serie corta recomendada para taller:
 04.Display_TFT_Direct
 ```
 
+## Plantillas hechas con el HMI Designer
+
+Proyectos completos del HMI Designer listos para abrir, subir y modificar. Cada carpeta trae el `.ino`, el
+`JWPLC_HMI_Generated.h`, el proyecto `.jwhmi` (para abrirlo en el Designer), la guía `JWPLC_HMI_LEEME.md`, un
+`README.md` y vistas previas en `hmi_preview/`.
+
+```text
+05.HMI_Plantilla_Caldera       5 páginas: todos los tipos de objeto, figuras, PIXEL y MENU (plantilla)
+06.HMI_Botonera_Interactiva    teclas del sketch por página: horno con recetas, juego de reflejos, motor con rampa
+07.HMI_Iconos_Planta           15 iconos con estado (ICON) en una planta de agua simulada
+```
+
+Antes de modificar uno, **Archivo → Guardar como**: los ejemplos del package son de solo lectura.
+
 ## Ejemplos avanzados y gates
 
 ```text

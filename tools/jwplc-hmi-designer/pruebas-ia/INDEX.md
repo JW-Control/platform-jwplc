@@ -9,6 +9,10 @@ Cada carpeta es una prueba de hasta dónde llega un agente diseñando una HMI co
 | [`02_botonera`](02_botonera/README.md) | 2026-10-23 | Algo más creativo e interactivo con la botonera | Receta con cuenta atrás, juego de reflejos con récord, motor con rampa y MENU. 0 avisos, compila en ESP32. Placa: [no verificado] |
 | [`03_iconos`](03_iconos/README.md) | 2026-10-23 | Iconos con estado (tipo ICON) desde la CLI | Planta de agua simulada: 15 ICON de 24 a 64 px en 2 páginas, paro, auto/manual y falla con la botonera. 0 avisos, compila en ESP32. Placa: [no verificado] |
 
+Las tres están publicadas también como ejemplos de `JWPLC_Display` (*Archivo → Ejemplos → JWPLC_Display*):
+`05.HMI_Plantilla_Caldera`, `06.HMI_Botonera_Interactiva` y `07.HMI_Iconos_Planta`, con el mismo `.ino` y el mismo
+`JWPLC_HMI_Generated.h`. Si cambias una prueba que ya es ejemplo, actualiza también la copia del ejemplo.
+
 ## Cómo agregar una prueba
 
 Carpeta `NN_nombre/` con:
