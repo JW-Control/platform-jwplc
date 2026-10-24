@@ -50,15 +50,15 @@ ni tomarlos como referencia para el HMI Designer.
 
 ```text
 ACTIVE_ALPHA=v2.1.0-alpha.15 (DEV_CLOSED 2026-10-19; se publica como 2.1.0-alpha.14)
-ACTIVE_BRANCH=v2.1.0-alpha.15-HmiDesigner
+ACTIVE_BRANCH=v2.1.0-alpha.14/HmiDesigner/main (rama de la alpha; antes v2.1.0-alpha.14/feature/hmi-designer; v2.1.0-alpha.15-HmiDesigner ya está fusionada en ella y se retira)
 CIERRE=docs/v2.1.0-alpha.15/A15_CIERRE_Y_TRANSFERENCIA_20261019.md (integración con Alpha13 y publicación)
-INTEGRATION_BRANCH=v2.1.0-alpha.14/feature/hmi-designer (desde release/v2.1.x con Alpha13 cerrada; PR #141 borrador)
+INTEGRATION_BRANCH=v2.1.0-alpha.14/HmiDesigner/main (desde release/v2.1.x con Alpha13 cerrada; PR #157 borrador, sustituye a #141)
 HANDOFF=docs/v2.1.0-alpha.15/JWPLC_NEW_CHAT_START_ALPHA14_20261023.md (estado, fases pendientes y límites; leer primero)
 PARENT_BRANCH=v2.0.1-alpha.15-(HmiDesigner)   (rama anterior de André; congelada, NO modificar)
 PARENT_LAST_MERGED=af797d79 (2026-10-16, fusionado en la rama activa el 2026-10-17)
 ALPHA12_MERGED=4e869985 (Kenyi, VPP 2.1.0-alpha.29; fusionado el 2026-10-18)
 OPENPLC_F0=docs/v2.1.0-alpha.15/A15_F0_OPENPLC_RUTA_KENYI_20261018.md
-EQUIPO=André y agentes trabajan en v2.1.0-alpha.15-HmiDesigner
+EQUIPO=André y agentes: ramas v2.1.0-alpha.14/HmiDesigner/feature/<tema> desde la principal (§5)
 SCOPE=JWPLC HMI Designer (editor + codegen + soporte firmware JWPLC_Display/JWPLC_TFT)
 DOCS=docs/v2.1.0-alpha.15/
 ```
@@ -148,19 +148,46 @@ JW-Control/platform-jwplc  rama v2.1.0-alpha.12/feature/openplc-engineering-clos
   `[no verificado]` (requiere hardware/IDE).
 - Al terminar una sesión de trabajo: actualizar `ALPHA<N>_STATUS.md` y, si el
   trabajo queda a medias, crear/actualizar el `JWPLC_NEW_CHAT_START_*`.
+- Cada documento nuevo entra por la rama de la feature que lo produce (§5), nunca directo en `…/main`. Al
+  citar ramas o PR en un `.md`, usar el nombre completo (`v2.1.0-alpha.14/HmiDesigner/feature/<tema>`, PR #N);
+  si una rama se renombra o borra, dejar su último SHA anotado en `docs/<alpha>/`.
 
 ---
 
 ## 5. Convenciones de git
 
-- **Ramas (regla del propietario, 24/10/2026):** aparte de `main` y `release/v2.1.x`, una sola rama por
-  alpha (hoy la integración `v2.1.0-alpha.14/feature/hmi-designer`; la de OpenPLC, `v2.1.0-alpha.14-OpenPLC-HMI`).
-  Cada feature sale de la rama de su alpha con nombre descriptivo, `<rama-alpha>-<tema>` o
-  `v2.1.0-alpha.N/feature/<tema>` (p. ej. `v2.1.0-alpha.14/feature/designer-installer`), nunca con sufijos
-  aleatorios (`claude/project-thread-xxxx`). Se fusiona por PR hacia la rama de la alpha y se borra al fusionar.
-  Si la herramienta asigna una rama aleatoria, trabajar igual en una de nombre descriptivo.
-- Rama de trabajo histórica: `v2.1.0-alpha.N-<Tema>` (ver §2). La rama anterior de André queda congelada.
-- Antes de empezar: `git pull origin v2.1.0-alpha.15-HmiDesigner` (varias personas/agentes en la misma rama).
+- **Ramas (regla del propietario, 24/10/2026).** Aparte de `main` y `release/v2.1.x`, cada alpha tiene **una**
+  rama principal y sus features cuelgan de ella:
+
+  ```text
+  release/v2.1.x                                       publicación (fusionar aquí publica la Release)
+  └── v2.1.0-alpha.14/HmiDesigner/main                 rama principal de la alpha (PR borrador hacia release, #157)
+      ├── v2.1.0-alpha.14/HmiDesigner/feature/designer-installer        ─┐
+      ├── v2.1.0-alpha.14/HmiDesigner/feature/prueba-fisica-combinada   ─┤ PR → …/main → revisión → merge → se borra
+      └── v2.1.0-alpha.14/HmiDesigner/feature/<tema>                    ─┘
+  ```
+
+  Formato: `v2.1.0-alpha.N/<Línea>/main` y `v2.1.0-alpha.N/<Línea>/feature/<tema>` (tema en minúsculas con
+  guiones). La principal se llama `…/main` porque git no admite a la vez una rama `v2.1.0-alpha.14/HmiDesigner` y
+  otra `v2.1.0-alpha.14/HmiDesigner/feature/…`. Nunca sufijos aleatorios (`claude/project-thread-xxxx`): si la
+  herramienta asigna uno, trabajar igual en una rama con este formato. La línea de Kenyi sigue como
+  `v2.1.0-alpha.14-OpenPLC-HMI` (no se renombra mientras trabaja en ella).
+- **Flujo de una feature** (obligatorio, en este orden):
+  1. `git pull origin <alpha>/<Línea>/main` y crear `<alpha>/<Línea>/feature/<tema>` desde ella.
+  2. Commits sólo de ese tema; push; PR **hacia `…/main`** (nunca hacia `release/v2.1.x`, `main` del repo ni
+     otra feature). La documentación de la feature (`docs/<carpeta de la alpha>/…`) va en la misma rama y PR.
+  3. Revisión: CI en verde y OK del propietario. Sin ese OK no se fusiona.
+  4. Al fusionar: borrar la rama de la feature (remota y local). Si otra feature abierta queda en conflicto,
+     se trae `…/main` a ella con un merge (sin rebase ni force-push).
+  5. Tras cada merge: actualizar `ALPHA<N>_STATUS.md` (qué entró, PR y SHA) en la siguiente feature de docs o
+     en la de cierre.
+  6. Cierre de la alpha: todas las features fusionadas → la feature de cierre (README de versión,
+     `PRE_RELEASE.md`) es la última → `…/main` → PR hacia `release/v2.1.x`, que sólo se fusiona con autorización
+     explícita (publica la Release). Después se borran `…/main` y sus restos.
+- Ramas remotas permitidas hoy (24/10/2026): `main`, `release/v2.1.x`, `v2.1.0-alpha.14/HmiDesigner/main`,
+  `v2.1.0-alpha.14/HmiDesigner/feature/<tema>` (una por PR abierto) y `v2.1.0-alpha.14-OpenPLC-HMI`. Cualquier
+  otra se revisa (¿está contenida en `…/main`?), se anota con su SHA en `docs/<alpha>/` y se borra.
+  En GitHub Desktop, «origin/…» sólo indica una rama remota no descargada en la PC; no es parte del nombre.
 - Mensajes de commit descriptivos (`feat(hmi-designer): ...`, `fix(jwplc-tft): ...`,
   `docs(alpha15): ...`). Prohibido `.`, `,`, `patch`.
 - No versionar archivos de prueba temporales (`temp_*`, `fix.py`, copias en la raíz).
