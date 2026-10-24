@@ -1,6 +1,6 @@
 # v2.1.0-alpha.15 — Estado
 
-Actualizado: `2026-10-23`
+Actualizado: `2026-10-24`
 
 ## Identidad
 
@@ -13,9 +13,10 @@ OWNER_ALPHA15=André (HMI Designer)
 ALPHA15_STATUS=DEV_CLOSED (2026-10-19; cierre y transferencia: A15_CIERRE_Y_TRANSFERENCIA_20261019.md)
 ALPHA15_RELEASE=2.1.0-alpha.14 (por orden de publicación; ver «Organización de alphas»)
 ALPHA15_RELEASE_PR=#141 (borrador; rama v2.1.0-alpha.14/feature/hmi-designer desde release/v2.1.x)
-ALPHA14_INTEGRATION=FASE_1_CLOSED (CI d7afe353 PASS; 17/17 sketches en Basic y Basic Core; TFT .a 161e406 ABI_COMPAT=PASS + DISPON diferido)
-ALPHA14_NEXT=FASE_2_FISICA -> FASE_3_FREEZE_DISPLAY -> FASE_4_DOCS (borradores hechos) (ver JWPLC_NEW_CHAT_START_ALPHA14_20261023.md)
-ALPHA14_NOTES=docs/v2.1.0-alpha.14/PRE_RELEASE.md (borrador; marcador del README sin cambiar)
+ALPHA14_INTEGRATION=FASE_1_CLOSED + FASE_3_FREEZE_DONE (Display .a ced1f93 y TFT .a 161e406: ABI_COMPAT=PASS, precompiled=full)
+ALPHA14_CLOSURE_CHECK=PASS (24/10: 83/83 sketches en Basic y Basic Core, Designer 16/16, .a reconstruidos sin cambios de ABI)
+ALPHA14_NEXT=FASE_2_FISICA (gates/A14_F2_Combinado) + benchmark en la PC del jefe -> merge #141 con autorización
+ALPHA14_NOTES=docs/v2.1.0-alpha.14/PRE_RELEASE.md (final salvo prueba física y benchmark de PC; marcador del README en 2.1.0-alpha.14)
 ```
 
 ## Organización de alphas
