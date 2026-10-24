@@ -124,7 +124,7 @@ Además, las librerías y los ejemplos usan **pines con nombre** (`JWPLC_FRAM_CS
 con la misma API.
 
 **Probado en banco:** menús, formatos, reloj, tildes, buzzer, pestañas y
-tecla de despertar en un JWPLC Basic; Modbus RTU entre dos equipos; los 79
+tecla de despertar en un JWPLC Basic; Modbus RTU entre dos equipos; los 78
 ejemplos del package compilan en JWPLC Basic y Basic Core.
 
 ---

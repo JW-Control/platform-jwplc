@@ -62,7 +62,7 @@ versión; se volverá a precompilar en una alpha posterior.
 
 - **Pines con nombre:** librerías y ejemplos usan las constantes `JWPLC_*` del Basic (botonera, RS-485, FRAM,
   microSD, buzzer). Se corrigieron ejemplos de `JW_MatrixButtons` y `JW_RS485` que usaban pines de otra placa
-  y se retiraron dos que no tenían hardware en el Basic (79 ejemplos compilan en Basic y Basic Core).
+  y se retiraron dos que no tenían hardware en el Basic (78 ejemplos compilan en Basic y Basic Core).
 
 - **`JWPLC_Buzzer`** (en `JWPLC_GlobalPeripherals` 1.1.0): pitidos y melodías no bloqueantes con volumen;
   ejemplo `07.Buzzer_Basic`.
@@ -108,7 +108,8 @@ versión; se volverá a precompilar en una alpha posterior.
   Designer, formatos, reloj, tildes, codegen estático y OpenPLC F0) en **JWPLC Basic y JWPLC Basic Core**:
   83/83 en cada placa, sin warnings (arduino-cli, package de la rama, sketchbook vacío). Flash: Basic
   436 477–473 589 B; Core 394 195–433 517 B. Las 3 plantillas HMI de `JWPLC_Display` (05–07), añadidas
-  después, compilan también en las dos placas (6/6, sin warnings): 79 ejemplos en total.
+  después, compilan también en las dos placas (6/6, sin warnings). El gate de banco `Display_Alpha8_HMI_Gate` sale
+  de los ejemplos a `tools/display-gates/Display_HMI_Botonera_Gate`: quedan 78 ejemplos.
 - Live Bridge del Designer recompilado desde el package congelado (440 752 B).
 
 ### Pruebas en placa
