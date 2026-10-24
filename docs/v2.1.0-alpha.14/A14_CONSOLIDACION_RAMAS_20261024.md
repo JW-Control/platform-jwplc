@@ -28,7 +28,7 @@ DECISION=BORRAR
 
 Borrado remoto: lo hace el propietario en GitHub (la sesión en la nube no puede borrar ramas remotas: HTTP 403).
 
-## 0. Renombrado al esquema `v2.1.0-alpha.14/HmiDesigner/…` (24/10)
+## 2. Renombrado al esquema `v2.1.0-alpha.14/HmiDesigner/…` (24/10)
 
 Mismos commits, ramas nuevas; las viejas las borra el propietario en GitHub (la nube recibe HTTP 403 al borrar).
 
