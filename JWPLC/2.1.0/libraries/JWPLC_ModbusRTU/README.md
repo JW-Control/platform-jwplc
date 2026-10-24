@@ -780,11 +780,22 @@ masterSucceeded()
 clearMasterResult()
 ```
 
+## Arquitectura
+
+Desde 1.1.0, `JWPLC_ModbusRTU` es una instancia preconfigurada de
+[`JW_ModbusRTU`](https://github.com/JW-Control/JW_ModbusRTU) sobre
+`JWPLC_RS485`. La API pública no cambia.
+
+`JW_ModbusRTU` contiene el mismo motor y permite crear otros buses Modbus
+(una instancia por `JW_RS485`), también en placas ESP32 genéricas.
+`JWPLC_ModbusRTU.engine()` devuelve la instancia `JW_ModbusRTU` interna.
+
 ## Versión
 
 Documentado para:
 
 ```text
-JWPLC ESP32 v2.1.0-alpha.13 (candidata)
-JWPLC_ModbusRTU 1.0.0
+JWPLC ESP32 v2.1.0-alpha.14
+JWPLC_ModbusRTU 1.1.0
+JW_ModbusRTU 0.1.1
 ```

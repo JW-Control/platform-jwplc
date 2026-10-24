@@ -77,9 +77,24 @@ public:
     uint8_t userPageCount() const;
     bool isUserPageSelection() const;
 
+    // Alpha15: indicador NN/TT de Alpha11 (36×12 px; invierte colores en
+    // PAGE_CONTENT). Visible por defecto en (282, 3). El Designer lo mueve
+    // (estilo "Contador NN/TT") o lo oculta cuando la barra NAV ya muestra su
+    // propio contador.
+#define JWPLC_UI_HAS_PAGE_INDICATOR_CONFIG 1
+    void setPageIndicator(bool visible, int16_t x = 282, int16_t y = 3);
+
     bool setFields(const JWPLC_UIField *fields, size_t count);
     void clearFields();
     size_t fieldCount() const;
+
+    // MENU declarativo (ver JWPLC_UI_Menu.h). menuChanged() devuelve true una
+    // vez por cada valor confirmado con OK; nodeIndex = índice del nodo.
+    bool setMenus(const JWPLC_UIMenu *menus, size_t count);
+    void clearMenus();
+    size_t menuCount() const;
+    bool menuChanged(uint8_t menuId, uint8_t *nodeIndex = nullptr);
+    bool menuEditing() const;
 
     // PixelMaps estáticos agrupados por página.
     //
@@ -116,6 +131,8 @@ public:
     bool setText(uint8_t fieldId, const char *value);
     bool setBool(uint8_t fieldId, bool value);
     bool setBar(uint8_t fieldId, float value);
+    // ICON (JWPLC_UI_HAS_ICON): estado 0..N-1. setBool() también vale (0/1).
+    bool setIconState(uint8_t fieldId, uint8_t state);
 
     void invalidateField(uint8_t fieldId);
     void invalidateAllFields();

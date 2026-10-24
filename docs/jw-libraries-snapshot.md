@@ -4,23 +4,21 @@ Origen:
 
 ```txt
 JW-Control/JW-Libraries
-commit=0e243efc580d94792524a98bbf9ea759b192d936
+commit=f0e88eecb66603bfce197455e1e90d0dd04ae072
 ```
 
 | Librería | Versión | Ruta origen |
 |---|---:|---|
-| `JW_MatrixButtons` | `1.0.5` | `libraries/JW_MatrixButtons` |
-| `JW_FRAM` | `1.0.2` | `libraries/JW_FRAM` |
-| `JW_RTC` | `1.0.2` | `libraries/JW_RTC` |
-| `JW_SD` | `1.0.2` | `libraries/JW_SD` |
+| `JW_RS485` | `0.1.1` | `libraries/JW_RS485` |
+| `JW_ModbusRTU` | `0.1.1` | `libraries/JW_ModbusRTU` |
 
 Destino:
 
 ```txt
 JW-Control/platform-jwplc
-base=develop/alpha31-release-readiness
-sync=sync/jw-libraries-alpha31
-path=JWPLC/JWPLC-2.0.0/libraries
+base=v2.1.0-alpha.15-HmiDesigner
+sync=sync/jw-libraries-v2.1
+path=JWPLC/2.1.0/libraries
 ```
 
 Nota:

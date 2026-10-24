@@ -257,11 +257,14 @@ void setup()
                            JWPLC_LOGIC_NO_SOURCE,
                            0,
                            1000);
-  expect("TON queda pendiente de fase posterior",
-         !LogicV1ToV2Adapter::requiredLinkCount(
+  // El adaptador ya convierte TON (fase TON integrada, ver V1_V2_Ton_RAM).
+  expect("TON ya es aceptado con un enlace",
+         LogicV1ToV2Adapter::requiredLinkCount(
              outputProgram,
              requiredLinks,
-             adapterError));
+             adapterError) &&
+             requiredLinks == 1 &&
+             adapterError == LogicV1ToV2AdapterError::None);
 
   outputBlocks[0] =
       LogicBlockDefinition(LogicBlockType::DigitalInput,

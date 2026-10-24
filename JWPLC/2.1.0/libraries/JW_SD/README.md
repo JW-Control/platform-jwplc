@@ -94,7 +94,7 @@ void setup()
     Serial.begin(115200);
     delay(1000);
 
-    if (!sd.begin(32))
+    if (!sd.begin(JWPLC_SD_CS))   // GPIO32 en el JWPLC Basic
     {
         Serial.println("No se pudo iniciar la SD");
         return;
@@ -145,7 +145,7 @@ void setup()
     Serial.begin(115200);
     delay(1000);
 
-    if (!sd.begin(32))
+    if (!sd.begin(JWPLC_SD_CS))   // GPIO32 en el JWPLC Basic
     {
         Serial.println("SD no disponible");
         return;
@@ -188,7 +188,7 @@ void setup()
     Serial.begin(115200);
     delay(1000);
 
-    if (!sd.begin(32))
+    if (!sd.begin(JWPLC_SD_CS))   // GPIO32 en el JWPLC Basic
     {
         Serial.println("SD no disponible");
         return;
@@ -270,7 +270,7 @@ void setup()
     Serial.begin(115200);
     delay(1000);
 
-    if (!sd.begin(32))
+    if (!sd.begin(JWPLC_SD_CS))   // GPIO32 en el JWPLC Basic
     {
         Serial.println("SD no disponible");
         return;
@@ -548,10 +548,30 @@ Esa prueba no incluye escritura o extracción de la tarjeta en caliente.
 **Recomendación:** cierra los archivos después de escribir y no realices
 operaciones SD dentro de callbacks gráficos.
 
-## Estado Alpha12 (funcionalidad conservada en Alpha13)
+## Pines en el JWPLC Basic (2.1.0-alpha.14)
+
+La microSD comparte el bus SPI con la TFT, el W5500 y la FRAM; cada chip se
+elige con su propio pin CS. En vez de escribir el número (`32`), los ejemplos
+y este README usan la constante que define el core del JWPLC:
+
+```cpp
+JW_SD sd(JWPLC_SD_CS);   // o sd.begin(JWPLC_SD_CS)
+```
+
+Así el sketch sigue siendo correcto aunque cambie la placa, y se evita
+confundir el CS de la microSD con el de otro periférico del bus.
+
+En un sketch normal del JWPLC Basic no necesitas crear un `JW_SD` propio:
+usa el objeto global `JWPLC_SD`, que el runtime ya inicializa. Los ejemplos
+standalone de esta librería crean su propia instancia para poder usarse
+también fuera del package.
+
+La librería y su `libJW_SD.a` no cambian en esta versión.
+
+## Estado Alpha12 (funcionalidad conservada en Alpha13 y 2.1.0-alpha.14)
 
 ```text
-JWPLC ESP32 v2.1.0-alpha.12
+JWPLC ESP32 v2.1.0-alpha.14 (funcionalidad de v2.1.0-alpha.12)
 JW_SD 1.0.2
 SPI_SHARED_BUS_PROTECTION=YES
 DATALOG_BUFFERED_API=YES

@@ -1,5 +1,14 @@
 #include "JWPLC_RS485.h"
 
+// Puerto generico subyacente. Static local: se construye en el primer uso,
+// sin depender del orden de inicializacion entre unidades de compilacion
+// (JWPLC_ModbusRTU lo toma desde su propio constructor global).
+JW_RS485 &jwplcRs485Port()
+{
+    static JW_RS485 port(Serial2, JWPLC_RS485_RX_PIN, JWPLC_RS485_TX_PIN);
+    return port;
+}
+
 JWPLC_RS485Class JWPLC_RS485;
 
 extern "C" void __attribute__((weak)) jwplcRs485PreTransmitCallback(void)
@@ -20,19 +29,37 @@ extern "C" void __attribute__((weak)) jwplcRs485ActivityCallback(void)
     // JWPLC_Display puede sobreescribir este hook para reflejar actividad BUS.
 }
 
+static void jwplcRs485PreTransmit(void *)
+{
+    jwplcRs485PreTransmitCallback();
+}
+
+static void jwplcRs485PostTransmit(void *)
+{
+    jwplcRs485PostTransmitCallback();
+}
+
+static void jwplcRs485Activity(void *)
+{
+    jwplcRs485ActivityCallback();
+}
+
 JWPLC_RS485Class::JWPLC_RS485Class()
-    : _serial(&Serial2),
+    : _port(jwplcRs485Port()),
       _baud(JWPLC_RS485_DEFAULT_BAUD),
       _config(JWPLC_RS485_DEFAULT_CONFIG),
-      _rxPin(JWPLC_RS485_RX_PIN),
-      _txPin(JWPLC_RS485_TX_PIN),
-      _txBufferSize(0),
-      _ready(false),
-      _lastError(JWPLC_RS485_NOT_STARTED),
-      _lastActivityMs(0),
-      _lastRxActivityMs(0),
-      _lastTxActivityMs(0)
+      _disabledError(JWPLC_RS485_NOT_STARTED)
 {
+#if JWPLC_RS485_AUTO_DIRECTION
+    _port.setAutoDirection(JWPLC_RS485_TX_BUFFER_SIZE);
+#else
+    _port.setCallbackDirection();
+#endif
+
+    _port.setForceApbClock(JWPLC_RS485_FORCE_APB_CLOCK != 0);
+    _port.setPreTransmitCallback(jwplcRs485PreTransmit);
+    _port.setPostTransmitCallback(jwplcRs485PostTransmit);
+    _port.setActivityCallback(jwplcRs485Activity);
 }
 
 bool JWPLC_RS485Class::begin()
@@ -47,79 +74,24 @@ bool JWPLC_RS485Class::begin(uint32_t baud)
 
 bool JWPLC_RS485Class::begin(uint32_t baud, uint32_t config)
 {
-#if !JWPLC_HAS_RS485
-    _ready = false;
     _baud = baud;
     _config = config;
-    setError(JWPLC_RS485_DISABLED);
+
+#if !JWPLC_HAS_RS485
+    _disabledError = JWPLC_RS485_DISABLED;
     return false;
 #else
-    if (_serial == nullptr)
-    {
-        _ready = false;
-        setError(JWPLC_RS485_INVALID_SERIAL);
-        return false;
-    }
-
-    _baud = baud;
-    _config = config;
-
-#if JWPLC_RS485_AUTO_DIRECTION && (JWPLC_RS485_TX_BUFFER_SIZE > 0)
-    if (!_ready)
-    {
-        const size_t configured =
-            _serial->setTxBufferSize(JWPLC_RS485_TX_BUFFER_SIZE);
-
-        if (configured > 0)
-        {
-            _txBufferSize = configured;
-        }
-    }
-#endif
-
-#if JWPLC_RS485_FORCE_APB_CLOCK
-    if (!_serial->setClockSource(UART_CLK_SRC_APB))
-    {
-        _ready = false;
-        setError(JWPLC_RS485_CLOCK_SOURCE_FAILED);
-        return false;
-    }
-#endif
-
-    _serial->begin(_baud, _config, _rxPin, _txPin);
-    // HardwareSerial::begin() retorna void. Su operator bool() comprueba
-    // uartIsDriverInstalled(); no declarar listo un UART que no inició.
-    if (!static_cast<bool>(*_serial))
-    {
-        _ready = false;
-        setError(JWPLC_RS485_UNKNOWN_ERROR);
-        return false;
-    }
-
-    _ready = true;
-    clearError();
-    _lastActivityMs = 0;
-    _lastRxActivityMs = 0;
-    _lastTxActivityMs = 0;
-
-    return true;
+    return _port.begin(baud, config);
 #endif
 }
 
 void JWPLC_RS485Class::end()
 {
 #if JWPLC_HAS_RS485
-    if (_serial != nullptr)
-    {
-        _serial->end();
-    }
+    _port.end();
+#else
+    _disabledError = JWPLC_RS485_NOT_STARTED;
 #endif
-
-    _ready = false;
-    setError(JWPLC_RS485_NOT_STARTED);
-    _lastActivityMs = 0;
-    _lastRxActivityMs = 0;
-    _lastTxActivityMs = 0;
 }
 
 bool JWPLC_RS485Class::isEnabled() const
@@ -134,7 +106,7 @@ bool JWPLC_RS485Class::isEnabled() const
 bool JWPLC_RS485Class::isReady() const
 {
 #if JWPLC_HAS_RS485
-    return _ready;
+    return _port.isReady();
 #else
     return false;
 #endif
@@ -148,13 +120,10 @@ uint32_t JWPLC_RS485Class::baudRate() const
 uint32_t JWPLC_RS485Class::effectiveBaudRate() const
 {
 #if JWPLC_HAS_RS485
-    if (_ready && _serial != nullptr)
-    {
-        return _serial->baudRate();
-    }
-#endif
-
+    return _port.effectiveBaudRate();
+#else
     return 0;
+#endif
 }
 
 uint32_t JWPLC_RS485Class::config() const
@@ -189,13 +158,13 @@ const char *JWPLC_RS485Class::clockSourceString() const
 
 size_t JWPLC_RS485Class::txBufferSize() const
 {
-    return _txBufferSize;
+    return _port.txBufferSize();
 }
 
 bool JWPLC_RS485Class::queuedWriteSupported() const
 {
 #if JWPLC_HAS_RS485 && JWPLC_RS485_AUTO_DIRECTION
-    return _ready && _serial != nullptr && _txBufferSize > 0;
+    return _port.queuedWriteSupported();
 #else
     return false;
 #endif
@@ -203,12 +172,12 @@ bool JWPLC_RS485Class::queuedWriteSupported() const
 
 int8_t JWPLC_RS485Class::rxPin() const
 {
-    return _rxPin;
+    return _port.rxPin();
 }
 
 int8_t JWPLC_RS485Class::txPin() const
 {
-    return _txPin;
+    return _port.txPin();
 }
 
 int JWPLC_RS485Class::available()
@@ -216,20 +185,7 @@ int JWPLC_RS485Class::available()
 #if !JWPLC_HAS_RS485
     return 0;
 #else
-    if (!_ready || _serial == nullptr)
-    {
-        return 0;
-    }
-
-    int count = _serial->available();
-
-    if (count > 0)
-    {
-        markRxActivity();
-    }
-
-    return count;
-
+    return _port.available();
 #endif
 }
 
@@ -238,12 +194,7 @@ int JWPLC_RS485Class::peek()
 #if !JWPLC_HAS_RS485
     return -1;
 #else
-    if (!_ready || _serial == nullptr)
-    {
-        return -1;
-    }
-
-    return _serial->peek();
+    return _port.peek();
 #endif
 }
 
@@ -252,20 +203,7 @@ int JWPLC_RS485Class::read()
 #if !JWPLC_HAS_RS485
     return -1;
 #else
-    if (!_ready || _serial == nullptr)
-    {
-        return -1;
-    }
-
-    int value = _serial->read();
-
-    if (value >= 0)
-    {
-        markRxActivity();
-    }
-
-    return value;
-
+    return _port.read();
 #endif
 }
 
@@ -276,36 +214,7 @@ size_t JWPLC_RS485Class::readAvailable(
 #if !JWPLC_HAS_RS485
     return 0;
 #else
-    if (!_ready ||
-        _serial == nullptr ||
-        buffer == nullptr ||
-        maxSize == 0)
-    {
-        return 0;
-    }
-
-    const int availableBytes =
-        _serial->available();
-
-    if (availableBytes <= 0)
-    {
-        return 0;
-    }
-
-    const size_t toRead =
-        (size_t)availableBytes < maxSize
-            ? (size_t)availableBytes
-            : maxSize;
-
-    const size_t readBytes =
-        _serial->read(buffer, toRead);
-
-    if (readBytes > 0)
-    {
-        markRxActivity();
-    }
-
-    return readBytes;
+    return _port.readAvailable(buffer, maxSize);
 #endif
 }
 
@@ -317,31 +226,10 @@ size_t JWPLC_RS485Class::write(uint8_t data)
 size_t JWPLC_RS485Class::write(const uint8_t *buffer, size_t size)
 {
 #if !JWPLC_HAS_RS485
-    setError(JWPLC_RS485_DISABLED);
+    _disabledError = JWPLC_RS485_DISABLED;
     return 0;
 #else
-    if (!_ready || _serial == nullptr || buffer == nullptr || size == 0)
-    {
-        if (!_ready)
-        {
-            setError(JWPLC_RS485_NOT_STARTED);
-        }
-        return 0;
-    }
-
-    jwplcRs485PreTransmitCallback();
-
-    size_t written = _serial->write(buffer, size);
-    _serial->flush();
-
-    if (written > 0)
-    {
-        markTxActivity();
-    }
-
-    jwplcRs485PostTransmitCallback();
-
-    return written;
+    return _port.write(buffer, size);
 #endif
 }
 
@@ -355,60 +243,48 @@ size_t JWPLC_RS485Class::writeQueued(
     size_t size)
 {
 #if !JWPLC_HAS_RS485
-    setError(JWPLC_RS485_DISABLED);
+    _disabledError = JWPLC_RS485_DISABLED;
     return 0;
 #else
-    if (!queuedWriteSupported())
-    {
-        // Conserva semantica y DE/RE manual en hardware no AutoDirection.
-        return write(buffer, size);
-    }
-
-    if (buffer == nullptr || size == 0)
-    {
-        return 0;
-    }
-
-    const size_t written =
-        _serial->write(buffer, size);
-
-    if (written > 0)
-    {
-        markTxActivity();
-    }
-
-    return written;
+    return _port.writeQueued(buffer, size);
 #endif
 }
 
 void JWPLC_RS485Class::flush()
 {
 #if JWPLC_HAS_RS485
-    if (_ready && _serial != nullptr)
-    {
-        _serial->flush();
-    }
+    _port.flush();
 #endif
 }
 
 Stream &JWPLC_RS485Class::stream()
 {
-    return *_serial;
+    return _port.stream();
 }
 
 HardwareSerial &JWPLC_RS485Class::serial()
 {
-    return *_serial;
+    return _port.serial();
+}
+
+JW_RS485 &JWPLC_RS485Class::port()
+{
+    return _port;
 }
 
 JWPLCRS485Error JWPLC_RS485Class::lastError() const
 {
-    return _lastError;
+#if !JWPLC_HAS_RS485
+    return _disabledError;
+#else
+    // JWRS485Error conserva el mismo orden numerico que JWPLCRS485Error.
+    return static_cast<JWPLCRS485Error>(_port.lastError());
+#endif
 }
 
 const char *JWPLC_RS485Class::lastErrorString() const
 {
-    switch (_lastError)
+    switch (lastError())
     {
     case JWPLC_RS485_OK:
         return "OK";
@@ -430,7 +306,7 @@ const char *JWPLC_RS485Class::statusString() const
 #if !JWPLC_HAS_RS485
     return "RS485 disabled";
 #else
-    if (!_ready)
+    if (!isReady())
     {
         return "RS485 not started";
     }
@@ -487,10 +363,10 @@ void JWPLC_RS485Class::printStatus(Print &out)
     out.println(configString());
 
     out.print("RX pin: ");
-    out.println(_rxPin);
+    out.println(rxPin());
 
     out.print("TX pin: ");
-    out.println(_txPin);
+    out.println(txPin());
 
     out.print("AutoDirection: ");
     out.println(autoDirection() ? "yes" : "no");
@@ -499,7 +375,7 @@ void JWPLC_RS485Class::printStatus(Print &out)
     out.println(clockSourceString());
 
     out.print("TX buffer bytes: ");
-    out.println((unsigned long)_txBufferSize);
+    out.println((unsigned long)txBufferSize());
 
     out.print("Queued TX supported: ");
     out.println(queuedWriteSupported() ? "yes" : "no");
@@ -510,17 +386,17 @@ void JWPLC_RS485Class::printStatus(Print &out)
 
 uint32_t JWPLC_RS485Class::lastActivityMs() const
 {
-    return _lastActivityMs;
+    return _port.lastActivityMs();
 }
 
 uint32_t JWPLC_RS485Class::lastRxActivityMs() const
 {
-    return _lastRxActivityMs;
+    return _port.lastRxActivityMs();
 }
 
 uint32_t JWPLC_RS485Class::lastTxActivityMs() const
 {
-    return _lastTxActivityMs;
+    return _port.lastTxActivityMs();
 }
 
 bool JWPLC_RS485Class::hasRecentActivity(uint32_t windowMs) const
@@ -528,39 +404,6 @@ bool JWPLC_RS485Class::hasRecentActivity(uint32_t windowMs) const
 #if !JWPLC_HAS_RS485
     return false;
 #else
-    if (!_ready || _lastActivityMs == 0)
-    {
-        return false;
-    }
-
-    return ((uint32_t)(millis() - _lastActivityMs) <= windowMs);
+    return _port.hasRecentActivity(windowMs);
 #endif
-}
-
-void JWPLC_RS485Class::markRxActivity()
-{
-    _lastRxActivityMs = millis();
-    markActivity();
-}
-
-void JWPLC_RS485Class::markTxActivity()
-{
-    _lastTxActivityMs = millis();
-    markActivity();
-}
-
-void JWPLC_RS485Class::markActivity()
-{
-    _lastActivityMs = millis();
-    jwplcRs485ActivityCallback();
-}
-
-void JWPLC_RS485Class::setError(JWPLCRS485Error error)
-{
-    _lastError = error;
-}
-
-void JWPLC_RS485Class::clearError()
-{
-    _lastError = JWPLC_RS485_OK;
 }

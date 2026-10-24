@@ -49,23 +49,24 @@
     return editor()?.computeSelectedGeometry?.() || null;
   }
 
-  function badge(ctx, text, x, y) {
+  function badge(ctx, text, x, y, maxCssW) {
     ctx.save();
-    ctx.font = '11px Segoe UI, sans-serif';
+    ctx.font = '600 11px "Segoe UI", system-ui, -apple-system, sans-serif';
     const metrics = ctx.measureText(text);
-    const width = Math.ceil(metrics.width) + 14;
-    const height = 23;
-    const bx = Math.max(2, Math.min(overlayCanvas.width - width - 2, x));
-    const by = Math.max(2, y);
-    ctx.fillStyle = 'rgba(10, 20, 28, 0.95)';
+    const width = Math.ceil(metrics.width) + 16;
+    const height = 22;
+    const bx = Math.round(Math.max(2, Math.min(maxCssW - width - 2, x)));
+    const by = Math.round(Math.max(2, y));
+    ctx.fillStyle = 'rgba(10, 20, 28, 0.94)';
     ctx.strokeStyle = '#617787';
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.roundRect(bx, by, width, height, 5);
+    ctx.roundRect(bx + 0.5, by + 0.5, width, height, 5);
     ctx.fill();
     ctx.stroke();
-    ctx.fillStyle = '#dce9f1';
-    ctx.fillText(text, bx + 7, by + 15);
+    ctx.fillStyle = '#e6f1f8';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, bx + 8, by + height / 2 + 0.5);
     ctx.restore();
   }
 
@@ -75,37 +76,27 @@
     ctx.strokeStyle = color;
     ctx.lineWidth = 1;
     ctx.setLineDash(dash);
-    ctx.strokeRect(x * zoom + 0.5, y * zoom + 0.5, w * zoom, h * zoom);
-    ctx.restore();
-  }
-
-  function drawHandles(ctx, left, top, width, height) {
-    const size = 7;
-    const points = [
-      [left, top], [left + width / 2, top], [left + width, top],
-      [left, top + height / 2], [left + width, top + height / 2],
-      [left, top + height], [left + width / 2, top + height], [left + width, top + height]
-    ];
-    ctx.save();
-    ctx.fillStyle = '#ff8a2a';
-    ctx.strokeStyle = '#18242d';
-    points.forEach(([px, py]) => {
-      ctx.fillRect(Math.round(px - size / 2), Math.round(py - size / 2), size, size);
-      ctx.strokeRect(Math.round(px - size / 2) + 0.5, Math.round(py - size / 2) + 0.5, size - 1, size - 1);
-    });
+    ctx.strokeRect(Math.round(x * zoom) + 0.5, Math.round(y * zoom) + 0.5, Math.round(w * zoom), Math.round(h * zoom));
     ctx.restore();
   }
 
   function syncOverlaySize() {
-    if (overlayCanvas.width !== displayCanvas.width) overlayCanvas.width = displayCanvas.width;
-    if (overlayCanvas.height !== displayCanvas.height) overlayCanvas.height = displayCanvas.height;
-    overlayCanvas.style.width = displayCanvas.style.width || `${displayCanvas.width}px`;
-    overlayCanvas.style.height = displayCanvas.style.height || `${displayCanvas.height}px`;
+    const dpr = Math.max(1, window.devicePixelRatio || 1);
+    const cssW = displayCanvas.width;
+    const cssH = displayCanvas.height;
+    const targetW = Math.round(cssW * dpr);
+    const targetH = Math.round(cssH * dpr);
+    if (overlayCanvas.width !== targetW) overlayCanvas.width = targetW;
+    if (overlayCanvas.height !== targetH) overlayCanvas.height = targetH;
+    overlayCanvas.style.width = displayCanvas.style.width || `${cssW}px`;
+    overlayCanvas.style.height = displayCanvas.style.height || `${cssH}px`;
+    overlayCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return { cssW, cssH };
   }
 
   function drawGeometryOverlay() {
-    syncOverlaySize();
-    overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+    const { cssW, cssH } = syncOverlaySize();
+    overlayCtx.clearRect(0, 0, cssW, cssH);
     if (!geometryToggle.checked || !hasFieldSelection()) return;
 
     const field = selectedField();
@@ -113,32 +104,49 @@
     if (!field || !g) return;
 
     const zoom = Math.max(0.5, Number(zoomSelect.value) || 3);
-    const left = field.x * zoom;
-    const top = field.y * zoom;
-    const width = g.fieldW * zoom;
+    const left = g.fieldX * zoom;
+    const top = g.fieldY * zoom;
     const height = g.fieldH * zoom;
 
-    overlayCtx.save();
-    overlayCtx.strokeStyle = '#ff8a2a';
-    overlayCtx.lineWidth = 2;
-    overlayCtx.strokeRect(left + 0.5, top + 0.5, width, height);
-    overlayCtx.restore();
+    const labelX = g.fieldX + g.pad;
+    const labelY = g.fieldY + g.pad;
+    if (g.labelBounds && g.labelBounds.width > 0 && g.labelBounds.height > 0) {
+      regionRect(overlayCtx, labelX, labelY, g.labelBounds.width, g.labelBounds.height, zoom, 'rgba(225,238,247,.65)');
+    }
+    if (g.valueW > 0 && g.valueH > 0) {
+      regionRect(overlayCtx, g.valueX, g.valueY, g.valueW, g.valueH, zoom, 'rgba(40,220,232,.80)');
+    }
 
-    const labelX = field.x + g.pad;
-    const labelY = field.y + g.pad;
-    regionRect(overlayCtx, labelX, labelY, g.labelBounds.width, g.labelBounds.height, zoom, 'rgba(225,238,247,.60)');
-    regionRect(overlayCtx, g.valueX, g.valueY, g.valueW, g.valueH, zoom, 'rgba(40,220,232,.72)');
-    drawHandles(overlayCtx, left, top, width, height);
-    badge(overlayCtx, `X: ${field.x}   Y: ${field.y}`, left + 7, top - 27);
-    badge(overlayCtx, `${g.fieldW} × ${g.fieldH} px`, left + width - 84, top - 27);
+    const badgeY = top >= 28 ? (top - 26) : Math.min(cssH - 25, top + height + 5);
+    badge(overlayCtx, `X: ${g.fieldX}  Y: ${g.fieldY}  ·  ${g.fieldW} × ${g.fieldH} px`, left, badgeY, cssW);
   }
 
   function updateStatus() {
     const field = selectedField();
     const g = selectedGeometry();
-    if (hasFieldSelection() && field && g) {
+    const activePg = Number(editor()?.getActivePage?.() ?? 0);
+    const selPms = (window.JWPLCHMIPixelMaps?.getSelectedMaps?.() || []).filter(
+      (pm) => Number(pm.page || 0) === activePg && pm.editorVisible !== false && pm.pixels?.length
+    );
+    const selFields = editor()?.getSelectedFields?.() || (field ? [field] : []);
+    const totalCount = selFields.length + selPms.length;
+
+    if (totalCount > 1) {
+      selectedObjectStatus.textContent = `${totalCount} objetos seleccionados`;
+      const b = editor()?.getSelectionBounds?.(selFields, selPms);
+      if (b) {
+        selectedGeometryStatus.textContent = `X:${b.minX} Y:${b.minY} · ${b.width}×${b.height} px`;
+      } else {
+        selectedGeometryStatus.textContent = 'X:— Y:—';
+      }
+    } else if (hasFieldSelection() && field && g) {
       selectedObjectStatus.textContent = `${field.type} ${field.name || 'Sin nombre'} · ${field.id || 'SIN_ID'}`;
       selectedGeometryStatus.textContent = `X:${field.x} Y:${field.y} · ${g.fieldW}×${g.fieldH} px`;
+    } else if (selPms.length === 1) {
+      const pm = selPms[0];
+      const b = window.JWPLCHMIPixelMaps?.getBounds?.(pm);
+      selectedObjectStatus.textContent = `PIXEL ${pm.name || 'Pixel'} · ${pm.key}`;
+      selectedGeometryStatus.textContent = b ? `X:${b.x} Y:${b.y} · ${b.width}×${b.height} px` : 'X:— Y:—';
     } else {
       selectedObjectStatus.textContent = editor()?.getSelectedTool?.() === 'rawText'
         ? 'Texto GFX RAW'
@@ -165,6 +173,12 @@
   }
 
   function applyExactFit() {
+    const editor = window.JWPLCHMIEditor || window.jwplc;
+    if (editor?.fitCanvas) {
+      editor.fitCanvas();
+      refreshUX();
+      return;
+    }
     const value = exactFitZoom();
     let option = zoomSelect.querySelector('option[data-fit-option="1"]');
     if (!option) {
@@ -186,12 +200,17 @@
     input.addEventListener('change', refreshUX);
   });
 
-  fitButton.addEventListener('click', (event) => {
-    // En la app desktop, Ajustar significa FIT real: usar el mayor área posible
-    // preservando la relación 320:170. Se detienen listeners posteriores que
-    // intenten reducirlo a una escala discreta 1×/2×/3×.
-    event.stopImmediatePropagation();
-    requestAnimationFrame(applyExactFit);
+  fitButton?.addEventListener('click', (event) => {
+    event.preventDefault();
+    const editor = window.JWPLCHMIEditor || window.jwplc;
+    editor?.fitCanvas?.();
+  });
+
+  const fitSelectionButton = document.getElementById('fitSelectionButton');
+  fitSelectionButton?.addEventListener('click', (event) => {
+    event.preventDefault();
+    const editor = window.JWPLCHMIEditor || window.jwplc;
+    editor?.fitSelection?.();
   });
 
   generateButton.addEventListener('click', () => {
@@ -238,22 +257,35 @@
 // Alpha11: los gates del Designer se cargan fuera del core para no acoplar
 // funcionalidad experimental al runtime/codegen base ya validado.
 (() => {
+  const V = '1791859500';
   function loadScript(src, onDone) {
     const script = document.createElement('script');
-    script.src = src;
+    script.src = `${src}?v=${V}`;
     script.async = false;
     script.onload = () => onDone?.();
     script.onerror = () => onDone?.();
     document.body.appendChild(script);
   }
 
-  loadScript('./designer-bool.js', () => {
-    loadScript('./designer-bar.js', () => {
-      loadScript('./designer-field-visibility.js', () => {
-        loadScript('./designer-pages.js', () => {
-          loadScript('./designer-live.js');
+  loadScript('./designer-color-editor.js?v=1793801300', () => {
+  loadScript('./designer-bool.js?v=1793801300', () => {
+    loadScript('./designer-bar.js?v=1793801300', () => {
+      loadScript('./designer-zone-indicator.js?v=1793801300', () => {
+        loadScript('./designer-field-inspector.js?v=1793801300', () => {
+          loadScript('./designer-menu.js?v=1793801700');
+          loadScript('./designer-icons.js?v=1793802000');
+          loadScript('./designer-idle.js?v=1793801300');
+          loadScript('./designer-field-visibility.js?v=1793801300', () => {
+            loadScript('./designer-pages.js?v=1793801300', () => {
+              loadScript('./designer-flasher.js?v=1793801500', () => {
+                loadScript('./designer-port-picker.js?v=1793801500');
+                loadScript('./designer-live.js?v=1793801600');
+              });
+            });
+          });
         });
       });
     });
+  });
   });
 })();

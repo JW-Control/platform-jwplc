@@ -420,12 +420,52 @@ También están disponibles:
 JWPLC_RTC
 JWPLC_FRAM
 JWPLC_SD
+JWPLC_Buzzer
 ```
 
 Úsalos cuando necesitas funciones específicas del periférico, por ejemplo leer
 la temperatura interna del RTC o guardar datos en FRAM/SD.
 
 No crees una segunda instancia del mismo hardware.
+
+### Buzzer integrado — `JWPLC_Buzzer`
+
+El JWPLC Basic tiene un buzzer piezo en el GPIO26. El objeto global `JWPLC_Buzzer` ya está
+disponible: no hay que declarar el pin. **Todo es no bloqueante**: el sonido avanza solo, sin
+`delay()` ni llamadas en `loop()`. El pin se configura en el primer uso.
+
+```cpp
+static const JWPLC_BuzzerNote AVISO[] = {{1568, 120}, {0, 60}, {2093, 240}}; // {Hz, ms}; 0 = silencio
+
+void setup()
+{
+    JWPLC_Buzzer.setVolume(32);   // 0 mudo · 16 muy bajo · 32 bajo · 64 medio · 128 fuerte · 255 máximo
+}
+
+void loop()
+{
+    if (JWPLC_Buttons.pressed(BTN_OK))
+        JWPLC_Buzzer.beep();                      // pitido corto (60 ms, 2 kHz)
+    if (alarmaNueva)
+        JWPLC_Buzzer.play(AVISO, 3);              // melodía una vez (play(..., true) = en bucle)
+    if (JWPLC_Buttons.pressed(BTN_ESC))
+        JWPLC_Buzzer.stop();
+}
+```
+
+| Función | Qué hace |
+|---|---|
+| `setVolume(0..255)` / `volume()` | Volumen (duty PWM). |
+| `setEnabled(bool)` / `enabled()` | Silencio global sin perder el volumen. |
+| `tone(freq, ms)` | Nota única; `ms = 0` suena hasta `stop()`. |
+| `beep(ms = 60, freq = 2000)` | Pitido corto. |
+| `play(notas, n, loop = false, velocidad = 100)` | Melodía; cada nota suena el 90 % de su duración. |
+| `stop()` / `isPlaying()` / `isBusy()` | Detener y consultar. |
+
+Un `beep()` durante una melodía la interrumpe y al terminar la melodía sigue. Las notas deben
+ser `static`/globales (se leen mientras suenan). Ejemplo: `07.Buzzer_Basic`. Los ejemplos
+`Display_Tetris` y `Display_FlappyBird` manejan el buzzer por su cuenta: no mezclar ambos en un
+mismo sketch.
 
 ## Errores comunes
 
@@ -531,6 +571,6 @@ periféricos que el runtime ya administra.
 Documentado para:
 
 ```text
-JWPLC ESP32 v2.1.0-alpha.13 (candidata)
-JWPLC_GlobalPeripherals 1.0.0
+JWPLC ESP32 v2.1.0-alpha.14
+JWPLC_GlobalPeripherals 1.1.0
 ```

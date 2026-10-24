@@ -481,6 +481,48 @@ JWPLC_TFT.drawCircle(
     color);
 ```
 
+### Elipses y triángulos — Intermedio (0.2.0)
+
+```cpp
+JWPLC_TFT.fillEllipse(
+    x, y,        // centro
+    rx, ry,      // semiejes
+    color);
+
+JWPLC_TFT.drawEllipse(x, y, rx, ry, color);
+
+JWPLC_TFT.fillTriangle(
+    x0, y0,
+    x1, y1,
+    x2, y2,
+    color);
+
+JWPLC_TFT.drawTriangle(x0, y0, x1, y1, x2, y2, color);
+```
+
+Las usa el código que genera el HMI Designer para las figuras estáticas.
+
+### Fuentes — Intermedio (0.3.0)
+
+```cpp
+JWPLC_TFT.setFont(JWPLC_FONT_SANS_BOLD_12);
+JWPLC_TFT.setTextDatum(JWPLC_TFTDatum::TOP_LEFT);
+JWPLC_TFT.setTextColor(JWPLC_TFT_WHITE);
+JWPLC_TFT.drawString("25.6 C", 10, 10);
+JWPLC_TFT.setFont(JWPLC_FONT_GLCD);   // volver a la fuente clásica
+```
+
+Fuentes disponibles: `JWPLC_FONT_GLCD` y las FreeFonts
+`JWPLC_FONT_{SANS|SERIF|MONO}[_BOLD]_{9|12|18|24}`.
+
+- Sólo se agregan al firmware las fuentes que el sketch nombra
+  (una FreeFont de 12 pt ocupa unos 4-5 KB de flash).
+- Con FreeFonts, `print()` usa la línea base como origen; `drawString()` con
+  datum `TOP_*` no.
+- Restaurar `JWPLC_FONT_GLCD` al terminar: los campos de `JWPLC_Display`
+  se dibujan en GLCD.
+- `setTextPadding(ancho)` rellena con el color de fondo hasta ese ancho.
+
 ### Líneas y píxeles — Básico / Intermedio
 
 ```cpp
@@ -502,6 +544,12 @@ JWPLC_TFT.drawFastVLine(
 JWPLC_TFT.drawPixel(
     x, y,
     color);
+
+// Bloque de píxeles RGB565 (uint16_t, w * h) en una sola transferencia.
+JWPLC_TFT.pushImage(
+    x, y,
+    width, height,
+    pixels);
 ```
 
 ### Cursor y texto — Básico
@@ -741,8 +789,8 @@ auto &tft =
 Documentado para:
 
 ```text
-JWPLC ESP32 v2.1.0-alpha.13 (candidata)
-JWPLC_TFT 0.1.0
+JWPLC ESP32 v2.1.0-alpha.14
+JWPLC_TFT 0.3.0
 ```
 
 Esta guía documenta la API gráfica de usuario. Los detalles del controlador

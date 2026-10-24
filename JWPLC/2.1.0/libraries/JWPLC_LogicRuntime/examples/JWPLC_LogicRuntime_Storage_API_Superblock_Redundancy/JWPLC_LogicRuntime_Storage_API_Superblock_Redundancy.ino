@@ -548,8 +548,10 @@ void setup()
 
   const JWPLCLogicStorageBootState bothInvalidState =
       runtime.storage().prepareBoot();
-  expect("politica mantiene estado seguro UNFORMATTED",
-         bothInvalidState == JWPLCLogicStorageBootState::Unformatted);
+  // Las copias conservan la firma JWPLC: prepareBoot() informa metadata
+  // corrupta (no "sin formato"), igual que Storage_Metadata_Diagnostic.
+  expect("politica mantiene estado seguro CORRUPT_METADATA",
+         bothInvalidState == JWPLCLogicStorageBootState::CorruptMetadata);
   expect("ambas copias invalidas descargan el programa",
          !runtime.storage().hasLoadedProgram());
   expect("ambas copias invalidas no ofrecen programa arrancable",

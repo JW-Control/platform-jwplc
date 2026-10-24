@@ -6,7 +6,7 @@
 #include <atomic>
 
 #define JWPLC_TFT_VERSION_MAJOR 0
-#define JWPLC_TFT_VERSION_MINOR 1
+#define JWPLC_TFT_VERSION_MINOR 3
 #define JWPLC_TFT_VERSION_PATCH 0
 
 enum class JWPLC_TFTPanel : uint8_t
@@ -40,6 +40,57 @@ static constexpr uint16_t JWPLC_TFT_BLUE = 0x001F;
 static constexpr uint16_t JWPLC_TFT_YELLOW = 0xFFE0;
 static constexpr uint16_t JWPLC_TFT_CYAN = 0x07FF;
 static constexpr uint16_t JWPLC_TFT_MAGENTA = 0xF81F;
+
+// Fuentes (0.3.0). Cada fuente es un objeto constante: el enlazador sólo
+// incluye en el firmware las fuentes que el sketch nombra.
+struct JWPLC_TFTFont
+{
+    uint8_t kind;      // 0 = GLCD 5x7 clásica, 1 = FreeFont (Adafruit GFX)
+    const void *data;  // privado del backend
+};
+
+extern const JWPLC_TFTFont JWPLC_FONT_GLCD;
+extern const JWPLC_TFTFont JWPLC_FONT_SANS_9;
+extern const JWPLC_TFTFont JWPLC_FONT_SANS_BOLD_9;
+extern const JWPLC_TFTFont JWPLC_FONT_SANS_12;
+extern const JWPLC_TFTFont JWPLC_FONT_SANS_BOLD_12;
+extern const JWPLC_TFTFont JWPLC_FONT_SANS_18;
+extern const JWPLC_TFTFont JWPLC_FONT_SANS_BOLD_18;
+extern const JWPLC_TFTFont JWPLC_FONT_SANS_24;
+extern const JWPLC_TFTFont JWPLC_FONT_SANS_BOLD_24;
+extern const JWPLC_TFTFont JWPLC_FONT_SERIF_9;
+extern const JWPLC_TFTFont JWPLC_FONT_SERIF_BOLD_9;
+extern const JWPLC_TFTFont JWPLC_FONT_SERIF_12;
+extern const JWPLC_TFTFont JWPLC_FONT_SERIF_BOLD_12;
+extern const JWPLC_TFTFont JWPLC_FONT_SERIF_18;
+extern const JWPLC_TFTFont JWPLC_FONT_SERIF_BOLD_18;
+extern const JWPLC_TFTFont JWPLC_FONT_SERIF_24;
+extern const JWPLC_TFTFont JWPLC_FONT_SERIF_BOLD_24;
+extern const JWPLC_TFTFont JWPLC_FONT_MONO_9;
+extern const JWPLC_TFTFont JWPLC_FONT_MONO_BOLD_9;
+extern const JWPLC_TFTFont JWPLC_FONT_MONO_12;
+extern const JWPLC_TFTFont JWPLC_FONT_MONO_BOLD_12;
+extern const JWPLC_TFTFont JWPLC_FONT_MONO_18;
+extern const JWPLC_TFTFont JWPLC_FONT_MONO_BOLD_18;
+extern const JWPLC_TFTFont JWPLC_FONT_MONO_24;
+extern const JWPLC_TFTFont JWPLC_FONT_MONO_BOLD_24;
+
+// Punto de anclaje de drawString(). Valores idénticos a TFT_eSPI.
+enum class JWPLC_TFTDatum : uint8_t
+{
+    TOP_LEFT = 0,
+    TOP_CENTER = 1,
+    TOP_RIGHT = 2,
+    MIDDLE_LEFT = 3,
+    MIDDLE_CENTER = 4,
+    MIDDLE_RIGHT = 5,
+    BOTTOM_LEFT = 6,
+    BOTTOM_CENTER = 7,
+    BOTTOM_RIGHT = 8,
+    BASELINE_LEFT = 9,
+    BASELINE_CENTER = 10,
+    BASELINE_RIGHT = 11
+};
 
 class JWPLC_TFTClass : public Print
 {
@@ -107,6 +158,40 @@ public:
         int16_t radius,
         uint16_t color,
         uint32_t timeoutMs = 50);
+    // Elipse centrada en (x, y) con semiejes rx/ry. Alpha15: usada por el
+    // codegen del HMI Designer para figuras estáticas.
+    bool fillEllipse(
+        int16_t x,
+        int16_t y,
+        int16_t rx,
+        int16_t ry,
+        uint16_t color,
+        uint32_t timeoutMs = 50);
+    bool drawEllipse(
+        int16_t x,
+        int16_t y,
+        int16_t rx,
+        int16_t ry,
+        uint16_t color,
+        uint32_t timeoutMs = 50);
+    bool fillTriangle(
+        int16_t x0,
+        int16_t y0,
+        int16_t x1,
+        int16_t y1,
+        int16_t x2,
+        int16_t y2,
+        uint16_t color,
+        uint32_t timeoutMs = 50);
+    bool drawTriangle(
+        int16_t x0,
+        int16_t y0,
+        int16_t x1,
+        int16_t y1,
+        int16_t x2,
+        int16_t y2,
+        uint16_t color,
+        uint32_t timeoutMs = 50);
     bool drawFastHLine(
         int16_t x,
         int16_t y,
@@ -132,6 +217,18 @@ public:
         uint16_t color,
         uint32_t timeoutMs = 50);
 
+    // Envía un bloque w x h de píxeles RGB565 (valores nativos, como los de
+    // drawPixel) en una sola ventana SPI. Es la forma rápida de pintar una
+    // imagen o un framebuffer parcial: una transferencia en vez de un
+    // drawPixel por píxel.
+    bool pushImage(
+        int16_t x,
+        int16_t y,
+        int16_t w,
+        int16_t h,
+        const uint16_t *pixels,
+        uint32_t timeoutMs = 50);
+
     void setCursor(int16_t x, int16_t y);
     int16_t cursorX() const;
     int16_t cursorY() const;
@@ -145,6 +242,27 @@ public:
     uint16_t textBackground() const;
 
     void setTextWrap(bool wrapX, bool wrapY = false);
+
+    // Fuente activa para print() y drawString(). Con FreeFonts el origen de
+    // print()/setCursor() es la línea base; drawString() con datum TOP_* no.
+    // Restaurar JWPLC_FONT_GLCD al terminar (JWPLC_Display dibuja en GLCD).
+    void setFont(const JWPLC_TFTFont &font);
+    const JWPLC_TFTFont &font() const;
+
+    void setTextDatum(JWPLC_TFTDatum datum);
+    JWPLC_TFTDatum textDatum() const;
+
+    // Ancho mínimo que drawString() rellena con el color de fondo.
+    void setTextPadding(uint16_t width);
+    uint16_t textPadding() const;
+
+    // Dibuja texto anclado en (x, y) según el datum. Devuelve el ancho
+    // dibujado o -1 si no se pudo adquirir el bus.
+    int16_t drawString(
+        const char *text,
+        int16_t x,
+        int16_t y,
+        uint32_t timeoutMs = 50);
 
     int16_t textWidth(const char *text) const;
     int16_t fontHeight() const;

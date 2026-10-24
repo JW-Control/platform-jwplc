@@ -507,11 +507,23 @@ jwplcRs485ActivityCallback()
 son hooks de integración del package y no forman parte del camino normal de
 usuario.
 
+## Arquitectura
+
+Desde 1.1.0, `JWPLC_RS485` es una instancia preconfigurada de
+[`JW_RS485`](https://github.com/JW-Control/JW_RS485) para el puerto integrado
+(Serial2, pines y AutoDirection de `jwplc_hardware_config.h`). La API pública
+y los hooks C no cambian.
+
+`JWPLC_RS485.port()` devuelve la instancia `JW_RS485` interna, por ejemplo
+para usarla como transporte de `JW_ModbusRTU`. Para otros puertos RS-485
+(otra UART o un transceptor con pin DE/RE) crear instancias de `JW_RS485`.
+
 ## Versión
 
 Documentado para:
 
 ```text
-JWPLC ESP32 v2.1.0-alpha.13 (candidata)
-JWPLC_RS485 1.0.1
+JWPLC ESP32 v2.1.0-alpha.14
+JWPLC_RS485 1.1.0
+JW_RS485 0.1.1
 ```

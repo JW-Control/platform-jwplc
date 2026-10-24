@@ -12,17 +12,25 @@
 
 namespace
 {
-    static constexpr int16_t INDICATOR_X = 282;
-    static constexpr int16_t INDICATOR_Y = 3;
     static constexpr int16_t INDICATOR_W = 36;
     static constexpr int16_t INDICATOR_H = 12;
-    static constexpr int16_t INDICATOR_TEXT_X = 286;
-    static constexpr int16_t INDICATOR_TEXT_Y = 5;
+    static constexpr int16_t INDICATOR_TEXT_DX = 4;
+    static constexpr int16_t INDICATOR_TEXT_DY = 2;
+    static constexpr int16_t SCREEN_W = 320;
+    static constexpr int16_t SCREEN_H = 170;
+
+    // Alpha15: posición y visibilidad configurables (setPageIndicator). Por
+    // defecto, el overlay de Alpha11 arriba a la derecha.
+    int16_t g_indicatorX = 282;
+    int16_t g_indicatorY = 3;
+    bool g_indicatorVisible = true;
 
     uint8_t g_pageCount = 1;
     bool g_selectionMode = true;
     uint8_t g_previousMask = 0;
     bool g_indicatorDirty = true;
+    // Alpha15: el modo cambió sin cambiar de página (la barra redibuja su pestaña).
+    bool g_modeDirty = false;
 
     JWPLC_DisplayIdleReturnMode g_savedIdleReturnMode = IDLE_RETURN_ESC_ONLY;
     bool g_idleReturnOverridden = false;
@@ -87,10 +95,18 @@ namespace
             return;
         }
 
+        // En PAGE_CONTENT ESC pertenece al contenido (vuelve al selector), así
+        // que sólo se suspende la vuelta por tecla. La vuelta por inactividad
+        // sigue activa en cualquier sección (Alpha15).
         g_savedIdleReturnMode = JWPLC_Display.idleReturnMode();
-        JWPLC_Display.setIdleReturnMode(IDLE_RETURN_DISABLED);
-        g_idleReturnOverridden = true;
+        if (g_savedIdleReturnMode == IDLE_RETURN_ESC_ONLY ||
+            g_savedIdleReturnMode == IDLE_RETURN_BUTTON_ONLY)
+        {
+            JWPLC_Display.setIdleReturnMode(IDLE_RETURN_DISABLED);
+            g_idleReturnOverridden = true;
+        }
         g_selectionMode = false;
+        g_modeDirty = true;
         markIndicatorDirty();
         JWPLCUI::requestRefresh();
     }
@@ -103,6 +119,7 @@ namespace
         }
 
         g_selectionMode = true;
+        g_modeDirty = true;
         restoreIdleReturnMode();
 
         // Al salir de PAGE_CONTENT no deben sobrevivir PRESS/RELEASE/REPEAT
@@ -281,14 +298,36 @@ namespace JWPLCUIPages
 
         restoreIdleReturnMode();
         g_selectionMode = true;
+        g_modeDirty = false; // la entrada dibuja la página completa en este modo
+
+        // La tecla que despertó la IDLE ya cumplió su función: su PRESS no debe
+        // actuar además sobre el selector (un OK entraba directo al contenido y
+        // un LEFT/RIGHT cambiaba de página). En PAGE_SELECT la botonera es del
+        // sistema, igual que en enterSelectionMode().
+        consumeNavigationInput();
+
         g_previousMask = readButtonDownMask();
+        markIndicatorDirty();
+        JWPLCUI::requestRefresh();
+    }
+
+    void setIndicator(bool visible, int16_t x, int16_t y)
+    {
+        if (x < 0) x = 0;
+        if (y < 0) y = 0;
+        if (x > SCREEN_W - INDICATOR_W) x = SCREEN_W - INDICATOR_W;
+        if (y > SCREEN_H - INDICATOR_H) y = SCREEN_H - INDICATOR_H;
+
+        g_indicatorVisible = visible;
+        g_indicatorX = x;
+        g_indicatorY = y;
         markIndicatorDirty();
         JWPLCUI::requestRefresh();
     }
 
     void drawIndicator(JWPLC_TFTClass &tft)
     {
-        if (!navigationEnabled() || !g_indicatorDirty)
+        if (!navigationEnabled() || !g_indicatorVisible || !g_indicatorDirty)
         {
             return;
         }
@@ -303,20 +342,20 @@ namespace JWPLCUIPages
         const uint16_t foreground = g_selectionMode ? 0xFFFF : 0x0000;
 
         tft.fillRect(
-            INDICATOR_X,
-            INDICATOR_Y,
+            g_indicatorX,
+            g_indicatorY,
             INDICATOR_W,
             INDICATOR_H,
             background);
 
         tft.drawRect(
-            INDICATOR_X,
-            INDICATOR_Y,
+            g_indicatorX,
+            g_indicatorY,
             INDICATOR_W,
             INDICATOR_H,
             0xFFFF);
 
-        char text[6] = {};
+        char text[8] = {}; // "NN/TT" + margen: el compilador no sabe que pageCount <= 99
         snprintf(
             text,
             sizeof(text),
@@ -326,7 +365,7 @@ namespace JWPLCUIPages
 
         tft.setTextSize(1);
         tft.setTextColor(foreground, background);
-        tft.setCursor(INDICATOR_TEXT_X, INDICATOR_TEXT_Y);
+        tft.setCursor(g_indicatorX + INDICATOR_TEXT_DX, g_indicatorY + INDICATOR_TEXT_DY);
         tft.print(text);
 
         g_indicatorDirty = false;
@@ -338,6 +377,29 @@ namespace JWPLCUIPages
                 (uint32_t)(micros() - startUs));
         }
     }
+}
+
+// Alpha15: sin header del Designer (o sin barra de pestañas) no hay nada que
+// redibujar al cambiar de modo; el NN/TT ya se repinta solo.
+extern "C" void __attribute__((weak)) jwplcUIPageModeChanged(uint8_t page, bool selecting)
+{
+    (void)page;
+    (void)selecting;
+}
+
+void JWPLCUIPages::drawModeChange(JWPLC_TFTClass &tft)
+{
+    (void)tft;
+    if (!g_modeDirty)
+    {
+        return;
+    }
+    g_modeDirty = false;
+    if (!navigationEnabled())
+    {
+        return;
+    }
+    jwplcUIPageModeChanged(JWPLCUI::currentPage(), g_selectionMode);
 }
 
 void JWPLC_DisplayClass::setUserPageCount(uint8_t count)
@@ -353,4 +415,9 @@ uint8_t JWPLC_DisplayClass::userPageCount() const
 bool JWPLC_DisplayClass::isUserPageSelection() const
 {
     return JWPLCUIPages::selectionMode();
+}
+
+void JWPLC_DisplayClass::setPageIndicator(bool visible, int16_t x, int16_t y)
+{
+    JWPLCUIPages::setIndicator(visible, x, y);
 }

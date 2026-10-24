@@ -20,6 +20,12 @@ namespace JWPLCIdleScreen
     static uint8_t g_lastDI = 0xFF;
     static uint8_t g_lastDO = 0xFF;
 
+    // Overlay de entradas forzadas: byte alto = máscara, byte bajo = valores.
+    // Lo escribe la tarea PLC y lo lee la tarea de display; un uint16_t
+    // alineado se escribe de forma atómica en ESP32.
+    static volatile uint16_t g_inputForceOverlay = 0;
+    static uint8_t g_lastForcedMask = 0x00;
+
     static bool g_lastRtcValid = false;
     static uint8_t g_lastRtcHour = 0xFF;
     static uint8_t g_lastRtcMinute = 0xFF;
@@ -134,6 +140,9 @@ namespace JWPLCIdleScreen
     static constexpr uint16_t C_ERR_RED = JWPLC_TFT_RED;
     static constexpr uint16_t C_DISABLED_GRAY = 0xCE59;
 
+    // Separación (px) del rayado de una entrada forzada en ON.
+    static constexpr int FORCED_HATCH_STEP = 3;
+
     // =====================================================
     // Prototipos internos
     // =====================================================
@@ -145,6 +154,7 @@ namespace JWPLCIdleScreen
     static void fillStatusItemDiagnostic(uint8_t idx, StatusLedState state, const char *code);
     static void drawIoCellStatic(uint8_t index, bool isInput);
     static void fillIoCellState(uint8_t index, bool isInput, bool active);
+    static void fillInputCell(uint8_t index, bool active, bool forced);
     static void drawDividers();
     static void drawBaseFramePhase();
     static void drawStatusAndHeadersPhase();
@@ -358,6 +368,48 @@ namespace JWPLCIdleScreen
         }
     }
 
+    // Celda de entrada con estado de forzado. Sin forzar es idéntica a
+    // fillIoCellState(). Forzada lleva una "F"; en ON el relleno es rayado
+    // para no confundirla con una entrada física activa.
+    static void fillInputCell(uint8_t index, bool active, bool forced)
+    {
+        if (!tft)
+            return;
+
+        if (!forced)
+        {
+            fillIoCellState(index, true, active);
+            return;
+        }
+
+        const int x = IN_BOX_X + 1;
+        const int y = IO_ROW_Y0 + index * IO_ROW_STEP + 1;
+        const int w = IO_BOX_W - 2;
+        const int h = IO_BOX_H - 2;
+
+        tft->fillRect(x, y, w, h, C_BG);
+
+        if (active)
+        {
+            // Diagonales "/" cada FORCED_HATCH_STEP px, recortadas a la celda.
+            for (int d = 0; d < w + h; d += FORCED_HATCH_STEP)
+            {
+                const int t0 = (d > w - 1) ? d - (w - 1) : 0;
+                const int t1 = (d < h - 1) ? d : h - 1;
+                if (t0 <= t1)
+                    tft->drawLine(x + d - t0, y + t0, x + d - t1, y + t1, C_IN_ACTIVE);
+            }
+        }
+
+        // "F" centrada sobre fondo negro para que se lea encima del rayado.
+        const int fx = x + (w - 6) / 2;
+        tft->fillRect(fx - 1, y, 7, h, C_BG);
+        tft->setTextSize(1);
+        tft->setTextColor(C_TEXT, C_BG);
+        tft->setCursor(fx, y + 1);
+        tft->print('F');
+    }
+
     static void drawDividers()
     {
         if (!tft)
@@ -517,31 +569,35 @@ namespace JWPLCIdleScreen
 
         uint32_t tStart = micros();
 
-        uint8_t di = io->di_logical_bank0;
+        // Las entradas forzadas muestran el valor forzado, no la lectura física.
+        const uint16_t overlay = g_inputForceOverlay;
+        const uint8_t forcedMask = (uint8_t)(overlay >> 8);
+        uint8_t di = (uint8_t)((io->di_logical_bank0 & ~forcedMask) | (overlay & forcedMask));
         uint8_t doo = io->do_bank1;
 
         if (g_forceFullRedraw)
         {
             for (uint8_t i = 0; i < 8; i++)
             {
-                fillIoCellState(i, true, (di >> i) & 0x01);
+                fillInputCell(i, (di >> i) & 0x01, (forcedMask >> i) & 0x01);
                 fillIoCellState(i, false, (doo >> i) & 0x01);
             }
 
             g_lastDI = di;
             g_lastDO = doo;
+            g_lastForcedMask = forcedMask;
             g_profUpdateIoUs = micros() - tStart;
             return;
         }
 
-        uint8_t diffDI = g_lastDI ^ di;
+        uint8_t diffDI = (uint8_t)((g_lastDI ^ di) | (g_lastForcedMask ^ forcedMask));
         uint8_t diffDO = g_lastDO ^ doo;
 
         for (uint8_t i = 0; i < 8; i++)
         {
             if (diffDI & (1 << i))
             {
-                fillIoCellState(i, true, (di >> i) & 0x01);
+                fillInputCell(i, (di >> i) & 0x01, (forcedMask >> i) & 0x01);
             }
 
             if (diffDO & (1 << i))
@@ -552,6 +608,7 @@ namespace JWPLCIdleScreen
 
         g_lastDI = di;
         g_lastDO = doo;
+        g_lastForcedMask = forcedMask;
         g_profUpdateIoUs = micros() - tStart;
     }
 
@@ -776,6 +833,16 @@ namespace JWPLCIdleScreen
     {
         g_forceFullRedraw = true;
         g_fullRedrawPhase = 0;
+    }
+
+    bool setInputForceOverlay(uint8_t forcedMask, uint8_t forcedValues)
+    {
+        const uint16_t next = (uint16_t)(((uint16_t)forcedMask << 8) | (forcedValues & forcedMask));
+        if (next == g_inputForceOverlay)
+            return false;
+
+        g_inputForceOverlay = next;
+        return true;
     }
 
     void draw(const JWPLC_IOState *io, const JWPLC_RTCState *rtc)

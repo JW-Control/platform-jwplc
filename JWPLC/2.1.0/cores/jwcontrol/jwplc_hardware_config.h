@@ -41,6 +41,51 @@
 #endif
 
 // =====================================================
+// Buzzer (piezo pasivo, GPIO26 en JWPLC Basic v2)
+// =====================================================
+// Lo usa JWPLC_Buzzer (JWPLC_GlobalPeripherals). El pin se toma con LEDC sólo
+// en el primer uso; si nadie usa el buzzer, el GPIO26 queda sin configurar.
+
+#ifndef JWPLC_HAS_BUZZER
+#define JWPLC_HAS_BUZZER 1
+#endif
+
+#ifndef JWPLC_BUZZER_PIN
+#define JWPLC_BUZZER_PIN 26
+#endif
+
+// =====================================================
+// Botonera (matriz 2 filas x 3 columnas, JWPLC Basic v2)
+// =====================================================
+// La escanea JWPLC_Buttons (JWPLC_GlobalPeripherals) desde el arranque.
+//   fila 0: BTN_LEFT, BTN_UP, BTN_RIGHT
+//   fila 1: BTN_ESC,  BTN_OK, BTN_DOWN
+// Las columnas son GPIO sólo entrada (pull-up externo).
+
+#ifndef JWPLC_BTN_ROW0_PIN
+#define JWPLC_BTN_ROW0_PIN 12
+#endif
+
+#ifndef JWPLC_BTN_ROW1_PIN
+#define JWPLC_BTN_ROW1_PIN 2
+#endif
+
+#ifndef JWPLC_BTN_COL0_PIN
+#define JWPLC_BTN_COL0_PIN 35
+#endif
+
+#ifndef JWPLC_BTN_COL1_PIN
+#define JWPLC_BTN_COL1_PIN 34
+#endif
+
+#ifndef JWPLC_BTN_COL2_PIN
+#define JWPLC_BTN_COL2_PIN 36
+#endif
+
+#define JWPLC_BTN_ROWS 2
+#define JWPLC_BTN_COLS 3
+
+// =====================================================
 // microSD
 // =====================================================
 

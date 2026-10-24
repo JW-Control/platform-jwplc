@@ -1,6 +1,6 @@
 # JWPLC Platform for Arduino IDE
 
-<!-- JWPLC_RELEASE_VERSION: 2.1.0-alpha.13 -->
+<!-- JWPLC_RELEASE_VERSION: 2.1.0-alpha.14 -->
 
 Package oficial de **JW Control** para programar el **JWPLC Basic** desde
 Arduino IDE y Arduino CLI.
@@ -16,7 +16,7 @@ sketch. Tu programa se ocupa solo de la lógica de la máquina.
 | Canal | Versión | Para quién |
 |---|---|---|
 | Estable | `v2.0.0` | Proyectos en producción |
-| Desarrollo (PreRelease) | `v2.1.0-alpha.13` | Probar las novedades de la línea 2.1 |
+| Desarrollo (PreRelease) | `v2.1.0-alpha.14` | Probar las novedades de la línea 2.1 |
 
 La versión de desarrollo se publica como PreRelease en GitHub y se instala
 desde un índice propio, separado del estable.
@@ -24,6 +24,10 @@ desde un índice propio, separado del estable.
 ---
 
 ## Instalación
+
+Recomendado: **Arduino IDE 2.3.10 o superior**. Su compilador interno recompila
+un proyecto ya compilado en la mitad de tiempo que las versiones anteriores
+(9 s frente a 18 s en JWPLC Basic).
 
 1. En Arduino IDE abre **Archivo → Preferencias** y pega en
    **Gestor de URLs adicionales de tarjetas** uno de estos índices:
@@ -50,7 +54,7 @@ Con Arduino CLI:
 arduino-cli config add board_manager.additional_urls \
   https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/JWPLC/package_jwplc_index_dev.json
 arduino-cli core update-index
-arduino-cli core install jwplc:esp32@2.1.0-alpha.13
+arduino-cli core install jwplc:esp32@2.1.0-alpha.14
 ```
 
 No instales a mano librerías con los mismos nombres que trae el package: el
@@ -75,6 +79,7 @@ package ya incluye las versiones probadas con el JWPLC.
 - **Pantalla TFT a color** con modo de reposo (IDLE), páginas HMI e
   indicadores de estado.
 - **Botonera frontal** de seis teclas.
+- **Buzzer** para pitidos y melodías (`JWPLC_Buzzer`).
 - **Reloj de tiempo real (RTC)** para fecha y hora.
 - **FRAM** para guardar datos que deben sobrevivir a un corte de energía.
 - **microSD** para registros y archivos.
@@ -89,29 +94,38 @@ excepción es Modbus TCP, que es opcional y se agrega con
 
 ---
 
-## Novedades de v2.1.0-alpha.13
+## Novedades de v2.1.0-alpha.14
 
-Alpha 13 no agrega funciones nuevas. Se dedicó a que lo existente funcione
-mejor cuando todo trabaja a la vez.
+Alpha 14 trae la nueva generación del **JWPLC HMI Designer** y lo que la
+pantalla necesitaba para usarse como HMI de máquina.
 
-- **Red más estable.** La pantalla, la microSD y el chip Ethernet comparten
-  el mismo bus interno. Ahora se turnan de forma ordenada, y la red ya no se
-  bloquea ni pierde conexiones cuando la pantalla o la tarjeta están ocupadas.
-- **Modbus TCP más robusto.** El servidor y el cliente cierran y reabren
-  conexiones de forma segura y se recuperan solos si se desconecta el cable.
-- **Compila más rápido.** Las librerías de Ethernet y Modbus TCP vienen
-  precompiladas. En una PC Windows, la primera compilación de un proyecto con
-  red bajó de 52 s a 40 s en JWPLC Basic.
-- **Correcciones** en DNS, salidas, FRAM, microSD y recepción RS-485.
-- **Guías nuevas para empezar** con Ethernet y Modbus TCP (ver
-  [Documentación](#documentación)).
+- **Menús en pantalla.** Un MENU con submenús permite ver y ajustar consignas,
+  tiempos y marchas desde la botonera, sin escribir código de navegación.
+- **Valores con formato industrial.** Separador de miles, duraciones
+  (`05:03`, `1h05m`), fecha y hora del reloj de la placa, pilotos ON/OFF y
+  colores por estado.
+- **Iconos con estado.** Bombas, válvulas, motores o alarmas que cambian
+  de imagen según una variable, elegidos de una biblioteca del Designer.
+- **Tildes, ñ y °** en los textos de la pantalla.
+- **Pestañas de páginas** más claras: se distingue la página elegida de la
+  página en la que se está trabajando, con un color por página.
+- **Buzzer** integrado con pitidos y melodías que no detienen el programa.
+- **Plantillas de HMI** en *Archivo → Ejemplos → JWPLC_Display* (caldera, botonera
+  interactiva y planta con iconos), listas para subir y modificar en el Designer.
+- **HMI Designer renovado:** inspector gráfico, herramientas de dibujo,
+  trabajo directo con el sketch del Arduino IDE y vista en vivo que se
+  instala en el equipo con un clic.
+- **Dibujo directo** con elipses, triángulos, fuentes grandes e imágenes
+  (`JWPLC_TFT` 0.3.0).
 
-**Probado en banco:** dos JWPLC Basic conectados por RS-485 y por un router,
-intercambiando Modbus RTU, Modbus TCP y UDP durante 10 minutos, con
-desconexiones y reconexiones del cable de red.
+Además, las librerías y los ejemplos usan **pines con nombre** (`JWPLC_FRAM_CS`,
+`JWPLC_SD_CS`, `JWPLC_BTN_*`…) en lugar de números sueltos, y `JWPLC_RS485` /
+`JWPLC_ModbusRTU` se apoyan ahora en las librerías `JW_RS485` y `JW_ModbusRTU`,
+con la misma API.
 
-**Aún sin probar:** funcionamiento continuo de más de 10 minutos con red y la
-versión Basic Core en hardware real.
+**Probado en banco:** menús, formatos, reloj, tildes, buzzer, pestañas y
+tecla de despertar en un JWPLC Basic; Modbus RTU entre dos equipos; los 78
+ejemplos del package compilan en JWPLC Basic y Basic Core.
 
 ---
 
@@ -231,9 +245,10 @@ para el final.
 ## JWPLC HMI Designer
 
 Aplicación para Windows que permite diseñar las pantallas del JWPLC de forma
-visual: textos, valores, indicadores, barras e imágenes, en una o varias
-páginas. Genera el archivo `JWPLC_HMI_Generated.h` para incluirlo en el sketch
-y ofrece vista previa en vivo conectada al equipo.
+visual: textos, valores, indicadores, barras, menús, figuras e imágenes, en una
+o varias páginas. Escribe en la carpeta del sketch el archivo
+`JWPLC_HMI_Generated.h` y una guía para usarlo, se abre desde el Arduino IDE y
+ofrece vista previa en vivo conectada al equipo.
 
 Instalación y uso: [tools/jwplc-hmi-designer](tools/jwplc-hmi-designer/README.md).
 
@@ -243,6 +258,7 @@ Instalación y uso: [tools/jwplc-hmi-designer](tools/jwplc-hmi-designer/README.m
 
 | Versión | Tema principal |
 |---|---|
+| [`v2.1.0-alpha.14`](https://github.com/JW-Control/platform-jwplc/releases/tag/v2.1.0-alpha.14) | HMI Designer renovado, menús en pantalla, formatos industriales y buzzer |
 | [`v2.1.0-alpha.13`](https://github.com/JW-Control/platform-jwplc/releases/tag/v2.1.0-alpha.13) | Robustez de Ethernet, Modbus TCP y bus compartido; compilación más rápida |
 | [`v2.1.0-alpha.12`](https://github.com/JW-Control/platform-jwplc/releases/tag/v2.1.0-alpha.12) | Modbus TCP, motor asíncrono de Modbus RTU y nuevo backend de pantalla |
 | [`v2.1.0-alpha.11`](https://github.com/JW-Control/platform-jwplc/releases/tag/v2.1.0-alpha.11) | JWPLC HMI Designer |
@@ -258,5 +274,5 @@ Las notas completas de cada versión están en su página de Release y en
 ## Para desarrolladores del package
 
 El estado técnico, la evidencia de pruebas y las decisiones de cada alpha
-viven en `docs/`. Para Alpha 13, empieza por
-[ALPHA13_STATUS.md](docs/v2.1.0-alpha.13/ALPHA13_STATUS.md).
+viven en `docs/`. La 2.1.0-alpha.14 se desarrolló como línea Alpha 15:
+empieza por [ALPHA15_STATUS.md](docs/v2.1.0-alpha.15/ALPHA15_STATUS.md).

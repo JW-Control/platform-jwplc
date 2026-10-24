@@ -10,9 +10,15 @@
 //   RGB565 + RLE.
 //
 // Protocolos:
-//   JWH1 = framebuffer FULL 320x170.
-//   JWH2 = REGION rectangular del framebuffer.
-//   JWH? = probe para solicitar READY.
+//   JWH1 = framebuffer FULL 320x170, pares RLE (u16 count, u16 color).
+//   JWH2 = REGION rectangular, pares RLE.
+//   JWH3 = FULL con ítems mixtos (versión 2 del bridge).
+//   JWH4 = REGION con ítems mixtos:
+//          u16 h; h & 0x8000 -> h & 0x7FFF píxeles literales (u16 cada uno);
+//          si no -> h repeticiones de un u16 color.
+//          El texto y los bordes viajan en ~la mitad que con RLE puro.
+//   JWH? = probe para solicitar READY. READY informa la versión (2): el
+//          Designer usa JWH3/JWH4 sólo si la versión es 2 o mayor.
 //
 // Flujo:
 //   El host envía una imagen y espera JWHMI_LIVE_FRAME <seq> antes de
@@ -23,7 +29,8 @@
 //   El JWPLC Basic v2 no dispone de PSRAM. No reservamos el framebuffer
 //   completo de 320x170x16 bits (~106 KiB). FULL y REGION se decodifican en
 //   un framebuffer parcial de hasta 32 filas (20 KiB máximo) y se dibujan
-//   por bloques respetando el mutex SPI compartido.
+//   por bloques con JWPLC_TFT.pushImage (una ventana SPI por bloque),
+//   respetando el mutex SPI compartido.
 //
 // Telemetría:
 //   Cada 30 imágenes confirmadas se publica JWHMI_LIVE_STATS con tiempos,
@@ -46,12 +53,17 @@ namespace
     static constexpr uint32_t FRAME_BUFFER_PIXELS =
         (uint32_t)FRAME_W * FRAME_BUFFER_ROWS;
     static constexpr uint32_t STATS_INTERVAL_FRAMES = 30;
+    // Versión del protocolo que anuncia READY (2 = acepta JWH3/JWH4).
+    static constexpr uint8_t BRIDGE_PROTOCOL_VERSION = 2;
+    static constexpr uint16_t ITEM_LITERAL = 0x8000;
 
     enum InputCommand : uint8_t
     {
         INPUT_NONE = 0,
         INPUT_FULL,
         INPUT_REGION,
+        INPUT_FULL_MIXED,
+        INPUT_REGION_MIXED,
         INPUT_PROBE
     };
 
@@ -89,7 +101,8 @@ namespace
 
     void sendReady()
     {
-        Serial.println("JWHMI_LIVE_READY 1");
+        Serial.print("JWHMI_LIVE_READY ");
+        Serial.println(BRIDGE_PROTOCOL_VERSION);
     }
 
     void reportError(const char *reason)
@@ -106,9 +119,17 @@ namespace
 
         while (received < length)
         {
-            while (Serial.available() > 0 && received < length)
+            // Lectura en bloque: Serial.read() byte a byte pasa por el driver
+            // UART en cada llamada.
+            const int available = Serial.available();
+            if (available > 0)
             {
-                dst[received++] = (uint8_t)Serial.read();
+                size_t want = length - received;
+                if ((size_t)available < want)
+                {
+                    want = (size_t)available;
+                }
+                received += Serial.read(dst + received, want);
             }
 
             if (received >= length)
@@ -180,6 +201,16 @@ namespace
                 return INPUT_REGION;
             }
 
+            if (value == '3')
+            {
+                return INPUT_FULL_MIXED;
+            }
+
+            if (value == '4')
+            {
+                return INPUT_REGION_MIXED;
+            }
+
             if (value == '?')
             {
                 return INPUT_PROBE;
@@ -211,25 +242,19 @@ namespace
 
         const uint32_t started = micros();
 
-        // El display comparte SPI con Ethernet, SD y FRAM. Aunque este sketch
-        // sea un bridge de desarrollo, respetamos el mutex común del package.
-        if (!jwplcSPI_acquire(50))
-        {
-            drawUs += micros() - started;
-            return false;
-        }
-
-        jwplcSPI_prepareForTFT();
-        JWPLC_Display.tft().drawRGBBitmap(
+        // Un solo bloque por ventana SPI (pushImage adquiere el mutex del
+        // bus). Antes se dibujaba tramo por tramo con drawPixel/drawFastHLine:
+        // cada tramo abría su propia ventana y el texto se volvía lento.
+        const bool ok = JWPLC_Display.tft().pushImage(
             (int16_t)x,
             (int16_t)startY,
-            g_frame,
             (int16_t)width,
-            (int16_t)rows);
-        jwplcSPI_release();
+            (int16_t)rows,
+            g_frame,
+            50);
 
         drawUs += micros() - started;
-        return true;
+        return ok;
     }
 
     void sendStatsIfNeeded()
@@ -326,7 +351,81 @@ namespace
         }
     }
 
-    bool receiveImage(bool regionMode)
+    // Copia `count` píxeles de un color al bloque y dibuja cada bloque lleno.
+    // Literal: los píxeles se leen del puerto directo al bloque.
+    struct BlockWriter
+    {
+        uint16_t x;
+        uint16_t width;
+        uint16_t rowsPerBlock;
+        uint32_t blockCapacity;
+        uint32_t blockFill;
+        uint16_t blockStartY;
+        uint32_t pixelIndex;
+        uint32_t &drawUs;
+
+        bool flushIfFull()
+        {
+            if (blockFill != blockCapacity)
+            {
+                return true;
+            }
+            if (!drawBlock(x, blockStartY, width, rowsPerBlock, drawUs))
+            {
+                reportError("spi_busy");
+                return false;
+            }
+            blockStartY += rowsPerBlock;
+            blockFill = 0;
+            return true;
+        }
+
+        bool fill(uint32_t count, uint16_t color)
+        {
+            while (count > 0)
+            {
+                const uint32_t freeInBlock = blockCapacity - blockFill;
+                const uint32_t chunk = (count < freeInBlock) ? count : freeInBlock;
+                for (uint32_t p = 0; p < chunk; ++p)
+                {
+                    g_frame[blockFill + p] = color;
+                }
+                blockFill += chunk;
+                pixelIndex += chunk;
+                count -= chunk;
+                if (!flushIfFull())
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        bool literal(uint32_t count)
+        {
+            while (count > 0)
+            {
+                const uint32_t freeInBlock = blockCapacity - blockFill;
+                const uint32_t chunk = (count < freeInBlock) ? count : freeInBlock;
+                // ESP32 es little-endian, como el u16 del protocolo.
+                if (!readExact(reinterpret_cast<uint8_t *>(g_frame + blockFill), chunk * 2))
+                {
+                    reportError("payload_timeout");
+                    return false;
+                }
+                blockFill += chunk;
+                pixelIndex += chunk;
+                count -= chunk;
+                if (!flushIfFull())
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+    };
+
+    bool receiveImage(bool regionMode, bool mixed)
     {
         const uint32_t frameStarted = micros();
         uint32_t drawUs = 0;
@@ -413,75 +512,69 @@ namespace
             return false;
         }
 
-        uint32_t pixelIndex = 0;
-        uint32_t blockFill = 0;
-        uint16_t blockStartY = y;
+        BlockWriter out{x, width, rowsPerBlock, blockCapacity, 0, y, 0, drawUs};
         uint8_t pair[4] = {};
 
         for (uint32_t i = 0; i < runCount; ++i)
         {
-            if (!readExact(pair, sizeof(pair)))
+            if (!readExact(pair, 2))
             {
                 reportError("payload_timeout");
                 return false;
             }
 
-            uint32_t remaining = readU16LE(pair + 0);
-            const uint16_t color = readU16LE(pair + 2);
+            const uint16_t head = readU16LE(pair + 0);
+            const bool isLiteral = mixed && (head & ITEM_LITERAL);
+            const uint32_t count = isLiteral ? (uint32_t)(head & ~ITEM_LITERAL) : head;
 
-            if (remaining == 0 || pixelIndex + remaining > targetPixels)
+            if (count == 0 || out.pixelIndex + count > targetPixels)
             {
                 reportError("invalid_run");
                 return false;
             }
 
-            while (remaining > 0)
+            if (isLiteral)
             {
-                const uint32_t freeInBlock = blockCapacity - blockFill;
-                const uint32_t chunk =
-                    (remaining < freeInBlock) ? remaining : freeInBlock;
-
-                for (uint32_t p = 0; p < chunk; ++p)
+                if (!out.literal(count))
                 {
-                    g_frame[blockFill + p] = color;
+                    return false;
                 }
+                continue;
+            }
 
-                blockFill += chunk;
-                pixelIndex += chunk;
-                remaining -= chunk;
+            if (!readExact(pair + 2, 2))
+            {
+                reportError("payload_timeout");
+                return false;
+            }
 
-                if (blockFill == blockCapacity)
-                {
-                    if (!drawBlock(x, blockStartY, width, rowsPerBlock, drawUs))
-                    {
-                        reportError("spi_busy");
-                        return false;
-                    }
-
-                    blockStartY += rowsPerBlock;
-                    blockFill = 0;
-                }
+            if (!out.fill(count, readU16LE(pair + 2)))
+            {
+                return false;
             }
         }
 
-        if (blockFill > 0)
+        if (out.blockFill > 0)
         {
-            if ((blockFill % width) != 0)
+            if ((out.blockFill % width) != 0)
             {
                 reportError("incomplete_block");
                 return false;
             }
 
-            const uint16_t rows = (uint16_t)(blockFill / width);
-            if (!drawBlock(x, blockStartY, width, rows, drawUs))
+            const uint16_t rows = (uint16_t)(out.blockFill / width);
+            if (!drawBlock(x, out.blockStartY, width, rows, drawUs))
             {
                 reportError("spi_busy");
                 return false;
             }
 
-            blockStartY += rows;
-            blockFill = 0;
+            out.blockStartY += rows;
+            out.blockFill = 0;
         }
+
+        const uint32_t pixelIndex = out.pixelIndex;
+        const uint16_t blockStartY = out.blockStartY;
 
         if (pixelIndex != targetPixels ||
             blockStartY != (uint16_t)(y + height))
@@ -550,11 +643,19 @@ void loop()
     }
     else if (command == INPUT_FULL)
     {
-        receiveImage(false);
+        receiveImage(false, false);
     }
     else if (command == INPUT_REGION)
     {
-        receiveImage(true);
+        receiveImage(true, false);
+    }
+    else if (command == INPUT_FULL_MIXED)
+    {
+        receiveImage(false, true);
+    }
+    else if (command == INPUT_REGION_MIXED)
+    {
+        receiveImage(true, true);
     }
 
     delay(0);

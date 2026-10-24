@@ -67,7 +67,7 @@ void setup()
     Serial.begin(115200);
     delay(300);
 
-    // Alpha8+ no despierta USER por defecto. Este ejemplo deja que el runtime
+    // Por defecto no se despierta USER con una tecla. Este ejemplo deja que el runtime
     // gestione la transición completa OK -> USER y ESC -> IDLE.
     JWPLC_Display.setIdleWakeButton(BTN_OK);
     JWPLC_Display.setIdleWakeMode(IDLE_WAKE_BUTTON_ONLY);

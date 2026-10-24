@@ -1,0 +1,1143 @@
+{
+  "$schema": "../../schema/jwhmi.schema.json",
+  "projectName": "Caldera_01",
+  "display": {
+    "start": "IDLE",
+    "wake": "ANY",
+    "back": "TIMEOUT",
+    "timeoutS": 300
+  },
+  "pages": [
+    {
+      "name": "Resumen",
+      "shortName": "RESUMEN",
+      "color": "CYAN",
+      "fields": [
+        {
+          "type": "RECT",
+          "x": 0,
+          "y": 0,
+          "x2": 319,
+          "y2": 16,
+          "fill": true,
+          "fillColor": "NAVY",
+          "frameColor": "NAVY"
+        },
+        {
+          "type": "RAW_TEXT",
+          "text": "CALDERA 01 · Planta Norte",
+          "x": 4,
+          "y": 5,
+          "font": "GLCD",
+          "textColor": "WHITE"
+        },
+        {
+          "type": "VALUE",
+          "id": "FIELD_HORA",
+          "x": 282,
+          "y": 2,
+          "valueKind": "DATETIME",
+          "dateTimePattern": "HH_MM",
+          "valueSize": 1,
+          "valueColor": "WHITE",
+          "backgroundColor": "NAVY"
+        },
+        {
+          "type": "VALUE",
+          "id": "FIELD_TEMP",
+          "variable": "temperatura",
+          "label": "Temperatura",
+          "unit": "°C",
+          "x": 4,
+          "y": 22,
+          "layout": "STACKED",
+          "align": "LEFT",
+          "integerDigits": 3,
+          "decimalDigits": 1,
+          "valueSize": 3,
+          "valueColor": "ORANGE",
+          "preview": "182.4"
+        },
+        {
+          "type": "VALUE",
+          "id": "FIELD_PRESION",
+          "variable": "presion",
+          "label": "Presión",
+          "unit": "bar",
+          "x": 172,
+          "y": 22,
+          "layout": "STACKED",
+          "align": "LEFT",
+          "integerDigits": 2,
+          "decimalDigits": 2,
+          "valueSize": 3,
+          "valueColor": "CYAN",
+          "preview": "8.25"
+        },
+        {
+          "type": "BAR",
+          "id": "FIELD_NIVEL",
+          "variable": "nivelAgua",
+          "barLabel": "Nivel de agua",
+          "barUnit": "%",
+          "x": 4,
+          "y": 70,
+          "barWidth": 312,
+          "frame": true,
+          "valueColor": "#3399FF",
+          "trackColor": "#101828",
+          "barValue": 68
+        },
+        {
+          "type": "BOOL",
+          "id": "FIELD_QUEMADOR",
+          "variable": "quemador",
+          "label": "Quemador",
+          "x": 4,
+          "y": 110,
+          "boolStyle": "PILOT",
+          "falseColor": "DARKGREY",
+          "trueColor": "ORANGE",
+          "valueSize": 2,
+          "boolValue": true
+        },
+        {
+          "type": "BOOL",
+          "id": "FIELD_BOMBA",
+          "variable": "bomba",
+          "label": "Bomba",
+          "x": 118,
+          "y": 110,
+          "boolStyle": "PILOT",
+          "falseColor": "DARKGREY",
+          "trueColor": "GREEN",
+          "valueSize": 2,
+          "boolValue": true
+        },
+        {
+          "type": "TEXT",
+          "id": "FIELD_MODO",
+          "variable": "modo",
+          "label": "Modo",
+          "capacity": 6,
+          "x": 212,
+          "y": 114,
+          "valueSize": 1,
+          "preview": "AUTO",
+          "valueColor": "GREEN"
+        }
+      ]
+    },
+    {
+      "name": "Proceso",
+      "shortName": "PROCESO",
+      "color": "ORANGE",
+      "fields": [
+        {
+          "type": "RAW_TEXT",
+          "text": "Diagrama de proceso",
+          "x": 4,
+          "y": 2,
+          "font": "SANS_BOLD_9",
+          "textColor": "WHITE"
+        },
+        {
+          "type": "LINE",
+          "x": 8,
+          "y": 96,
+          "x2": 78,
+          "y2": 96,
+          "frameColor": "#3399FF",
+          "size": 3
+        },
+        {
+          "type": "ELLIPSE",
+          "x": 78,
+          "y": 86,
+          "x2": 98,
+          "y2": 106,
+          "fill": true,
+          "fillColor": "DARKGREEN",
+          "frameColor": "GREEN",
+          "size": 2
+        },
+        {
+          "type": "LINE",
+          "x": 98,
+          "y": 96,
+          "x2": 126,
+          "y2": 96,
+          "frameColor": "#3399FF",
+          "size": 3
+        },
+        {
+          "type": "RECT",
+          "x": 126,
+          "y": 28,
+          "x2": 206,
+          "y2": 128,
+          "cornerRadius": 10,
+          "fill": true,
+          "fillColor": "#102030",
+          "frameColor": "LIGHTGREY",
+          "size": 2
+        },
+        {
+          "type": "LINE",
+          "x": 206,
+          "y": 44,
+          "x2": 312,
+          "y2": 44,
+          "frameColor": "ORANGE",
+          "size": 3
+        },
+        {
+          "type": "TRIANGLE",
+          "x": 244,
+          "y": 36,
+          "x2": 260,
+          "y2": 52,
+          "rotation": 90,
+          "fill": true,
+          "fillColor": "LIGHTGREY",
+          "frameColor": "LIGHTGREY"
+        },
+        {
+          "type": "TRIANGLE",
+          "x": 260,
+          "y": 36,
+          "x2": 276,
+          "y2": 52,
+          "rotation": -90,
+          "fill": true,
+          "fillColor": "LIGHTGREY",
+          "frameColor": "LIGHTGREY"
+        },
+        {
+          "type": "VALUE",
+          "id": "FIELD_TEMP_TANQUE",
+          "variable": "tempHogar",
+          "label": "",
+          "unit": "°C",
+          "x": 134,
+          "y": 44,
+          "integerDigits": 3,
+          "decimalDigits": 0,
+          "valueSize": 2,
+          "valueColor": "ORANGE",
+          "backgroundColor": "#102030",
+          "preview": "182"
+        },
+        {
+          "type": "VALUE",
+          "id": "FIELD_VAPOR",
+          "variable": "caudalVapor",
+          "label": "Vapor",
+          "unit": "t/h",
+          "x": 212,
+          "y": 60,
+          "layout": "STACKED",
+          "integerDigits": 2,
+          "decimalDigits": 1,
+          "valueSize": 2,
+          "preview": "4.8"
+        },
+        {
+          "type": "VALUE",
+          "id": "FIELD_AGUA",
+          "variable": "caudalAgua",
+          "label": "Agua",
+          "unit": "m3/h",
+          "x": 4,
+          "y": 60,
+          "layout": "STACKED",
+          "integerDigits": 2,
+          "decimalDigits": 1,
+          "valueSize": 1,
+          "valueColor": "#3399FF",
+          "preview": "5.1"
+        },
+        {
+          "type": "BOOL",
+          "id": "FIELD_VALVULA",
+          "variable": "valvulaVapor",
+          "label": "Válvula",
+          "x": 212,
+          "y": 106,
+          "falseText": "CERRADA",
+          "trueText": "ABIERTA",
+          "valueSize": 1,
+          "stateColors": true,
+          "falseColor": "RED",
+          "trueColor": "GREEN"
+        }
+      ]
+    },
+    {
+      "name": "Alarmas",
+      "shortName": "ALARMAS",
+      "color": "RED",
+      "fields": [
+        {
+          "type": "BOOL",
+          "id": "FIELD_AL_NIVEL",
+          "variable": "alNivelBajo",
+          "label": "Nivel bajo de agua ",
+          "x": 30,
+          "y": 8,
+          "falseText": "OK",
+          "trueText": "ALARMA",
+          "stateColors": true,
+          "falseColor": "GREEN",
+          "trueColor": "WHITE",
+          "trueBackground": "RED",
+          "valueSize": 1,
+          "frame": true,
+          "boolValue": true
+        },
+        {
+          "type": "BOOL",
+          "id": "FIELD_AL_PRESION",
+          "variable": "alSobrepresion",
+          "label": "Sobrepresión       ",
+          "x": 30,
+          "y": 34,
+          "falseText": "OK",
+          "trueText": "ALARMA",
+          "stateColors": true,
+          "falseColor": "GREEN",
+          "trueColor": "WHITE",
+          "trueBackground": "RED",
+          "valueSize": 1,
+          "frame": true
+        },
+        {
+          "type": "BOOL",
+          "id": "FIELD_AL_LLAMA",
+          "variable": "alFallaLlama",
+          "label": "Falla de llama     ",
+          "x": 30,
+          "y": 60,
+          "falseText": "OK",
+          "trueText": "ALARMA",
+          "stateColors": true,
+          "falseColor": "GREEN",
+          "trueColor": "WHITE",
+          "trueBackground": "RED",
+          "valueSize": 1,
+          "frame": true
+        },
+        {
+          "type": "TEXT",
+          "id": "FIELD_ULTIMA",
+          "variable": "ultimaAlarma",
+          "label": "Ultima",
+          "capacity": 24,
+          "x": 4,
+          "y": 96,
+          "layout": "STACKED",
+          "valueSize": 1,
+          "valueColor": "ORANGE",
+          "preview": "14:32 Nivel bajo de agua"
+        }
+      ]
+    },
+    {
+      "name": "Producción",
+      "shortName": "PRODUC",
+      "color": "GREEN",
+      "fields": [
+        {
+          "type": "VALUE",
+          "id": "FIELD_VAPOR_TOTAL",
+          "variable": "vaporTotalKg",
+          "label": "Vapor total",
+          "unit": "kg",
+          "x": 4,
+          "y": 6,
+          "integerDigits": 7,
+          "decimalDigits": 0,
+          "thousandsSep": ".",
+          "valueSize": 2,
+          "preview": "1284530"
+        },
+        {
+          "type": "VALUE",
+          "id": "FIELD_HOROMETRO",
+          "variable": "horometroSeg",
+          "label": "Marcha",
+          "x": 4,
+          "y": 34,
+          "valueKind": "DURATION",
+          "durationPattern": "HH_MM_SS",
+          "durationUnit": "S",
+          "integerDigits": 3,
+          "valueSize": 2,
+          "valueColor": "LIGHTGREY"
+        },
+        {
+          "type": "VALUE",
+          "id": "FIELD_EFICIENCIA",
+          "variable": "eficiencia",
+          "label": "Eficiencia",
+          "unit": "%",
+          "x": 4,
+          "y": 64,
+          "layout": "STACKED",
+          "integerDigits": 3,
+          "decimalDigits": 1,
+          "valueSize": 3,
+          "valueColor": "GREEN",
+          "preview": "87.4"
+        },
+        {
+          "type": "BAR",
+          "id": "FIELD_COMBUSTIBLE",
+          "variable": "combustible",
+          "barLabel": "Combustible",
+          "barUnit": "%",
+          "x": 160,
+          "y": 72,
+          "barWidth": 156,
+          "frame": true,
+          "valueColor": "YELLOW",
+          "trackColor": "#202010",
+          "barValue": 41
+        }
+      ]
+    },
+    {
+      "name": "Ajustes",
+      "shortName": "AJUSTES",
+      "color": "YELLOW",
+      "fields": [
+        {
+          "type": "MENU",
+          "id": "MENU_AJUSTES",
+          "title": "Ajustes de caldera",
+          "x": 4,
+          "y": 2,
+          "width": 312,
+          "height": 140,
+          "nodes": [
+            {
+              "type": "VIEW",
+              "label": "Presión actual",
+              "variable": "presion",
+              "valueType": "float",
+              "decimals": 2,
+              "unit": "bar"
+            },
+            {
+              "type": "EDIT_NUM",
+              "label": "Consigna presión",
+              "variable": "consignaPresion",
+              "valueType": "float",
+              "initial": 8,
+              "min": 1,
+              "max": 12,
+              "step": 0.1,
+              "decimals": 1,
+              "unit": "bar"
+            },
+            {
+              "type": "EDIT_NUM",
+              "label": "Histéresis",
+              "variable": "histeresis",
+              "valueType": "float",
+              "initial": 0.5,
+              "min": 0.1,
+              "max": 2,
+              "step": 0.1,
+              "decimals": 1,
+              "unit": "bar"
+            },
+            {
+              "type": "EDIT_BOOL",
+              "label": "Modo automático",
+              "variable": "modoAuto",
+              "initial": 1,
+              "falseText": "MANUAL",
+              "trueText": "AUTO"
+            },
+            {
+              "type": "SUBMENU",
+              "label": "Protecciones",
+              "children": [
+                {
+                  "type": "EDIT_NUM",
+                  "label": "Temp. máxima",
+                  "variable": "tempMax",
+                  "valueType": "float",
+                  "initial": 180,
+                  "min": 100,
+                  "max": 220,
+                  "step": 1,
+                  "decimals": 0,
+                  "unit": "°C"
+                },
+                {
+                  "type": "EDIT_NUM",
+                  "label": "Presión máxima",
+                  "variable": "presionMax",
+                  "valueType": "float",
+                  "initial": 10,
+                  "min": 2,
+                  "max": 14,
+                  "step": 0.1,
+                  "decimals": 1,
+                  "unit": "bar"
+                },
+                {
+                  "type": "EDIT_NUM",
+                  "label": "Retardo llama",
+                  "variable": "retardoLlama",
+                  "valueType": "int32",
+                  "initial": 5,
+                  "min": 1,
+                  "max": 30,
+                  "step": 1,
+                  "unit": "s"
+                }
+              ]
+            },
+            {
+              "type": "SUBMENU",
+              "label": "Mantenimiento",
+              "children": [
+                {
+                  "type": "VIEW",
+                  "label": "Eficiencia",
+                  "variable": "eficiencia",
+                  "valueType": "float",
+                  "decimals": 1,
+                  "unit": "%"
+                },
+                {
+                  "type": "EDIT_BOOL",
+                  "label": "Purga manual",
+                  "variable": "purga",
+                  "falseText": "NO",
+                  "trueText": "SI"
+                }
+              ]
+            },
+            {
+              "type": "GO_IDLE",
+              "label": "Salir al inicio"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "fields": [
+    {
+      "type": "NAV_BAR",
+      "preset": "industrial-color",
+      "position": "bottom",
+      "height": 22
+    }
+  ],
+  "pixelMaps": [
+    {
+      "name": "Llama contorno",
+      "page": 1,
+      "x": 161,
+      "y": 132,
+      "pixels": [
+        {
+          "x": 4,
+          "y": 0,
+          "color": "ORANGE"
+        },
+        {
+          "x": 3,
+          "y": 1,
+          "color": "ORANGE"
+        },
+        {
+          "x": 4,
+          "y": 1,
+          "color": "ORANGE"
+        },
+        {
+          "x": 3,
+          "y": 2,
+          "color": "ORANGE"
+        },
+        {
+          "x": 4,
+          "y": 2,
+          "color": "ORANGE"
+        },
+        {
+          "x": 5,
+          "y": 2,
+          "color": "ORANGE"
+        },
+        {
+          "x": 2,
+          "y": 3,
+          "color": "ORANGE"
+        },
+        {
+          "x": 3,
+          "y": 3,
+          "color": "ORANGE"
+        },
+        {
+          "x": 4,
+          "y": 3,
+          "color": "ORANGE"
+        },
+        {
+          "x": 5,
+          "y": 3,
+          "color": "ORANGE"
+        },
+        {
+          "x": 2,
+          "y": 4,
+          "color": "ORANGE"
+        },
+        {
+          "x": 3,
+          "y": 4,
+          "color": "ORANGE"
+        },
+        {
+          "x": 5,
+          "y": 4,
+          "color": "ORANGE"
+        },
+        {
+          "x": 6,
+          "y": 4,
+          "color": "ORANGE"
+        },
+        {
+          "x": 1,
+          "y": 5,
+          "color": "ORANGE"
+        },
+        {
+          "x": 2,
+          "y": 5,
+          "color": "ORANGE"
+        },
+        {
+          "x": 6,
+          "y": 5,
+          "color": "ORANGE"
+        },
+        {
+          "x": 1,
+          "y": 6,
+          "color": "ORANGE"
+        },
+        {
+          "x": 2,
+          "y": 6,
+          "color": "ORANGE"
+        },
+        {
+          "x": 6,
+          "y": 6,
+          "color": "ORANGE"
+        },
+        {
+          "x": 7,
+          "y": 6,
+          "color": "ORANGE"
+        },
+        {
+          "x": 0,
+          "y": 7,
+          "color": "ORANGE"
+        },
+        {
+          "x": 1,
+          "y": 7,
+          "color": "ORANGE"
+        },
+        {
+          "x": 7,
+          "y": 7,
+          "color": "ORANGE"
+        },
+        {
+          "x": 8,
+          "y": 7,
+          "color": "ORANGE"
+        },
+        {
+          "x": 0,
+          "y": 8,
+          "color": "ORANGE"
+        },
+        {
+          "x": 1,
+          "y": 8,
+          "color": "ORANGE"
+        },
+        {
+          "x": 7,
+          "y": 8,
+          "color": "ORANGE"
+        },
+        {
+          "x": 8,
+          "y": 8,
+          "color": "ORANGE"
+        },
+        {
+          "x": 0,
+          "y": 9,
+          "color": "ORANGE"
+        },
+        {
+          "x": 1,
+          "y": 9,
+          "color": "ORANGE"
+        },
+        {
+          "x": 7,
+          "y": 9,
+          "color": "ORANGE"
+        },
+        {
+          "x": 8,
+          "y": 9,
+          "color": "ORANGE"
+        },
+        {
+          "x": 1,
+          "y": 10,
+          "color": "ORANGE"
+        },
+        {
+          "x": 2,
+          "y": 10,
+          "color": "ORANGE"
+        },
+        {
+          "x": 6,
+          "y": 10,
+          "color": "ORANGE"
+        },
+        {
+          "x": 7,
+          "y": 10,
+          "color": "ORANGE"
+        },
+        {
+          "x": 2,
+          "y": 11,
+          "color": "ORANGE"
+        },
+        {
+          "x": 3,
+          "y": 11,
+          "color": "ORANGE"
+        },
+        {
+          "x": 4,
+          "y": 11,
+          "color": "ORANGE"
+        },
+        {
+          "x": 5,
+          "y": 11,
+          "color": "ORANGE"
+        },
+        {
+          "x": 6,
+          "y": 11,
+          "color": "ORANGE"
+        }
+      ]
+    },
+    {
+      "name": "Llama nucleo",
+      "page": 1,
+      "x": 161,
+      "y": 132,
+      "pixels": [
+        {
+          "x": 4,
+          "y": 4,
+          "color": "YELLOW"
+        },
+        {
+          "x": 3,
+          "y": 5,
+          "color": "YELLOW"
+        },
+        {
+          "x": 4,
+          "y": 5,
+          "color": "YELLOW"
+        },
+        {
+          "x": 5,
+          "y": 5,
+          "color": "YELLOW"
+        },
+        {
+          "x": 3,
+          "y": 6,
+          "color": "YELLOW"
+        },
+        {
+          "x": 4,
+          "y": 6,
+          "color": "YELLOW"
+        },
+        {
+          "x": 5,
+          "y": 6,
+          "color": "YELLOW"
+        },
+        {
+          "x": 2,
+          "y": 7,
+          "color": "YELLOW"
+        },
+        {
+          "x": 3,
+          "y": 7,
+          "color": "YELLOW"
+        },
+        {
+          "x": 4,
+          "y": 7,
+          "color": "YELLOW"
+        },
+        {
+          "x": 5,
+          "y": 7,
+          "color": "YELLOW"
+        },
+        {
+          "x": 6,
+          "y": 7,
+          "color": "YELLOW"
+        },
+        {
+          "x": 2,
+          "y": 8,
+          "color": "YELLOW"
+        },
+        {
+          "x": 3,
+          "y": 8,
+          "color": "YELLOW"
+        },
+        {
+          "x": 4,
+          "y": 8,
+          "color": "YELLOW"
+        },
+        {
+          "x": 5,
+          "y": 8,
+          "color": "YELLOW"
+        },
+        {
+          "x": 6,
+          "y": 8,
+          "color": "YELLOW"
+        },
+        {
+          "x": 2,
+          "y": 9,
+          "color": "YELLOW"
+        },
+        {
+          "x": 3,
+          "y": 9,
+          "color": "YELLOW"
+        },
+        {
+          "x": 4,
+          "y": 9,
+          "color": "YELLOW"
+        },
+        {
+          "x": 5,
+          "y": 9,
+          "color": "YELLOW"
+        },
+        {
+          "x": 6,
+          "y": 9,
+          "color": "YELLOW"
+        },
+        {
+          "x": 3,
+          "y": 10,
+          "color": "YELLOW"
+        },
+        {
+          "x": 4,
+          "y": 10,
+          "color": "YELLOW"
+        },
+        {
+          "x": 5,
+          "y": 10,
+          "color": "YELLOW"
+        }
+      ]
+    },
+    {
+      "name": "Aviso",
+      "page": 2,
+      "x": 8,
+      "y": 10,
+      "pixels": [
+        {
+          "x": 6,
+          "y": 0,
+          "color": "YELLOW"
+        },
+        {
+          "x": 5,
+          "y": 1,
+          "color": "YELLOW"
+        },
+        {
+          "x": 6,
+          "y": 1,
+          "color": "YELLOW"
+        },
+        {
+          "x": 7,
+          "y": 1,
+          "color": "YELLOW"
+        },
+        {
+          "x": 5,
+          "y": 2,
+          "color": "YELLOW"
+        },
+        {
+          "x": 7,
+          "y": 2,
+          "color": "YELLOW"
+        },
+        {
+          "x": 4,
+          "y": 3,
+          "color": "YELLOW"
+        },
+        {
+          "x": 5,
+          "y": 3,
+          "color": "YELLOW"
+        },
+        {
+          "x": 7,
+          "y": 3,
+          "color": "YELLOW"
+        },
+        {
+          "x": 8,
+          "y": 3,
+          "color": "YELLOW"
+        },
+        {
+          "x": 4,
+          "y": 4,
+          "color": "YELLOW"
+        },
+        {
+          "x": 6,
+          "y": 4,
+          "color": "YELLOW"
+        },
+        {
+          "x": 8,
+          "y": 4,
+          "color": "YELLOW"
+        },
+        {
+          "x": 3,
+          "y": 5,
+          "color": "YELLOW"
+        },
+        {
+          "x": 4,
+          "y": 5,
+          "color": "YELLOW"
+        },
+        {
+          "x": 6,
+          "y": 5,
+          "color": "YELLOW"
+        },
+        {
+          "x": 8,
+          "y": 5,
+          "color": "YELLOW"
+        },
+        {
+          "x": 9,
+          "y": 5,
+          "color": "YELLOW"
+        },
+        {
+          "x": 3,
+          "y": 6,
+          "color": "YELLOW"
+        },
+        {
+          "x": 6,
+          "y": 6,
+          "color": "YELLOW"
+        },
+        {
+          "x": 9,
+          "y": 6,
+          "color": "YELLOW"
+        },
+        {
+          "x": 2,
+          "y": 7,
+          "color": "YELLOW"
+        },
+        {
+          "x": 3,
+          "y": 7,
+          "color": "YELLOW"
+        },
+        {
+          "x": 6,
+          "y": 7,
+          "color": "YELLOW"
+        },
+        {
+          "x": 9,
+          "y": 7,
+          "color": "YELLOW"
+        },
+        {
+          "x": 10,
+          "y": 7,
+          "color": "YELLOW"
+        },
+        {
+          "x": 2,
+          "y": 8,
+          "color": "YELLOW"
+        },
+        {
+          "x": 10,
+          "y": 8,
+          "color": "YELLOW"
+        },
+        {
+          "x": 1,
+          "y": 9,
+          "color": "YELLOW"
+        },
+        {
+          "x": 2,
+          "y": 9,
+          "color": "YELLOW"
+        },
+        {
+          "x": 6,
+          "y": 9,
+          "color": "YELLOW"
+        },
+        {
+          "x": 10,
+          "y": 9,
+          "color": "YELLOW"
+        },
+        {
+          "x": 11,
+          "y": 9,
+          "color": "YELLOW"
+        },
+        {
+          "x": 1,
+          "y": 10,
+          "color": "YELLOW"
+        },
+        {
+          "x": 11,
+          "y": 10,
+          "color": "YELLOW"
+        },
+        {
+          "x": 0,
+          "y": 11,
+          "color": "YELLOW"
+        },
+        {
+          "x": 1,
+          "y": 11,
+          "color": "YELLOW"
+        },
+        {
+          "x": 2,
+          "y": 11,
+          "color": "YELLOW"
+        },
+        {
+          "x": 3,
+          "y": 11,
+          "color": "YELLOW"
+        },
+        {
+          "x": 4,
+          "y": 11,
+          "color": "YELLOW"
+        },
+        {
+          "x": 5,
+          "y": 11,
+          "color": "YELLOW"
+        },
+        {
+          "x": 6,
+          "y": 11,
+          "color": "YELLOW"
+        },
+        {
+          "x": 7,
+          "y": 11,
+          "color": "YELLOW"
+        },
+        {
+          "x": 8,
+          "y": 11,
+          "color": "YELLOW"
+        },
+        {
+          "x": 9,
+          "y": 11,
+          "color": "YELLOW"
+        },
+        {
+          "x": 10,
+          "y": 11,
+          "color": "YELLOW"
+        },
+        {
+          "x": 11,
+          "y": 11,
+          "color": "YELLOW"
+        },
+        {
+          "x": 12,
+          "y": 11,
+          "color": "YELLOW"
+        }
+      ]
+    }
+  ]
+}

@@ -117,7 +117,7 @@
       let result = await native.writeGeneratedHeader(text, false);
 
       if (result?.requiresOverwrite) {
-        if (!window.confirm(`Se reemplazará ${HEADER_NAME} en el sketch “${linked.name}”. ¿Continuar?`)) return;
+        if (!await window.JWPLCDialog.confirm(`Se reemplazará ${HEADER_NAME} en el sketch “${linked.name}”. ¿Continuar?`)) return;
         result = await native.writeGeneratedHeader(text, true);
       }
 
@@ -147,7 +147,7 @@
 
       let result = await native.writeProject(fileName, text, false);
       if (result?.requiresOverwrite) {
-        if (!window.confirm(`Se reemplazará ${fileName} en el sketch “${linked.name}”. ¿Continuar?`)) return;
+        if (!await window.JWPLCDialog.confirm(`Se reemplazará ${fileName} en el sketch “${linked.name}”. ¿Continuar?`)) return;
         result = await native.writeProject(fileName, text, true);
       }
       if (!result?.ok) throw new Error(result?.error || `No se pudo guardar ${fileName}.`);
@@ -158,6 +158,43 @@
     } catch (error) {
       toast(error?.message || 'No se pudo guardar el proyecto.', 'error');
     }
+  }
+
+  async function loadProjectFromSketch(info) {
+    if (!info?.projectExists) return false;
+    // Abrir desde Arduino IDE con el Designer ya en uso no debe perder un diseño
+    // sin guardar: se pregunta antes de reemplazarlo (el sketch queda vinculado igual).
+    if (window.JWPLCHMIProject?.isDirty?.() &&
+        !await window.JWPLCDialog.confirm(`El diseño en pantalla tiene cambios sin guardar.\n\n¿Abrir el HMI del sketch «${info.name}» (${info.projectFile})? El diseño actual se reemplaza.`, { okLabel: 'Abrir HMI', cancelLabel: 'Conservar diseño' })) {
+      toast(`Sketch «${info.name}» vinculado; se conserva el diseño en pantalla.`, 'ok');
+      return false;
+    }
+    try {
+      const res = await native.readProject();
+      if (!res?.ok || !res.text) return false;
+      const data = JSON.parse(res.text);
+      if (window.JWPLCHMIProject?.apply) {
+        await window.JWPLCHMIProject.apply(data);
+        window.dispatchEvent(new CustomEvent('jwplc:project-loaded', { detail: { sketch: info.name } }));
+        toast(`HMI del sketch «${info.name}» cargado (${info.projectFile}).`, 'ok');
+        return true;
+      }
+    } catch (err) {
+      console.warn('[JWPLC HMI Native] Error al cargar HMI del sketch:', err);
+      toast(`No se pudo cargar el HMI del sketch «${info.name}».`, 'error');
+    }
+    return false;
+  }
+
+  async function unlinkNative() {
+    try {
+      if (native?.unlinkSketch) {
+        await native.unlinkSketch();
+      }
+    } catch (_) {}
+    linked = null;
+    updateUi();
+    window.dispatchEvent(new CustomEvent('jwplc:sketch-unlinked'));
   }
 
   function replaceButton(id, handler) {
@@ -180,12 +217,67 @@
     replaceButton('saveProjectButton', () => saveCanonicalProjectNative(browserSave));
 
     window.JWPLCHMIProject.linkSketch = linkSketchNative;
+    window.JWPLCHMIProject.unlinkSketch = unlinkNative;
     window.JWPLCHMIProject.updateGeneratedHeader = updateHeaderNative;
     window.JWPLCHMIProject.linkedSketchName = () => linked?.name || null;
 
     const restored = await native.getLinkedSketch();
-    if (restored?.ok) linked = restored;
-    updateUi();
+    if (restored?.ok) {
+      linked = restored;
+      updateUi();
+      if (restored.projectExists) {
+        await loadProjectFromSketch(restored);
+      }
+    } else {
+      linked = null;
+      updateUi();
+    }
+
+    // designer-sketch-menu.js vincula por su cuenta («Cambiar sketch…»):
+    // releer el vínculo para que «Guardar» use el sketch nuevo.
+    window.addEventListener('jwplc:sketch-linked', async () => {
+      const current = await native.getLinkedSketch();
+      linked = current?.ok ? current : null;
+      updateUi();
+    });
+
+    window.addEventListener('jwplc:sketch-unlinked', () => {
+      linked = null;
+      updateUi();
+    });
+
+    // Apertura desde Arduino IDE, línea de comandos o protocolo
+    native.onSketchOpened?.(async (info) => {
+      if (!info || !info.ok) return;
+      linked = info;
+      updateUi();
+      window.dispatchEvent(new CustomEvent('jwplc:sketch-linked', { detail: { sketch: info.name } }));
+      if (info.projectExists) {
+        await loadProjectFromSketch(info);
+      } else {
+        toast(`Sketch «${info.name}» vinculado.`, 'ok');
+      }
+    });
+
+    // Sincronización en tiempo real: cuando un agente de IA, CLI o editor externo
+    // modifica el archivo .jwhmi en el sketch, se recarga y redibuja de inmediato.
+    native.onSketchFileChanged?.(async (payload) => {
+      try {
+        let text = payload?.text;
+        if (!text) {
+          const res = await native.readProject();
+          if (res?.ok) text = res.text;
+        }
+        if (!text) return;
+        const data = JSON.parse(text);
+        if (window.JWPLCHMIProject?.apply) {
+          await window.JWPLCHMIProject.apply(data);
+          toast(`Proyecto sincronizado en vivo (${payload?.fileName || 'externo'}).`, 'ok');
+        }
+      } catch (err) {
+        console.warn('[JWPLC HMI Native] Error al recargar proyecto externo:', err);
+      }
+    });
   }
 
   init().catch((error) => {

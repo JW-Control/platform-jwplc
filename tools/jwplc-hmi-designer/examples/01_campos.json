@@ -1,0 +1,21 @@
+{
+  "$schema": "../schema/jwhmi.schema.json",
+  "projectName": "Ejemplo_Campos",
+  "display": { "start": "HMI" },
+  "pages": [
+    {
+      "name": "Campos",
+      "fields": [
+        { "type": "TEXT", "id": "FIELD_ESTADO", "variable": "estado", "label": "Estado", "capacity": 10, "x": 4, "y": 4, "valueSize": 2, "preview": "LISTO" },
+        { "type": "VALUE", "id": "FIELD_TEMP", "variable": "temperatura", "label": "Temp", "unit": "°C", "x": 4, "y": 30, "integerDigits": 3, "decimalDigits": 1, "signedValue": true, "valueSize": 2 },
+        { "type": "VALUE", "id": "FIELD_PIEZAS", "variable": "piezas", "label": "Piezas", "x": 4, "y": 56, "integerDigits": 6, "decimalDigits": 0, "thousandsSep": ".", "valueSize": 1 },
+        { "type": "VALUE", "id": "FIELD_MARCHA", "variable": "marchaSeg", "label": "Marcha", "x": 4, "y": 72, "valueKind": "DURATION", "durationPattern": "HH_MM_SS", "durationUnit": "S", "integerDigits": 2, "valueSize": 1 },
+        { "type": "VALUE", "id": "FIELD_HORA", "label": "Hora", "x": 4, "y": 88, "valueKind": "DATETIME", "dateTimePattern": "HH_MM_SS", "valueSize": 1 },
+        { "type": "BOOL", "id": "FIELD_MOTOR", "variable": "motor", "label": "Motor", "x": 4, "y": 112, "falseText": "PARADO", "trueText": "MARCHA", "stateColors": true, "falseColor": "RED", "trueColor": "GREEN" },
+        { "type": "BOOL", "id": "FIELD_ALARMA", "variable": "alarma", "label": "Alarma", "x": 4, "y": 140, "boolStyle": "PILOT", "falseColor": "DARKGREY", "trueColor": "RED", "valueSize": 2 },
+        { "type": "BAR", "id": "FIELD_NIVEL", "variable": "nivel", "barLabel": "Tanque", "barUnit": "%", "x": 180, "y": 4, "barWidth": 134, "barMin": 0, "barMax": 100, "barValue": 65, "frame": true, "valueColor": "CYAN", "trackColor": "#202020" },
+        { "type": "BAR", "id": "FIELD_PRESION", "variable": "presion", "barLabel": "Bar", "barUnit": "", "x": 180, "y": 50, "barWidth": 134, "layout": "INLINE", "barMin": 0, "barMax": 10, "barValue": 3, "valueColor": "ORANGE", "trackColor": "#202020" }
+      ]
+    }
+  ]
+}

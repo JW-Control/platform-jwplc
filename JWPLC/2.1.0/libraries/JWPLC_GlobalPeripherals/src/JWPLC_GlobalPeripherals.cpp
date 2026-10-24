@@ -52,8 +52,8 @@ static bool g_sdBeginAttempted = false;
 
 JW_MatrixButtons JWPLC_Buttons;
 
-static const uint8_t ROWS[] = {12, 2};
-static const uint8_t COLS[] = {35, 34, 36};
+static const uint8_t ROWS[JWPLC_BTN_ROWS] = {JWPLC_BTN_ROW0_PIN, JWPLC_BTN_ROW1_PIN};
+static const uint8_t COLS[JWPLC_BTN_COLS] = {JWPLC_BTN_COL0_PIN, JWPLC_BTN_COL1_PIN, JWPLC_BTN_COL2_PIN};
 
 static const JW_MatrixButtons::BtnMapItem BUTTON_MAP[] = {
     {BTN_LEFT, 0, 0},
@@ -158,8 +158,8 @@ namespace JWPLCButtons
         }
 
         bool ok = JWPLC_Buttons.begin(
-            ROWS, 2,
-            COLS, 3,
+            ROWS, JWPLC_BTN_ROWS,
+            COLS, JWPLC_BTN_COLS,
             BUTTON_MAP, sizeof(BUTTON_MAP) / sizeof(BUTTON_MAP[0]),
             BTN_COUNT,
             false,
