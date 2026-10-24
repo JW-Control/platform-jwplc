@@ -115,8 +115,8 @@ JW-Control/platform-jwplc  rama v2.1.0-alpha.12/feature/openplc-engineering-clos
    Nunca publicar header y `.a` desalineados. **Durante el alpha**, la librería
    que va a cambiar se pone en modo fuente (se retira sólo `precompiled=full`)
    y su `.a` se regenera una vez antes del cierre, seguido del benchmark de
-   compilación en la PC del jefe. Hoy (integración 2.1.0-alpha.14): `JWPLC_Display`,
-   `JWPLC_TFT` (su `.a` incluye TFT_eSPI) y `JWPLC_ModbusRTU` en modo fuente.
+   compilación en la PC del jefe. Hoy (integración 2.1.0-alpha.14): `JWPLC_Display`
+   y `JWPLC_TFT` (su `.a` incluye TFT_eSPI) precompiladas; sólo `JWPLC_ModbusRTU` en modo fuente.
 5. **El Display no consume los latches de la botonera de la aplicación**
    (Alpha8). Si un widget de menú necesita teclas, debe declararlo
    explícitamente y respetar la limpieza CONTENT -> SELECT (Alpha11).

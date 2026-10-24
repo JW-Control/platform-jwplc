@@ -19,7 +19,8 @@
 #   - ABI: ningún símbolo definido y global del .a actual desaparece
 #     (los símbolos nuevos se listan);
 #   - los imports JWPLC nuevos (respecto del .a actual) están definidos en otra
-#     librería precompilada del package (p. ej. libJWPLC_TFT.a).
+#     librería precompilada del package (p. ej. libJWPLC_TFT.a) o en el core
+#     precompilado (precompiled/core/*/core.a, p. ej. jwplcGetRTCState).
 # =============================================================================
 set -euo pipefail
 
@@ -110,7 +111,7 @@ INO
   "$nm" -u "$ARCHIVE" 2>/dev/null | awk '{print $2}' | sort -u > "$out/current.imports"
   "$nm" -u "$out/a/libJWPLC_Display.a" 2>/dev/null | awk '{print $2}' | sort -u > "$out/new.imports"
   : > "$out/others.txt"
-  for other in "$REPO"/JWPLC/2.1.0/libraries/*/src/esp32/*.a; do
+  for other in "$REPO"/JWPLC/2.1.0/libraries/*/src/esp32/*.a "$REPO"/JWPLC/2.1.0/precompiled/core/*/core.a; do
     [[ "$other" == "$ARCHIVE" ]] && continue
     "$nm" --defined-only "$other" 2>/dev/null | awk 'NF>=3{print $3}' >> "$out/others.txt"
   done

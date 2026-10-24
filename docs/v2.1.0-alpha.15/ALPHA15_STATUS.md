@@ -111,7 +111,7 @@ MENU=ADOPTED (designer-menu.js; firmware JWPLC_Display 1.1.0)
 ```text
 DESIGNER_UI=Alpha11
 JWPLC_TFT=0.3.0 (elipses/triángulos + FreeFonts con setFont/drawString; .a regenerado, ABI compatible)
-JWPLC_DISPLAY=1.1.0 (MENU, formatos VALUE, BOOL piloto/por estado, cp437, pestañas) · SOURCE_FIRST hasta el cierre (.a del 17/10 desfasado: regen-display en la fase 3)
+JWPLC_DISPLAY=1.1.0 (MENU, formatos VALUE, BOOL piloto/por estado, cp437, pestañas) · PRECOMPILED (.a regenerado el 24/10, ABI_COMPAT=PASS, sha256 20d23abe…)
 JWPLC_GLOBALPERIPHERALS=1.1.0 (JWPLC_Buzzer)
 JWPLC_RS485/JWPLC_MODBUSRTU=1.1.0 (envoltorios de JW_RS485/JW_ModbusRTU 0.1.1; ModbusRTU en modo fuente)
 PACKAGE=2.1.0-alpha.14 (marcador del README pendiente de autorización)
