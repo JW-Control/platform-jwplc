@@ -17,8 +17,9 @@ GATE3C_DEVICE_DISCOVERY_AND_ADD=PASS                   [ejecutado]
 GATE3D_CODEGEN_JWPLC_TEMPLATE=PASS                     [ejecutado]
 GATE3E_COMPILE_FROM_MBLOCK_RENDERER=PASS               [ejecutado]
 GATE3F_BRIDGE_SECURITY=PASS                            [ejecutado]
-GATE3G_UPLOAD_FROM_MBLOCK=PENDING                      [no verificado] requiere confirmación para flashear
-GATE3H_PHYSICAL_IO=PENDING                             [no verificado] requiere verificación física (LEDs Q0)
+GATE3G_UPLOAD_FROM_MBLOCK=PASS                         [ejecutado] botón "Upload Code" de mBlock -> COM14
+GATE3H_PROGRAM_RUNNING=PASS                            [ejecutado] salida serie del programa de bloques
+GATE3I_PHYSICAL_IO=PARTIAL                             [verificado por el usuario] Q0.7 PASS, Q0.0 abierto
 ~~~
 
 ## Gate 2 runtime: `child_process` dentro de mBlock
@@ -185,11 +186,70 @@ fqbn arduino:avr:uno              -> 400 fqbn not allowed
 
 Escucha sólo en 127.0.0.1; `spawn` sin shell; el token se regenera en cada arranque.
 
+## Gate 3G - Upload desde mBlock
+
+[ejecutado] Con la JWPLC Basic conectada en mBlock (COM14) y el programa de
+demostración en el workspace, el botón "Upload Code" ejecuta el middleware y el
+driver de la extensión; el bridge compila (33 s) y sube con `arduino-cli upload`
+(esptool v5.2.0 del core, 921600 baudios): bootloader 0x1000, particiones
+0x8000, boot_app0 0xE000 y app 0x10000 (429648 bytes), todos con hash
+verificado, y reset por RTS. Tiempo total 47 s. Log:
+`results/20261024_gate3g/GATE3G_UPLOAD_FROM_MBLOCK.log`.
+
+Intentos fallidos previos (`GATE3G_UPLOAD_PORT_BUSY_ATTEMPTS.log`):
+`PermissionError(13, 'Acceso denegado.')` porque mLink seguía con el COM abierto.
+
+~~~text
+close por el canal mLink (connectType serialport)  -> responde OK, NO libera el COM
+app.getService('connect').disconnect()             -> sólo emite el evento de UI, NO libera
+app._mCtx.ConnectService.disconnect('serialport.COM14') -> libera el COM (lo que hace la GUI)
+~~~
+
+El driver usa la tercera vía. `_mCtx` es interno de mBlock 5.4.3. Tras el
+upload la GUI sigue mostrando "Device connected" aunque el puerto está cerrado
+(desfase cosmético): hay que pulsar Desconectar/Conectar para volver a usarlo.
+
+Nota: mBlock entrega el puerto como `serialport.COM14`; el middleware extrae `COM14`.
+El filtro de conexión `vendorId: 0x7523` (mBlock lo compara con el productId del
+CH340) vuelve a estar en la extensión; sin él la lista de puertos sale vacía.
+
+## Gate 3H - Programa en ejecución
+
+[ejecutado] Lectura de COM14 durante 2,5 s tras el upload: 15 líneas `7`
+(3 por ciclo de 0,5 s), como indica el programa de bloques.
+
+## Gate 3I - E/S física
+
+[verificado por el usuario]
+
+~~~text
+Q0.7 conmutar cada 0,5 s                 -> PASS (parpadea)
+I0.0 -> TFT                               -> PASS (el recuadro de I0.0 responde al instante)
+si I0.0 entonces Q0.0 ON si no OFF        -> ABIERTO: la TFT muestra Q0.0 encendida, pero no hay accionamiento físico
+~~~
+
+Análisis [visto] en `cores/jwcontrol`: el indicador Q0.0 de la TFT sale del
+shadow `g_ioState.do_bank1`, que `jwplc_digitalWrite` sólo actualiza si
+`TCA6424A_writePin` (read-modify-write del registro OUTPUT por I2C) devolvió
+éxito. `digitalRead(Q0_7)` del bloque "conmutar" lee ese shadow, no el bus, y el
+programa no lee Q0.0. Por tanto el código generado sí ordena encender Q0.0 y el
+expansor acepta la escritura. Falta aislar si el problema está en el canal Q0.0
+(core o hardware) o en algo del programa. Notar que el programa muestrea I0.0
+una vez cada 0,5 s: un pulso corto puede dejar Q0.0 encendida hasta 0,5 s.
+
+Prueba siguiente propuesta: programa de bloques sólo con "poner salida Q0.0
+encendida, esperar 1, apagada, esperar 1" (sin I0.0 ni Q0.7) y, si Q0.0 tampoco
+acciona, el mismo patrón con un sketch Arduino IDE para descartar mBlock.
+
 ## Pendiente
 
-- Gate 3G: conectar la JWPLC Basic en mBlock (COM14) y pulsar Subir. Comprueba
-  el cierre del COM por el canal mLink y el upload por `arduino-cli`.
-- Gate 3H: verificar en la placa que Q0.0 sigue a I0.0 y que Q0.7 parpadea a 1 Hz.
+- Cerrar Gate 3I (Q0.0) con la prueba anterior.
+- Arranque del bridge sin consola (tarea programada al iniciar sesión o handler
+  de protocolo que la extensión pueda abrir con `MeApi.fe.openLink`).
+- Bloques de siguiente nivel: botonera (BTN_*), TFT vía `JWPLC_Display`/`JWPLC_UI`,
+  RS485/Modbus, entradas analógicas. Verificar cada llamada contra los `.h` y `.a`.
+- Probar el import del `.mext` arrastrándolo a mBlock (hoy se instala con
+  `install-extension.cjs`).
 
 ## Herramientas de prueba
 

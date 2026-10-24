@@ -134,3 +134,15 @@ Gate 2I:
 - no compila;
 - no hace upload;
 - no toca el JWPLC Basic.
+
+## Actualización 2026-10-24
+
+~~~text
+GATE2_RUNTIME_CHILD_PROCESS=FAIL
+~~~
+
+Resuelto en `tools/mblock-poc/gate3/GATE3_STATUS.md`: el renderer de mBlock
+5.4.3 (Electron 21, contextIsolation) no expone `require` ni `process`. La
+alternativa probada es un servicio local (`tools/mblock-poc/bridge/`) al que la
+extensión llama por HTTP; con ella el flujo bloques -> Arduino C -> compilación
+con el core JWPLC -> upload por COM funciona desde el botón de mBlock.

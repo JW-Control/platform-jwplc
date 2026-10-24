@@ -306,7 +306,10 @@ class ExtJwplcBasic {
                 defaultOnline: false,
                 options: {
                     connect: {
-                        serialport: { baudRate: '115200' },
+                        // mBlock compara este valor con el productId del puerto:
+                        // 0x7523 = CH340 de la JWPLC Basic. Otros adaptadores:
+                        // "Mostrar todos los dispositivos conectables".
+                        serialport: { baudRate: '115200', vendorId: '0x7523' },
                     },
                     upload: {
                         middlewares: [{ name: 'jwplc_capture_port', func: jwplcCapturePortMiddleware }],

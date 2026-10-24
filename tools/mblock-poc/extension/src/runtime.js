@@ -8,16 +8,16 @@
 const JWPLC_BRIDGE_URL = 'http://127.0.0.1:47820';
 const JWPLC_FQBN = 'jwplc:esp32:jwplcbasic';
 
-// mBlock pasa el puerto (p. ej. "COM14") y el canal mLink a los middlewares,
-// pero no al driver. El middleware los guarda aquí para el driver.
+// mBlock pasa el puerto a los middlewares, pero no al driver. El middleware
+// lo guarda aquí para el driver.
 const jwplcUploadState = {
     port: null,
-    channel: null,
 };
 
-const jwplcCapturePortMiddleware = (app, device, code, params, log, unused, portAddress, channel) => {
-    jwplcUploadState.port = portAddress || null;
-    jwplcUploadState.channel = channel || null;
+const jwplcCapturePortMiddleware = (app, device, code, params, log, unused, portAddress) => {
+    // mBlock entrega la dirección como "serialport.COM14".
+    const m = /COM\d+/i.exec(String(portAddress || ''));
+    jwplcUploadState.port = m ? m[0].toUpperCase() : null;
     return code;
 };
 
@@ -30,23 +30,28 @@ async function jwplcReadBridgeToken() {
     return String(await me.fe.read2Str(tokenFile)).trim();
 }
 
-// Cierra el puerto serie que mLink mantiene abierto mientras mBlock está
+// Libera el puerto serie que mLink mantiene abierto mientras mBlock está
 // "conectado"; si no, esptool no puede abrir el COM.
-function jwplcClosePort(channel, port) {
-    return new Promise((resolve) => {
-        if (!channel || typeof channel.sendMessage !== 'function' || !port) return resolve('skip');
-        let done = false;
-        const finish = (r) => { if (!done) { done = true; resolve(r); } };
-        try {
-            channel.sendMessage(
-                { connectType: 'serialport', cmd: 'close', params: { options: { port } } },
-                (err) => finish(err ? 'error: ' + err : 'closed')
-            );
-        } catch (e) {
-            finish('error: ' + e.message);
+// - app._mCtx.ConnectService.disconnect(id) cierra el puerto (lo que hace la
+//   GUI). _mCtx es interno de mBlock 5.4.3: revisar al cambiar de versión.
+// - app.getService('connect').disconnect() sólo emite el evento de UI.
+// - enviar "close" por el canal mLink no sirve: mLink lo ignora si el socket
+//   no es el que abrió el COM.
+async function jwplcReleasePort(app, port) {
+    const ctx = app && (app.mCtx || app._mCtx);
+    const cs = ctx && ctx.ConnectService;
+    let how = 'sin ConnectService';
+    if (cs && cs.ports && typeof cs.disconnect === 'function') {
+        const ids = [...cs.ports.keys()].filter((id) => String(id).toUpperCase().endsWith(port));
+        for (const id of ids) {
+            try { await cs.disconnect(id); } catch (_) {}
         }
-        setTimeout(() => finish('timeout'), 3000);
-    });
+        how = ids.length ? 'cerrado ' + ids.join(',') : 'no estaba abierto';
+    }
+    const connect = typeof app.getService === 'function' ? app.getService('connect') : null;
+    if (connect && typeof connect.disconnect === 'function') connect.disconnect();
+    await new Promise((r) => setTimeout(r, 1000));
+    return how;
 }
 
 const jwplcUploadDriver = (app, device, code, log, progress, onSuccess, onError) => {
@@ -67,8 +72,7 @@ const jwplcUploadDriver = (app, device, code, log, progress, onSuccess, onError)
         say('bridge ' + health.version + ' | ' + health.fqbn + ' | puerto ' + port);
         const token = await jwplcReadBridgeToken();
 
-        const closed = await jwplcClosePort(jwplcUploadState.channel, port);
-        say('puerto serie de mBlock: ' + closed);
+        say('puerto serie de mBlock: ' + await jwplcReleasePort(app, port));
 
         pct(2);
         const res = await fetch(JWPLC_BRIDGE_URL + '/upload', {

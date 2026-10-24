@@ -122,6 +122,7 @@ async function compile(code, fqbn, emit) {
         SKETCH_DIR,
     ], (line) => {
         if (/^(Library .* has been declared precompiled|Using precompiled library)/.test(line)) return;
+        logLine('  ' + line);
         emit({ type: 'log', line });
     });
     return exit;
@@ -146,6 +147,7 @@ async function upload(port, fqbn, emit) {
             }
             return;
         }
+        logLine('  ' + line);
         emit({ type: 'log', line });
     });
     return exit;
