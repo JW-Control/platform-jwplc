@@ -6,6 +6,7 @@
 // la compilación y el upload se delegan al JWPLC mBlock Bridge por HTTP.
 
 // La FQBN (package publicado o alpha en prueba) la decide el bridge.
+// JWPLC_SKETCH_FILES (librerías de src/arduino) lo define build-extension.cjs.
 const JWPLC_BRIDGE_URL = 'http://127.0.0.1:47820';
 
 // mBlock pasa el puerto a los middlewares, pero no al driver. El middleware
@@ -78,7 +79,7 @@ const jwplcUploadDriver = (app, device, code, log, progress, onSuccess, onError)
         const res = await fetch(JWPLC_BRIDGE_URL + '/upload', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-JWPLC-Token': token },
-            body: JSON.stringify({ code, port }),
+            body: JSON.stringify({ code, port, files: JWPLC_SKETCH_FILES }),
         });
         if (!res.ok || !res.body) {
             let detail = '';

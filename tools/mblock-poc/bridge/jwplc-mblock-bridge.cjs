@@ -38,7 +38,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { spawn } = require('child_process');
 
-const BRIDGE_VERSION = '0.2.0';
+const BRIDGE_VERSION = '0.3.0';
 const PORT = Number(process.env.JWPLC_BRIDGE_PORT || 47820);
 const HOST = '127.0.0.1';
 const ALLOWED_FQBN = /^jwplc[a-z0-9_]*:esp32:[a-z0-9_]+$/;
@@ -127,8 +127,33 @@ function runCli(args, onLine) {
     });
 }
 
-async function compile(code, fqbn, emit) {
+// Archivos extra del sketch (p. ej. JWPLC_mBlock.h que envía la extensión).
+const ALLOWED_EXTRA_FILE = /^[A-Za-z0-9_]{1,64}\.(h|hpp|c|cpp)$/;
+
+function validateExtraFiles(files) {
+    if (files == null) return null;
+    if (typeof files !== 'object' || Array.isArray(files)) return 'files debe ser un objeto';
+    for (const [name, content] of Object.entries(files)) {
+        if (!ALLOWED_EXTRA_FILE.test(name)) return 'nombre de archivo no permitido: ' + name;
+        if (typeof content !== 'string') return 'contenido no válido: ' + name;
+    }
+    return null;
+}
+
+// El sketch se reescribe completo en cada trabajo: se borran los archivos
+// extra del trabajo anterior para no compilar restos.
+function writeSketch(code, files) {
+    for (const name of fs.readdirSync(SKETCH_DIR)) {
+        fs.rmSync(path.join(SKETCH_DIR, name), { recursive: true, force: true });
+    }
     fs.writeFileSync(path.join(SKETCH_DIR, SKETCH_NAME + '.ino'), code, 'utf8');
+    for (const [name, content] of Object.entries(files || {})) {
+        fs.writeFileSync(path.join(SKETCH_DIR, name), content, 'utf8');
+    }
+}
+
+async function compile(code, files, fqbn, emit) {
+    writeSketch(code, files);
     emit({ type: 'stage', stage: 'compile', fqbn });
     const exit = await runCli([
         'compile',
@@ -227,7 +252,10 @@ async function handleJob(req, res, withUpload) {
     const code = body && body.code;
     const fqbn = (body && body.fqbn) || DEFAULT_FQBN;
     const port = body && body.port;
+    const files = body && body.files;
     if (typeof code !== 'string' || !code.trim()) return sendJson(res, 400, { ok: false, error: 'missing code' });
+    const filesError = validateExtraFiles(files);
+    if (filesError) return sendJson(res, 400, { ok: false, error: filesError });
     if (!ALLOWED_FQBN.test(fqbn)) return sendJson(res, 400, { ok: false, error: 'fqbn not allowed: ' + fqbn });
     if (withUpload && !(typeof port === 'string' && ALLOWED_PORT.test(port))) {
         return sendJson(res, 400, { ok: false, error: 'invalid port: ' + port });
@@ -242,7 +270,7 @@ async function handleJob(req, res, withUpload) {
     };
     const started = Date.now();
     try {
-        const compileExit = await compile(code, fqbn, emit);
+        const compileExit = await compile(code, files, fqbn, emit);
         if (compileExit !== 0) {
             emit({ type: 'result', ok: false, stage: 'compile', exit: compileExit, ms: Date.now() - started });
             return;

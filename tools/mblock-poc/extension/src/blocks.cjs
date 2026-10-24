@@ -5,17 +5,19 @@
 //   text      texto por idioma; [ARG] marca los argumentos (formato mBlock)
 //   arguments argumentos; los menús se definen con { label, value }
 //   code      código Arduino en el punto del bloque (/*{ARG}*/ inserta el argumento)
-//   sections  código para otras secciones de la plantilla (setup, loop, declare);
+//   sections  código para otras secciones de la plantilla (include, setup, loop, declare);
 //             mBlock no repite una línea idéntica, así que los helpers comunes
 //             pueden declararse en varios bloques.
 //
 // Todas las llamadas existen en el package 2.1.0-alpha.14:
 // - E/S: digitalWrite/digitalRead (redirigidas a jwplc_* para I0_x/Q0_x),
 //   JWPLC_readInputs/readOutputs/writeOutputs (core).
-// - Pantalla: JWPLC_Display (setFields, setText, enterUserUI, goIdle) con
-//   campos JWPLC_UITextField: sólo redibuja lo que cambia y no expone TFT_eSPI.
+// - Pantalla: JWPLC_Screen (JWPLC_mBlock.h) sobre JWPLC_Display (campos
+//   JWPLC_UITextField: sólo redibuja lo que cambia, no expone TFT_eSPI),
+//   más enterUserUI/goIdle directos.
 // - Botonera: JWPLC_Buttons.pressed/isDown/clearPendingInput (BTN_*).
-// - Sonido: JWPLC_Buzzer (GPIO26, no bloqueante) de JWPLC_GlobalPeripherals 1.1.0.
+// - Sonido: JWPLC_Buzzer (GPIO26, no bloqueante) de JWPLC_GlobalPeripherals 1.1.0
+//   y JWPLC_Sound.play (JWPLC_mBlock.h) para "tocar ... durante".
 // No se emite pinMode(): el core configura internamente I0_x/Q0_x.
 
 'use strict';
@@ -57,53 +59,12 @@ const NOTE_MENU = {
 };
 const LINE_MENU = [1, 2, 3, 4].map((n) => ({ label: String(n), value: String(n) }));
 
-// Pantalla para niños: 4 líneas de texto sobre los campos HMI de JWPLC_Display.
-// setText() sólo invalida el campo si el texto cambió (dirty redraw), así que
-// escribir en cada vuelta de loop() no carga el bus SPI.
-const SCREEN_HELPERS = [
-    '// Pantalla JWPLC: 4 líneas de texto (campos de JWPLC_Display).',
-    'static const JWPLC_UIField _JW_SCREEN_FIELDS[] = {',
-    '  JWPLC_UITextField(1, 10, 18, nullptr, 24),',
-    '  JWPLC_UITextField(2, 10, 52, nullptr, 24),',
-    '  JWPLC_UITextField(3, 10, 86, nullptr, 24),',
-    '  JWPLC_UITextField(4, 10, 120, nullptr, 24)};',
-    '',
-    'void _jw_screen_begin() {',
-    '  JWPLC_Display.setUserRefreshMode(USER_REFRESH_ON_DEMAND);',
-    '  JWPLC_Display.setFields(_JW_SCREEN_FIELDS, 4);',
-    '  JWPLC_Display.enterUserUI();',
-    '}',
-    '',
-    'void _jw_line(int line, const String &text) {',
-    '  if (line >= 1 && line <= 4) JWPLC_Display.setText((uint8_t)line, text.c_str());',
-    '}',
-    'void _jw_line(int line, const char *text) { _jw_line(line, String(text)); }',
-    'void _jw_line(int line, double value) {',
-    '  if (value == (double)(long)value) _jw_line(line, String((long)value));',
-    '  else _jw_line(line, String(value, 2));',
-    '}',
-    'void _jw_line(int line, float value) { _jw_line(line, (double)value); }',
-    'void _jw_line(int line, int value) { _jw_line(line, String(value)); }',
-    'void _jw_line(int line, long value) { _jw_line(line, String(value)); }',
-    'void _jw_line(int line, unsigned long value) { _jw_line(line, String(value)); }',
-    'void _jw_line(int line, bool value) { _jw_line(line, String(value ? "SI" : "NO")); }',
-    '',
-    'void _jw_screen_clear() {',
-    '  for (int i = 1; i <= 4; i++) _jw_line(i, "");',
-    '}',
-].join('\n');
-const SCREEN_SECTIONS = { declare: SCREEN_HELPERS, setup: '_jw_screen_begin();' };
-
-// "tocar nota/sonar durante" espera a que termine, como en mCore; el buzzer
-// en sí es no bloqueante (esp_timer) y delay() cede la CPU al runtime.
-const SOUND_HELPERS = [
-    'void _jw_tone(double hz, double seconds) {',
-    '  unsigned long ms = (unsigned long)(seconds * 1000);',
-    '  if (ms > 65000UL) ms = 65000UL;',
-    '  JWPLC_Buzzer.tone((uint16_t)hz, (uint16_t)ms);',
-    '  delay(ms);',
-    '}',
-].join('\n');
+// Pantalla y sonido usan JWPLC_mBlock.h (src/arduino/), que la extensión
+// envía junto al sketch: el código de la vista previa queda en llamadas
+// cortas, como MeMCore.h en mBot. mBlock antepone "#include " a cada include.
+const LIB_INCLUDE = '"JWPLC_mBlock.h"';
+const SCREEN_SECTIONS = { include: [LIB_INCLUDE], setup: 'JWPLC_Screen.begin();' };
+const SOUND_SECTIONS = { include: [LIB_INCLUDE] };
 
 const BLOCKS = [
     // ---- Eventos ---------------------------------------------------------
@@ -249,7 +210,7 @@ const BLOCKS = [
             TEXT: { type: 'string', defaultValue: 'Hola' },
             LINE: { type: 'fieldMenu', defaultValue: '1', menu: LINE_MENU },
         },
-        code: '_jw_line(/*{LINE}*/, /*{TEXT}*/);',
+        code: 'JWPLC_Screen.print(/*{LINE}*/, /*{TEXT}*/);',
         sections: SCREEN_SECTIONS,
     },
     {
@@ -258,7 +219,7 @@ const BLOCKS = [
         blockType: 'command',
         text: { en: 'clear screen', es: 'limpiar pantalla' },
         arguments: {},
-        code: '_jw_screen_clear();',
+        code: 'JWPLC_Screen.clear();',
         sections: SCREEN_SECTIONS,
     },
     {
@@ -299,8 +260,8 @@ const BLOCKS = [
             NOTE: { type: 'fieldMenu', defaultValue: '262', menu: NOTE_MENU },
             SECS: { type: 'number', defaultValue: 0.5 },
         },
-        code: '_jw_tone(/*{NOTE}*/, /*{SECS}*/);',
-        sections: { declare: SOUND_HELPERS },
+        code: 'JWPLC_Sound.play(/*{NOTE}*/, /*{SECS}*/);',
+        sections: SOUND_SECTIONS,
     },
     {
         category: 'jwplc_sound',
@@ -311,8 +272,8 @@ const BLOCKS = [
             HZ: { type: 'number', defaultValue: 700 },
             SECS: { type: 'number', defaultValue: 1 },
         },
-        code: '_jw_tone(/*{HZ}*/, /*{SECS}*/);',
-        sections: { declare: SOUND_HELPERS },
+        code: 'JWPLC_Sound.play(/*{HZ}*/, /*{SECS}*/);',
+        sections: SOUND_SECTIONS,
     },
     {
         category: 'jwplc_sound',
@@ -336,7 +297,8 @@ const BLOCKS = [
         blockType: 'command',
         text: { en: 'set volume to [PCT] %', es: 'poner volumen al [PCT] %' },
         arguments: { PCT: { type: 'number', defaultValue: 50 } },
-        code: 'JWPLC_Buzzer.setVolume((uint8_t)constrain((int)((/*{PCT}*/) * 255 / 100), 0, 255));',
+        code: 'JWPLC_Sound.volume(/*{PCT}*/);',
+        sections: SOUND_SECTIONS,
     },
 ];
 

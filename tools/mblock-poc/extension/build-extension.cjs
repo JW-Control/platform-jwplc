@@ -20,7 +20,7 @@ const zlib = require('zlib');
 const { execFileSync } = require('child_process');
 
 const EXT_ID = 'jwplc_basic';
-const EXT_VERSION = '0.2.0';
+const EXT_VERSION = '0.3.0';
 const HERE = __dirname;
 const DIST = path.join(HERE, 'dist');
 const OUT = path.join(DIST, EXT_ID);
@@ -152,6 +152,11 @@ function buildInfoData() {
 
 function buildIndexJs() {
     const runtime = fs.readFileSync(path.join(HERE, 'src', 'runtime.js'), 'utf8');
+    // Archivos que viajan con cada sketch (los escribe el bridge junto al .ino).
+    const sketchFiles = {};
+    for (const name of fs.readdirSync(path.join(HERE, 'src', 'arduino'))) {
+        sketchFiles[name] = fs.readFileSync(path.join(HERE, 'src', 'arduino', name), 'utf8');
+    }
     const { categories, translations } = buildInfoData();
     const generators = [{
         lang: 'arduinoc',
@@ -252,6 +257,7 @@ class ExtJwplcBasic {
         '})(this, function (_exports) {',
         '"use strict";',
         'Object.defineProperty(_exports, "__esModule", { value: true });',
+        'const JWPLC_SKETCH_FILES = ' + JSON.stringify(sketchFiles, null, 2) + ';',
         runtime,
         classLines,
         '_exports.default = ExtJwplcBasic;',
@@ -361,6 +367,8 @@ function main() {
     fs.writeFileSync(path.join(OUT, 'manifest.json'), JSON.stringify(buildManifest(), null, 4));
     fs.writeFileSync(path.join(OUT, 'index.js'), buildIndexJs());
     fs.copyFileSync(path.join(HERE, 'assets', ICON), path.join(OUT, 'imgs', ICON));
+    // Copia legible de las librerías del sketch (la extensión usa la versión embebida).
+    fs.cpSync(path.join(HERE, 'src', 'arduino'), path.join(OUT, 'arduino'), { recursive: true });
     const { translations } = buildInfoData();
     for (const lang of LANGS) {
         fs.writeFileSync(path.join(OUT, 'i18n', lang + '.json'), JSON.stringify(translations[lang], null, 4));
