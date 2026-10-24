@@ -78,6 +78,17 @@ window.JWPLCValueFormat   designer-value-format   formato de VALUE (número, mil
   pantalla tiene cambios sin guardar (`JWPLCHMIProject.isDirty()`), pregunta antes de reemplazarlo. Abrir la
   app sin sketch empieza sin vínculo. «Desvincular sketch»: IPC `unlink-sketch`.
 
+## Modo OpenPLC (contrato `jwplc-hmi-host/1.1`, 24/10/2026)
+
+- OpenPLC (openplc-editor `src/main/modules/hmi-designer/`) abre `poc/desktop.html?host=openplc` con
+  `window.JWPLCHMIHost` (`mode: 'openplc'`, `listVariables`) y un `JWPLCHMINative` reducido: el «sketch» es la
+  carpeta `hmi/` del proyecto. Contrato: `docs/v2.1.0-alpha.14/A14_F3_CONTRATO_HMI_OPENPLC_20261017.md` §7.
+- `designer-openplc-host.js`: selector «Variable PLC» y `plcBinding`. `designer-sketch-menu.js`,
+  `designer-native-project.js`, `designer-project-integration-fix.js` y `desktop-responsive.js` miran
+  `JWPLCHMIHost.mode`: «OpenPLC: <proyecto> ▾», «Actualizar HMI», sin guía `JWPLC_HMI_LEEME.md`, «Nuevo» no
+  desvincula. Un texto nuevo del botón del sketch va en los cuatro con la misma regla (si no, parpadea).
+- Test: `tests/openplc-host-smoke.cjs` (simula el preload de OpenPLC).
+
 ## Live Bridge: flasheo en un clic (André, 2026-10-20)
 
 - Plan e informe: `PLAN_LIVE_BRIDGE_FLASHER.md`, `INFORME_CAMBIOS_FLASHER.md`.
@@ -173,9 +184,9 @@ Estado de adopción por tipo: ver `ALPHA15_STATUS.md` (§Inspector).
   emite TEXT/VALUE; BOOL/BAR salen como `JWPLC_UITextField` provisional que reemplazan sus capas.
 - Tras tocar el codegen: `node tests/codegen-golden.cjs` (salida byte a byte) y
   `node tests/codegen-smoke.cjs`. Un cambio intencional: `--update` y revisar el diff.
-- Tras tocar JS/CSS: subir el `?v=` del archivo tocado (hoy 1793801300; `designer-codegen` y `designer-sketch-guide` 1793801800; `app.js` y `designer-icons-core` 1793801900; `ux-foundation` y `designer-icons` 1793802000) en
+- Tras tocar JS/CSS: subir el `?v=` del archivo tocado (hoy 1793801300; `designer-codegen` y `designer-sketch-guide` 1793801800; `app.js` y `designer-icons-core` 1793801900; `ux-foundation` y `designer-icons` 1793802000; `designer-native-project`, `designer-project-integration-fix`, `desktop-responsive` y `designer-sketch-menu` 1793802100; `designer-openplc-host` 1793802200) en
   `index.html`/`desktop.html`/`ux-foundation.js`/`designer-field-visibility.js` y `CACHE_NAME` en
-  `service-worker.js` (hoy `jwplc-hmi-designer-a16-v48`).
+  `service-worker.js` (hoy `jwplc-hmi-designer-a16-v51`).
 - Versión visible: `2.1.0-alpha.14` (título, `.brand-badge`, `.gate` de la barra de estado, panel «Estado»,
   `electron/package.json`). El comentario `// API pública JWPLC_UI · Alpha11 A11-4` del header generado es un
   marcador interno de las capas del codegen: no cambiarlo.
@@ -203,6 +214,7 @@ node tests/icon-host-sim.cjs            # ICON: JWPLC_UI.cpp real en host (g++)
 node tests/icon-smoke.cjs               # ICON: Designer + paridad lienzo/firmware + header
 node tests/sketch-menu-smoke.cjs        # Escribir en sketch + menú del sketch
 node tests/sketch-guide.test.cjs        # guía JWPLC_HMI_LEEME.md + su sketch base compila
+node tests/openplc-host-smoke.cjs       # Designer dentro de OpenPLC (puente 1.1 simulado)
 node tests/live-bridge-flasher.test.cjs # flasheador Live Bridge: manifiesto, binarios ESP32, integración
 node tests/agent-cli.test.cjs           # CLI para agentes: spec, validación, golden, ejemplos, build
 cd poc && python3 -m http.server 8765 --bind 127.0.0.1   # abrir /desktop.html

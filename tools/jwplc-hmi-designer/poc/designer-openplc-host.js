@@ -65,7 +65,12 @@
     if (input.id === 'barPlcVariable') return { kind: 'bar', field, object: field, wants: { hmi: 'number', rw: false } };
     if (field.type === 'BOOL') return { kind: 'field', field, object: field, wants: { hmi: 'bool', rw: false } };
     if (field.type === 'VALUE' || field.type === 'BAR') return { kind: 'field', field, object: field, wants: { hmi: 'number', rw: false } };
-    return { kind: 'field', field, object: field, wants: null, note: 'Este objeto todavía no se enlaza a variables PLC.' };
+    return {
+      kind: 'field', field, object: field, wants: null,
+      note: field.type === 'TEXT'
+        ? 'TEXT todavía no se enlaza a variables PLC: para mostrar una variable usa VALUE (números), BOOL (estados) o BAR.'
+        : 'Este objeto todavía no se enlaza a variables PLC.'
+    };
   }
 
   function compatible(variable, wants) {
@@ -77,7 +82,8 @@
   }
 
   function optionLabel(variable) {
-    const parts = [variable.name, variable.iecType, variable.address || 'sin dirección'];
+    // Sin dirección: OpenPLC la enlaza por la tabla de depuración del programa (contrato 1.2).
+    const parts = [variable.name, variable.iecType, variable.address || (variable.access ? 'variable del programa' : 'sin dirección')];
     if (variable.access === 'RW') parts.push('RW');
     return parts.join(' · ');
   }

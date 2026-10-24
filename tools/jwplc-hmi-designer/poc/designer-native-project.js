@@ -5,6 +5,8 @@
   if (!native?.isNative) return;
 
   const HEADER_NAME = 'JWPLC_HMI_Generated.h';
+  // Dentro de OpenPLC el «sketch» es la carpeta hmi/ del proyecto y no se desvincula.
+  const openplc = window.JWPLCHMIHost?.mode === 'openplc';
   let linked = null;
 
   function wait(ms) {
@@ -60,7 +62,7 @@
     const status = document.getElementById('sketchLinkStatus');
 
     if (linkButton) {
-      linkButton.textContent = linked?.ok ? `Sketch: ${linked.name}` : 'Vincular sketch…';
+      linkButton.textContent = linked?.ok ? `${openplc ? 'OpenPLC' : 'Sketch'}: ${linked.name}` : 'Vincular sketch…';
       linkButton.classList.toggle('linked', Boolean(linked?.ok));
       linkButton.title = linked?.ok
         ? `Sketch vinculado: ${linked.path}`
@@ -69,7 +71,7 @@
     if (updateButton) updateButton.disabled = !linked?.ok;
     if (status) {
       status.textContent = linked?.ok
-        ? `Sketch: ${linked.name} · ${HEADER_NAME}`
+        ? (openplc ? `OpenPLC: ${linked.name} · hmi/${HEADER_NAME}` : `Sketch: ${linked.name} · ${HEADER_NAME}`)
         : 'Sketch: sin vincular';
       status.classList.toggle('linked', Boolean(linked?.ok));
       status.classList.remove('warning');
@@ -176,7 +178,9 @@
       if (window.JWPLCHMIProject?.apply) {
         await window.JWPLCHMIProject.apply(data);
         window.dispatchEvent(new CustomEvent('jwplc:project-loaded', { detail: { sketch: info.name } }));
-        toast(`HMI del sketch «${info.name}» cargado (${info.projectFile}).`, 'ok');
+        toast(openplc
+          ? `HMI del proyecto OpenPLC «${info.name}» cargado (hmi/${info.projectFile}).`
+          : `HMI del sketch «${info.name}» cargado (${info.projectFile}).`, 'ok');
         return true;
       }
     } catch (err) {
@@ -241,8 +245,9 @@
       updateUi();
     });
 
-    window.addEventListener('jwplc:sketch-unlinked', () => {
-      linked = null;
+    window.addEventListener('jwplc:sketch-unlinked', async () => {
+      const current = openplc ? await native.getLinkedSketch() : null;
+      linked = current?.ok ? current : null;
       updateUi();
     });
 
