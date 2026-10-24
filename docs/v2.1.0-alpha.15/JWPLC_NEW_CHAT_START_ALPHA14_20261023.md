@@ -63,8 +63,8 @@ No usa `workflow_dispatch` porque exigiría el archivo en `main`, que debe segui
    `jwplc_local`, HEAD `8e5924f`, con `libJWPLC_TFT.a` de `161e406` con DISPON diferido). Cierra lo pendiente del punto 6:
 
    ```text
-   A14_FASE1_COMPILE_BASIC=PASS        18/18 (los 16 de arriba repetidos con el .a nuevo + Codegen_Static + F0)
-   A14_FASE1_COMPILE_BASIC_CORE=PASS   18/18 (mismos sketches; fqbn jwplc_local:esp32:jwplcbasiccore)
+   A14_FASE1_COMPILE_BASIC=PASS        17/17 (la lista de arriba repetida con el .a nuevo + Codegen_Static + F0)
+   A14_FASE1_COMPILE_BASIC_CORE=PASS   17/17 (mismos sketches; fqbn jwplc_local:esp32:jwplcbasiccore)
    A14_FASE1=CLOSED
    ```
 

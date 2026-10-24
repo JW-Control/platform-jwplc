@@ -85,8 +85,8 @@ Referencia adoptada: arduino-cli 1.5.1. Benchmark de la alpha.14 con todo precom
   1 733 562 B, sha256 `f4108833…16919eaa` (commit `161e406`).
 - `libJWPLC_Display.a` regenerado desde la fuente final: `ABI_COMPAT=PASS` (0 símbolos públicos quitados, 27
   añadidos), 1 370 778 B, sha256 `20d23abe…a0055745`; `JWPLC_Display` vuelve a `precompiled=full`.
-- Compilación ESP32 (arduino-cli, package de la rama) de 18 sketches en **JWPLC Basic y JWPLC Basic Core**
-  (18/18 en cada placa, también con `JWPLC_Display` precompilado): ejemplos de Display 01–04, gates del Designer (MENU, formatos, reloj, tildes,
+- Compilación ESP32 (arduino-cli, package de la rama) de 17 sketches en **JWPLC Basic y JWPLC Basic Core**
+  (17/17 en cada placa, también con `JWPLC_Display` precompilado): ejemplos de Display 01–04, gates del Designer (MENU, formatos, reloj, tildes,
   codegen, OpenPLC F0), Ethernet DHCP, Modbus TCP Server/Client, Modbus RTU Slave/Master y RS485_Echo.
 
 ### Pruebas en placa
