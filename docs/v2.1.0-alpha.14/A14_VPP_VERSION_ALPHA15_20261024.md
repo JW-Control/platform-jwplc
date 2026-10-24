@@ -7,6 +7,8 @@ VPP_VERSION_ANTERIOR=2.1.0-alpha.32   (serie propia del VPP, firmada el 17/10)
 VPP_VERSION_NUEVA=2.1.0-alpha.15      (= la alpha que la publica)
 PAYLOAD=sin cambios salvo manifest.json (sólo package.version)
 FIRMA=PENDIENTE  (signature.json todavía es la de alpha.32: hay que firmar en la PC con la llave)
+COMPILA_CON_PACKAGE_2_1_0_ALPHA_14=PASS [ejecutado] (§5)
+FIRMA_Y_VERIFICACION=PASS [ejecutado] con una llave de prueba desechable (§5)
 ```
 
 ## 1. Por qué
@@ -66,18 +68,37 @@ build-jwplc-vpp-v2.bat
 Debe quedar:
 
 - `vpp\signature.json` con `"version": "2.1.0-alpha.15"` y `"keyId": "jwcontrol-2026"`;
-- `out\jwplc-basic-openplc-2.1.0-alpha.15.jwcontrol-signed.vpp`.
+- `out\jwplc-basic-openplc-2.1.0-alpha.15.jwcontrol-signed.vpp`, y una copia en
+  `C:\Users\jeykc\Documents\openplcProbe` (el `.bat` la deja ahí si la carpeta existe; otra carpeta con
+  `set "JWPLC_VPP_DEST=…"`).
 
 Luego:
 
-1. Copiar el `.vpp` a `C:\Users\jeykc\Documents\openPLC` (donde están los proyectos y VPP de prueba).
-2. OpenPLC → gestor de paquetes → agregar desde archivo → el `.vpp` nuevo: debe instalar sin error de firma y
+1. OpenPLC → gestor de paquetes → agregar desde archivo → el `.vpp` nuevo: debe instalar sin error de firma y
    mostrar 2.1.0-alpha.15.
-3. Abrir el proyecto de prueba de la HMI (HMIProbe) y compilar: igual que con alpha.32 (el payload no cambió).
-4. Commit sólo de `vpp/signature.json` (`chore(vpp): firmar 2.1.0-alpha.15`) como `JW-Control`, push a esta rama.
+2. Abrir el proyecto de prueba de la HMI (HMIProbe) y compilar: igual que con alpha.32 (el payload no cambió).
+3. Commit sólo de `vpp/signature.json` (`chore(vpp): firmar 2.1.0-alpha.15`) como `JW-Control`, push a esta rama.
    `out\` no se versiona.
 
 ```text
 A14_VPP_ALPHA15_FIRMA=PENDING
 A14_VPP_ALPHA15_INSTALA_EN_OPENPLC=PENDING [no verificado]
 ```
+
+## 5. Verificación en la nube (24/10)
+
+- `[ejecutado]` **Compilación ESP32** contra el package de esta rama (2.1.0-alpha.14 publicada,
+  `jwplc_local:esp32:jwplcbasic`), con `tools/alpha15/regenerate_libJWPLC_TFT.sh compile`.
+  - El sketch imita el build de OpenPLC:
+    - `arduino.cpp` = `vpp/hal/jwplcbasic.cpp`;
+    - `openplc.h` real de openplc-editor (`resources/sources/arduino`);
+    - `.ino` con los buffers del runtime;
+    - `jwplc_hmi.h` generado por `generateJwplcHmi()` del editor con el gate F0c (7 enlaces: `RELE`, `CONTADOR`
+      ×3, `LIMITE` RW, `CONSIGNA` REAL RW, `LLENO`).
+  - Header del gate F0c (Designer anterior): **PASS**, 447 781 B de flash, 39 668 B de RAM.
+  - Header regenerado con el Designer de 2.1.0-alpha.14 (`cli/jwhmi.cjs generate` del mismo `.jwhmi`),
+    `VPP_HMI_DIAGNOSTICS_TIMING` activo: **PASS**, 448 225 B, 39 732 B.
+- `[ejecutado]` **Firma**: copia de `vpp/` firmada con `sign-vpp-package.mjs` y una llave de prueba generada
+  con `generate-dev-keypair.mjs` (borrada después); `verifyPackageSignature` del editor: `{"valid":true}` con
+  `version 2.1.0-alpha.15`. El editor confía en `jwcontrol-2026` (`src/backend/shared/utils/vpp/trusted-keys.ts`).
+- `[no verificado]` firma con `jwcontrol-2026`, instalación en OpenPLC y placa: §4, en la PC.

@@ -20,6 +20,7 @@ rem
 rem Opciones:
 rem   build-jwplc-vpp.bat --no-clean-installed
 rem   set "JWPLC_VPP_KEY=C:\ruta\jwcontrol-2026-private.pem"  (opcional, otra ruta de la llave)
+rem   set "JWPLC_VPP_DEST=C:\carpeta"  (opcional; por defecto copia a Documentos\openplcProbe si existe)
 rem ============================================================================
 
 set "EXIT_CODE=0"
@@ -182,6 +183,18 @@ if "%CLEAN_INSTALLED%"=="1" (
   call :cleanKnownPackagePaths
 ) else (
   echo [INFO] Limpieza omitida por --no-clean-installed.
+)
+
+rem Copia lista para instalar: Documentos\openplcProbe (si existe) o la carpeta de JWPLC_VPP_DEST.
+set "DEST_DIR=%USERPROFILE%\Documents\openplcProbe"
+if defined JWPLC_VPP_DEST set "DEST_DIR=%JWPLC_VPP_DEST%"
+if exist "%DEST_DIR%\" (
+  copy /y "%SIGNED_VPP%" "%DEST_DIR%\" >nul
+  if errorlevel 1 (
+    echo [WARN] No se pudo copiar el VPP a "%DEST_DIR%".
+  ) else (
+    echo [OK] VPP copiado a "%DEST_DIR%".
+  )
 )
 
 goto finish
