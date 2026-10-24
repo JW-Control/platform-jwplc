@@ -15,7 +15,8 @@
  *   node install-package-from-ref.cjs [ref] [vendor]
  *   ref    por defecto origin/v2.1.0-alpha.14/HmiDesigner/main
  *   vendor por defecto jwplc_a14
- *   node install-package-from-ref.cjs --reset   (vuelve al core instalado jwplc:esp32)
+ *   node install-package-from-ref.cjs --reset   (vuelve al core instalado jwplc:esp32,
+ *                                                con un sketchbook vacío propio)
  */
 'use strict';
 
@@ -30,8 +31,15 @@ const SKETCHBOOK = path.join(WORK_DIR, 'sketchbook');
 
 function main() {
     if (process.argv.includes('--reset')) {
-        fs.rmSync(CONFIG_FILE, { force: true });
-        console.log('BRIDGE_CONFIG=RESET (fqbn por defecto jwplc:esp32:jwplcbasic)');
+        // Core publicado e instalado (jwplc:esp32), con un sketchbook vacío propio:
+        // así ninguna librería del sketchbook del usuario tapa las del package.
+        const empty = path.join(WORK_DIR, 'sketchbook-empty');
+        fs.mkdirSync(empty, { recursive: true });
+        const config = { fqbn: 'jwplc:esp32:jwplcbasic', sketchbook: empty, packageRef: 'core instalado', packageSha: '' };
+        fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
+        console.log('BRIDGE_CONFIG=' + CONFIG_FILE);
+        console.log('FQBN=' + config.fqbn + ' (core publicado), SKETCHBOOK=' + empty);
+        console.log('Reinicia el bridge para aplicar el cambio.');
         return;
     }
     const ref = process.argv[2] || 'origin/v2.1.0-alpha.14/HmiDesigner/main';
