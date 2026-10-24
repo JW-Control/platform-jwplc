@@ -119,7 +119,9 @@ envoltorio de `JW_ModbusRTU`/`JW_RS485`, se compila desde la fuente en esta vers
   - Modbus RTU: FC03 cada 500 ms sin errores y FC06 desde el MENU (`HR1=250` confirmado por el Slave): PASS;
   - 10 minutos con Modbus TCP y RTU a la vez, sin reinicios ni errores RTU: PASS;
   - Live Bridge instalado desde la app con «⚡ Instalar Firmware Live», LIVE conectado y el sketch vuelto a
-    subir después: PASS.
+    subir después: PASS, repetido con el Live Bridge recompilado desde el package congelado (440 752 B, el que
+    se publica). El LIVE sigue los cambios del lienzo; el operador notó algo más de latencia que con el
+    binario anterior, dentro de lo aceptable.
 
 ## Limitaciones conocidas
 
