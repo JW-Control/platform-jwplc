@@ -14,7 +14,9 @@ DECISION=BORRAR
 ```
 
 - La línea entró completa en la integración `06a636a` (merge sobre `release/v2.1.x`). Desde entonces la rama de la alpha
-  suma 54 commits (231 contando los que trajo `release/v2.1.x`: ICON, pines con nombre, congelado de los `.a`, cierre); la línea HMI no recibió nada nuevo.
+  suma 54 commits propios
+  (ICON, pines con nombre, congelado de los `.a`, cierre) más los 177 de Alpha13 que trajo `release/v2.1.x`; la línea HMI
+  no recibió nada nuevo.
 - En esa fusión, 10 archivos que la línea HMI había cambiado quedaron distintos de su versión `[visto]`, todos por
   combinarlos con Alpha13, no por perder trabajo:
   - `JWPLC_TFT` (`.h`, `.cpp`, `tft_setup.h`, `library.properties`, `.a`): se suman el DISPON diferido y
