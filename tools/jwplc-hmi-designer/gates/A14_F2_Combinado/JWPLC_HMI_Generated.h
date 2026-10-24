@@ -337,7 +337,7 @@ static const JWPLC_UIField HMI_FIELDS[] =
     JWPLC_UIValueField(
         FIELD_HR0,
         JWPLC_UIRect(170, 4),
-        JWPLC_UIText("COM14 HR0", nullptr),
+        JWPLC_UIText("Slave HR0", nullptr),
         JWPLC_UIValueFormat(
             5,
             0,

@@ -16,7 +16,7 @@
       { "type": "VALUE", "id": "FIELD_TCP", "variable": "tcpPeticiones", "label": "TCP pet.", "x": 4, "y": 34, "integerDigits": 7, "decimalDigits": 0, "thousandsSep": "," },
       { "type": "VALUE", "id": "FIELD_RTU_OK", "variable": "rtuOk", "label": "RTU OK", "x": 4, "y": 64, "integerDigits": 7, "decimalDigits": 0, "thousandsSep": "," },
       { "type": "VALUE", "id": "FIELD_RTU_ERR", "variable": "rtuErr", "label": "RTU error", "x": 4, "y": 94, "integerDigits": 7, "decimalDigits": 0, "thousandsSep": "," },
-      { "type": "VALUE", "id": "FIELD_HR0", "variable": "esclavoHR0", "label": "COM14 HR0", "x": 170, "y": 4, "integerDigits": 5, "decimalDigits": 0 }
+      { "type": "VALUE", "id": "FIELD_HR0", "variable": "esclavoHR0", "label": "Slave HR0", "x": 170, "y": 4, "integerDigits": 5, "decimalDigits": 0 }
     ] },
     { "name": "Ajustes", "shortName": "AJUST", "color": "YELLOW", "fields": [
       { "type": "MENU", "id": "MENU_AJUSTES", "title": "Ajustes", "x": 4, "y": 4, "width": 312, "height": 120,

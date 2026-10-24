@@ -1,10 +1,10 @@
 // Gate A14 fase 2: prueba física combinada del package 2.1.0-alpha.14.
 //
-// COM4  (JWPLC Basic con Ethernet): este sketch. Pantalla del Designer con tres
+// COM6  Master (JWPLC Basic con Ethernet): este sketch. Pantalla del Designer con tres
 //        pestañas (Proceso, Comunicaciones, Ajustes con MENU), reloj del RTC,
 //        «°C», ICON, BAR, buzzer, Ethernet DHCP + servidor Modbus TCP y
 //        Master Modbus RTU.
-// COM14 (Slave): ejemplo JWPLC_ModbusRTU/01.ModbusRTU_Slave_Holding (ID 2,
+// COM3  Slave: ejemplo JWPLC_ModbusRTU/01.ModbusRTU_Slave_Holding (ID 2,
 //        115200 8N1), unido por RS-485.
 //
 // Master RTU: FC03 HR0..HR3 del Slave cada 500 ms; al confirmar «Escribir HR1»
@@ -152,7 +152,7 @@ void loop()
     if (now - lastLog >= 2000)
     {
         lastLog = now;
-        Serial.printf("ETH=%d IP=%s TCP=%lu RTU ok=%lu err=%lu HR0(COM14)=%u T=%.1f\n",
+        Serial.printf("ETH=%d IP=%s TCP=%lu RTU ok=%lu err=%lu HR0(Slave)=%u T=%.1f\n",
                       ethLista, JWPLC_Ethernet.localIP().toString().c_str(),
                       (unsigned long)tcpPeticiones, (unsigned long)rtuOk,
                       (unsigned long)rtuErr, rtuValues[0], temperatura);
