@@ -9,7 +9,7 @@
     "pixelFormat": "RGB565"
   },
   "projectName": "A14_F2_Combinado",
-  "savedAt": "2026-10-24T13:54:28.605Z",
+  "savedAt": "2026-10-24T16:43:27.732Z",
   "activePage": 0,
   "navigationBar": {
     "enabled": true,
@@ -382,7 +382,7 @@
       "type": "VALUE",
       "id": "FIELD_HR0",
       "variable": "esclavoHR0",
-      "label": "COM14 HR0",
+      "label": "Slave HR0",
       "x": 170,
       "y": 4,
       "integerDigits": 5,
