@@ -13,5 +13,5 @@
  B.Xml.domToWorkspace(B.Xml.textToDom(xml),ws);
  await new Promise(r=>setTimeout(r,2500));
  const code=window.monaco.editor.getModels().map(x=>x.getValue()).find(v=>v.includes('JWPLC Basic'));
- return code.split('\n').filter(l=>/_jw_line\((3|4),/.test(l)).join('\n');
+ return code.split('\n').filter(l=>/JWPLC_Screen\.print\((3|4),/.test(l)).join('\n');
 })()

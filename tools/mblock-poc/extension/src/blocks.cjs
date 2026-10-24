@@ -18,6 +18,9 @@
 // - Botonera: JWPLC_Buttons.pressed/isDown/clearPendingInput (BTN_*).
 // - Sonido: JWPLC_Buzzer (GPIO26, no bloqueante) de JWPLC_GlobalPeripherals 1.1.0
 //   y JWPLC_Sound.play (JWPLC_mBlock.h) para "tocar ... durante".
+// - Tiempo: JWPLC_Time (vista cacheada del RTC) y JWPLC_Timer/JWPLC_Clock.
+// - Memoria: JWPLC_Memory sobre JWPLC_FRAM (bloques con checksum).
+// - microSD: JWPLC_Files sobre JWPLC_SD (mutex del bus SPI).
 // No se emite pinMode(): el core configura internamente I0_x/Q0_x.
 
 'use strict';
@@ -28,6 +31,9 @@ const CATEGORIES = [
     { name: 'jwplc_screen', colors: ['#7E57C2', '#7048B6', '#5E3AA0'], text: { en: 'Screen', es: 'Pantalla' } },
     { name: 'jwplc_buttons', colors: ['#00A0A0', '#009090', '#008080'], text: { en: 'Buttons', es: 'Botonera' } },
     { name: 'jwplc_sound', colors: ['#CF63CF', '#C94FC9', '#BD42BD'], text: { en: 'Sound', es: 'Sonido' } },
+    { name: 'jwplc_time', colors: ['#5CB1D6', '#47A8D1', '#2E8EB8'], text: { en: 'Time', es: 'Tiempo' } },
+    { name: 'jwplc_memory', colors: ['#E07B39', '#D86D29', '#C25F20'], text: { en: 'Memory', es: 'Memoria' } },
+    { name: 'jwplc_sd', colors: ['#8C7AE6', '#7D6AD9', '#6C59C9'], text: { en: 'microSD', es: 'microSD' } },
 ];
 
 const OUTPUT_MENU = [0, 1, 2, 3, 4, 5, 6, 7].map((i) => ({ label: 'Q0.' + i, value: 'Q0_' + i }));
@@ -65,6 +71,20 @@ const LINE_MENU = [1, 2, 3, 4].map((n) => ({ label: String(n), value: String(n) 
 const LIB_INCLUDE = '"JWPLC_mBlock.h"';
 const SCREEN_SECTIONS = { include: [LIB_INCLUDE], setup: 'JWPLC_Screen.begin();' };
 const SOUND_SECTIONS = { include: [LIB_INCLUDE] };
+const LIB_SECTIONS = { include: [LIB_INCLUDE] };
+
+const TIME_UNIT_MENU = {
+    en: [
+        { label: 'hour', value: 'hour' }, { label: 'minute', value: 'minute' }, { label: 'second', value: 'second' },
+        { label: 'day', value: 'day' }, { label: 'month', value: 'month' }, { label: 'year', value: 'year' },
+        { label: 'day of week (1 = Sunday)', value: 'dayOfWeek' },
+    ],
+    es: [
+        { label: 'hora', value: 'hour' }, { label: 'minuto', value: 'minute' }, { label: 'segundo', value: 'second' },
+        { label: 'día', value: 'day' }, { label: 'mes', value: 'month' }, { label: 'año', value: 'year' },
+        { label: 'día de la semana (1 = domingo)', value: 'dayOfWeek' },
+    ],
+};
 
 const BLOCKS = [
     // ---- Eventos ---------------------------------------------------------
@@ -300,6 +320,142 @@ const BLOCKS = [
         code: 'JWPLC_Sound.volume(/*{PCT}*/);',
         sections: SOUND_SECTIONS,
     },
+
+    // ---- Tiempo ----------------------------------------------------------
+    {
+        category: 'jwplc_time',
+        opcode: 'jwplc_timer_seconds',
+        blockType: 'number',
+        text: { en: 'timer (s)', es: 'cronómetro (s)' },
+        arguments: {},
+        code: 'JWPLC_Timer.seconds()',
+        sections: LIB_SECTIONS,
+    },
+    {
+        category: 'jwplc_time',
+        opcode: 'jwplc_timer_reset',
+        blockType: 'command',
+        text: { en: 'reset timer', es: 'reiniciar cronómetro' },
+        arguments: {},
+        code: 'JWPLC_Timer.reset();',
+        sections: LIB_SECTIONS,
+    },
+    {
+        category: 'jwplc_time',
+        opcode: 'jwplc_clock_unit',
+        blockType: 'number',
+        text: { en: 'current [UNIT]', es: '[UNIT] actual' },
+        arguments: { UNIT: { type: 'fieldMenu', defaultValue: 'hour', menu: TIME_UNIT_MENU } },
+        code: 'JWPLC_Time./*{UNIT}*/()',
+    },
+    {
+        category: 'jwplc_time',
+        opcode: 'jwplc_clock_time_text',
+        blockType: 'string',
+        text: { en: 'time as text (HH:MM:SS)', es: 'hora como texto (HH:MM:SS)' },
+        arguments: {},
+        code: 'JWPLC_Clock.timeText()',
+        sections: LIB_SECTIONS,
+    },
+    {
+        category: 'jwplc_time',
+        opcode: 'jwplc_clock_date_text',
+        blockType: 'string',
+        text: { en: 'date as text (DD/MM/YYYY)', es: 'fecha como texto (DD/MM/AAAA)' },
+        arguments: {},
+        code: 'JWPLC_Clock.dateText()',
+        sections: LIB_SECTIONS,
+    },
+    {
+        category: 'jwplc_time',
+        opcode: 'jwplc_clock_temperature',
+        blockType: 'number',
+        text: { en: 'temperature (°C)', es: 'temperatura (°C)' },
+        arguments: {},
+        code: 'JWPLC_Clock.temperature()',
+        sections: LIB_SECTIONS,
+    },
+    {
+        category: 'jwplc_time',
+        opcode: 'jwplc_clock_valid',
+        blockType: 'boolean',
+        text: { en: 'clock has the time?', es: '¿el reloj tiene hora?' },
+        arguments: {},
+        code: 'JWPLC_Time.valid()',
+    },
+    {
+        category: 'jwplc_time',
+        opcode: 'jwplc_clock_set_from_pc',
+        blockType: 'command',
+        text: { en: 'set the clock with the computer time', es: 'poner en hora el reloj con la computadora' },
+        arguments: {},
+        code: 'JWPLC_Clock.setFromComputer();',
+        sections: LIB_SECTIONS,
+    },
+
+    // ---- Memoria (FRAM) --------------------------------------------------
+    {
+        category: 'jwplc_memory',
+        opcode: 'jwplc_memory_save',
+        blockType: 'command',
+        text: { en: 'save [VALUE] in memory [SLOT]', es: 'guardar [VALUE] en la memoria [SLOT]' },
+        arguments: {
+            VALUE: { type: 'number', defaultValue: 0 },
+            SLOT: { type: 'number', defaultValue: 1 },
+        },
+        code: 'JWPLC_Memory.save(/*{SLOT}*/, /*{VALUE}*/);',
+        sections: LIB_SECTIONS,
+    },
+    {
+        category: 'jwplc_memory',
+        opcode: 'jwplc_memory_load',
+        blockType: 'number',
+        text: { en: 'value of memory [SLOT]', es: 'valor de la memoria [SLOT]' },
+        arguments: { SLOT: { type: 'number', defaultValue: 1 } },
+        code: 'JWPLC_Memory.load(/*{SLOT}*/)',
+        sections: LIB_SECTIONS,
+    },
+
+    // ---- microSD ---------------------------------------------------------
+    {
+        category: 'jwplc_sd',
+        opcode: 'jwplc_sd_ready',
+        blockType: 'boolean',
+        text: { en: 'microSD card ready?', es: '¿hay tarjeta microSD?' },
+        arguments: {},
+        code: 'JWPLC_Files.ready()',
+        sections: LIB_SECTIONS,
+    },
+    {
+        category: 'jwplc_sd',
+        opcode: 'jwplc_sd_append',
+        blockType: 'command',
+        text: { en: 'write [TEXT] in file [FILE]', es: 'escribir [TEXT] en el archivo [FILE]' },
+        arguments: {
+            TEXT: { type: 'string', defaultValue: 'hola' },
+            FILE: { type: 'string', defaultValue: 'datos.txt' },
+        },
+        code: 'JWPLC_Files.appendLine(/*{FILE}*/, /*{TEXT}*/);',
+        sections: LIB_SECTIONS,
+    },
+    {
+        category: 'jwplc_sd',
+        opcode: 'jwplc_sd_exists',
+        blockType: 'boolean',
+        text: { en: 'file [FILE] exists?', es: '¿existe el archivo [FILE]?' },
+        arguments: { FILE: { type: 'string', defaultValue: 'datos.txt' } },
+        code: 'JWPLC_Files.exists(/*{FILE}*/)',
+        sections: LIB_SECTIONS,
+    },
+    {
+        category: 'jwplc_sd',
+        opcode: 'jwplc_sd_remove',
+        blockType: 'command',
+        text: { en: 'delete file [FILE]', es: 'borrar el archivo [FILE]' },
+        arguments: { FILE: { type: 'string', defaultValue: 'datos.txt' } },
+        code: 'JWPLC_Files.remove(/*{FILE}*/);',
+        sections: LIB_SECTIONS,
+    },
 ];
 
 // Bloques estándar de control con código Arduino ajustado a la plantilla:
@@ -335,6 +491,14 @@ const OPERATOR_BLOCKS = [
         opcode: 'operator_divide', blockType: 'number', branchCount: 0,
         arguments: { NUM1: { type: 'number', defaultValue: '' }, NUM2: { type: 'number', defaultValue: '' } },
         code: '((double)(/*{NUM1}*/) / (double)(/*{NUM2}*/))',
+    },
+    {
+        // "unir" estándar emite String(a) + String(b): con variables float
+        // mostraría "3.00". JWPLC_Join usa el mismo formato que la pantalla.
+        opcode: 'operator_join', blockType: 'string', branchCount: 0,
+        arguments: { STRING1: { type: 'string', defaultValue: '' }, STRING2: { type: 'string', defaultValue: '' } },
+        code: 'JWPLC_Join(/*{STRING1}*/, /*{STRING2}*/)',
+        sections: LIB_SECTIONS,
     },
 ];
 
