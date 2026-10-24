@@ -42,8 +42,11 @@ Regla desde ahora: si el payload vuelve a cambiar dentro de la alpha, la versió
 ## 3. Cambios
 
 - `openplc-editor-installers/v4.2.7/vpp/manifest.json`: `package.version` = `2.1.0-alpha.15`.
-- `openplc-editor-installers/v4.2.7/build-jwplc-vpp-v2.bat`: la ruta de la llave se puede dar con la variable
-  `JWPLC_VPP_KEY` (si no está, sigue usando `KEY_PATH` del `.bat`).
+- `openplc-editor-installers/v4.2.7/build-jwplc-vpp-v2.bat`, ruta de la llave en este orden:
+  1. la variable `JWPLC_VPP_KEY`;
+  2. `KEY_PATH` del `.bat`;
+  3. si no existe, el `*private*.pem` de `%USERPROFILE%\Documents\openplcProbe`, donde el propietario
+     tiene la llave.
 - `signature.json`: **no se cambia en la nube** (la llave privada no sale de la PC). Mientras no se firme, el
   VPP de esta rama no pasa la verificación del editor.
 
@@ -55,8 +58,8 @@ En `C:\Users\jeykc\Documents\GitHub\platform-jwplc`, con esta rama:
 git fetch origin
 git checkout v2.1.0-alpha.15/OpenPLC-HMI/feature/vpp-version-alpha15
 cd openplc-editor-installers\v4.2.7
-rem sólo si la llave no está en la ruta KEY_PATH del .bat:
-set "JWPLC_VPP_KEY=C:\ruta\jwcontrol-2026-private.pem"
+rem la llave en C:\Users\jeykc\Documents\openplcProbe se encuentra sola;
+rem en otra carpeta: set "JWPLC_VPP_KEY=C:\ruta\jwcontrol-2026-private.pem"
 build-jwplc-vpp-v2.bat
 ```
 

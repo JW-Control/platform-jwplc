@@ -31,6 +31,8 @@ set "KEY_ID=jwcontrol-2026"
 set "KEY_PATH=H:\Mi unidad\02.JW CONTROL\12.OpenPLC\keys\jwcontrol-2026-private.pem"
 rem La llave puede estar en otra PC o carpeta: JWPLC_VPP_KEY reemplaza la ruta de arriba.
 if defined JWPLC_VPP_KEY set "KEY_PATH=%JWPLC_VPP_KEY%"
+rem Sin la llave en KEY_PATH: se busca un *private*.pem en Documentos\openplcProbe (PC del propietario).
+if not defined JWPLC_VPP_KEY if not exist "%KEY_PATH%" for %%K in ("%USERPROFILE%\Documents\openplcProbe\*private*.pem") do set "KEY_PATH=%%~fK"
 
 set "CLEAN_INSTALLED=1"
 if /I "%~1"=="--no-clean-installed" set "CLEAN_INSTALLED=0"
