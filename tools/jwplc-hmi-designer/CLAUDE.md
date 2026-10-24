@@ -23,7 +23,7 @@ de `index.html` e inyecta los scripts en orden.
 index.html:      designer-cp437 -> gfx-classic-font -> designer-fonts-data -> designer-fonts -> designer-value-format -> designer-codegen-core -> designer-icon-catalog -> designer-icons-core -> app -> ux-foundation -> designer-codegen
 ux-foundation:   designer-color-editor -> designer-bool -> designer-bar -> designer-zone-indicator -> designer-field-inspector -> (designer-menu, designer-icons, designer-idle) -> designer-field-visibility -> designer-pages -> designer-flasher -> designer-live
 field-visibility: designer-inspector-state, designer-pixelmap-compat -> designer-pixelmap -> designer-pixelmap-stability
-desktop.html:    designer-project, designer-native-project, designer-project-integration-fix,
+desktop.html:    designer-project, designer-native-project, designer-project-integration-fix, designer-openplc-host (sólo modo OpenPLC),
                  designer-pixelmap-workbench/-optimizer/-codegen-guard, desktop-responsive,
                  designer-sketch-guide -> designer-sketch-menu
 ```
@@ -175,7 +175,7 @@ Estado de adopción por tipo: ver `ALPHA15_STATUS.md` (§Inspector).
   `node tests/codegen-smoke.cjs`. Un cambio intencional: `--update` y revisar el diff.
 - Tras tocar JS/CSS: subir el `?v=` del archivo tocado (hoy 1793801300; `designer-codegen` y `designer-sketch-guide` 1793801800; `app.js` y `designer-icons-core` 1793801900; `ux-foundation` y `designer-icons` 1793802000) en
   `index.html`/`desktop.html`/`ux-foundation.js`/`designer-field-visibility.js` y `CACHE_NAME` en
-  `service-worker.js` (hoy `jwplc-hmi-designer-a16-v47`).
+  `service-worker.js` (hoy `jwplc-hmi-designer-a16-v48`).
 - Versión visible: `2.1.0-alpha.14` (título, `.brand-badge`, `.gate` de la barra de estado, panel «Estado»,
   `electron/package.json`). El comentario `// API pública JWPLC_UI · Alpha11 A11-4` del header generado es un
   marcador interno de las capas del codegen: no cambiarlo.

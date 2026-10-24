@@ -1310,6 +1310,9 @@
     selectNode: (field, nodeKey, editing = false) => {
       ui(field).nodeKey = nodeKey;
       ui(field).editing = editing;
-    }
+    },
+    // Nodo seleccionado en el inspector (objeto vivo). Lo usa el modo OpenPLC
+    // (designer-openplc-host.js) para guardar plcBinding en el nodo.
+    selectedNode: (field) => (field && ui(field).nodeKey ? nodeByKey(field.nodes || [], ui(field).nodeKey) : null)
   };
 })();

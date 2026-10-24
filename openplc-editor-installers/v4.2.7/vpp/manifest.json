@@ -3,7 +3,7 @@
     "package": {
         "id": "com.jwcontrol.jwplc-basic",
         "name": "JWPLC Basic OpenPLC",
-        "version": "2.1.0-alpha.29",
+        "version": "2.1.0-alpha.32",
         "vendor": {
             "name": "JW Control",
             "url": "https://www.jw-control.com",
@@ -21,7 +21,8 @@
             "preview": "assets/jwplcbasic.png",
             "screens": {
                 "Modbus": "screens/modbus.json",
-                "JWPLC Backplane": "screens/backplane.json"
+                "JWPLC Backplane": "screens/backplane.json",
+                "Pantalla HMI": "screens/hmi.json"
             },
             "target": {
                 "type": "arduino-cli",
@@ -100,7 +101,7 @@
                 "FRAM": "Yes",
                 "microSD": "Yes",
                 "Display": "TFT ST7789",
-                "Keyboard": "7 buttons"
+                "Keyboard": "6 buttons"
             },
             "capabilities": {
                 "pinMapping": true,
@@ -118,7 +119,14 @@
                 "arduinoApiCompletions": true,
                 "hasRuntimeStats": false,
                 "isInProcessSimulator": false,
-                "directUsbUpload": true
+                "directUsbUpload": true,
+                "hmiDisplay": {
+                    "controller": "ST7789",
+                    "width": 320,
+                    "height": 170,
+                    "pixelFormat": "RGB565",
+                    "keys": ["LEFT", "UP", "RIGHT", "ESC", "OK", "DOWN"]
+                }
             },
             "debug": {
                 "channels": [
