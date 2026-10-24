@@ -165,6 +165,17 @@ async function main() {
     await a.page.waitForTimeout(200);
     check((await a.page.evaluate(() => window.__openplc.calls)).includes('open-folder'), '«Abrir carpeta hmi/» llama a openSketchFolder');
 
+    console.log('TEXT');
+    // El diseño de partida trae un TEXT: su pestaña Datos explica qué objeto usar.
+    await a.page.evaluate(() => {
+      const E = window.JWPLCHMIEditor;
+      E.setSelectedFieldKeys([E.getAllFields().find((f) => f.type === 'TEXT').key]);
+    });
+    await a.page.click('#fieldInspectorV2 [data-insp-main="data"]');
+    await a.page.waitForTimeout(300);
+    const textNote = await a.page.$eval('.insp-panel[data-insp-panel="data"] .jwplc-plc-note', (n) => n.textContent).catch(() => '');
+    check(/usa VALUE \(números\), BOOL \(estados\) o BAR/.test(textNote), `TEXT indica qué objeto usar («${textNote}»)`);
+
     console.log('VARIABLE PLC + ACTUALIZAR HMI');
     const fieldCount = () => a.page.evaluate(() => window.JWPLCHMIEditor.getAllFields().length);
     const initial = await fieldCount(); // el diseño de partida del Designer
