@@ -27,10 +27,12 @@ Referencia adoptada: arduino-cli 1.5.1.
 |---|---|---|---|
 | Nube Linux, arduino-cli 1.5.2-rc.1 | JWPLC Basic | 30,3 s → 38,9 s | 4,9 s → 4,4 s |
 | Nube Linux, arduino-cli 1.5.2-rc.1 | JWPLC Basic Core | 38,4 s → 45,9 s | 4,3 s → 5,1 s |
-| PC del jefe, arduino-cli 1.5.1 | JWPLC Basic | `[pendiente]` | `[pendiente]` |
+| PC Windows (12 núcleos), arduino-cli 1.5.2-rc.1 | JWPLC Basic | 40,4 s → 48,3 s | 11,0 s → 10,0 s |
+| PC Windows (12 núcleos), arduino-cli 1.5.2-rc.1 | JWPLC Basic Core | 49,5 s → 60,4 s | 9,3 s → 10,0 s |
 
-La recompilación (caliente) no cambia. La primera compilación tarda unos 8 s más porque `JWPLC_ModbusRTU`, ahora
-envoltorio de `JW_ModbusRTU`/`JW_RS485`, se compila desde la fuente en esta versión.
+Sketch `01_empty`. La recompilación (caliente) no cambia. La primera compilación de cada placa tarda entre 7 y 12 s
+más porque `JWPLC_ModbusRTU`, ahora envoltorio de `JW_ModbusRTU`/`JW_RS485`, se compila desde la fuente en esta
+versión; se volverá a precompilar en una alpha posterior.
 
 ## Novedades
 

@@ -15,10 +15,11 @@ ALPHA15_RELEASE=2.1.0-alpha.14 (por orden de publicación; ver «Organización d
 ALPHA15_RELEASE_PR=#157 (borrador; rama v2.1.0-alpha.14/HmiDesigner/main desde release/v2.1.x; sustituye a #141)
 ALPHA14_INTEGRATION=FASE_1_CLOSED + FASE_3_FREEZE_DONE (Display .a ced1f93 y TFT .a 161e406: ABI_COMPAT=PASS, precompiled=full)
 ALPHA14_CLOSURE_CHECK=PASS (24/10: 83/83 sketches en Basic y Basic Core, Designer 16/16, .a reconstruidos sin cambios de ABI)
-ALPHA14_FEATURES_MERGED=#164 828eaf3, #158 d782cca, #159 8ddc06d, #160 a00c268, #161 69478cf, #162 a0d3ba7; #163 (cierre) el último
-ALPHA14_FASE2_FISICA=PASS_PHYSICAL (24/10, gates/A14_F2_Combinado: Master COM6 + Slave COM3, TCP+RTU 10 min, LIVE con Live Bridge 440 752 B)
-ALPHA14_NEXT=benchmark en la PC del jefe -> #157 fuera de borrador y merge con autorización
-ALPHA14_NOTES=docs/v2.1.0-alpha.14/PRE_RELEASE.md (final salvo prueba física y benchmark de PC; marcador del README en 2.1.0-alpha.14)
+ALPHA14_FEATURES_MERGED=#164, #158–#163 (cierre eddee62), #165 36343e8, #166 aafa767, #167 3b3a804 y esta feature (benchmark de PC)
+ALPHA14_FASE2_FISICA=PASS_PHYSICAL (24/10, gates/A14_F2_Combinado; LIVE con Live Bridge 440 752 B)
+ALPHA14_BENCHMARK_PC=PASS (24/10: frío +7 a +12 s por ModbusRTU desde la fuente, caliente sin cambios)
+ALPHA14_NEXT=#157 fuera de borrador y merge con autorización (publica la Release)
+ALPHA14_NOTES=docs/v2.1.0-alpha.14/PRE_RELEASE.md (final, sin [pendiente]; marcador del README en 2.1.0-alpha.14)
 ```
 
 ## Organización de alphas

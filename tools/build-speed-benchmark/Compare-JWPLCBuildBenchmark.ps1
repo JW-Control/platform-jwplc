@@ -150,7 +150,7 @@ $summary = Join-Path $OutputRoot "COMPARE.md"
 $lines | Out-File -FilePath $summary -Encoding utf8
 
 Write-Host ""
-Get-Content $summary | Write-Host
+Get-Content -Encoding UTF8 $summary | Write-Host
 Write-Host ""
 Write-Host ("Resumen: {0}" -f $summary) -ForegroundColor Green
 if ($failed.Count -gt 0)
