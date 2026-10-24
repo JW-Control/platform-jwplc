@@ -1,3 +1,13 @@
+// Gate de banco de JWPLC_Display: HMI declarativa + botonera.
+//
+// No es un ejemplo para usuarios: comprueba por Serial (115200), con [PASS]/[FAIL],
+// dos reglas del Display (CLAUDE.md §3.5):
+//   - por defecto no despierta USER con una tecla (IDLE_WAKE_DISABLED);
+//   - no consume los latches pressed()/released() de la aplicación.
+// Fases: 3 min en IDLE sin tocar teclas (sin auto-wake), OK entra a USER desde el
+// sketch, RIGHT/LEFT páginas 1/0, UP/DOWN varían la barra en la página 1, ESC
+// vuelve a IDLE y también llega al sketch. Origen: Alpha8 (Display_Alpha8_HMI_Gate).
+
 #include <cstdio>
 
 enum UIFieldId : uint8_t
@@ -133,11 +143,11 @@ extern "C" void jwplcUIPageEnter(uint8_t page)
 
     if (page == 0)
     {
-        tft.print("ALPHA8 HMI");
+        tft.print("GATE HMI");
     }
     else
     {
-        tft.print("ALPHA8 PAGE 2");
+        tft.print("GATE PAGE 2");
     }
 
     Serial.print("[UI PAGE] ");
@@ -155,7 +165,7 @@ void setup()
     delay(300);
 
     Serial.println();
-    Serial.println("=== ALPHA8 HARDWARE GATE - HMI + BUTTONS ===");
+    Serial.println("=== GATE HMI + BOTONERA (JWPLC_Display) ===");
     Serial.println("FASE 1: dejar 3 minutos SIN tocar botones.");
     Serial.println("Esperado: IDLE estable y UNEXPECTED_USER_ENTRY=0.");
     Serial.println("FASE 2: OK = entrar USER desde el sketch.");
@@ -176,7 +186,7 @@ void setup()
     }
 
     // ON_DEMAND y ESC_ONLY forman parte del gate. No se fuerza wakeMode:
-    // se valida que el default Alpha8 sea realmente IDLE_WAKE_DISABLED.
+    // se valida que el default sea realmente IDLE_WAKE_DISABLED.
     JWPLC_Display.setUserRefreshMode(USER_REFRESH_ON_DEMAND);
     JWPLC_Display.setIdleReturnMode(IDLE_RETURN_ESC_ONLY);
 
