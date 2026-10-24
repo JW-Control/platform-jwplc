@@ -153,7 +153,13 @@ JW-Control/platform-jwplc  rama v2.1.0-alpha.12/feature/openplc-engineering-clos
 
 ## 5. Convenciones de git
 
-- Rama de trabajo: `v2.1.0-alpha.N-<Tema>` (ver §2). La rama anterior de André queda congelada.
+- **Ramas (regla del propietario, 24/10/2026):** aparte de `main` y `release/v2.1.x`, una sola rama por
+  alpha (hoy la integración `v2.1.0-alpha.14/feature/hmi-designer`; la de OpenPLC, `v2.1.0-alpha.14-OpenPLC-HMI`).
+  Cada feature sale de la rama de su alpha con nombre descriptivo, `<rama-alpha>-<tema>` o
+  `v2.1.0-alpha.N/feature/<tema>` (p. ej. `v2.1.0-alpha.14/feature/designer-installer`), nunca con sufijos
+  aleatorios (`claude/project-thread-xxxx`). Se fusiona por PR hacia la rama de la alpha y se borra al fusionar.
+  Si la herramienta asigna una rama aleatoria, trabajar igual en una de nombre descriptivo.
+- Rama de trabajo histórica: `v2.1.0-alpha.N-<Tema>` (ver §2). La rama anterior de André queda congelada.
 - Antes de empezar: `git pull origin v2.1.0-alpha.15-HmiDesigner` (varias personas/agentes en la misma rama).
 - Mensajes de commit descriptivos (`feat(hmi-designer): ...`, `fix(jwplc-tft): ...`,
   `docs(alpha15): ...`). Prohibido `.`, `,`, `patch`.
