@@ -2,7 +2,7 @@
 
 ```text
 A14_BENCHMARK_NUBE=PASS             [ejecutado 24/10] tabla de abajo
-A14_BENCHMARK_PC_JEFE=PENDING       procedimiento en §2 (arduino-cli 1.5.1)
+A14_BENCHMARK_PC_JEFE=PASS          [ejecutado 24/10] WAR-MACHINE, 12 núcleos, arduino-cli 1.5.2-rc.1
 ```
 
 ## 1. Qué se mide
@@ -75,11 +75,23 @@ Lectura:
 Si se quiere recuperar el tiempo en frío, la vía es volver a precompilar `JWPLC_ModbusRTU` (y sus `JW_*`) en una
 alpha posterior, con su `.a` y chequeo ABI; no se hace en esta.
 
-### PC del jefe `[pendiente]`
+### PC del jefe `[ejecutado 24/10]`
+
+`Compare-JWPLCBuildBenchmark.ps1`, equipo WAR-MACHINE (12 núcleos lógicos), arduino-cli 1.5.2-rc.1, base `jwplc`
+(2.1.0-alpha.13 instalada), candidata `jwplc_local` (`v2.1.0-alpha.14/HmiDesigner/main`). 3 repeticiones, mediana,
+0 fallos.
 
 | Placa | Sketch | Frío alpha.13 | Frío alpha.14 | Caliente alpha.13 | Caliente alpha.14 |
 |---|---|---|---|---|---|
-| Basic | 01_empty | | | | |
-| Basic | 02_io_basic | | | | |
-| Core | 01_empty | | | | |
-| Core | 02_io_basic | | | | |
+| Basic | 01_empty | 40,4 s | 48,3 s | 11,0 s | 10,0 s |
+| Basic | 02_io_basic | 40,9 s | 47,9 s | 9,9 s | 10,2 s |
+| Core | 01_empty | 49,5 s | 60,4 s | 9,3 s | 10,0 s |
+| Core | 02_io_basic | 48,1 s | 60,6 s | 10,3 s | 10,6 s |
+
+Lectura:
+
+- **Caliente: sin cambios** (9–11 s en ambas versiones; diferencias de ±1 s).
+- **Frío: +7 a +8 s en Basic (+18 %) y +11 a +12,5 s en Core (+23 a +26 %)**, la misma tendencia que en la nube:
+  `JWPLC_ModbusRTU` y sus `JW_ModbusRTU`/`JW_RS485` se compilan desde la fuente en la primera compilación `[inferido]`.
+- Frente a la referencia del traspaso (alpha.13 con arduino-cli 1.5.1: 41,5 s frío, 9,0 s caliente), la alpha.13
+  medida hoy da 40,4 s y 9,9–11 s: el mismo orden, con otra versión de arduino-cli y otra carga del equipo.

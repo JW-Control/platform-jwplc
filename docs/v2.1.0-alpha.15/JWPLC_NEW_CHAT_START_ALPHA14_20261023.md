@@ -15,7 +15,7 @@ CIERRE_NUBE_24_10=PASS         83/83 sketches (76 ejemplos + 7 gates) en Basic y
 FASE_4_DOCS=DONE               READMEs de librerías (#159), PRE_RELEASE.md y README raíz (marcador 2.1.0-alpha.14);
                                workflow temporal retirado (PR de cierre)
 FASE_2_FISICA=PASS_PHYSICAL    24/10, gates/A14_F2_Combinado (Master COM6 + Slave COM3): pantalla, TCP, RTU, 10 min, LIVE
-BENCHMARK_PC=PENDING           tools/build-speed-benchmark/Compare-JWPLCBuildBenchmark.ps1 (#161); nube: tabla en PRE_RELEASE
+BENCHMARK_PC=PASS              24/10, Compare-JWPLCBuildBenchmark.ps1: frío +7 a +12 s, caliente sin cambios (PRE_RELEASE)
 ```
 
 Ramas (24/10): principal `v2.1.0-alpha.14/HmiDesigner/main`; features `v2.1.0-alpha.14/HmiDesigner/feature/<tema>` (CLAUDE.md §5).
@@ -25,7 +25,7 @@ PR de release: #157 (borrador, sustituye a #141). Fusionadas en la principal el 
 `designer-tests`. Los PRs #141 y #151–#156 quedaron sustituidos y sus ramas borradas.
 
 Siguiente (merge y Release solo con autorización explícita del propietario):
-1. Benchmark en la PC (`Compare-JWPLCBuildBenchmark.ps1`); anotar la fila en `PRE_RELEASE.md` (último `[pendiente]`).
+1. (Opcional) Instalar el Setup .exe del artifact de la CI en una PC y abrirlo desde el Arduino IDE 2.
 2. Sacar el #157 de borrador (con autorización).
 3. Fusionar el #157 (publica la Release) y la fase 5 de §4.
 
