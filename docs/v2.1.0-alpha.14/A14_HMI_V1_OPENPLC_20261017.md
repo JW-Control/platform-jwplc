@@ -320,3 +320,15 @@ Prueba sin hardware: en Chromium, con anfitrión simulado y el proyecto F0c,
 
 Pendiente: probar la cadena completa en la app y en la placa (elegir
 variables, Actualizar HMI, borrar `bindings.json`, compilar, reabrir).
+
+## 12. Estado al 24/10/2026 y traspaso
+
+- Ramas y push al día. El jefe publicó Alpha13 e integró la línea HMI en
+  `v2.1.0-alpha.14/feature/hmi-designer` (PR #141).
+- Esta línea sale como **2.1.0-alpha.15**.
+- Siguiente:
+  1. traer la integración, con el OK del jefe; el merge simulado da 2
+     conflictos triviales y no toca el VPP;
+  2. ampliar el anfitrión de OpenPLC al puente nuevo del Designer (contrato 1.1);
+  3. probar la cadena completa de F3 en la placa.
+- Todo el detalle está en `JWPLC_NEW_CHAT_START_ALPHA14_OPENPLC_20261024.md`.

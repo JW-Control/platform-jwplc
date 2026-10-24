@@ -144,3 +144,15 @@ tampoco `EDIT_BOOL` en RW; TEXT (`char[]`); valores en vivo en el lienzo.
 | Designer (Alpha15, A15-6) | Si existe `JWPLCHMIHost` con `mode: "openplc"`: selector "Variable PLC" con `listVariables()`, `plcBinding` en el `.jwhmi`, sin edición de nombre/tipo/valor inicial | Proyecto del gate F0c rehecho eligiendo `CONTADOR`, `LIMITE`, `CONSIGNA` y `LLENO` de la lista, sin `bindings.json` |
 
 Cambios a este contrato: se acuerdan entre Alpha14 y Alpha15 y se anotan aquí.
+
+## 7. Pendiente: versión 1.1 (24/10/2026)
+
+El Designer integrado en `v2.1.0-alpha.14/feature/hmi-designer` amplió
+`JWPLCHMINative` de 4 a unas 20 funciones (`readProject`, `chooseSaveTarget`,
+`applySaveTarget`, `writeGuide`, `registerCloseGuard`, recientes, selector de
+puerto serie, ...). Algunas se llaman sin comprobar que existan, así que el
+anfitrión de OpenPLC tiene que implementarlas antes de usar ese Designer.
+
+Propuesta de cómo responde cada una en OpenPLC:
+`JWPLC_NEW_CHAT_START_ALPHA14_OPENPLC_20261024.md` §3.2. Se acuerda con André y
+se anota aquí como `jwplc-hmi-host/1.1`.
