@@ -12,7 +12,7 @@ GATE5A_LIBRARY_PHASE2=PASS              [ejecutado] JWPLC_mBlock.h: Timer, Clock
 GATE5B_PALETTE_PHASE2=PASS              [ejecutado] Tiempo | Memoria | microSD visibles
 GATE5C_CODEGEN_PHASE2=PASS              [ejecutado]
 GATE5D_COMPILE_A14_FROM_MBLOCK=PASS     [ejecutado] fase 2 y regresión de la fase 1
-GATE5E_UPLOAD_AND_PHYSICAL=PENDING      [no verificado] requiere subida y verificación en la placa
+GATE5E_UPLOAD_AND_PHYSICAL=PASS         [verificado por el usuario] reloj, temperatura, FRAM, microSD y cronómetro
 ~~~
 
 ## Bloques
@@ -91,9 +91,13 @@ fase 1 (regresión) compila; "unir" -> JWPLC_Join, división en coma flotante
 
 Log: `results/20261024_gate5/GATE5_COMPILE_A14.log`.
 
-## Prueba física pendiente (Gate 5E)
+## Gate 5E - Subida y prueba física
 
-Con el programa de prueba de la fase 2:
+[ejecutado] Subida desde «Subir código» de mBlock a COM14: compilación 40 s,
+upload 55 s en total, hash verificado, reset por RTS. Log:
+`results/20261024_gate5/GATE5E_UPLOAD_PHASE2.log`.
+
+[verificado por el usuario] Los 5 puntos siguientes PASS:
 
 1. Al arrancar, la línea 1 muestra «Arranques: N» y N sube en cada reinicio
    (también tras quitar la alimentación): FRAM.
