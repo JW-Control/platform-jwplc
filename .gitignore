@@ -29,3 +29,6 @@
 # (el hook savehex del package copia .bin/.elf/.map/sdkconfig a <sketch>/build/).
 
 /tools/jwplc-hmi-designer/tests/golden/*.actual.h
+
+# mBlock PoC - extensión generada por tools/mblock-poc/extension/build-extension.cjs
+/tools/mblock-poc/extension/dist/
