@@ -115,6 +115,18 @@ GPIO12 ROW0  LEFT       UP         RIGHT
 GPIO2  ROW1  ESC        OK         DOWN
 ```
 
+Desde 2.1.0-alpha.14 estos pines tienen nombre en `jwplc_hardware_config.h`
+(el core los define; no hace falta ningún `#include`):
+
+```text
+JWPLC_BTN_ROW0_PIN = GPIO12    JWPLC_BTN_COL0_PIN = GPIO35
+JWPLC_BTN_ROW1_PIN = GPIO2     JWPLC_BTN_COL1_PIN = GPIO34
+                               JWPLC_BTN_COL2_PIN = GPIO36
+```
+
+Úsalos si necesitas citar un pin de la botonera (por ejemplo, para no
+asignarlo a otra cosa); para leer teclas usa siempre `JWPLC_Buttons`.
+
 Los GPIO 34/35/36 del ESP32 son entradas only y no ofrecen pull-up/pull-down interno general. El package configura las columnas de esta matriz como `INPUT` y deja la topología eléctrica a la placa JWPLC.
 
 No reconfigurar estos pines desde el sketch mientras se usa la botonera integrada.
@@ -496,6 +508,28 @@ precompiled=full
 para ESP32 cuando existe el archive correspondiente.
 
 En Alpha8 no se modificó el código fuente de `JW_MatrixButtons`; la corrección de interacción Display/botonera se implementó en las capas `JWPLC_Display` y `JWPLC_GlobalPeripherals`. Por ello el archive 1.0.5 existente no requiere regeneración por el alcance Alpha8.
+
+---
+
+# Ejemplos incluidos (2.1.0-alpha.14)
+
+Los ejemplos de esta librería se rehicieron para la botonera real del
+JWPLC Basic / Basic Core. Todos usan el objeto global `JWPLC_Buttons`, que el
+package ya escanea en segundo plano: no crean otra instancia sobre los mismos
+pines ni llaman a `update()`.
+
+| Ejemplo | Qué enseña |
+|---|---|
+| `01_BasicPress` | Detectar pulsaciones con `pressed()` y mostrarlas por el Monitor Serie. |
+| `02_AxisWrapSerial` | Navegar páginas con LEFT/RIGHT y editar un valor con UP/DOWN usando `applyAxis()` y repeat. |
+| `03_EventQueue` | Ver los eventos `PRESS / RELEASE / REPEAT` del último scan con `eventCount()` / `getEvent()`. |
+
+Se retiraron `04_GLCD_MenuDemo` y `05_DirectButtons_IO35_IO34_IO39`: usaban
+una pantalla GLCD y pines de otra placa que el JWPLC Basic no tiene. Para
+botones directos en otra placa sigue valiendo el «Modo botones directos» de
+la sección genérica.
+
+El código de la librería y `libJW_MatrixButtons.a` (1.0.5) no cambian.
 
 ---
 
