@@ -27,6 +27,7 @@
  *   set JWPLC_BRIDGE_PORT=47821 & node ...
  *   set JWPLC_ARDUINO_CLI=C:\ruta\arduino-cli.exe & node ...
  *   set JWPLC_FQBN=jwplc:esp32:jwplcbasic & node ...
+ *   bridge.json (install-package-from-ref.cjs): fqbn y sketchbook privado
  */
 'use strict';
 
@@ -37,11 +38,10 @@ const path = require('path');
 const crypto = require('crypto');
 const { spawn } = require('child_process');
 
-const BRIDGE_VERSION = '0.1.0';
+const BRIDGE_VERSION = '0.2.0';
 const PORT = Number(process.env.JWPLC_BRIDGE_PORT || 47820);
 const HOST = '127.0.0.1';
-const DEFAULT_FQBN = process.env.JWPLC_FQBN || 'jwplc:esp32:jwplcbasic';
-const ALLOWED_FQBN = /^jwplc(_local)?:esp32:[a-z0-9_]+$/;
+const ALLOWED_FQBN = /^jwplc[a-z0-9_]*:esp32:[a-z0-9_]+$/;
 const ALLOWED_PORT = /^COM\d{1,3}$/i;
 const MAX_CODE_BYTES = 512 * 1024;
 const ALLOWED_ORIGINS = new Set(['http://127.0.0.1:3003', 'http://localhost:3003']);
@@ -50,6 +50,20 @@ const ALLOWED_ORIGINS = new Set(['http://127.0.0.1:3003', 'http://localhost:3003
 // virtualiza las escrituras nuevas en AppData y mBlock no vería el token.
 const WORK_DIR = path.join(os.homedir(), '.jwplc', 'mblock-bridge');
 const CONFIG_DIR = WORK_DIR;
+
+// bridge.json (opcional, lo escribe install-package-from-ref.cjs): FQBN y
+// sketchbook privado con un package aún no publicado (p. ej. alpha.14).
+function readBridgeConfig() {
+    try {
+        return JSON.parse(fs.readFileSync(path.join(WORK_DIR, 'bridge.json'), 'utf8'));
+    } catch (_) {
+        return {};
+    }
+}
+
+const BRIDGE_CONFIG = readBridgeConfig();
+const DEFAULT_FQBN = process.env.JWPLC_FQBN || BRIDGE_CONFIG.fqbn || 'jwplc:esp32:jwplcbasic';
+const SKETCHBOOK = BRIDGE_CONFIG.sketchbook || null;
 const TOKEN_FILE = path.join(CONFIG_DIR, 'token.txt');
 const SKETCH_NAME = 'jwplc_mblock';
 const SKETCH_DIR = path.join(WORK_DIR, 'sketch', SKETCH_NAME);
@@ -90,7 +104,9 @@ let busy = false;
 function runCli(args, onLine) {
     return new Promise((resolve) => {
         logLine(`RUN ${ARDUINO_CLI} ${args.join(' ')}`);
-        const child = spawn(ARDUINO_CLI, args, { windowsHide: true });
+        const env = Object.assign({}, process.env);
+        if (SKETCHBOOK) env.ARDUINO_DIRECTORIES_USER = SKETCHBOOK;
+        const child = spawn(ARDUINO_CLI, args, { windowsHide: true, env });
         let tail = '';
         const feed = (chunk) => {
             const text = tail + chunk.toString();
@@ -254,6 +270,8 @@ const server = http.createServer((req, res) => {
             bridge: 'jwplc-mblock-bridge',
             version: BRIDGE_VERSION,
             fqbn: DEFAULT_FQBN,
+            packageRef: BRIDGE_CONFIG.packageRef || null,
+            packageSha: BRIDGE_CONFIG.packageSha || null,
             cli: ARDUINO_CLI,
             tokenFile: TOKEN_FILE,
             busy,
@@ -273,6 +291,7 @@ server.listen(PORT, HOST, () => {
     logLine(`JWPLC_MBLOCK_BRIDGE=LISTENING http://${HOST}:${PORT} version=${BRIDGE_VERSION}`);
     logLine(`ARDUINO_CLI=${ARDUINO_CLI}`);
     logLine(`FQBN=${DEFAULT_FQBN}`);
+    if (SKETCHBOOK) logLine(`SKETCHBOOK=${SKETCHBOOK} PACKAGE=${BRIDGE_CONFIG.packageRef || '?'}@${(BRIDGE_CONFIG.packageSha || '').slice(0, 8)}`);
     logLine(`TOKEN_FILE=${TOKEN_FILE}`);
     logLine(`WORK_DIR=${WORK_DIR}`);
 });

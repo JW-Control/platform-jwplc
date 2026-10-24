@@ -20,7 +20,7 @@ const zlib = require('zlib');
 const { execFileSync } = require('child_process');
 
 const EXT_ID = 'jwplc_basic';
-const EXT_VERSION = '0.1.0';
+const EXT_VERSION = '0.2.0';
 const HERE = __dirname;
 const DIST = path.join(HERE, 'dist');
 const OUT = path.join(DIST, EXT_ID);
@@ -64,132 +64,9 @@ const TEMPLATE = [
     '',
 ].join('\n');
 
-const OUTPUT_MENU = [0, 1, 2, 3, 4, 5, 6, 7].map((i) => ({ label: 'Q0.' + i, value: 'Q0_' + i }));
-const INPUT_MENU = [0, 1, 2, 3, 4, 5, 6, 7].map((i) => ({ label: 'I0.' + i, value: 'I0_' + i }));
-const STATE_MENU = {
-    en: [{ label: 'ON', value: 'HIGH' }, { label: 'OFF', value: 'LOW' }],
-    es: [{ label: 'ENCENDIDA', value: 'HIGH' }, { label: 'APAGADA', value: 'LOW' }],
-};
-
-// Bloques JWPLC. `text` usa [ARG] para los argumentos (formato mBlock).
-// No se emite pinMode(): el core JWPLC configura internamente la dirección
-// de I0_x/Q0_x, que es justamente una de sus ventajas frente a un ESP32 pelado.
-// Las llamadas emitidas existen en el core: digitalWrite/digitalRead se
-// redirigen a jwplc_* para los pines virtuales I0_x/Q0_x (Arduino.h,
-// jwplc_peripherals.h) y JWPLC_readInputs/readOutputs/writeOutputs son API
-// pública del core.
-const BLOCKS = [
-    {
-        opcode: 'jwplc_when_start',
-        blockType: 'hat',
-        text: { en: 'when JWPLC Basic starts', es: 'cuando JWPLC Basic arranca' },
-        arguments: {},
-        code: '/*{$BRANCH}*/',
-    },
-    {
-        opcode: 'jwplc_write_output',
-        blockType: 'command',
-        text: { en: 'set output [Q] [STATE]', es: 'poner salida [Q] [STATE]' },
-        arguments: {
-            Q: { type: 'fieldMenu', defaultValue: 'Q0_0', menu: OUTPUT_MENU },
-            STATE: { type: 'fieldMenu', defaultValue: 'HIGH', menu: STATE_MENU },
-        },
-        code: 'digitalWrite(/*{Q}*/, /*{STATE}*/);',
-    },
-    {
-        opcode: 'jwplc_toggle_output',
-        blockType: 'command',
-        text: { en: 'toggle output [Q]', es: 'conmutar salida [Q]' },
-        arguments: { Q: { type: 'fieldMenu', defaultValue: 'Q0_0', menu: OUTPUT_MENU } },
-        code: 'digitalWrite(/*{Q}*/, !digitalRead(/*{Q}*/));',
-    },
-    {
-        opcode: 'jwplc_read_input',
-        blockType: 'boolean',
-        text: { en: 'input [I] is on?', es: '¿entrada [I] activa?' },
-        arguments: { I: { type: 'fieldMenu', defaultValue: 'I0_0', menu: INPUT_MENU } },
-        code: '(digitalRead(/*{I}*/) == HIGH)',
-    },
-    {
-        opcode: 'jwplc_read_output',
-        blockType: 'boolean',
-        text: { en: 'output [Q] is on?', es: '¿salida [Q] activa?' },
-        arguments: { Q: { type: 'fieldMenu', defaultValue: 'Q0_0', menu: OUTPUT_MENU } },
-        code: '(digitalRead(/*{Q}*/) == HIGH)',
-    },
-    {
-        opcode: 'jwplc_write_outputs_byte',
-        blockType: 'command',
-        text: { en: 'set outputs Q0 to byte [VALUE]', es: 'escribir salidas Q0 con byte [VALUE]' },
-        arguments: { VALUE: { type: 'number', defaultValue: 0 } },
-        code: 'JWPLC_writeOutputs((uint8_t)(/*{VALUE}*/));',
-    },
-    {
-        opcode: 'jwplc_all_outputs_off',
-        blockType: 'command',
-        text: { en: 'turn all outputs off', es: 'apagar todas las salidas' },
-        arguments: {},
-        code: 'JWPLC_writeOutputs(0);',
-    },
-    {
-        opcode: 'jwplc_inputs_byte',
-        blockType: 'number',
-        text: { en: 'inputs I0 (byte)', es: 'entradas I0 (byte)' },
-        arguments: {},
-        code: 'JWPLC_readInputs()',
-    },
-    {
-        opcode: 'jwplc_outputs_byte',
-        blockType: 'number',
-        text: { en: 'outputs Q0 (byte)', es: 'salidas Q0 (byte)' },
-        arguments: {},
-        code: 'JWPLC_readOutputs()',
-    },
-    {
-        opcode: 'jwplc_millis',
-        blockType: 'number',
-        text: { en: 'milliseconds since start', es: 'milisegundos desde el arranque' },
-        arguments: {},
-        code: 'millis()',
-    },
-    {
-        opcode: 'jwplc_serial_print',
-        blockType: 'command',
-        text: { en: 'serial print [VALUE]', es: 'imprimir por serie [VALUE]' },
-        arguments: { VALUE: { type: 'number', defaultValue: 0 } },
-        code: 'Serial.println(/*{VALUE}*/);',
-        sections: { setup: 'Serial.begin(115200);' },
-    },
-];
-
-// Bloques estándar de control con código Arduino ajustado a la plantilla:
-// "por siempre" no genera while(1): su cuerpo se emite en la sección loop.
-// Las esperas usan delay(), que cede la CPU a jwplcSystemTask (prioridad 2).
-const CONTROL_BLOCKS = [
-    {
-        opcode: 'control_wait', blockType: 'command', branchCount: 0,
-        arguments: { DURATION: { type: 'number', defaultValue: 1 } },
-        code: 'delay((unsigned long)((/*{DURATION}*/) * 1000));',
-    },
-    {
-        opcode: 'control_forever', blockType: 'conditional', branchCount: 1, arguments: {},
-        code: '',
-        sections: { loop: '/*{$BRANCH1}*/' },
-    },
-    {
-        opcode: 'control_repeat_until', blockType: 'conditional', branchCount: 1,
-        arguments: { CONDITION: { type: 'boolean', defaultValue: false } },
-        code: 'while(!(/*{{this.CONDITION ? this.CONDITION : 0}}*/)) {\n  /*{$BRANCH1}*/\n  delay(1);\n}',
-    },
-    {
-        opcode: 'control_wait_until', blockType: 'command', branchCount: 0,
-        arguments: { CONDITION: { type: 'boolean', defaultValue: false } },
-        code: 'while(!(/*{{this.CONDITION ? this.CONDITION : 0}}*/)) {\n  delay(1);\n}',
-    },
-];
+const { CATEGORIES, BLOCKS, CONTROL_BLOCKS, OPERATOR_BLOCKS } = require('./src/blocks.cjs');
 
 const PLATFORM = ['mblockpc'];
-const CATEGORY = 'jwplc_io';
 
 function menuKey(opcode, arg) {
     return (opcode + '_' + arg).toUpperCase();
@@ -200,22 +77,28 @@ function arduinoCodes(b) {
 }
 
 function buildInfoData() {
-    const menus = {};
     const translations = {};
-    for (const lang of LANGS) translations[lang] = { [EXT_ID]: 'JWPLC Basic', extensionName: 'JWPLC Basic', [CATEGORY]: 'JWPLC E/S' };
-    translations.en[CATEGORY] = 'JWPLC I/O';
+    for (const lang of LANGS) translations[lang] = { [EXT_ID]: 'JWPLC Basic', extensionName: 'JWPLC Basic' };
 
     const t = (key, byLang) => {
         for (const lang of LANGS) translations[lang][key] = byLang[lang] || byLang.en;
     };
 
-    const blocks = BLOCKS.map((b) => {
+    const categories = CATEGORIES.map((c) => {
+        if (c.text) t(c.name, c.text);
+        return { name: c.name, colors: c.colors, menuIconURI: '', blockIcon: null, blocks: [], menus: {} };
+    });
+    const byName = Object.fromEntries(categories.map((c) => [c.name, c]));
+
+    for (const b of BLOCKS) {
+        const cat = byName[b.category];
+        if (!cat) throw new Error('categoría desconocida ' + b.category + ' en ' + b.opcode);
         const args = {};
         for (const [name, a] of Object.entries(b.arguments)) {
             if (a.type === 'fieldMenu') {
                 const key = menuKey(b.opcode, name);
                 const byLang = Array.isArray(a.menu) ? { en: a.menu } : a.menu;
-                menus[key] = byLang.en.map((item, i) => ({ text: key + '_' + i, value: item.value }));
+                cat.menus[key] = byLang.en.map((item, i) => ({ text: key + '_' + i, value: item.value }));
                 byLang.en.forEach((item, i) => {
                     const perLang = {};
                     for (const [lang, list] of Object.entries(byLang)) perLang[lang] = list[i].label;
@@ -227,7 +110,7 @@ function buildInfoData() {
             }
         }
         t(b.opcode, b.text);
-        return {
+        cat.blocks.push({
             opcode: b.opcode,
             blockType: b.blockType,
             checkboxInFlyout: false,
@@ -237,10 +120,11 @@ function buildInfoData() {
             branchCount: 0,
             platform: PLATFORM,
             codes: arduinoCodes(b),
-        };
-    });
+        });
+    }
 
-    const controlBlocks = CONTROL_BLOCKS.map((b) => ({
+    // Sobrescrituras de bloques estándar (mismo opcode, código Arduino propio).
+    const builtin = (b) => ({
         opcode: b.opcode,
         blockType: b.blockType,
         checkboxInFlyout: false,
@@ -250,12 +134,19 @@ function buildInfoData() {
         branchCount: b.branchCount,
         platform: PLATFORM,
         codes: arduinoCodes(b),
-    }));
-
-    const categories = [
-        { name: CATEGORY, colors: ['#1E5FAF', '#1A549B', '#164887'], menuIconURI: '', blockIcon: null, blocks, menus },
-        { name: 'control', colors: ['#FFAB19', '#FCA000', '#E08E00'], menuIconURI: '', blockIcon: null, blocks: controlBlocks, menus: {} },
-    ];
+    });
+    categories.push({
+        name: 'control', colors: ['#FFAB19', '#FCA000', '#E08E00'], menuIconURI: '', blockIcon: null, menus: {},
+        blocks: CONTROL_BLOCKS.map(builtin),
+    });
+    categories.push({
+        name: 'operators', colors: ['#59C059', '#46B746', '#3EA33E'], menuIconURI: '', blockIcon: null, menus: {},
+        blocks: OPERATOR_BLOCKS.map(builtin),
+    });
+    // mBlock sólo muestra las categorías que declara el Device: sin estas dos,
+    // la paleta no tendría Variables ni Mis bloques. Vacías = bloques estándar.
+    categories.push({ name: 'data', colors: ['#FF8C1A', '#FD7E00', '#E17000'], menuIconURI: '', blockIcon: null, menus: {}, blocks: [] });
+    categories.push({ name: 'myBlocks', colors: ['#FF6680', '#FF4262', '#FF1F45'], menuIconURI: '', blockIcon: null, menus: {}, blocks: [] });
     return { categories, translations };
 }
 
@@ -318,7 +209,7 @@ class ExtJwplcBasic {
                     firmware: { driver: {} },
                 },
                 settings: [],
-                categoriesOrder: [${JSON.stringify(CATEGORY)}, 'events', 'control', 'operators', 'data', 'myBlocks'],
+                categoriesOrder: ${JSON.stringify(CATEGORIES.map((c) => c.name).concat(['control', 'operators', 'data', 'myBlocks']))},
             },
             codeTypes: ['arduinoc'],
             version: ${JSON.stringify(EXT_VERSION)},
@@ -333,7 +224,7 @@ class ExtJwplcBasic {
                 'control_start_as_clone', 'control_create_clone_of', 'control_delete_this_clone',
                 'control_stop', 'event_whenbroadcastreceived', 'event_broadcast', 'event_broadcastandwait',
             ],
-            generatorStartBlocks: ['jwplc_when_start'],
+            generatorStartBlocks: ${JSON.stringify(BLOCKS.filter((b) => b.blockType === 'hat').map((b) => b.opcode))},
             feature: [],
             mustLoginBlocks: [],
             disabledOffline: [],
