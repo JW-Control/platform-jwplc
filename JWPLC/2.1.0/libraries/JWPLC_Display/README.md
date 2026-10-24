@@ -544,6 +544,20 @@ Este es un flujo **avanzado / HMI manual**.
 Si tu interfaz fue creada con HMI Designer, normalmente no necesitas escribir
 esas llamadas.
 
+## Plantillas del HMI Designer
+
+Si prefieres partir de algo ya armado, el package trae tres HMI completas en
+**Archivo → Ejemplos → JWPLC_Display**:
+
+| Ejemplo | Qué enseña |
+|---|---|
+| `05.HMI_Plantilla_Caldera` | Cinco páginas con todos los tipos de objeto (VALUE, BOOL, BAR, TEXT, figuras, PIXEL, reloj) y un MENU de ajustes. Solo cambias los valores fijos del `loop()` por tus lecturas. |
+| `06.HMI_Botonera_Interactiva` | Cómo leer la botonera dentro de una página sin chocar con el selector ni con el MENU: horno con recetas, juego de reflejos y motor con rampa. |
+| `07.HMI_Iconos_Planta` | Iconos con estado (ICON) ligados a variables en una planta de agua simulada. |
+
+Cada carpeta trae el proyecto `.jwhmi`: guarda una copia del ejemplo (**Archivo → Guardar como**) y ábrela con
+el HMI Designer para modificar el diseño. El Designer reescribe `JWPLC_HMI_Generated.h`, nunca tu `.ino`.
+
 ## API de usuario
 
 ### Flujo recomendado con HMI Designer — Básico

@@ -11,6 +11,7 @@ FASE_1_INTEGRACION=CLOSED      CI del #141 en verde (9a27b13); hoy PR #157
 FASE_3_FREEZE=DONE             Display .a ced1f93 y TFT .a 161e406 reconstruidos el 24/10: ABI_COMPAT=PASS,
                                0 símbolos +/-, ST7789_DISPON_DEFERRED=YES; solo JWPLC_ModbusRTU en modo fuente
 CIERRE_NUBE_24_10=PASS         83/83 sketches (76 ejemplos + 7 gates) en Basic y en Basic Core, sin warnings;
+                               + plantillas HMI 05–07 de JWPLC_Display (pruebas-ia): 6/6;
                                tests del Designer 16/16; Live Bridge recompilado desde el package congelado (#160)
 FASE_4_DOCS=DONE               READMEs de librerías (#159), PRE_RELEASE.md y README raíz (marcador 2.1.0-alpha.14);
                                workflow temporal retirado (PR de cierre)

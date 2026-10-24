@@ -110,6 +110,8 @@ pantalla necesitaba para usarse como HMI de máquina.
 - **Pestañas de páginas** más claras: se distingue la página elegida de la
   página en la que se está trabajando, con un color por página.
 - **Buzzer** integrado con pitidos y melodías que no detienen el programa.
+- **Plantillas de HMI** en *Archivo → Ejemplos → JWPLC_Display* (caldera, botonera
+  interactiva y planta con iconos), listas para subir y modificar en el Designer.
 - **HMI Designer renovado:** inspector gráfico, herramientas de dibujo,
   trabajo directo con el sketch del Arduino IDE y vista en vivo que se
   instala en el equipo con un clic.
@@ -122,7 +124,7 @@ Además, las librerías y los ejemplos usan **pines con nombre** (`JWPLC_FRAM_CS
 con la misma API.
 
 **Probado en banco:** menús, formatos, reloj, tildes, buzzer, pestañas y
-tecla de despertar en un JWPLC Basic; Modbus RTU entre dos equipos; los 76
+tecla de despertar en un JWPLC Basic; Modbus RTU entre dos equipos; los 79
 ejemplos del package compilan en JWPLC Basic y Basic Core.
 
 ---

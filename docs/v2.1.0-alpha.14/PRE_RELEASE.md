@@ -62,7 +62,7 @@ versión; se volverá a precompilar en una alpha posterior.
 
 - **Pines con nombre:** librerías y ejemplos usan las constantes `JWPLC_*` del Basic (botonera, RS-485, FRAM,
   microSD, buzzer). Se corrigieron ejemplos de `JW_MatrixButtons` y `JW_RS485` que usaban pines de otra placa
-  y se retiraron dos que no tenían hardware en el Basic (76 ejemplos compilan en Basic y Basic Core).
+  y se retiraron dos que no tenían hardware en el Basic (79 ejemplos compilan en Basic y Basic Core).
 
 - **`JWPLC_Buzzer`** (en `JWPLC_GlobalPeripherals` 1.1.0): pitidos y melodías no bloqueantes con volumen;
   ejemplo `07.Buzzer_Basic`.
@@ -71,6 +71,10 @@ versión; se volverá a precompilar en una alpha posterior.
 
 ### JWPLC HMI Designer
 
+- **Plantillas listas para usar** en *Archivo → Ejemplos → JWPLC_Display*: `05.HMI_Plantilla_Caldera` (cinco
+  páginas con todos los tipos de objeto y MENU), `06.HMI_Botonera_Interactiva` (teclas del sketch por página:
+  horno, juego de reflejos y motor con rampa) y `07.HMI_Iconos_Planta` (15 iconos con estado). Cada una trae su
+  proyecto `.jwhmi` para abrirla y modificarla en el Designer.
 - Inspector gráfico rehecho para TEXT, VALUE, BOOL, BAR, figuras, textos libres, barra de páginas y MENU,
   con editor de color fijo y vista previa idéntica a la TFT.
 - Herramientas PIXEL: pincel, borrador, mover, relleno y cuentagotas.
@@ -103,7 +107,8 @@ versión; se volverá a precompilar en una alpha posterior.
 - Compilación ESP32 de **todos los ejemplos del package (76) y los 7 gates del Designer** (MENU, MENU desde el
   Designer, formatos, reloj, tildes, codegen estático y OpenPLC F0) en **JWPLC Basic y JWPLC Basic Core**:
   83/83 en cada placa, sin warnings (arduino-cli, package de la rama, sketchbook vacío). Flash: Basic
-  436 477–473 589 B; Core 394 195–433 517 B.
+  436 477–473 589 B; Core 394 195–433 517 B. Las 3 plantillas HMI de `JWPLC_Display` (05–07), añadidas
+  después, compilan también en las dos placas (6/6, sin warnings): 79 ejemplos en total.
 - Live Bridge del Designer recompilado desde el package congelado (440 752 B).
 
 ### Pruebas en placa
