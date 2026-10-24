@@ -9,7 +9,6 @@
 */
 
 #include <Arduino.h>
-#include <Wire.h> // REQUERIDO para el expansor I/O (I2C)
 
 // Creamos un arreglo de 2 registros Modbus (Holding Registers)
 // Registro 0 (Dirección 0): Guardará el estado de las Entradas I0_X
@@ -23,14 +22,10 @@ void setup() {
   Serial.begin(115200);
   delay(1000);
   
-  // 1. Iniciar el bus I2C (Vital para que el expansor de pines funcione y no se congele)
-  Wire.begin();
+  // 1. El core ya inicia el bus I2C y habilita el expansor TCA6424A (EN_IO)
+  //    antes de setup(): el sketch no debe llamar a Wire.begin() ni tocar EN_IO.
 
-  // 2. Habilitar el expansor de pines del JWPLC Basic (TCA6424A)
-  pinMode(EN_IO, OUTPUT);
-  digitalWrite(EN_IO, HIGH);
-  
-  // 3. Configurar los pines de I/O industriales en bloque
+  // 2. Configurar los pines de I/O industriales en bloque
   for(int i = 0; i < 8; i++) {
     pinMode(I0_X[i], INPUT);
     pinMode(Q0_X[i], OUTPUT);

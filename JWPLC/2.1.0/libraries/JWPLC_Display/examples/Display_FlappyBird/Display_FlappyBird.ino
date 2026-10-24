@@ -137,7 +137,7 @@ static const bool ENABLE_MUSIC = true;
 static const bool ENABLE_SFX = true;
 
 // Usa el mismo pin que usaste en Tetris.
-static const uint8_t BUZZER_PIN = 26;
+static const uint8_t BUZZER_PIN = JWPLC_BUZZER_PIN;
 
 // ESP32 core 3.x
 static const uint8_t BUZZER_PWM_RES_BITS = 8;

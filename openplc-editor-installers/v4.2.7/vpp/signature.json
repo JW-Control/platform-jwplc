@@ -3,18 +3,20 @@
   "alg": "ed25519",
   "keyId": "jwcontrol-2026",
   "packageId": "com.jwcontrol.jwplc-basic",
-  "version": "2.1.0-alpha.19",
-  "signedAt": "2026-09-01T19:53:06.266Z",
+  "version": "2.1.0-alpha.29",
+  "signedAt": "2026-10-10T21:58:35.995Z",
   "files": {
     "README.md": "f98f113f4095893aca82fbb0a5d750d8a6c383af37e3cbe99691854c96ddb832",
     "assets/jwplcbasic.png": "64c7c2755436f2224c1aa7f4ed535c95339eba3df43dbc93f1f19bf5f1b6fb68",
     "examples/JWPLC_Basic_Blink_Q0_0/README.md": "363bf0ddb193c6d4978e18c3947bf53df755c42704fe383632e8929cad83c52f",
     "examples/JWPLC_Basic_IO_Test_I0_to_Q0/README.md": "c40d37f6963766cb280de09c43ab56f56b74ce5f533beaf06d35e937f37cb747",
-    "hal/jwplcbasic.cpp": "d606122c8a61c530dbe0a7ff979c7678c6edf86a53fcf7dddb45c6ffb20ec9fb",
-    "manifest.json": "ab067d7bd83587a73a00bc83558289d0e39e3addd6c0217a8b9669068188f650",
-    "screens/backplane.json": "415c92f559aba0d1e07c87dd715678c1d12fcecffa70639c75a4e2de578c30ff",
-    "screens/jwplc-basic-remote-io.json": "def2e2e272d1d2b168f498670f7dfb135e07053b447423568916f0a7f9f61638",
-    "screens/modbus.json": "2ba86ffbc65d197eaf94ca6ebc36b6ed0b2cf0d2ea7f0dc6c2676cfd61262ef6"
+    "hal/jwplcbasic-remoteio-slave.cpp": "d8823f51d8a0352017cca20f36057835bf92eacdf7b494733a82e77e63d88d7f",
+    "hal/jwplcbasic.cpp": "e92afe8c3a98cf3b0fcb46379908fa3dd233b225f3a71e1a50f7f19b7948e8ec",
+    "manifest.json": "5b638381813f511de280ab03e3394e1cc77c9fc064a673b35e00840d880cf692",
+    "screens/backplane.json": "51e516ea63cb4dee71a93bdd218ebfcc565411a6eab295903bc89744a9827df2",
+    "screens/jwplc-basic-remote-io.json": "f2ed17ef99859cf655f4c5d6be369dd4a49760b5c5e649fa688d04f9550090e1",
+    "screens/modbus.json": "2ba86ffbc65d197eaf94ca6ebc36b6ed0b2cf0d2ea7f0dc6c2676cfd61262ef6",
+    "screens/remote-io-slave.json": "aa4c1205fd3b9f9e5ca47dfa50db4c07470c00823f6c166cfa6b16a4e42771a0"
   },
-  "signature": "JHEchnIBd5oTJ2l6eNmWHu5Eh8B17kzKB+9+FXMzeGmZaM4z4Pa3kY4bpr7GQjpQbfV9qrApYZ3Q3VkdfBbFCQ=="
+  "signature": "2vO1MtdBhEOnwRPn95yGN3Doo/9OzbJjh2oNoefa1t8ueYEq8QyJMeqgp/9pkU2tFdJ9qAMfyfpUS2xJeJc/DQ=="
 }

@@ -1,8 +1,13 @@
-param(
-    [switch]$SkipDependencies
+﻿param(
+    [switch]$SkipDependencies,
+    # También genera el .exe portable (sin instalar). Lo usa el workflow de release.
+    [switch]$Portable,
+    # Versión del producto si difiere de electron/package.json (p. ej. la del tag de la Release).
+    [string]$Version
 )
 
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'JWPLC-ElectronBuilderCache.ps1')
 
 $root = $PSScriptRoot
 $electronRoot = Join-Path $root 'electron'
@@ -69,10 +74,27 @@ try {
         }
     }
 
+    # Sin esto, electron-builder falla en PCs sin modo desarrollador (enlaces
+    # simbólicos de macOS dentro de winCodeSign). Ver JWPLC-ElectronBuilderCache.ps1.
+    Initialize-JwplcWinCodeSignCache -ElectronRoot $electronRoot
+
+    $builderArgs = @()
+    if ($Version) {
+        $builderArgs = @('--', "-c.extraMetadata.version=$Version")
+    }
+
     Write-Host 'Generando instalador NSIS x64...' -ForegroundColor Cyan
-    & $npm.Source run dist:setup
+    & $npm.Source run dist:setup @builderArgs
     if ($LASTEXITCODE -ne 0) {
         throw "electron-builder/NSIS falló con código $LASTEXITCODE."
+    }
+
+    if ($Portable) {
+        Write-Host 'Generando ejecutable portable x64...' -ForegroundColor Cyan
+        & $npm.Source run dist:portable @builderArgs
+        if ($LASTEXITCODE -ne 0) {
+            throw "electron-builder/portable falló con código $LASTEXITCODE."
+        }
     }
 }
 finally {
@@ -107,3 +129,18 @@ Write-Host "  VSIX:    $($vsix.Name)"
 Write-Host ''
 Write-Host 'El Setup instala JWPLC HMI Designer + extensión Arduino IDE 2.' -ForegroundColor Green
 Write-Output $distSetup
+
+if ($Portable) {
+    $portableExe = Get-ChildItem -LiteralPath $releaseRoot -Filter 'JWPLC-HMI-Designer-Portable-*.exe' -File |
+        Sort-Object LastWriteTime -Descending |
+        Select-Object -First 1
+
+    if (-not $portableExe) {
+        throw "No se encontró el portable generado en $releaseRoot."
+    }
+
+    $distPortable = Join-Path $distRoot $portableExe.Name
+    Copy-Item -LiteralPath $portableExe.FullName -Destination $distPortable -Force
+    Write-Host "  Portable: $distPortable ($($portableExe.Length) bytes)" -ForegroundColor Green
+    Write-Output $distPortable
+}

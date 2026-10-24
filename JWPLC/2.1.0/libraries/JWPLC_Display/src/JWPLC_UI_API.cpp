@@ -58,23 +58,75 @@ JWPLC_UIStyle::JWPLC_UIStyle(
 {
 }
 
-JWPLC_UIValueFormat::JWPLC_UIValueFormat(
-    uint8_t integerDigitsValue,
-    uint8_t decimalDigitsValue,
-    bool signedValueValue,
-    bool leadingZerosValue)
-    : integerDigits(integerDigitsValue),
-      decimalDigits(decimalDigitsValue),
-      signedValue(signedValueValue),
-      leadingZeros(leadingZerosValue)
+// JWPLC_UIValueFormat y JWPLC_UIDurationFormat: JWPLC_UI_Format.cpp
+
+JWPLC_UIBoolText::JWPLC_UIBoolText(
+    const char *falseTextValue,
+    const char *trueTextValue)
+    : falseText(falseTextValue),
+      trueText(trueTextValue),
+      falseColor(0),
+      trueColor(0),
+      falseBackground(0),
+      trueBackground(0),
+      stateColors(0),
+      representation(JWPLC_UI_BOOL_AS_TEXT)
 {
 }
 
 JWPLC_UIBoolText::JWPLC_UIBoolText(
     const char *falseTextValue,
-    const char *trueTextValue)
-    : falseText(falseTextValue), trueText(trueTextValue)
+    const char *trueTextValue,
+    uint16_t falseColorValue,
+    uint16_t trueColorValue)
+    : falseText(falseTextValue),
+      trueText(trueTextValue),
+      falseColor(falseColorValue),
+      trueColor(trueColorValue),
+      falseBackground(0),
+      trueBackground(0),
+      stateColors(JWPLC_UI_BOOL_STATE_TEXT),
+      representation(JWPLC_UI_BOOL_AS_TEXT)
 {
+}
+
+JWPLC_UIBoolText::JWPLC_UIBoolText(
+    const char *falseTextValue,
+    const char *trueTextValue,
+    uint16_t falseColorValue,
+    uint16_t trueColorValue,
+    uint16_t falseBackgroundValue,
+    uint16_t trueBackgroundValue)
+    : falseText(falseTextValue),
+      trueText(trueTextValue),
+      falseColor(falseColorValue),
+      trueColor(trueColorValue),
+      falseBackground(falseBackgroundValue),
+      trueBackground(trueBackgroundValue),
+      stateColors(JWPLC_UI_BOOL_STATE_TEXT | JWPLC_UI_BOOL_STATE_BACKGROUND),
+      representation(JWPLC_UI_BOOL_AS_TEXT)
+{
+}
+
+// Los textos sólo sirven para detectar el cambio de estado (no se dibujan).
+JWPLC_UIBoolText JWPLC_UIBoolPilot(
+    uint16_t falseColor,
+    uint16_t trueColor)
+{
+    JWPLC_UIBoolText pilot("OFF", "ON", falseColor, trueColor);
+    pilot.representation = JWPLC_UI_BOOL_AS_PILOT;
+    return pilot;
+}
+
+JWPLC_UIBoolText JWPLC_UIBoolPilot(
+    uint16_t falseColor,
+    uint16_t trueColor,
+    uint16_t falseBackground,
+    uint16_t trueBackground)
+{
+    JWPLC_UIBoolText pilot("OFF", "ON", falseColor, trueColor, falseBackground, trueBackground);
+    pilot.representation = JWPLC_UI_BOOL_AS_PILOT;
+    return pilot;
 }
 
 JWPLC_UIRange::JWPLC_UIRange(float minValue, float maxValue)
@@ -170,6 +222,41 @@ JWPLC_UIStyle JWPLC_UIBarStyle(
         frame,
         layout,
         JWPLC_UI_ALIGN_LEFT);
+}
+
+JWPLC_UIStyle JWPLC_UIIconStyle(
+    uint8_t labelTextSize,
+    bool frame,
+    JWPLC_UIFieldLayout layout)
+{
+    // valueTextSize 1: el margen derecho/inferior sólo depende de la etiqueta.
+    return JWPLC_UIValueStyle(
+        1,
+        labelTextSize,
+        frame,
+        layout,
+        JWPLC_UI_ALIGN_LEFT);
+}
+
+JWPLC_UIField JWPLC_UIIconField(
+    uint8_t id,
+    JWPLC_UIRect rect,
+    const JWPLC_UIIcon *icon,
+    JWPLC_UIText text,
+    JWPLC_UIStyle style,
+    uint8_t page,
+    JWPLC_UIColors colors,
+    bool transparentBackground)
+{
+    JWPLC_UIField field(
+        JWPLC_UIFieldMeta(id, page, JWPLC_UI_FIELD_ICON),
+        rect,
+        text,
+        style,
+        colors);
+    field.icon = icon;
+    field.iconTransparent = transparentBackground;
+    return field;
 }
 
 JWPLC_UIField JWPLC_UIValueField(
@@ -315,11 +402,23 @@ JWPLC_UIField JWPLC_UIBarField(
         page);
 }
 
+// Hooks del MENU (Alpha15). JWPLC_UI_Menu.cpp aporta las versiones strong y
+// sólo se enlaza si el sketch registra menús (setMenus / JWPLC_UIMenu*).
+extern "C" void __attribute__((weak)) jwplcUIMenuServiceInput(void) {}
+extern "C" void __attribute__((weak)) jwplcUIMenuPrepareEnter(void) {}
+extern "C" void __attribute__((weak)) jwplcUIMenuInvalidateAll(void) {}
+extern "C" void __attribute__((weak)) jwplcUIMenuDrawStatic(JWPLC_TFTClass *tft) { (void)tft; }
+extern "C" void __attribute__((weak)) jwplcUIMenuDrawDirty(JWPLC_TFTClass *tft) { (void)tft; }
+
 // Implementaciones strong de los hooks internos. Este TU solo se enlaza cuando
 // la HMI se usa: JWPLC_UI.cpp depende de los constructores definidos arriba.
 extern "C" void jwplcUIRuntimeServiceInput(void)
 {
+    // El MENU de la página atiende primero sus teclas (UP/DOWN/LEFT/RIGHT/OK y
+    // ESC fuera de la raíz); lo que no consume sigue al selector de páginas.
+    jwplcUIMenuServiceInput();
     JWPLCUIPages::serviceNavigation();
+    JWPLCUI::pollClockFields();
 }
 
 extern "C" bool jwplcUIRuntimeRefreshNeeded(void)
@@ -338,12 +437,14 @@ extern "C" bool jwplcUIRuntimeRefreshNeeded(void)
 
 extern "C" void jwplcUIRuntimeInvalidateAll(bool redrawStatic)
 {
+    jwplcUIMenuInvalidateAll();
     JWPLCUI::invalidateAll(redrawStatic);
 }
 
 extern "C" void jwplcUIRuntimePrepareEnter(void)
 {
     JWPLCUI::prepareEnter();
+    jwplcUIMenuPrepareEnter();
     JWPLCUIPages::prepareEnter();
 }
 
@@ -375,6 +476,7 @@ extern "C" void jwplcUIRuntimeDrawStatic(JWPLC_TFTClass *tft)
         // dibujan después y por tanto conservan prioridad visual.
         JWPLCUI::drawPixelMapsStatic(*tft);
         JWPLCUI::drawStatic(*tft);
+        jwplcUIMenuDrawStatic(tft);
     }
 }
 
@@ -383,6 +485,8 @@ extern "C" void jwplcUIRuntimeDrawDirty(JWPLC_TFTClass *tft)
     if (tft != nullptr)
     {
         JWPLCUI::drawDirty(*tft);
+        jwplcUIMenuDrawDirty(tft);
+        JWPLCUIPages::drawModeChange(*tft);
         JWPLCUIPages::drawIndicator(*tft);
     }
 }

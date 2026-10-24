@@ -60,7 +60,7 @@ static const bool ENABLE_SERIAL_DEBUG = true;
 // Buzzer JWPLC Basic
 // =====================================================
 
-static const uint8_t BUZZER_PIN = 26;
+static const uint8_t BUZZER_PIN = JWPLC_BUZZER_PIN;
 static const bool ENABLE_BUZZER = true;
 static const bool ENABLE_BACKGROUND_MUSIC = true;
 static const bool ENABLE_SFX = false;

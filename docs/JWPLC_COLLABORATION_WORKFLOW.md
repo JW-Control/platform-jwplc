@@ -1,6 +1,6 @@
 # JWPLC — Flujo de colaboración por hitos
 
-Actualizado: 2026-10-13
+Actualizado: 2026-10-24
 Estado: VIGENTE para `platform-jwplc` y siguientes alphas.
 Sustituye la práctica de solicitar una respuesta del usuario por **cada microgate**, pero NO elimina comprobaciones, criterios de parada ni evidencia.
 
@@ -9,6 +9,12 @@ Sustituye la práctica de solicitar una respuesta del usuario por **cada microga
 **Un hito = preparación consolidada + un ejecutor integrador + validación humana cuando haga falta + cierre documental**.
 
 La unidad de conversación es el **hito**. Los microgates continúan como *fases automáticas internas*, con nombre, resultados y puntos de parada. No se exige una conversación separada por cada comprobación segura.
+
+## 1.1 Ramas y PR por feature (desde 2.1.0-alpha.14)
+
+Cada hito o cambio trabaja en `v2.1.0-alpha.N/<Línea>/feature/<tema>`, creada desde la rama principal de la alpha
+`v2.1.0-alpha.N/<Línea>/main`; entra por PR hacia esa principal, se revisa (CI + OK del propietario), se fusiona y
+se borra. Sólo la principal va, por PR en borrador, a `release/v2.1.x`. Detalle y nombres vigentes: `CLAUDE.md` §5.
 
 ## 2. Responsabilidades
 

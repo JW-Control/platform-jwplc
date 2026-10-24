@@ -42,6 +42,13 @@ namespace JWPLCIdleScreen
 
     void forceFullRedraw();
     void draw(const JWPLC_IOState *io, const JWPLC_RTCState *rtc);
+
+    // Overlay de entradas forzadas por el debugger (bit i = I0_i).
+    // forcedMask: entradas forzadas. forcedValues: valor forzado de cada una.
+    // Una entrada forzada se dibuja con su valor forzado y una "F"; en ON
+    // va rayada para distinguirla de una entrada física activa.
+    // Retorna true si el overlay cambió.
+    bool setInputForceOverlay(uint8_t forcedMask, uint8_t forcedValues);
 }
 
 #endif // JWPLC_IDLESCREEN_H

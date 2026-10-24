@@ -4,10 +4,14 @@
 
 static constexpr uint16_t DEMO_BLOCK_COUNT = 16;
 static constexpr uint16_t DEMO_LINK_COUNT = 33;
+// Arreglos del motor: bloques, enlaces, valores y, para TON, el estado de
+// temporizacion y el instante de inicio de cada bloque.
 static constexpr size_t MIN_ENGINE_STORAGE_BYTES =
     (JWPLC_LOGIC_V2_COMPILED_MAX_BLOCKS * sizeof(LogicV2BlockRecord)) +
     (JWPLC_LOGIC_V2_COMPILED_MAX_LINKS * sizeof(LogicV2InputLink)) +
-    (JWPLC_LOGIC_V2_COMPILED_MAX_BLOCKS * sizeof(bool));
+    (JWPLC_LOGIC_V2_COMPILED_MAX_BLOCKS * sizeof(bool)) +
+    (JWPLC_LOGIC_V2_COMPILED_MAX_BLOCKS * sizeof(bool)) +
+    (JWPLC_LOGIC_V2_COMPILED_MAX_BLOCKS * sizeof(uint32_t));
 
 static LogicV2EnginePrototype engine;
 static uint16_t passedTests = 0;

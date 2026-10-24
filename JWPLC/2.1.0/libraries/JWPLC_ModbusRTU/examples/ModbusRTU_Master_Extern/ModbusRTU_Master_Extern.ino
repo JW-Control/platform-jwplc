@@ -22,8 +22,8 @@
 
 #include <Arduino.h>
 
-static const int RS485_RX_PIN = 16;
-static const int RS485_TX_PIN = 17;
+static const int RS485_RX_PIN = JWPLC_RS485_RX_PIN;
+static const int RS485_TX_PIN = JWPLC_RS485_TX_PIN;
 
 static const uint32_t USB_BAUD = 115200;
 static const uint32_t MODBUS_BAUD = 19200;

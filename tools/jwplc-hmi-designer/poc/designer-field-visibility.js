@@ -4,10 +4,17 @@
   const fieldCapacity = document.getElementById('fieldCapacity');
   const fieldPreview = document.getElementById('fieldPreview');
   const fieldValueSize = document.getElementById('fieldValueSize');
+  const fieldLabelSize = document.getElementById('fieldLabelSize');
+  const fieldUnit = document.getElementById('fieldUnit');
 
   const capacityWrap = fieldCapacity?.closest('label');
   const previewWrap = fieldPreview?.closest('label');
   const valueSizeWrap = fieldValueSize?.closest('label');
+  const labelSizeWrap = fieldLabelSize?.closest('label');
+  const unitWrap = fieldUnit?.closest('label');
+  const barAlignMatrixRow = document.getElementById('barAlignMatrixRow');
+  const alignWrap = document.getElementById('fieldAlignWrap');
+  const layoutWrap = document.getElementById('fieldLayoutWrap');
 
   function editor() {
     return window.JWPLCHMIEditor || null;
@@ -33,11 +40,26 @@
     // BAR no tiene tamaño de valor textual: su región visible es una barra
     // fija de 12 px de alto en el runtime. TEXT/VALUE/BOOL sí lo usan.
     setVisible(valueSizeWrap, type !== 'BAR');
+
+    // Controles exclusivos de BAR vs TEXT/VALUE
+    setVisible(barAlignMatrixRow, type === 'BAR');
+    setVisible(labelSizeWrap, type !== 'BAR');
+    setVisible(alignWrap, type !== 'BAR');
+    setVisible(layoutWrap, type !== 'BAR');
+    setVisible(unitWrap, type !== 'TEXT');
+
+    // Apariencia: color de valor no aplica a BAR, color de borde solo si frame está activo
+    const valueColorWrap = document.getElementById('fieldValueColor')?.closest('label');
+    const frameColorWrap = document.getElementById('fieldFrameColor')?.closest('label');
+    setVisible(valueColorWrap, type !== 'BAR');
+    setVisible(frameColorWrap, Boolean(field?.frame));
   }
 
   window.addEventListener('jwplc:editor-refresh', syncFieldVisibility);
-  document.querySelector('.left-panel')?.addEventListener('click', () => {
-    setTimeout(syncFieldVisibility, 0);
+  document.body.addEventListener('click', (e) => {
+    if (e.target.closest('.left-panel') || e.target.closest('.canvas-toolbar')) {
+      setTimeout(syncFieldVisibility, 0);
+    }
   });
 
   syncFieldVisibility();
@@ -53,7 +75,7 @@
   // designer-pixelmap.js conserva esa referencia histórica para localizar el
   // contenedor de Objetos. Se crea un shim efímero sólo durante la inicialización
   // para que el módulo capture el nav-block real sin tocar el modelo de fields.
-  const objectNav = document.querySelector('.count-badge')?.closest('.nav-block') || null;
+  const objectNav = document.getElementById('objectsList') || document.querySelector('.count-badge')?.closest('.nav-block') || null;
   let objectShim = document.getElementById('textObjectItem');
   if (!objectShim && objectNav) {
     objectShim = document.createElement('span');
@@ -66,7 +88,7 @@
   function loadInspectorState() {
     if (window.JWPLCHMIInspectorState || document.querySelector('script[data-a11-inspector-state]')) return;
     const script = document.createElement('script');
-    script.src = './designer-inspector-state.js';
+    script.src = './designer-inspector-state.js?v=1793801700';
     script.async = false;
     script.dataset.a11InspectorState = '1';
     script.onload = () => window.JWPLCHMIInspectorState?.sync?.();
@@ -95,7 +117,7 @@
     }
 
     const pixel = document.createElement('script');
-    pixel.src = './designer-pixelmap.js';
+    pixel.src = './designer-pixelmap.js?v=1793801300';
     pixel.async = false;
     pixel.dataset.a11Pixelmap = '1';
     pixel.onload = () => {
@@ -103,12 +125,12 @@
       if (!window.JWPLCHMIPixelMaps) return;
 
       const pageGate = document.querySelector('.page-tabs .gate');
-      if (pageGate) pageGate.textContent = 'Gate: A11-7B · PIXEL por capas';
+      if (pageGate) pageGate.textContent = 'v2.1.0-alpha.14';
       const bottomSummary = document.querySelector('.bottom-summary');
-      if (bottomSummary) bottomSummary.textContent = 'A11-7B · pincel, borrador y onion skin';
+      if (bottomSummary) bottomSummary.textContent = 'pincel, borrador y onion skin';
       const statusGate = [...document.querySelectorAll('.statusbar span')]
         .find((node) => node.textContent.trim().startsWith('Gate:'));
-      if (statusGate) statusGate.textContent = 'Gate: A11-7B PIXEL LAYERS';
+      if (statusGate) statusGate.textContent = 'v2.1.0-alpha.14';
 
       loadInspectorState();
       loadPixelStability();

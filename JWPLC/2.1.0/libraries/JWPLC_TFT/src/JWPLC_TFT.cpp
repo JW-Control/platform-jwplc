@@ -43,6 +43,14 @@ extern "C"
 #error "JWPLC_TFT: SUPPORT_TRANSACTIONS requerido"
 #endif
 
+#if !defined(LOAD_GFXFF)
+#error "JWPLC_TFT: LOAD_GFXFF requerido (fuentes 0.3.0)"
+#endif
+
+#if defined(LOAD_FONT2) || defined(LOAD_FONT4) || defined(LOAD_FONT6) || defined(LOAD_FONT7) || defined(LOAD_FONT8)
+#error "JWPLC_TFT: Font2/4/6/7/8 de TFT_eSPI agregan ~9 KB a todo sketch; no habilitar"
+#endif
+
 namespace
 {
     TFT_eSPI g_backend = TFT_eSPI();
@@ -53,6 +61,53 @@ namespace
     static constexpr uint16_t NATIVE_HEIGHT = 320;
     static constexpr uint16_t LOGICAL_WIDTH = 320;
     static constexpr uint16_t LOGICAL_HEIGHT = 170;
+}
+
+// Estado de texto extendido (0.3.0). Se guarda fuera de la clase para no
+// cambiar el layout de JWPLC_TFTClass (ABI de los .a que ya enlazan con ella).
+const JWPLC_TFTFont JWPLC_FONT_GLCD = {0, nullptr};
+const JWPLC_TFTFont JWPLC_FONT_SANS_9 = {1, &FreeSans9pt7b};
+const JWPLC_TFTFont JWPLC_FONT_SANS_BOLD_9 = {1, &FreeSansBold9pt7b};
+const JWPLC_TFTFont JWPLC_FONT_SANS_12 = {1, &FreeSans12pt7b};
+const JWPLC_TFTFont JWPLC_FONT_SANS_BOLD_12 = {1, &FreeSansBold12pt7b};
+const JWPLC_TFTFont JWPLC_FONT_SANS_18 = {1, &FreeSans18pt7b};
+const JWPLC_TFTFont JWPLC_FONT_SANS_BOLD_18 = {1, &FreeSansBold18pt7b};
+const JWPLC_TFTFont JWPLC_FONT_SANS_24 = {1, &FreeSans24pt7b};
+const JWPLC_TFTFont JWPLC_FONT_SANS_BOLD_24 = {1, &FreeSansBold24pt7b};
+const JWPLC_TFTFont JWPLC_FONT_SERIF_9 = {1, &FreeSerif9pt7b};
+const JWPLC_TFTFont JWPLC_FONT_SERIF_BOLD_9 = {1, &FreeSerifBold9pt7b};
+const JWPLC_TFTFont JWPLC_FONT_SERIF_12 = {1, &FreeSerif12pt7b};
+const JWPLC_TFTFont JWPLC_FONT_SERIF_BOLD_12 = {1, &FreeSerifBold12pt7b};
+const JWPLC_TFTFont JWPLC_FONT_SERIF_18 = {1, &FreeSerif18pt7b};
+const JWPLC_TFTFont JWPLC_FONT_SERIF_BOLD_18 = {1, &FreeSerifBold18pt7b};
+const JWPLC_TFTFont JWPLC_FONT_SERIF_24 = {1, &FreeSerif24pt7b};
+const JWPLC_TFTFont JWPLC_FONT_SERIF_BOLD_24 = {1, &FreeSerifBold24pt7b};
+const JWPLC_TFTFont JWPLC_FONT_MONO_9 = {1, &FreeMono9pt7b};
+const JWPLC_TFTFont JWPLC_FONT_MONO_BOLD_9 = {1, &FreeMonoBold9pt7b};
+const JWPLC_TFTFont JWPLC_FONT_MONO_12 = {1, &FreeMono12pt7b};
+const JWPLC_TFTFont JWPLC_FONT_MONO_BOLD_12 = {1, &FreeMonoBold12pt7b};
+const JWPLC_TFTFont JWPLC_FONT_MONO_18 = {1, &FreeMono18pt7b};
+const JWPLC_TFTFont JWPLC_FONT_MONO_BOLD_18 = {1, &FreeMonoBold18pt7b};
+const JWPLC_TFTFont JWPLC_FONT_MONO_24 = {1, &FreeMono24pt7b};
+const JWPLC_TFTFont JWPLC_FONT_MONO_BOLD_24 = {1, &FreeMonoBold24pt7b};
+
+namespace
+{
+    const JWPLC_TFTFont *g_font = &JWPLC_FONT_GLCD;
+    JWPLC_TFTDatum g_datum = JWPLC_TFTDatum::TOP_LEFT;
+    uint16_t g_padding = 0;
+
+    void applyFont(const JWPLC_TFTFont &font)
+    {
+        if (font.kind == 1 && font.data != nullptr)
+        {
+            g_backend.setFreeFont(static_cast<const GFXfont *>(font.data));
+            return;
+        }
+
+        g_backend.setFreeFont(nullptr);
+        g_backend.setTextFont(1);
+    }
 }
 
 JWPLC_TFTClass JWPLC_TFT;
@@ -386,6 +441,110 @@ bool JWPLC_TFTClass::drawCircle(
     return true;
 }
 
+bool JWPLC_TFTClass::fillEllipse(
+    int16_t x,
+    int16_t y,
+    int16_t rx,
+    int16_t ry,
+    uint16_t color,
+    uint32_t timeoutMs)
+{
+    if (!acquireForOperation(timeoutMs))
+    {
+        return false;
+    }
+
+    g_backend.fillEllipse(
+        x,
+        y,
+        rx,
+        ry,
+        color);
+
+    releaseAfterOperation();
+    return true;
+}
+
+bool JWPLC_TFTClass::drawEllipse(
+    int16_t x,
+    int16_t y,
+    int16_t rx,
+    int16_t ry,
+    uint16_t color,
+    uint32_t timeoutMs)
+{
+    if (!acquireForOperation(timeoutMs))
+    {
+        return false;
+    }
+
+    g_backend.drawEllipse(
+        x,
+        y,
+        rx,
+        ry,
+        color);
+
+    releaseAfterOperation();
+    return true;
+}
+
+bool JWPLC_TFTClass::fillTriangle(
+    int16_t x0,
+    int16_t y0,
+    int16_t x1,
+    int16_t y1,
+    int16_t x2,
+    int16_t y2,
+    uint16_t color,
+    uint32_t timeoutMs)
+{
+    if (!acquireForOperation(timeoutMs))
+    {
+        return false;
+    }
+
+    g_backend.fillTriangle(
+        x0,
+        y0,
+        x1,
+        y1,
+        x2,
+        y2,
+        color);
+
+    releaseAfterOperation();
+    return true;
+}
+
+bool JWPLC_TFTClass::drawTriangle(
+    int16_t x0,
+    int16_t y0,
+    int16_t x1,
+    int16_t y1,
+    int16_t x2,
+    int16_t y2,
+    uint16_t color,
+    uint32_t timeoutMs)
+{
+    if (!acquireForOperation(timeoutMs))
+    {
+        return false;
+    }
+
+    g_backend.drawTriangle(
+        x0,
+        y0,
+        x1,
+        y1,
+        x2,
+        y2,
+        color);
+
+    releaseAfterOperation();
+    return true;
+}
+
 bool JWPLC_TFTClass::drawFastHLine(
     int16_t x,
     int16_t y,
@@ -454,6 +613,35 @@ bool JWPLC_TFTClass::drawPixel(
     return true;
 }
 
+bool JWPLC_TFTClass::pushImage(
+    int16_t x,
+    int16_t y,
+    int16_t w,
+    int16_t h,
+    const uint16_t *pixels,
+    uint32_t timeoutMs)
+{
+    if (pixels == nullptr || w <= 0 || h <= 0)
+    {
+        return false;
+    }
+
+    if (!acquireForOperation(timeoutMs))
+    {
+        return false;
+    }
+
+    // Los colores llegan en el orden de la CPU (little-endian), igual que en
+    // drawPixel; el ST7789 los espera con el byte alto primero.
+    const bool swap = g_backend.getSwapBytes();
+    g_backend.setSwapBytes(true);
+    g_backend.pushImage(x, y, w, h, pixels);
+    g_backend.setSwapBytes(swap);
+
+    releaseAfterOperation();
+    return true;
+}
+
 void JWPLC_TFTClass::syncTextState()
 {
     g_backend.setTextSize(_textSize);
@@ -473,6 +661,64 @@ void JWPLC_TFTClass::syncTextState()
     g_backend.setTextWrap(
         _wrapX,
         _wrapY);
+
+    applyFont(*g_font);
+    g_backend.setTextDatum(static_cast<uint8_t>(g_datum));
+    g_backend.setTextPadding(g_padding);
+}
+
+void JWPLC_TFTClass::setFont(const JWPLC_TFTFont &font)
+{
+    g_font = &font;
+    applyFont(font);
+}
+
+const JWPLC_TFTFont &JWPLC_TFTClass::font() const
+{
+    return *g_font;
+}
+
+void JWPLC_TFTClass::setTextDatum(JWPLC_TFTDatum datum)
+{
+    g_datum = datum;
+    g_backend.setTextDatum(static_cast<uint8_t>(datum));
+}
+
+JWPLC_TFTDatum JWPLC_TFTClass::textDatum() const
+{
+    return g_datum;
+}
+
+void JWPLC_TFTClass::setTextPadding(uint16_t width)
+{
+    g_padding = width;
+    g_backend.setTextPadding(width);
+}
+
+uint16_t JWPLC_TFTClass::textPadding() const
+{
+    return g_padding;
+}
+
+int16_t JWPLC_TFTClass::drawString(
+    const char *text,
+    int16_t x,
+    int16_t y,
+    uint32_t timeoutMs)
+{
+    if (text == nullptr)
+    {
+        return 0;
+    }
+
+    if (!acquireForOperation(timeoutMs))
+    {
+        return -1;
+    }
+
+    const int16_t drawn = g_backend.drawString(text, x, y);
+    releaseAfterOperation();
+    return drawn;
 }
 
 void JWPLC_TFTClass::syncCursorState()

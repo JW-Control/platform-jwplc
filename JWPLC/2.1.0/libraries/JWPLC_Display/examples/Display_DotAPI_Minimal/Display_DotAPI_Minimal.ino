@@ -26,7 +26,7 @@ void setup()
     Serial.begin(115200);
     delay(1200);
 
-    // Alpha8+ mantiene el wake deshabilitado por defecto. Este ejemplo mínimo
+    // Por defecto el wake está deshabilitado (IDLE_WAKE_DISABLED). Este ejemplo mínimo
     // habilita únicamente OK y conserva el retorno automático por timeout.
     JWPLC_Display.setIdleWakeButton(BTN_OK);
     JWPLC_Display.setIdleWakeMode(IDLE_WAKE_BUTTON_ONLY);
@@ -48,7 +48,7 @@ void loop()
 
         JWPLC_Display.setRunLed(true);
         JWPLC_Display.setBusLed(false);
-        JWPLC_Display.setErrLed(false);
+        JWPLC_Display.setErrCode(""); // sin error
         JWPLC_Display.setEthLed(false);
 
         Serial.println("Display configurado usando API con punto");

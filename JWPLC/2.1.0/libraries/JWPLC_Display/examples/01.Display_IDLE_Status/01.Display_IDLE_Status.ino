@@ -25,8 +25,8 @@ void setup()
     Serial.begin(115200);
     delay(300);
 
-    // Alpha8 arranca con wake deshabilitado por defecto. Se deja explícito
-    // aquí para que el ejemplo sea autoexplicativo.
+    // Por defecto el Display no despierta USER con una tecla (IDLE_WAKE_DISABLED). Se deja
+    // explícito aquí para que el ejemplo sea autoexplicativo.
     JWPLC_Display.setIdleWakeMode(IDLE_WAKE_DISABLED);
 
     JWPLC_Display.setRunLed(runState);

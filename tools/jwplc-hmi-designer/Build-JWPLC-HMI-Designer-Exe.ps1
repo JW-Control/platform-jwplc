@@ -1,4 +1,4 @@
-param(
+﻿param(
     [string]$OutputPath = (Join-Path $PSScriptRoot 'JWPLC-HMI-Designer.exe'),
     [string]$IconPath = (Join-Path $PSScriptRoot 'assets\JWPLC-HMI-Designer.ico')
 )

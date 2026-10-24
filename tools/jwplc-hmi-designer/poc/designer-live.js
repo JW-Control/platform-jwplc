@@ -13,12 +13,19 @@
 
   const FULL_MAGIC = [0x4A, 0x57, 0x48, 0x31]; // JWH1
   const REGION_MAGIC = [0x4A, 0x57, 0x48, 0x32]; // JWH2
+  // Bridge versión 2: ítems mixtos (repeticiones + píxeles literales).
+  const FULL_MIXED_MAGIC = [0x4A, 0x57, 0x48, 0x33]; // JWH3
+  const REGION_MIXED_MAGIC = [0x4A, 0x57, 0x48, 0x34]; // JWH4
+  const MIXED_LITERAL = 0x8000;
+  const MIXED_MAX_COUNT = 0x7FFF;
+  // Una repetición cuesta 4 bytes; como literal, 2 por píxel.
+  const MIXED_MIN_RUN = 3;
   const PROBE = new Uint8Array([0x4A, 0x57, 0x48, 0x3F]); // JWH?
 
   const previewCanvas = document.getElementById('previewCanvas');
   const toolbar = document.querySelector('.toolbar');
   const newProjectButton = document.getElementById('newProjectButton');
-  const componentTools = [...document.querySelectorAll('.component-tool[data-tool]')];
+  const componentTools = [...document.querySelectorAll('.canvas-tool[data-tool], .component-tool[data-tool]')];
   const demoButton = document.getElementById('demoButton');
   const demoValueButton = document.getElementById('demoValueButton');
   const codePanel = document.querySelector('.code-panel');
@@ -41,12 +48,17 @@
 
   const separator = document.createElement('span');
   separator.className = 'separator';
+  const postLiveSeparator = document.createElement('span');
+  postLiveSeparator.className = 'separator';
 
   const fitButton = document.getElementById('fitButton');
   if (toolbar && fitButton) {
-    toolbar.insertBefore(separator, fitButton);
+    if (!fitButton.previousElementSibling?.classList?.contains('separator')) {
+      toolbar.insertBefore(separator, fitButton);
+    }
     toolbar.insertBefore(liveButton, fitButton);
     toolbar.insertBefore(liveStatus, fitButton);
+    toolbar.insertBefore(postLiveSeparator, fitButton);
   }
 
   const diagnosticPanel = document.createElement('section');
@@ -57,6 +69,7 @@
       <strong>Monitor LIVE</strong>
       <span id="diagConnection">Desconectado</span>
       <span class="grow"></span>
+      <button id="diagFlashButton" type="button" style="border-color:#ff8a2a;color:#ff9a43;" title="Flashear firmware Live Bridge en 1 clic">⚡ Flashear Live Bridge</button>
       <button id="diagPauseButton" type="button">Pausar log</button>
       <button id="diagClearButton" type="button">Limpiar</button>
       <button id="diagCopyButton" type="button">Copiar</button>
@@ -120,18 +133,22 @@
     log: document.getElementById('diagLog'),
     pauseButton: document.getElementById('diagPauseButton'),
     clearButton: document.getElementById('diagClearButton'),
-    copyButton: document.getElementById('diagCopyButton')
+    copyButton: document.getElementById('diagCopyButton'),
+    flashButton: document.getElementById('diagFlashButton')
   };
 
   let port = null;
   let writer = null;
   let reader = null;
   let bridgeReady = false;
+  // Versión que anuncia JWHMI_LIVE_READY (1 = sólo JWH1/JWH2).
+  let bridgeVersion = 1;
   let sequence = 0;
   let sendInFlight = false;
   let dirtyRequested = false;
   let forceFull = true;
   let probeTimer = null;
+  let noBridgeTimer = null;
   let fallbackTimer = null;
   let ackTimer = null;
   let syncRaf = null;
@@ -332,6 +349,81 @@
     });
   }
 
+  // Ítems del protocolo mixto (JWH3/JWH4) como palabras u16:
+  //   [n, color]                -> n repeticiones (n <= 0x7FFF)
+  //   [0x8000 | n, c1 .. cn]    -> n píxeles literales
+  function buildMixedItems(frame, rect) {
+    const total = rect.width * rect.height;
+    const pixels = new Uint16Array(total);
+    for (let y = 0, k = 0; y < rect.height; y += 1) {
+      const row = (rect.y + y) * WIDTH + rect.x;
+      pixels.set(frame.subarray(row, row + rect.width), k);
+      k += rect.width;
+    }
+
+    const words = new Uint16Array(total * 2 + 2);
+    let length = 0;
+    let items = 0;
+    let literalAt = -1;
+
+    const closeLiteral = () => {
+      if (literalAt < 0) return;
+      words[literalAt] = MIXED_LITERAL | (length - literalAt - 1);
+      literalAt = -1;
+    };
+
+    let i = 0;
+    while (i < total) {
+      const color = pixels[i];
+      let run = 1;
+      while (i + run < total && pixels[i + run] === color && run < MIXED_MAX_COUNT) run += 1;
+
+      // Un par repetido dentro de un literal cuesta lo mismo (4 bytes) y
+      // evita abrir otro literal después; fuera de un literal va como
+      // repetición. Así un paquete v2 nunca pesa más que el RLE v1.
+      if (run >= MIXED_MIN_RUN || (run === 2 && literalAt < 0)) {
+        closeLiteral();
+        words[length++] = run;
+        words[length++] = color;
+        items += 1;
+      } else {
+        for (let p = 0; p < run; p += 1) {
+          if (literalAt < 0 || length - literalAt - 1 >= MIXED_MAX_COUNT) {
+            closeLiteral();
+            literalAt = length++;
+            items += 1;
+          }
+          words[length++] = color;
+        }
+      }
+      i += run;
+    }
+    closeLiteral();
+    return { words: words.subarray(0, length), items };
+  }
+
+  function encodeMixedPacket(frame, rect, full) {
+    const { words, items } = buildMixedItems(frame, rect);
+    const seq = nextSequence();
+    const headerBytes = full ? 16 : 20;
+    const packet = new Uint8Array(headerBytes + words.length * 2);
+    const view = new DataView(packet.buffer);
+    packet.set(full ? FULL_MIXED_MAGIC : REGION_MIXED_MAGIC, 0);
+    view.setUint32(4, seq, true);
+    view.setUint32(8, items, true);
+    if (full) {
+      view.setUint16(12, WIDTH, true);
+      view.setUint16(14, HEIGHT, true);
+    } else {
+      view.setUint16(12, rect.x, true);
+      view.setUint16(14, rect.y, true);
+      view.setUint16(16, rect.width, true);
+      view.setUint16(18, rect.height, true);
+    }
+    for (let w = 0, o = headerBytes; w < words.length; w += 1, o += 2) view.setUint16(o, words[w], true);
+    return { packet, seq, runs: items, rect, mode: full ? 'FULL' : 'REGION' };
+  }
+
   function encodeFullPacket(frame) {
     const rect = { x: 0, y: 0, width: WIDTH, height: HEIGHT };
     const runs = buildRuns(frame, rect);
@@ -381,6 +473,32 @@
   function stopProbeTimer() {
     if (probeTimer) clearInterval(probeTimer);
     probeTimer = null;
+  }
+
+  function stopNoBridgeTimer() {
+    if (noBridgeTimer) clearTimeout(noBridgeTimer);
+    noBridgeTimer = null;
+  }
+
+  function armNoBridgeTimer() {
+    stopNoBridgeTimer();
+    noBridgeTimer = setTimeout(() => {
+      if (!bridgeReady && port && window.JWPLCHMIFlasher) {
+        logLine('Handshake no recibido tras 2.5s -> Abriendo modal de flasheo en 1 clic');
+        window.JWPLCHMIFlasher.showPromptModal({
+          port,
+          onInstall: async () => {
+            await triggerFlashSequence(port);
+          },
+          onWait: () => {
+            logLine('Usuario decidió esperar respuesta del bridge');
+          },
+          onCancel: async () => {
+            await disconnectLive();
+          }
+        });
+      }
+    }, 2500);
   }
 
   function stopAckTimer() {
@@ -440,9 +558,10 @@
 
     if (!rect) rect = { x: 0, y: 0, width: WIDTH, height: HEIGHT };
     const areaRatio = (rect.width * rect.height) / FRAME_PIXELS;
-    const encoded = (forceFull || !lastAckFrame || areaRatio >= REGION_MAX_AREA_RATIO)
-      ? encodeFullPacket(frame)
-      : encodeRegionPacket(frame, rect);
+    const full = forceFull || !lastAckFrame || areaRatio >= REGION_MAX_AREA_RATIO;
+    const encoded = bridgeVersion >= 2
+      ? encodeMixedPacket(frame, full ? { x: 0, y: 0, width: WIDTH, height: HEIGHT } : rect, full)
+      : (full ? encodeFullPacket(frame) : encodeRegionPacket(frame, rect));
 
     dirtyRequested = false;
     forceFull = false;
@@ -505,7 +624,12 @@
       logLine(`RX ${clean}`);
       if (bridgeReady) return;
       bridgeReady = true;
+      bridgeVersion = Number(clean.split(/\s+/)[1]) || 1;
+      if (bridgeVersion < 2) {
+        logLine('Bridge v1: reinstala el Live Bridge (⚡ Flashear Live Bridge) para el modo rápido');
+      }
       stopProbeTimer();
+      stopNoBridgeTimer();
       liveButton.classList.remove('waiting');
       liveButton.classList.add('live');
       liveButton.textContent = 'Desconectar LIVE';
@@ -635,9 +759,11 @@
     await sendProbe();
     probeTimer = setInterval(() => sendProbe(), PROBE_MS);
     fallbackTimer = setInterval(() => requestLiveSync(false), FALLBACK_SYNC_MS);
+    armNoBridgeTimer();
   }
 
   async function disconnectLive() {
+    stopNoBridgeTimer();
     if (fallbackTimer) clearInterval(fallbackTimer);
     fallbackTimer = null;
     stopProbeTimer();
@@ -664,6 +790,110 @@
     liveStatus.className = 'live-status';
     if (diag.connection) diag.connection.textContent = 'Desconectado';
     logLine('CLOSE LIVE');
+  }
+
+  async function triggerFlashSequence(targetPort) {
+    const p = targetPort || port;
+    if (!p) return;
+
+    stopNoBridgeTimer();
+    stopProbeTimer();
+    stopAckTimer();
+    if (fallbackTimer) clearInterval(fallbackTimer);
+    fallbackTimer = null;
+
+    logLine('Liberando puerto serie para flashear ESP32...');
+    try { await reader?.cancel(); } catch (_) {}
+    try { reader?.releaseLock(); } catch (_) {}
+    reader = null;
+
+    try { writer?.releaseLock(); } catch (_) {}
+    writer = null;
+
+    try { await p.close(); } catch (_) {}
+
+    if (!window.JWPLCHMIFlasher) {
+      logLine('ERROR: Módulo JWPLCHMIFlasher no disponible');
+      return;
+    }
+
+    // Mientras se graba, Conectar/Desconectar LIVE cerraría el puerto a mitad
+    // de la escritura.
+    await window.JWPLCHMIFlasher.runFlashWithModal(p, {
+      onFlashStart: () => { liveButton.disabled = true; },
+      onFlashEnd: () => { liveButton.disabled = false; },
+      onSuccess: async () => {
+        logLine('Flasheo completado con éxito. Iniciando autoconexión LIVE...');
+        await reconnectLive(p);
+      },
+      onCancel: async () => {
+        logLine('Flasheo cancelado.');
+        port = null;
+        await disconnectLive();
+      }
+    });
+
+  async function reconnectLive(targetPort) {
+    port = targetPort;
+    bridgeReady = false;
+    lastAckFrame = null;
+    pendingFrame = null;
+    pendingMeta = null;
+    awaitingAckSequence = null;
+    readBuffer = '';
+    dirtyRequested = true;
+    forceFull = true;
+    lastAckAt = 0;
+
+    liveButton.classList.remove('live');
+    liveButton.classList.add('waiting');
+    liveButton.textContent = 'Autoconectando LIVE…';
+    liveStatus.textContent = 'Reiniciando PLC · buscando bridge';
+    liveStatus.className = 'live-status waiting';
+    if (diag.connection) diag.connection.textContent = `${portDescription()} · reconectando`;
+    logLine(`AUTOCONNECT ${portDescription()} @ ${BAUD_RATE}`);
+
+    // Espera para estabilización del USB tras RTS hard reset
+    await new Promise((r) => setTimeout(r, 450));
+
+    try {
+      await port.open({ baudRate: BAUD_RATE, bufferSize: 4096 });
+      writer = port.writable.getWriter();
+      reader = port.readable.getReader();
+      readLoop();
+
+      await sendProbe();
+      stopProbeTimer();
+      probeTimer = setInterval(() => sendProbe(), PROBE_MS);
+      if (fallbackTimer) clearInterval(fallbackTimer);
+      fallbackTimer = setInterval(() => requestLiveSync(false), FALLBACK_SYNC_MS);
+
+      armNoBridgeTimer();
+    } catch (err) {
+      logLine(`ERROR al reabrir puerto post-flasheo: ${err?.message || err}`);
+      console.error('[JWPLC LIVE] reopen failed', err);
+      liveStatus.textContent = 'LIVE · reconexión fallida';
+      liveStatus.className = 'live-status waiting';
+      await disconnectLive();
+    }
+  }
+
+  diag.flashButton?.addEventListener('click', async () => {
+    if (!('serial' in navigator)) {
+      window.JWPLCDialog.alert('Web Serial no está disponible en este entorno.');
+      return;
+    }
+    if (port) {
+      await triggerFlashSequence(port);
+    } else {
+      try {
+        const p = await navigator.serial.requestPort();
+        await triggerFlashSequence(p);
+      } catch (err) {
+        logLine(`Selección de puerto cancelada: ${err?.message || err}`);
+      }
+    }
+  });
   }
 
   liveButton.addEventListener('click', async () => {
@@ -699,6 +929,15 @@
     isReady: () => bridgeReady,
     sendFrame: () => requestLiveSync(true),
     disconnect: disconnectLive,
-    openDiagnostic: showDiagnostic
+    openDiagnostic: showDiagnostic,
+    flash: () => triggerFlashSequence(port),
+    startFlashingFlow: triggerFlashSequence,
+    // Para tests (live-bridge-host-sim.cjs): mismo codificador que el envío.
+    captureFrame: captureFrame565,
+    encodePacket: (frame, rect, mixed) => {
+      const full = rect.x === 0 && rect.y === 0 && rect.width === WIDTH && rect.height === HEIGHT;
+      if (mixed) return encodeMixedPacket(frame, rect, full).packet;
+      return (full ? encodeFullPacket(frame) : encodeRegionPacket(frame, rect)).packet;
+    }
   };
 })();

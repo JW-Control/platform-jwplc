@@ -95,6 +95,10 @@ extern "C"
     // Mantiene los callbacks legacy debajo por compatibilidad.
     void jwplcUIEnter(void);
     void jwplcUIPageEnter(uint8_t page);
+    // Alpha15: OK/ESC cambiaron entre el selector de páginas y el contenido sin
+    // cambiar de página. Se llama con el bus TFT tomado; el header del Designer
+    // redibuja aquí sólo la pestaña activa de la barra de navegación.
+    void jwplcUIPageModeChanged(uint8_t page, bool selecting);
     void jwplcUIUpdate(void);
     void jwplcUIExit(void);
 
@@ -112,6 +116,17 @@ extern "C"
 
     void jwplcUserDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC_RTCState *rtc);
     void jwplcUserDisplayExitCallback(void);
+
+    /**
+     * @brief Informa a la pantalla IDLE qué entradas locales están forzadas.
+     *
+     * Pensada para el HAL de OpenPLC: una entrada forzada desde el debugger
+     * no cambia la lectura física, así que la IDLE no la mostraría. Bit i =
+     * I0_i. forcedValues solo se considera en los bits de forcedMask. Una
+     * entrada forzada se dibuja con su valor forzado y una "F" (rayada en ON).
+     * Llamar con forcedMask = 0 para quitar el overlay. Barata si no cambia.
+     */
+    void jwplcDisplaySetInputForceOverlay(uint8_t forcedMask, uint8_t forcedValues);
 
 #ifdef __cplusplus
 }

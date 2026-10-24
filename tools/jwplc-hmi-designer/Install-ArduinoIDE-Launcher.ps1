@@ -1,4 +1,4 @@
-param(
+﻿param(
     [string]$DesignerHome = (Join-Path $env:LOCALAPPDATA 'JWPLC\HMI Designer'),
     [switch]$SkipBuild
 )

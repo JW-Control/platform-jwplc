@@ -9,10 +9,23 @@ Serie corta recomendada para taller:
 04.Display_TFT_Direct
 ```
 
-## Ejemplos avanzados y gates
+## Plantillas hechas con el HMI Designer
+
+Proyectos completos del HMI Designer listos para abrir, subir y modificar. Cada carpeta trae el `.ino`, el
+`JWPLC_HMI_Generated.h`, el proyecto `.jwhmi` (para abrirlo en el Designer), la guía `JWPLC_HMI_LEEME.md`, un
+`README.md` y vistas previas en `hmi_preview/`.
 
 ```text
-Display_Alpha8_HMI_Gate
+05.HMI_Plantilla_Caldera       5 páginas: todos los tipos de objeto, figuras, PIXEL y MENU (plantilla)
+06.HMI_Botonera_Interactiva    teclas del sketch por página: horno con recetas, juego de reflejos, motor con rampa
+07.HMI_Iconos_Planta           15 iconos con estado (ICON) en una planta de agua simulada
+```
+
+Antes de modificar uno, **Archivo → Guardar como**: los ejemplos del package son de solo lectura.
+
+## Ejemplos avanzados
+
+```text
 Display_DotAPI_Minimal
 Display_Efficient_Redraw
 Display_FlappyBird
@@ -21,12 +34,15 @@ Display_Tetris
 Display_UserUI_Callbacks
 ```
 
-Desde Alpha8 el wake USER es seguro por defecto (`IDLE_WAKE_DISABLED`). Los ejemplos que esperan entrada automática a USER configuran explícitamente su botón/modo de wake.
+Por defecto el wake USER es seguro (`IDLE_WAKE_DISABLED`). Los ejemplos que esperan entrada automática a USER configuran explícitamente su botón/modo de wake.
 
 Para dibujo manual nuevo se usan los callbacks cortos `jwplcUIEnter()`, `jwplcUIUpdate()` y `jwplcUIExit()`. Las rutas históricas se conservan únicamente dentro de la librería por compatibilidad con sketches existentes; no forman parte de la API recomendada ni aparecen en los ejemplos públicos.
 
 Los callbacks manuales conservan la cadencia definida por `setUserRefreshPeriodMs()` cuando no hay fields ni PixelMaps declarativos registrados. Si una aplicación mezcla callbacks manuales con HMI declarativa y necesita ejecución periódica del callback, debe seleccionar `USER_REFRESH_PERIODIC` de forma explícita.
 
 El periodo IDLE no debe endurecerse en un ejemplo salvo que sea parte de lo que se está demostrando. El package mantiene su propio valor por defecto; así los ejemplos heredan futuras mejoras del scheduler.
+
+El gate de banco HMI + botonera (antes `Display_Alpha8_HMI_Gate`) está en `tools/display-gates/`, fuera de los
+ejemplos.
 
 `Display_Tetris` y `Display_FlappyBird` son además gates físicos útiles para validar `jwplcUIUpdate()`, botonera, dibujo directo y audio no bloqueante mientras el `loop()` principal permanece operativo.

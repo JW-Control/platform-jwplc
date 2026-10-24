@@ -1,9 +1,9 @@
 @echo off
 setlocal
-title JWPLC HMI Designer - Instalador Alpha11
+title JWPLC HMI Designer - Instalador 2.1.0-alpha.14
 
 echo ================================================
-echo  JWPLC HMI Designer - Instalador Alpha11
+echo  JWPLC HMI Designer - Instalador 2.1.0-alpha.14
 echo ================================================
 echo.
 echo Se instalara:

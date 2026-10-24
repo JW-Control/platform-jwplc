@@ -122,8 +122,8 @@ body.layout-wide.bottom-collapsed {
   grid-template-columns: var(--responsive-left-wide) minmax(650px, 1fr) var(--responsive-right-wide) !important;
 }
 
-.layout-wide .brand h1 { font-size: 18px; }
-.layout-wide .brand p { display: block; }
+.layout-wide .brand h1 { font-size: 15.5px; }
+.layout-wide .brand p { display: flex; }
 .layout-wide .left-panel { padding-inline: 10px; }
 .layout-wide .right-panel { padding-inline: 10px; }
 .layout-wide .responsive-right-tabs { display: none; }
@@ -173,6 +173,7 @@ body.layout-medium:not(.bottom-collapsed) {
   font-size: 13px;
 }
 
+.layout-medium .brand-badge,
 .layout-medium .brand p { display: none; }
 
 .layout-medium .toolbar {
@@ -185,7 +186,7 @@ body.layout-medium:not(.bottom-collapsed) {
 }
 
 .layout-medium .toolbar > * { flex: 0 0 auto; }
-.layout-medium .toolbar button { min-height: 30px; padding: 5px 7px; font-size: 11px; }
+.layout-medium .toolbar button { min-height: 30px; padding: 5px 8px; font-size: 11px; border-radius: 6px; margin-left: 0; }
 .layout-medium .toolbar label { font-size: 11px; }
 .layout-medium .toolbar select { padding: 4px 5px; font-size: 11px; }
 .layout-medium .toolbar .separator { display: none; }
@@ -196,6 +197,7 @@ body.layout-medium:not(.bottom-collapsed) {
 .layout-medium .cmd-undo,
 .layout-medium .cmd-redo,
 .layout-medium #fitButton,
+.layout-medium #fitSelectionButton,
 .layout-medium #linkSketchButton,
 .layout-medium #installAppButton {
   display: none !important;
@@ -281,6 +283,7 @@ body.layout-compact {
   font-size: 0;
 }
 .layout-compact .brand h1::after { content: 'HMI'; font-size: 11px; }
+.layout-compact .brand-badge,
 .layout-compact .brand p { display: none; }
 
 .layout-compact .toolbar {
@@ -292,7 +295,7 @@ body.layout-compact {
   white-space: nowrap;
 }
 .layout-compact .toolbar > * { flex: 0 0 auto; }
-.layout-compact .toolbar button { min-height: 29px; padding: 4px 6px; font-size: 11px; }
+.layout-compact .toolbar button { min-height: 29px; padding: 4px 6px; font-size: 11px; border-radius: 6px; margin-left: 0; }
 .layout-compact .toolbar .separator { display: none; }
 
 .layout-compact #newProjectButton,
@@ -300,6 +303,7 @@ body.layout-compact {
 .layout-compact .cmd-undo,
 .layout-compact .cmd-redo,
 .layout-compact #fitButton,
+.layout-compact #fitSelectionButton,
 .layout-compact #linkSketchButton,
 .layout-compact #installAppButton,
 .layout-compact #saveProjectButton {

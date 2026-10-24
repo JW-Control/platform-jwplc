@@ -1,0 +1,29 @@
+{
+  "$schema": "../schema/jwhmi.schema.json",
+  "projectName": "Ejemplo_Figuras",
+  "display": { "start": "HMI" },
+  "pages": [
+    {
+      "name": "Figuras",
+      "fields": [
+        { "type": "RECT", "x": 0, "y": 0, "x2": 319, "y2": 24, "fill": true, "fillColor": "NAVY", "frameColor": "NAVY" },
+        { "type": "RAW_TEXT", "text": "Planta 1 - Bombeo", "x": 6, "y": 4, "font": "SANS_BOLD_12", "textColor": "WHITE" },
+        { "type": "RECT", "x": 4, "y": 32, "x2": 104, "y2": 92, "cornerRadius": 6, "frameColor": "CYAN", "size": 2 },
+        { "type": "ELLIPSE", "x": 116, "y": 32, "x2": 196, "y2": 92, "fill": true, "fillColor": "DARKGREEN", "frameColor": "GREEN" },
+        { "type": "TRIANGLE", "x": 208, "y": 32, "x2": 258, "y2": 92, "fill": true, "fillColor": "YELLOW", "frameColor": "YELLOW" },
+        { "type": "POLYGON", "x": 266, "y": 36, "x2": 314, "y2": 88, "sides": 6, "frameColor": "ORANGE", "size": 2 },
+        { "type": "LINE", "x": 0, "y": 100, "x2": 319, "y2": 100, "frameColor": "DARKGREY" },
+        { "type": "RAW_TEXT", "text": "GLCD con tildes: Presión ñ 25°", "x": 6, "y": 108, "font": "GLCD", "size": 1, "textColor": "LIGHTGREY" },
+        { "type": "RAW_TEXT", "text": "Font 4", "x": 6, "y": 124, "font": "FONT4", "textColor": "ORANGE" },
+        { "type": "RAW_TEXT", "text": "Mono 9", "x": 120, "y": 132, "font": "MONO_9", "textColor": "CYAN", "transparentBackground": false, "backgroundColor": "#202020" }
+      ]
+    }
+  ],
+  "pixelMaps": [
+    { "name": "Icono", "page": 0, "x": 290, "y": 130, "pixels": [
+      { "x": 4, "y": 0, "color": "GREEN" }, { "x": 3, "y": 1, "color": "GREEN" }, { "x": 5, "y": 1, "color": "GREEN" },
+      { "x": 2, "y": 2, "color": "GREEN" }, { "x": 6, "y": 2, "color": "GREEN" }, { "x": 1, "y": 3, "color": "GREEN" },
+      { "x": 7, "y": 3, "color": "GREEN" }, { "x": 0, "y": 4, "color": "GREEN" }, { "x": 8, "y": 4, "color": "GREEN" }
+    ] }
+  ]
+}
