@@ -13,7 +13,7 @@ GATE4B_CATEGORIES_IN_PALETTE=PASS         [ejecutado]
 GATE4C_CODEGEN_PHASE1=PASS                [ejecutado]
 GATE4D_COMPILE_A14_FROM_MBLOCK=PASS       [ejecutado]
 GATE4F_CLEAN_PREVIEW_LIBRARY=PASS         [ejecutado] JWPLC_mBlock.h viaja con la extensión
-GATE4E_UPLOAD_AND_PHYSICAL=PENDING        [no verificado] el propietario tiene el COM ocupado con otra tarjeta
+GATE4E_UPLOAD_AND_PHYSICAL=PASS           [verificado por el usuario] pantalla, botonera y sonido en la placa
 ~~~
 
 ## Decisión de diseño
@@ -144,13 +144,36 @@ avisos del compilador     0
 El enlace correcto confirma que todas las llamadas existen en los `.a` del package.
 Log: `results/20261024_gate4/GATE4_COMPILE_A14.log`.
 
+## Gate 4E - Subida y prueba física
+
+[ejecutado] Programa de prueba (`test/cdp-program-phase1.js`) subido desde el
+botón «Subir código» de mBlock (interfaz en español) a COM14: compilación con
+`JWPLC_mBlock.h` y la alpha.14, upload en 54 s con hash verificado.
+Log: `results/20261024_gate4/GATE4E_UPLOAD_PHASE1.log`.
+
+[verificado por el usuario] Todo como se describe:
+
+~~~text
+ARRANQUE      "Hola JWPLC" en la línea 1, nota Do5 a volumen 30 %          PASS
+CADA_1S       la línea 2 cuenta cada segundo, Q0.7 conmuta                PASS
+LINEA_4       SI/NO según I0.1                                            PASS
+BOTON_OK      pitido + "OK pulsado" en la línea 3                         PASS
+BOTON_ESC     limpia las líneas y para el sonido (y vuelve a IDLE)        PASS
+BOTON_UP      mantener ▲ enciende Q0.0                                    PASS
+I0.0          tono agudo corto una vez por activación                     PASS
+~~~
+
+Ajuste tras la prueba: el texto se veía pequeño con el estilo por defecto de
+`JWPLC_UITextFieldStyle()` (letra 1, 6x8 px). `JWPLC_Screen` usa ahora letra 2
+(12x16 px): 24 caracteres por línea (10 + 24 x 12 = 298 px de 320) y 4 líneas
+cada 34 px. Subido de nuevo (61 s): «se ve bien así» (propietario).
+
+Arreglo del bridge: esptool v5 manda las líneas "Writing at 0x..." precedidas
+por ; el parser de progreso ahora las reconoce, así la barra de mBlock avanza
+durante la escritura.
+
 ## Pendiente
 
-- Gate 4E: subir el programa de prueba y verificar en la placa las 4 líneas de
-  la TFT, el volumen y las notas del buzzer, los eventos de botón (OK, ESC), el
-  flanco de I0.0, "cada 1 s" (contador y Q0.7) y ▲ -> Q0.0.
-- Comprobar el tamaño y la posición de las 4 líneas en la TFT (y=18/52/86/120,
-  como `02.Display_HMI_Fields`).
 - Fase 2: Tiempo (cronómetro, reloj RTC, temperatura), Memoria (FRAM) y microSD.
 - Integración con el HMI Designer: usar una pantalla diseñada en el Designer
   (`JWPLC_HMI_Generated.h`) y escribir en sus campos por nombre. Requiere que el

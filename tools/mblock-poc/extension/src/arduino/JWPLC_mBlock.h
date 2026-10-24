@@ -28,13 +28,15 @@ class JWPLC_ScreenLines
 public:
     static const uint8_t LINES = 4;
 
+    // Letra tamaño 2 (12x16 px): 24 caracteres por línea (10 + 24 * 12 = 298 px
+    // de 320) y 4 líneas cada 34 px en los 170 px de alto.
+    static const uint8_t CHARS = 24;
+    static const uint8_t TEXT_SIZE = 2;
+
     void begin()
     {
         static const JWPLC_UIField fields[LINES] = {
-            JWPLC_UITextField(1, 10, 18, nullptr, 24),
-            JWPLC_UITextField(2, 10, 52, nullptr, 24),
-            JWPLC_UITextField(3, 10, 86, nullptr, 24),
-            JWPLC_UITextField(4, 10, 120, nullptr, 24)};
+            line(1, 18), line(2, 52), line(3, 86), line(4, 120)};
 
         JWPLC_Display.setUserRefreshMode(USER_REFRESH_ON_DEMAND);
         JWPLC_Display.setFields(fields, LINES);
@@ -65,6 +67,16 @@ public:
     {
         for (int i = 1; i <= LINES; i++)
             print(i, "");
+    }
+
+private:
+    static JWPLC_UIField line(uint8_t id, int16_t y)
+    {
+        return JWPLC_UITextField(
+            id,
+            JWPLC_UIRect(10, y),
+            JWPLC_UIText(nullptr, nullptr, CHARS),
+            JWPLC_UITextFieldStyle(TEXT_SIZE));
     }
 };
 

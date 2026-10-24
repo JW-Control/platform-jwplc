@@ -187,9 +187,10 @@ async function upload(port, fqbn, emit) {
             SKETCH_DIR,
         ], (line) => {
             // esptool v5: "Writing at 0x... [===   ]  7.0% 16384/233911 bytes..."
-            // (varias actualizaciones por línea); esptool v4: "(7 %)".
+            // (varias actualizaciones por línea, separadas o precedidas por \r);
+            // esptool v4: "(7 %)".
             const all = [...line.matchAll(/(\d+(?:\.\d+)?)\s*%/g)];
-            if (/^Writing at/.test(line) && all.length) {
+            if (/Writing at 0x/.test(line) && all.length) {
                 const pct = Math.floor(Number(all[all.length - 1][1]));
                 if (pct !== lastPct) {
                     lastPct = pct;
