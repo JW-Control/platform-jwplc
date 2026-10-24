@@ -3,97 +3,105 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>JWPLC HMI Designer — Alpha11</title>
-  <link rel="stylesheet" href="./styles.css" />
+  <title>JWPLC HMI Designer — 2.1.0-alpha.14</title>
+  <link rel="stylesheet" href="./styles.css?v=1793801300" />
 </head>
 <body>
   <header class="topbar">
     <div class="brand">
-      <div class="chip">JW</div>
-      <div>
-        <h1>JWPLC HMI Designer</h1>
-        <p>Alpha11 · HMI declarativa ST7789 320×170</p>
+      <div class="chip" aria-hidden="true">JW</div>
+      <div class="brand-copy">
+        <div class="brand-title-row">
+          <h1>JWPLC HMI Designer</h1>
+          <span class="brand-badge">2.1.0-alpha.14</span>
+        </div>
+        <p><span class="brand-sub-label">HMI declarativa</span><span class="brand-dot">·</span><span class="brand-spec">ST7789 320×170</span></p>
       </div>
     </div>
 
     <nav class="toolbar" aria-label="Comandos principales">
-      <button id="newProjectButton" title="Nuevo proyecto">Nuevo</button>
-      <button disabled title="Guardado .jwhmi se habilitará en un gate posterior">Abrir</button>
-      <button disabled title="Guardado .jwhmi se habilitará en un gate posterior">Guardar</button>
+      <button id="newProjectButton" class="tb-btn tb-group-start" title="Nuevo proyecto">Nuevo</button>
+      <button id="openProjectButton" class="tb-btn tb-group-mid" disabled title="Abrir proyecto .jwhmi">Abrir</button>
+      <button id="saveProjectButton" class="tb-btn tb-group-end" disabled title="Guardar proyecto .jwhmi">Guardar</button>
       <span class="separator"></span>
-      <button disabled>Deshacer</button>
-      <button disabled>Rehacer</button>
+      <button id="undoButton" class="tb-icon-btn tb-group-start cmd-undo" disabled title="Deshacer (Ctrl+Z)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M9 14 4 9l5-5"/>
+          <path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11"/>
+        </svg>
+        <span class="sr-only">Deshacer</span>
+      </button>
+      <button id="redoButton" class="tb-icon-btn tb-group-end cmd-redo" disabled title="Rehacer (Ctrl+Y / Ctrl+Shift+Z)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="m15 14 5-5-5-5"/>
+          <path d="M20 9H9.5A5.5 5.5 0 0 0 4 14.5v0A5.5 5.5 0 0 0 9.5 20H13"/>
+        </svg>
+        <span class="sr-only">Rehacer</span>
+      </button>
       <span class="separator"></span>
-      <button id="generateButton" class="primary-action">Generar C++</button>
-      <button id="fitButton">Ajustar</button>
-      <label>
-        Zoom
-        <select id="zoomSelect">
-          <option value="2">2×</option>
-          <option value="3" selected>3×</option>
-          <option value="4">4×</option>
-          <option value="6">6×</option>
-          <option value="8">8×</option>
-        </select>
-      </label>
-      <label class="check"><input id="gridToggle" type="checkbox" checked /> Grid</label>
-      <label class="check"><input id="geometryToggle" type="checkbox" checked /> Geometría</label>
+      <button id="generateButton" class="primary-action tb-group-start" title="Generar código C++ (JWPLC_HMI_Generated.h)">Generar C++</button>
+      <button id="fitButton" class="tb-icon-btn tb-group-start" title="Ajustar Lienzo (Espacio)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M8 3H5a2 2 0 0 0-2 2v3"/>
+          <path d="M21 8V5a2 2 0 0 0-2-2h-3"/>
+          <path d="M3 16v3a2 2 0 0 0 2 2h3"/>
+          <path d="M16 21h3a2 2 0 0 0 2-2v-3"/>
+        </svg>
+        <span class="sr-only">Ajustar</span>
+      </button>
+      <button id="fitSelectionButton" class="tb-icon-btn tb-group-end" title="Ajustar Selección (Shift+Espacio)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M4 8V6a2 2 0 0 1 2-2h2"/>
+          <path d="M4 16v2a2 2 0 0 0 2 2h2"/>
+          <path d="M16 4h2a2 2 0 0 1 2 2v2"/>
+          <path d="M16 20h2a2 2 0 0 0 2-2v-2"/>
+          <rect x="8" y="8" width="8" height="8" rx="1.5"/>
+        </svg>
+        <span class="sr-only">Ajustar selección</span>
+      </button>
     </nav>
   </header>
 
   <main class="workspace">
     <aside class="panel left-panel">
-      <section class="nav-block">
+      <!-- Mini Preview de la Pantalla (320 × 170) -->
+      <section class="sidebar-preview-block" id="sidebarPreviewBlock">
         <div class="section-heading">
-          <h2>Páginas</h2>
-          <button class="icon-button" disabled title="Nueva página · A11-3E">＋</button>
+          <h2>Vista Previa</h2>
+          <span class="preview-badge" id="sidebarPreviewBadge">320 × 170</span>
         </div>
-        <button class="page-item active">0 · Principal</button>
-        <button class="page-item secondary" disabled>＋ Nueva página · A11-3E</button>
+        <div class="sidebar-preview-frame" id="sidebarPreviewFrame" title="Clic para ajustar vista (Fit Canvas)">
+          <canvas id="sidebarMiniPreviewCanvas" width="320" height="170"></canvas>
+          <div id="sidebarPreviewViewport" class="sidebar-preview-viewport" style="display: none;"></div>
+        </div>
       </section>
 
-      <section class="nav-block">
+      <!-- Árbol de Objetos / Capas Estilo Lopaka -->
+      <section class="nav-block objects-block" id="objectsNavBlock">
         <div class="section-heading">
-          <h2>Objetos <span class="count-badge">1</span></h2>
+          <div class="heading-title-group">
+            <svg class="heading-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+            <svg class="heading-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+              <line x1="3" y1="9" x2="21" y2="9"></line>
+              <line x1="9" y1="21" x2="9" y2="9"></line>
+            </svg>
+            <h2>Objetos</h2>
+          </div>
+          <span class="count-badge">1</span>
         </div>
-        <button id="textObjectItem" class="object-item active" type="button">
-          <span class="object-icon">T</span>
-          <span class="object-type">TEXT</span>
-          <span class="object-name">Estado</span>
-          <span class="object-id">FIELD_STATUS</span>
-          <span class="object-eye">●</span>
-        </button>
-      </section>
-
-      <section class="nav-block">
-        <h2>Componentes</h2>
-        <button class="tool component-tool active" data-tool="textField">
-          <span class="component-icon">T</span><strong>TEXT</strong><span>Campo de texto</span>
-        </button>
-        <button class="tool component-tool" data-tool="valueField">
-          <span class="component-icon numeric">123</span><strong>VALUE</strong><span>Valor numérico</span>
-        </button>
-        <button class="component-tool" disabled>
-          <span class="component-icon">○</span><strong>BOOL</strong><span>A11-3C</span>
-        </button>
-        <button class="component-tool" disabled>
-          <span class="component-icon">▥</span><strong>BAR</strong><span>A11-3D</span>
-        </button>
-      </section>
-
-      <section class="nav-block">
-        <h2>Herramientas</h2>
-        <button class="tool utility-tool" data-tool="pixel"><strong>✎</strong><span>Píxel</span><small>Dibujar píxel</small></button>
-        <button class="tool utility-tool" data-tool="erase"><strong>◇</strong><span>Borrador</span><small>Borrar píxeles</small></button>
-        <button class="tool utility-tool" data-tool="rawText"><strong>A</strong><span>Texto GFX RAW</span><small>Referencia técnica</small></button>
-      </section>
-
-      <section class="dev-actions">
-        <h2>Desarrollo</h2>
-        <div class="dev-buttons">
-          <button id="clearButton">Limpiar</button>
-          <button id="demoButton">Demo TEXT</button>
-          <button id="demoValueButton">Demo VALUE</button>
+        <div id="objectsList" class="objects-tree">
+          <button id="textObjectItem" class="object-item active" type="button">
+            <span class="object-icon">Aa</span>
+            <span class="object-type" style="display:none;">TEXT</span>
+            <span class="object-name">Estado</span>
+            <div class="object-actions">
+              <span class="object-btn btn-eye" title="Ocultar / Mostrar">👁</span>
+              <span class="object-btn btn-lock" title="Bloquear / Desbloquear">🔓</span>
+            </div>
+          </button>
         </div>
       </section>
     </aside>
@@ -102,7 +110,7 @@
       <div class="tabs page-tabs">
         <button class="tab active">Principal</button>
         <button class="tab add-tab" disabled>＋</button>
-        <span class="gate">Gate: A11-3B VALUE · API pública</span>
+        <span class="gate">v2.1.0-alpha.14</span>
       </div>
 
       <div class="editor-caption">
@@ -111,10 +119,372 @@
       </div>
 
       <div id="canvasViewport" class="canvas-viewport">
-        <div id="canvasStage" class="canvas-stage">
-          <canvas id="displayCanvas" aria-label="Canvas lógico JWPLC Basic 320 por 170"></canvas>
-          <canvas id="geometryCanvas" aria-hidden="true"></canvas>
+        <div class="canvas-toolbar">
+          <button class="tool canvas-tool active" data-tool="pointer" title="Seleccionar (V)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M4 2l12 11.5-6 .6 3.6 6.8-2.5 1.3-3.6-6.9-3.5 3.7V2z"/>
+            </svg>
+          </button>
+
+          <!-- Variable Dropdown Group (VALUE, BOOL, BAR) -->
+          <div class="variable-dropdown-container" id="variableDropdownContainer">
+            <button class="canvas-tool variable-tool-btn" id="variableToolBtn" type="button" title="Variables del PLC (clic para ver tipos)">
+              <span id="variableToolActiveIcon">
+                <svg width="18" height="16" viewBox="0 0 24 24">
+                  <text x="12" y="16.5" text-anchor="middle" font-size="11.5" font-weight="800" font-family="'Segoe UI', -apple-system, sans-serif" fill="currentColor" letter-spacing="-0.5px">123</text>
+                </svg>
+              </span>
+              <svg class="dropdown-chevron" width="7" height="6" viewBox="0 0 8 6" fill="currentColor">
+                <path d="M0 1l4 4 4-4z"/>
+              </svg>
+            </button>
+            <div class="variable-dropdown-menu" id="variableDropdownMenu" style="display: none;">
+              <div class="var-menu-header">Tipos de Variable (PLC)</div>
+              <button type="button" class="tool var-dropdown-item active" data-tool="valueField">
+                <div class="var-item-icon">
+                  <svg width="18" height="16" viewBox="0 0 24 24">
+                    <text x="12" y="16.5" text-anchor="middle" font-size="11.5" font-weight="800" font-family="'Segoe UI', -apple-system, sans-serif" fill="currentColor" letter-spacing="-0.5px">123</text>
+                  </svg>
+                </div>
+                <div class="var-item-text">
+                  <strong>Valor Numérico (VALUE)</strong>
+                  <span>float, int · Mediciones analógicas, temp, RPM</span>
+                </div>
+              </button>
+              <button type="button" class="tool var-dropdown-item" data-tool="boolField">
+                <div class="var-item-icon">
+                  <svg width="18" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="2" y="6" width="20" height="12" rx="6"/><circle cx="16" cy="12" r="3" fill="currentColor"/>
+                  </svg>
+                </div>
+                <div class="var-item-text">
+                  <strong>Booleano (BOOL)</strong>
+                  <span>bool · Indicador ON/OFF, bit digital, testigo</span>
+                </div>
+              </button>
+              <button type="button" class="tool var-dropdown-item" data-tool="menuField">
+                <div class="var-item-icon">
+                  <svg width="18" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 8h18M7 12h6M7 16h10"/></svg>
+                </div>
+                <div class="var-item-text">
+                  <strong>Menú de configuración (MENU)</strong>
+                  <span>Árbol de submenús · ver y editar variables con la botonera</span>
+                </div>
+              </button>
+              <button type="button" class="tool var-dropdown-item" data-tool="barField">
+                <div class="var-item-icon">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="2" y="7" width="20" height="10" rx="2.5"/><rect x="5" y="10" width="7" height="4" rx="1" fill="currentColor"/>
+                  </svg>
+                </div>
+                <div class="var-item-text">
+                  <strong>Barra de Nivel (BAR)</strong>
+                  <span>0–100% · Gráfico de tanque o progreso analógico</span>
+                </div>
+              </button>
+              <button type="button" class="tool var-dropdown-item" data-tool="navBarField" id="navBarToolBtn">
+                <div class="var-item-icon">
+                  <svg width="18" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="2" y="7" width="20" height="10" rx="2"></rect>
+                    <path d="M7 7v10M12 7v10M17 7v10"></path>
+                  </svg>
+                </div>
+                <div class="var-item-text">
+                  <strong>Barra de Navegación (NAV)</strong>
+                  <span>Menú de páginas · Pestañas adaptativas</span>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          <!-- Text Dropdown Group (TEXT, RAW) -->
+          <div class="text-dropdown-container" id="textDropdownContainer">
+            <button class="canvas-tool text-tool-btn" id="textToolBtn" type="button" title="Herramientas de Texto (clic para ver opciones)">
+              <span id="textToolActiveIcon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M4 7V4h16v3"/><path d="M12 4v16"/><path d="M8 20h8"/>
+                </svg>
+              </span>
+              <svg class="dropdown-chevron" width="7" height="6" viewBox="0 0 8 6" fill="currentColor">
+                <path d="M0 1l4 4 4-4z"/>
+              </svg>
+            </button>
+            <div class="text-dropdown-menu" id="textDropdownMenu" style="display: none;">
+              <div class="var-menu-header">Herramientas de Texto</div>
+              <button type="button" class="tool text-dropdown-item" data-tool="textField">
+                <div class="var-item-icon">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M4 7V4h16v3"/><path d="M12 4v16"/><path d="M8 20h8"/>
+                  </svg>
+                </div>
+                <div class="var-item-text">
+                  <strong>Texto Dinámico (TEXT)</strong>
+                  <span>char* · Estados, cadenas alfanuméricas, alarmas (PLC)</span>
+                </div>
+              </button>
+              <button type="button" class="tool text-dropdown-item" data-tool="rawText">
+                <div class="var-item-icon">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M4 19.5L12 3.5l8 16"/>
+                    <line x1="7" y1="14.5" x2="17" y2="14.5"/>
+                  </svg>
+                </div>
+                <div class="var-item-text">
+                  <strong>Texto RAW (A)</strong>
+                  <span>Texto GFX estático directo en pantalla</span>
+                </div>
+              </button>
+              <div class="var-menu-footer">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                <span>Próximamente: Selector y carga de fuentes tipográficas</span>
+              </div>
+            </div>
+          </div>
+
+          <span class="toolbar-divider"></span>
+
+          <!-- Formas Vectoriales -->
+          <button class="tool canvas-tool utility-tool-btn" data-tool="line" title="Línea">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="4" y1="20" x2="20" y2="4"/>
+            </svg>
+          </button>
+          <button class="tool canvas-tool utility-tool-btn" data-tool="rect" title="Rectángulo">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="5" width="18" height="14" rx="2"/>
+            </svg>
+          </button>
+          <button class="tool canvas-tool utility-tool-btn" data-tool="ellipse" title="Elipse">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <ellipse cx="12" cy="12" rx="9" ry="6.5"/>
+            </svg>
+          </button>
+          <button class="tool canvas-tool utility-tool-btn" data-tool="triangle" title="Triángulo">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 4L3.5 19.5h17L12 4z"/>
+            </svg>
+          </button>
+          <button class="tool canvas-tool utility-tool-btn" data-tool="polygon" title="Polígono">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 3l7.5 4.5v9L12 21l-7.5-4.5v-9L12 3z"/>
+            </svg>
+          </button>
+          <input type="number" id="mainPolySidesInput" min="3" max="12" value="5" title="Lados del polígono" style="display:none; width:42px; height:32px; padding:0 4px; margin-left:4px; vertical-align:middle; border:1px solid #7697b0; border-radius:3px; background:#fff; color:#1f2937;" />
+
+          <span class="toolbar-divider"></span>
+
+          <!-- Herramientas Pixel / Bitmap -->
+          <button class="tool canvas-tool utility-tool-btn" data-tool="pixel" title="Pincel / Lápiz (B)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
+              <path d="m15 5 4 4"/>
+            </svg>
+          </button>
+          <button class="tool canvas-tool utility-tool-btn" data-tool="erase" title="Borrador (E)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/>
+              <path d="M22 21H7"/>
+              <path d="m5 11 9 9"/>
+            </svg>
+          </button>
+          <button class="tool canvas-tool utility-tool-btn" data-tool="fill" title="Rellenar región contigua (G)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m19 11-8-8-8.6 8.6a2 2 0 0 0 0 2.8l5.2 5.2c.8.8 2 .8 2.8 0L19 11Z"/>
+              <path d="m5 2 5 5"/>
+              <path d="M2 13h15"/>
+              <path d="M22 20a2 2 0 1 1-4 0c0-1.6 1.7-2.4 2-4 .3 1.6 2 2.4 2 4Z" fill="currentColor"/>
+            </svg>
+          </button>
+          <button class="tool canvas-tool utility-tool-btn" data-tool="pick" title="Cuentagotas (I / Alt+clic)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m14 7 3 3"/>
+              <path d="M19 2a2.83 2.83 0 0 1 2 4l-1 1-5-5 1-1a2.83 2.83 0 0 1 3-1Z"/>
+              <path d="m16 8-8.5 8.5a2.12 2.12 0 0 0-.6 1.5V20l-4 2 2-4h2a2.12 2.12 0 0 0 1.5-.6L17 9Z"/>
+            </svg>
+          </button>
+          <div id="pixelmapWorkbenchTools" class="pixelmap-tools" style="display: none;"></div>
         </div>
+
+
+        <div class="right-vertical-toolbar" aria-label="Controles de Lienzo">
+          <button id="zoomInBtn" class="vert-btn" type="button" title="Acercar (Zoom In)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <line x1="12" y1="5" x2="12" y2="19"/>
+              <line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+          </button>
+          <button id="zoomOutBtn" class="vert-btn" type="button" title="Alejar (Zoom Out)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+          </button>
+          <button id="fitCanvasBtn" class="vert-btn" type="button" title="Ajustar Lienzo (Espacio)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M8 3H5a2 2 0 0 0-2 2v3"/>
+              <path d="M21 8V5a2 2 0 0 0-2-2h-3"/>
+              <path d="M3 16v3a2 2 0 0 0 2 2h3"/>
+              <path d="M16 21h3a2 2 0 0 0 2-2v-3"/>
+            </svg>
+          </button>
+          <button id="fitSelectionBtn" class="vert-btn" type="button" title="Ajustar Selección (Shift+Espacio)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M4 8V6a2 2 0 0 1 2-2h2"/>
+              <path d="M4 16v2a2 2 0 0 0 2 2h2"/>
+              <path d="M16 4h2a2 2 0 0 1 2 2v2"/>
+              <path d="M16 20h2a2 2 0 0 0 2-2v-2"/>
+              <rect x="8" y="8" width="8" height="8" rx="1.5"/>
+            </svg>
+          </button>
+          <span class="vert-divider"></span>
+
+          <!-- Botón y Menú Grilla -->
+          <div class="vert-btn-group active" id="vertGridGroup">
+            <button id="vertGridMenuBtn" class="vert-side-chevron" type="button" title="Opciones de Grilla">
+              <svg width="6" height="10" viewBox="0 0 6 10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M4.5 1.5 1 5l3.5 3.5"/>
+              </svg>
+            </button>
+            <button id="vertGridToggle" class="vert-btn toggle-btn active" type="button" title="Alternar Grilla (Click) / Configurar (◂ o Click derecho)">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="3" y="3" width="18" height="18" rx="2"/>
+                <path d="M3 9h18"/>
+                <path d="M3 15h18"/>
+                <path d="M9 3v18"/>
+                <path d="M15 3v18"/>
+              </svg>
+            </button>
+
+            <!-- Popover Flotante de Grilla -->
+            <div id="gridConfigPopover" class="vert-popover" style="display:none;">
+              <div class="vert-popover-header">
+                <span class="vert-popover-title">▦ Configuración de Grilla</span>
+                <button type="button" class="vert-popover-close" id="gridPopoverClose">✕</button>
+              </div>
+              <div class="vert-popover-body">
+                <label class="vert-popover-toggle-row">
+                  <span>Mostrar Grilla</span>
+                  <label class="style-toggle-wrap">
+                    <input id="gridPopoverToggle" type="checkbox" checked />
+                    <span class="style-toggle-slider"></span>
+                  </label>
+                </label>
+                <div class="vert-popover-field">
+                  <span class="vert-popover-label">Forma de la grilla</span>
+                  <select id="gridStyleSelect" class="vert-popover-select">
+                    <option value="lines" selected>Rejilla (Líneas / CAD)</option>
+                    <option value="dots">Puntos</option>
+                  </select>
+                </div>
+                <div class="vert-popover-field">
+                  <span class="vert-popover-label">Paso de la grilla</span>
+                  <select id="gridSizeSelect" class="vert-popover-select">
+                    <option value="1">1 px</option>
+                    <option value="2">2 px</option>
+                    <option value="4">4 px</option>
+                    <option value="8" selected>8 px</option>
+                    <option value="10">10 px</option>
+                    <option value="16">16 px</option>
+                    <option value="20">20 px</option>
+                    <option value="32">32 px</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Botón y Menú Snap -->
+          <div class="vert-btn-group active" id="vertSnapGroup">
+            <button id="vertSnapMenuBtn" class="vert-side-chevron" type="button" title="Opciones de Snap">
+              <svg width="6" height="10" viewBox="0 0 6 10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M4.5 1.5 1 5l3.5 3.5"/>
+              </svg>
+            </button>
+            <button id="vertSnapToggle" class="vert-btn toggle-btn active" type="button" title="Alternar Snap (Click) / Configurar (◂ o Click derecho)">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="m6 15-4-4 6.75-6.77a7.79 7.79 0 0 1 11 11L13 22l-4-4 6.39-6.36a2.14 2.14 0 0 0-3-3L6 15"/>
+                <path d="m5 8 4 4"/>
+                <path d="m12 15 4 4"/>
+              </svg>
+            </button>
+
+            <!-- Popover Flotante de Snap -->
+            <div id="snapConfigPopover" class="vert-popover" style="display:none;">
+              <div class="vert-popover-header">
+                <span class="vert-popover-title">⧉ Ajuste Magnético (Snap)</span>
+                <button type="button" class="vert-popover-close" id="snapPopoverClose">✕</button>
+              </div>
+              <div class="vert-popover-body">
+                <label class="vert-popover-toggle-row">
+                  <span>Activar Snap</span>
+                  <label class="style-toggle-wrap">
+                    <input id="snapPopoverToggle" type="checkbox" checked />
+                    <span class="style-toggle-slider"></span>
+                  </label>
+                </label>
+                <div class="vert-popover-field">
+                  <span class="vert-popover-label">Paso del Snap</span>
+                  <select id="snapSizeSelect" class="vert-popover-select">
+                    <option value="grid" selected>Auto (Igual a la grilla)</option>
+                    <option value="1">1 px (Libre / Fino)</option>
+                    <option value="2">2 px</option>
+                    <option value="4">4 px</option>
+                    <option value="8">8 px</option>
+                    <option value="10">10 px</option>
+                    <option value="16">16 px</option>
+                    <option value="20">20 px</option>
+                    <option value="32">32 px</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <button id="vertGeoToggle" class="vert-btn toggle-btn" type="button" title="Guías y Cotas de Geometría">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z"/>
+              <path d="m14.5 12.5 2-2"/>
+              <path d="m11.5 9.5 2-2"/>
+              <path d="m8.5 6.5 2-2"/>
+              <path d="m17.5 15.5 2-2"/>
+            </svg>
+          </button>
+        </div>
+
+        
+          <div id="cadMarqueeBox" class="cad-marquee-box"></div>
+          <div id="canvasStage" class="canvas-stage">
+            <div id="crosshairX" class="canvas-crosshair-x"></div>
+            <div id="crosshairY" class="canvas-crosshair-y"></div>
+
+            <!-- Fila Superior: Regla Top con esquinas -->
+            <div class="canvas-stage-row canvas-stage-top-row">
+              <div class="ruler-corner ruler-corner-tl" title="Origen (0,0)"></div>
+              <canvas id="topRulerCanvas" height="24"></canvas>
+              <div class="ruler-corner ruler-corner-tr"></div>
+            </div>
+
+            <!-- Fila Media: Regla Izquierda, Pantalla, Regla Derecha -->
+            <div class="canvas-stage-row canvas-stage-mid-row">
+              <div class="canvas-stage-left">
+                <canvas id="leftRulerCanvas" width="36"></canvas>
+              </div>
+              <div class="canvas-screen-wrap">
+                <canvas id="displayCanvas" aria-label="Canvas lógico JWPLC Basic 320 por 170"></canvas>
+                <canvas id="geometryCanvas" aria-hidden="true"></canvas>
+                <div id="eraserCursorBox" style="display: none; position: absolute; pointer-events: none; border: 1.5px solid #ffffff; box-shadow: 0 0 2px #000, inset 0 0 2px rgba(0,0,0,0.5); background: rgba(255, 255, 255, 0.25); z-index: 95; border-radius: 1px;"></div>
+              </div>
+              <div class="canvas-stage-right">
+                <canvas id="rightRulerCanvas" width="36"></canvas>
+              </div>
+            </div>
+
+            <!-- Fila Inferior: Regla Bottom con esquinas -->
+            <div class="canvas-stage-row canvas-stage-bottom-row">
+              <div class="ruler-corner ruler-corner-bl"></div>
+              <canvas id="bottomRulerCanvas" height="24"></canvas>
+              <div class="ruler-corner ruler-corner-br"></div>
+            </div>
+          </div>
       </div>
 
       <footer class="canvas-status">
@@ -125,62 +495,778 @@
     </section>
 
     <aside class="panel right-panel">
-      <section class="preview-section">
-        <div class="section-heading">
-          <h2>Vista previa 1:1</h2>
-          <span class="target-badge">ST7789 · 320×170</span>
+
+      <section id="shapeInspectorSection" class="inspector-section bar-inspector-wrap" hidden>
+        <!-- Cabecera estilo BAR Propuesta 2 -->
+        <div class="inspector-title" style="margin-bottom: 6px;">
+          <h2 style="font-size: 13px; color: #dce9f1; font-weight: 700; display: flex; align-items: center; gap: 6px;">
+            <span id="shapeInspectorIcon" style="color: #ff9a43; font-size: 14px;">&#9633;</span>
+            <span>Inspector — <span id="shapeInspectorHeaderTitle">RECT 1</span></span>
+          </h2>
+          <span class="inspector-actions" style="display: inline-flex; gap: 4px;">
+            <button id="shapeDuplicateBtn" class="icon-button" type="button" title="Duplicar figura (Ctrl+D)">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            </button>
+            <button id="shapeDeleteBtn" class="icon-button inspector-delete" type="button" title="Eliminar figura (Delete)">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            </button>
+          </span>
         </div>
-        <div class="device-preview">
-          <canvas id="previewCanvas" width="320" height="170"></canvas>
+
+        <!-- Navegación por Pestañas y Subpestañas -->
+        <div class="bar-nav-header">
+          <div class="bar-main-tabs" id="shapeMainTabs">
+            <button type="button" class="shape-main-tab active" data-shape-tab="design">Diseño</button>
+            <button type="button" class="shape-main-tab" data-shape-tab="tech">Técnico</button>
+          </div>
+          <div class="bar-sub-tabs" id="shapeSubTabs">
+            <button type="button" class="shape-sub-tab active" data-shape-subtab="form">Forma</button>
+            <button type="button" class="shape-sub-tab" data-shape-subtab="appear">Apariencia</button>
+            <button type="button" class="shape-sub-tab" data-shape-subtab="loc">Ubicación</button>
+          </div>
         </div>
-        <p class="muted preview-note">Framebuffer lógico sin interpolación.</p>
+
+        <!-- Cuerpo de Pestañas -->
+        <div class="bar-scroll-body">
+          <!-- ==================== SUBPESTAÑA: FORMA ==================== -->
+          <div id="shapePaneForm" class="shape-tab-pane">
+            <!-- Selector visual de tipo de figura -->
+            <div class="bar-card">
+              <div class="bar-card-section-title">▾ Tipo de figura</div>
+              <div class="shape-type-grid" id="shapeTypeSelectorGrid">
+                <button type="button" class="bar-visual-btn shape-type-card" data-shape-type="RECT" title="Convertir a Rectángulo">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/></svg>
+                  <span>Rectángulo</span>
+                </button>
+                <button type="button" class="bar-visual-btn shape-type-card" data-shape-type="ELLIPSE" title="Convertir a Elipse / Círculo">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="12" rx="9" ry="7"/></svg>
+                  <span>Elipse</span>
+                </button>
+                <button type="button" class="bar-visual-btn shape-type-card" data-shape-type="TRIANGLE" title="Convertir a Triángulo">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 4 21 19 3 19"/></svg>
+                  <span>Triángulo</span>
+                </button>
+                <button type="button" class="bar-visual-btn shape-type-card" data-shape-type="POLYGON" title="Convertir a Polígono">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 3 20.5 9.2 17.3 19.5 6.7 19.5 3.5 9.2"/></svg>
+                  <span>Polígono</span>
+                </button>
+                <button type="button" class="bar-visual-btn shape-type-card" data-shape-type="LINE" title="Convertir a Línea">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="4" y1="19" x2="20" y2="5"/></svg>
+                  <span>Línea</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Redondeo de esquinas (RECT, TRIANGLE, POLYGON) -->
+            <div class="bar-card" id="shapeCornerCard">
+              <div class="bar-visual-group-title" style="margin-bottom: 5px;">
+                <span>Redondeo de esquinas</span>
+                <span class="bar-text-limit-hint" id="shapeCornerMaxHint">Máx: 30 px</span>
+              </div>
+              <div class="bar-visual-grid-4" id="shapeCornerPresetGrid" style="margin-bottom: 8px;">
+                <button type="button" class="bar-visual-btn active" data-corner-preset="0">
+                  <svg width="16" height="16" viewBox="0 0 24 24"><path d="M5 19V5h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="square"/></svg>
+                  <span>Recta</span>
+                </button>
+                <button type="button" class="bar-visual-btn" data-corner-preset="4">
+                  <svg width="16" height="16" viewBox="0 0 24 24"><path d="M5 19V9a4 4 0 0 1 4-4h10" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+                  <span>4 px</span>
+                </button>
+                <button type="button" class="bar-visual-btn" data-corner-preset="8">
+                  <svg width="16" height="16" viewBox="0 0 24 24"><path d="M5 19v-6a8 8 0 0 1 8-8h6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+                  <span>8 px</span>
+                </button>
+                <button type="button" class="bar-visual-btn" data-corner-preset="max">
+                  <svg width="16" height="16" viewBox="0 0 24 24"><path d="M5 19v-2a12 12 0 0 1 12-12h2" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+                  <span>Máx</span>
+                </button>
+              </div>
+
+              <div class="bar-two-cols" style="align-items: center;">
+                <span class="bar-field-subtitle" style="margin: 0;">Radio exacto (0 a máx)</span>
+                <input id="shapeCornerRadius" class="geom-input" type="number" min="0" max="85" value="0" />
+              </div>
+            </div>
+
+            <!-- Lados del polígono (solo POLYGON) -->
+            <div class="bar-card" id="shapeSidesWrap2" hidden>
+              <div class="bar-visual-group-title" style="margin-bottom: 5px;">
+                <span>Número de lados (Polígono)</span>
+              </div>
+              <div class="bar-visual-grid-4" id="shapeSidesPresetGrid" style="margin-bottom: 8px;">
+                <button type="button" class="bar-visual-btn" data-sides-preset="3">
+                  <svg width="15" height="15" viewBox="0 0 24 24"><polygon points="12 4 21 19 3 19" stroke="currentColor" stroke-width="2"/></svg>
+                  <span>3 Lados</span>
+                </button>
+                <button type="button" class="bar-visual-btn active" data-sides-preset="5">
+                  <svg width="15" height="15" viewBox="0 0 24 24"><polygon points="12 3 20.5 9.2 17.3 19.5 6.7 19.5 3.5 9.2" stroke="currentColor" stroke-width="2"/></svg>
+                  <span>5 Lados</span>
+                </button>
+                <button type="button" class="bar-visual-btn" data-sides-preset="6">
+                  <svg width="15" height="15" viewBox="0 0 24 24"><polygon points="12 2.5 20.2 7.2 20.2 16.8 12 21.5 3.8 16.8 3.8 7.2" stroke="currentColor" stroke-width="2"/></svg>
+                  <span>6 Lados</span>
+                </button>
+                <button type="button" class="bar-visual-btn" data-sides-preset="8">
+                  <svg width="15" height="15" viewBox="0 0 24 24"><polygon points="8.2 3 15.8 3 21 8.2 21 15.8 15.8 21 8.2 21 3 15.8 3 8.2" stroke="currentColor" stroke-width="2"/></svg>
+                  <span>8 Lados</span>
+                </button>
+              </div>
+              <div class="bar-two-cols" style="align-items: center;">
+                <span class="bar-field-subtitle" style="margin: 0;">Lados (3 a 12)</span>
+                <input id="shapeSides2" class="geom-input" type="number" min="3" max="12" value="5" />
+              </div>
+            </div>
+
+            <!-- Grosor de Trazo / Borde -->
+            <div class="bar-card">
+              <div class="bar-visual-group-title" style="margin-bottom: 5px;">
+                <span>Grosor de línea / borde</span>
+              </div>
+              <div class="bar-visual-grid-4" id="shapeStrokePresetGrid" style="margin-bottom: 8px;">
+                <button type="button" class="bar-visual-btn active" data-stroke-preset="1">
+                  <svg width="18" height="14" viewBox="0 0 24 14"><line x1="2" y1="7" x2="22" y2="7" stroke="currentColor" stroke-width="1.5"/></svg>
+                  <span>1 px</span>
+                </button>
+                <button type="button" class="bar-visual-btn" data-stroke-preset="2">
+                  <svg width="18" height="14" viewBox="0 0 24 14"><line x1="2" y1="7" x2="22" y2="7" stroke="currentColor" stroke-width="2.5"/></svg>
+                  <span>2 px</span>
+                </button>
+                <button type="button" class="bar-visual-btn" data-stroke-preset="3">
+                  <svg width="18" height="14" viewBox="0 0 24 14"><line x1="2" y1="7" x2="22" y2="7" stroke="currentColor" stroke-width="3.8"/></svg>
+                  <span>3 px</span>
+                </button>
+                <button type="button" class="bar-visual-btn" data-stroke-preset="5">
+                  <svg width="18" height="14" viewBox="0 0 24 14"><line x1="2" y1="7" x2="22" y2="7" stroke="currentColor" stroke-width="5.5"/></svg>
+                  <span>5 px</span>
+                </button>
+              </div>
+              <div class="bar-two-cols" style="align-items: center;" id="shapeBorderSizeWrap">
+                <span class="bar-field-subtitle" style="margin: 0;">Grosor exacto (1–8 px)</span>
+                <input id="shapeBorderSize" class="geom-input" type="number" min="1" max="8" value="1" />
+              </div>
+            </div>
+          </div>
+
+          <!-- ==================== SUBPESTAÑA: APARIENCIA ==================== -->
+          <div id="shapePaneAppear" class="shape-tab-pane" hidden>
+            <!-- Tarjeta Borde / Línea -->
+            <div class="bar-card" id="shapeAppearanceCard">
+              <div class="bar-card-section-title">▾ Colores de la figura</div>
+              <div class="menu-legend" style="margin-bottom: 8px;">
+                <div class="menu-case-legend" style="display: flex; flex-direction: column; gap: 4px;">
+                  <div class="menu-legend-row is-active" data-shape-legend="border" id="shapeBorderRow">
+                    <span class="menu-legend-label" id="shapeBorderLabel">Borde</span>
+                    <div style="display: inline-flex; align-items: center; gap: 6px;">
+                      <label class="bar-toggle-switch" id="shapeBorderToggleWrap" title="Mostrar u ocultar borde">
+                        <input id="shapeBorderEnabled" type="checkbox" checked />
+                        <span class="bar-toggle-slider"></span>
+                      </label>
+                      <button type="button" class="menu-swatch active" data-shape-swatch="border" title="Borde">
+                        <span>B</span>
+                      </button>
+                    </div>
+                  </div>
+                  <div class="menu-legend-row" data-shape-legend="fill" id="shapeFillRow">
+                    <span class="menu-legend-label" id="shapeFillLabel">Relleno sólido</span>
+                    <div style="display: inline-flex; align-items: center; gap: 6px;">
+                      <label class="bar-toggle-switch" title="Activar o desactivar relleno">
+                        <input id="shapeFillEnabled" type="checkbox" />
+                        <span class="bar-toggle-slider"></span>
+                      </label>
+                      <button type="button" class="menu-swatch" data-shape-swatch="fill" title="Relleno">
+                        <span>R</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="menu-palette">
+                <div class="insp-note">Clic en una fila (texto o cuadro) para editar ese color.</div>
+                <div id="shapeColorEditorHost" data-shape-color-editor></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ==================== SUBPESTAÑA: UBICACIÓN ==================== -->
+          <div id="shapePaneLoc" class="shape-tab-pane" hidden>
+            <!-- Alineación en lienzo (3×3) -->
+            <div class="bar-card">
+              <div class="bar-visual-group-title" style="margin-bottom: 6px;">
+                <span>Alineación en lienzo (3×3)</span>
+              </div>
+              <div class="shape-align-matrix-row">
+                <div class="shape-align-matrix-3x3" id="shapeAlignMatrix">
+                  <button type="button" class="shape-matrix-btn" data-align="top-left" title="Arriba Izquierda">↖</button>
+                  <button type="button" class="shape-matrix-btn" data-align="top" title="Arriba Centro">↑</button>
+                  <button type="button" class="shape-matrix-btn" data-align="top-right" title="Arriba Derecha">↗</button>
+                  <button type="button" class="shape-matrix-btn" data-align="left" title="Medio Izquierda">←</button>
+                  <button type="button" class="shape-matrix-btn" data-align="center" title="Centro del lienzo">·</button>
+                  <button type="button" class="shape-matrix-btn" data-align="right" title="Medio Derecha">→</button>
+                  <button type="button" class="shape-matrix-btn" data-align="bottom-left" title="Abajo Izquierda">↙</button>
+                  <button type="button" class="shape-matrix-btn" data-align="bottom" title="Abajo Centro">↓</button>
+                  <button type="button" class="shape-matrix-btn" data-align="bottom-right" title="Abajo Derecha">↘</button>
+                </div>
+                <div class="shape-matrix-legend">
+                  <span class="shape-matrix-legend-title">Alinear al lienzo</span>
+                  <span class="shape-matrix-legend-desc">Posiciona la figura en esquinas, bordes o centro (320×170).</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Coordenadas y Dimensiones -->
+            <div class="bar-card">
+              <div class="bar-card-header">
+                <span class="bar-card-title">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#00d7ef" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+                  <span>Geometría (px)</span>
+                </span>
+              </div>
+              <div class="bar-two-cols">
+                <label class="geom-label" title="Centro X (posición horizontal)">Centro X<input id="shapeX" class="geom-input" type="number" min="-999" max="999" value="0" /></label>
+                <label class="geom-label" title="Centro Y (posición vertical)">Centro Y<input id="shapeY" class="geom-input" type="number" min="-999" max="999" value="0" /></label>
+                <label class="geom-label">Ancho (W)<input id="shapeW" class="geom-input" type="number" min="1" max="640" value="100" /></label>
+                <label class="geom-label">Alto (H)<input id="shapeH" class="geom-input" type="number" min="1" max="640" value="60" /></label>
+              </div>
+            </div>
+
+            <!-- Transformación: Rotación y Espejo -->
+            <div class="bar-card">
+              <div class="bar-visual-group-title" style="margin-bottom: 6px;">
+                <span>Orientación y Transformación</span>
+              </div>
+              <div class="shape-transform-row" style="padding: 0; border: none; margin-bottom: 8px;">
+                <label class="geom-label" style="flex:1">Rotación (R&deg;)<input id="shapeRotation" class="geom-input" type="number" min="0" max="359" value="0" title="Rotaci&oacute;n en grados (0-359)" /></label>
+                <button class="transform-btn" id="shapeRotate90Btn" type="button" title="Girar 90&deg; horario"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6"/><path d="M21 13a9 9 0 1 1-3-7.7L21 8"/></svg></button>
+                <button class="transform-btn" id="shapeFlipHBtn" type="button" title="Espejo Horizontal (Izquierda &#8596; Derecha)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="8 6 2 12 8 18"/><polyline points="16 6 22 12 16 18"/><line x1="12" y1="4" x2="12" y2="20"/></svg></button>
+                <button class="transform-btn" id="shapeFlipVBtn" type="button" title="Espejo Vertical (Arriba &#8597; Abajo)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 8 12 2 18 8"/><polyline points="6 16 12 22 18 16"/><line x1="4" y1="12" x2="20" y2="12"/></svg></button>
+              </div>
+              <div class="bar-visual-grid-4" id="shapeRotPresetGrid">
+                <button type="button" class="bar-visual-btn" data-rot-preset="0"><span>0°</span></button>
+                <button type="button" class="bar-visual-btn" data-rot-preset="45"><span>45°</span></button>
+                <button type="button" class="bar-visual-btn" data-rot-preset="90"><span>90°</span></button>
+                <button type="button" class="bar-visual-btn" data-rot-preset="180"><span>180°</span></button>
+              </div>
+            </div>
+          </div>
+
+          <!-- ==================== PESTAÑA PRINCIPAL: TÉCNICO ==================== -->
+          <div id="shapePaneTech" class="shape-tab-pane" hidden>
+            <!-- Identidad -->
+            <div class="bar-card">
+              <div class="bar-card-header">
+                <span class="bar-card-title">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00d7ef" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+                  <span>Identidad</span>
+                </span>
+              </div>
+              <label class="field-label full" style="margin-bottom: 6px;">Nombre del objeto
+                <input id="shapeInspectorName" class="field-input" type="text" value="Rect 1" maxlength="32" />
+              </label>
+            </div>
+
+            <!-- Contrato / Primitiva C++ -->
+            <div class="bar-card">
+              <div class="bar-card-header">
+                <span class="bar-card-title">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00d7ef" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                  <span>Primitiva C++ (TFT_eSPI)</span>
+                </span>
+              </div>
+              <span class="bar-field-subtitle">Llamada generada</span>
+              <div class="bar-code-box" style="margin-bottom: 8px;">
+                <code id="shapeTechCodePreview" style="white-space: pre-wrap; word-break: break-all;">JWPLC_Display.getTFT()-&gt;drawRect(...);</code>
+                <button id="shapeCopyCodeBtn" class="bar-copy-icon-btn" type="button" title="Copiar llamada C++">⧉</button>
+              </div>
+              <div class="bar-info-note">
+                <span class="bar-info-icon">ℹ</span>
+                <span>Los rectángulos con redondeo sin rotación usan <code>drawRoundRect</code> / <code>fillRoundRect</code> nativos del controlador ST7789.</span>
+              </div>
+            </div>
+
+            <!-- Acciones de capa -->
+            <div class="bar-card">
+              <div class="bar-visual-group-title" style="margin-bottom: 6px;">
+                <span>Conversión a mapa de píxeles</span>
+              </div>
+              <button id="shapeMergeBitmapBtn" class="bar-action-btn" style="width: 100%;" type="button">Rasterizar en capa PIXEL</button>
+            </div>
+          </div>
+        </div>
       </section>
 
-      <section id="textFieldControlsSection" class="inspector-section">
+      <!-- Inspector Barra de Navegación HMI (Homogéneo con BAR) -->
+      <section id="navBarInspectorSection" class="inspector-section" hidden>
+        <div class="inspector-title">
+          <h2>Inspector · Barra de Navegación HMI</h2>
+          <span class="inspector-delete" id="navBarInspectorDeleteBtn" title="Eliminar barra de navegación">♲</span>
+        </div>
+
+        <div class="bar-inspector-wrap">
+          <!-- Cabecera de navegación: Pestañas principales -->
+          <div class="bar-nav-header">
+            <div class="bar-main-tabs" role="tablist">
+              <button type="button" class="bar-main-tab active" data-navbar-tab="design" role="tab" aria-selected="true">
+                <span>Diseño</span>
+              </button>
+              <button type="button" class="bar-main-tab" data-navbar-tab="pages" role="tab" aria-selected="false">
+                <span>Páginas</span>
+              </button>
+              <button type="button" class="bar-main-tab" data-navbar-tab="tech" role="tab" aria-selected="false">
+                <span>Técnico</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Contenido Scrollable -->
+          <div class="bar-scroll-body">
+            <!-- PANEL 1: DISEÑO -->
+            <div class="bar-tab-panel" id="navBarPaneDesign">
+              <!-- Tarjeta 1: Prediseño Visual -->
+              <div class="bar-card">
+                <div class="bar-card-section-title">▾ Estilo y Prediseño Visual</div>
+                <div class="bar-presets-grid two-presets">
+                  <button type="button" class="bar-preset-btn active" data-navbar-preset="industrial-color" title="Colores individuales por página con marco de selección">
+                    <span class="bar-preset-icon">
+                      <svg width="34" height="16" viewBox="0 0 34 16" fill="none" style="display:block;margin:0 auto 2px;">
+                        <rect x="1" y="2" width="9" height="12" rx="2" stroke="#ff3b30" stroke-width="1.2" fill="#ff3b30" />
+                        <rect x="12" y="2" width="9" height="12" rx="2" stroke="#34c759" stroke-width="1.2" fill="#13222e" />
+                        <rect x="23" y="2" width="9" height="12" rx="2" stroke="#007aff" stroke-width="1.2" fill="#13222e" />
+                      </svg>
+                    </span>
+                    <span class="bar-preset-name">Industrial</span>
+                    <span class="bar-preset-desc">Color Ref. Física</span>
+                  </button>
+
+                  <button type="button" class="bar-preset-btn" data-navbar-preset="dark-pill" title="Píldoras redondeadas con selección en cian moderno">
+                    <span class="bar-preset-icon">
+                      <svg width="34" height="16" viewBox="0 0 34 16" fill="none" style="display:block;margin:0 auto 2px;">
+                        <rect x="1" y="3" width="10" height="10" rx="5" fill="#00e5ff" />
+                        <rect x="13" y="3" width="9" height="10" rx="5" fill="#1c2d3a" stroke="#2d4253" stroke-width="1" />
+                        <rect x="24" y="3" width="9" height="10" rx="5" fill="#1c2d3a" stroke="#2d4253" stroke-width="1" />
+                      </svg>
+                    </span>
+                    <span class="bar-preset-name">Dark Pill</span>
+                    <span class="bar-preset-desc">Cápsulas Cian</span>
+                  </button>
+
+                  <button type="button" class="bar-preset-btn" data-navbar-preset="segmented-bar" title="Barra segmentada unificada con acento superior activo">
+                    <span class="bar-preset-icon">
+                      <svg width="34" height="16" viewBox="0 0 34 16" fill="none" style="display:block;margin:0 auto 2px;">
+                        <rect x="1" y="2" width="32" height="12" rx="2" stroke="#253a48" stroke-width="1" fill="#0d1820" />
+                        <line x1="11" y1="2" x2="11" y2="14" stroke="#253a48" stroke-width="1" />
+                        <line x1="22" y1="2" x2="22" y2="14" stroke="#253a48" stroke-width="1" />
+                        <line x1="1" y1="2" x2="11" y2="2" stroke="#ff9a43" stroke-width="2.5" />
+                        <rect x="1" y="3" width="10" height="10" fill="rgba(255,154,67,0.18)" />
+                      </svg>
+                    </span>
+                    <span class="bar-preset-name">Segmentada</span>
+                    <span class="bar-preset-desc">Acento Continuo</span>
+                  </button>
+
+                  <button type="button" class="bar-preset-btn" data-navbar-preset="compact-dots" title="Puntos e insignias ultra compactos discretos y minimalistas">
+                    <span class="bar-preset-icon">
+                      <svg width="34" height="16" viewBox="0 0 34 16" fill="none" style="display:block;margin:0 auto 2px;">
+                        <rect x="4" y="6" width="10" height="4" rx="2" fill="#00e5ff" />
+                        <circle cx="19" cy="8" r="2" fill="#4a657c" />
+                        <circle cx="28" cy="8" r="2" fill="#4a657c" />
+                      </svg>
+                    </span>
+                    <span class="bar-preset-name">Puntos / Dots</span>
+                    <span class="bar-preset-desc">Cluster Minimal</span>
+                  </button>
+
+                  <button type="button" class="bar-preset-btn" data-navbar-preset="edge-tabs" title="Lengüetas con borde activo y acento de color">
+                    <span class="bar-preset-icon">
+                      <svg width="34" height="16" viewBox="0 0 34 16" fill="none" style="display:block;margin:0 auto 2px;">
+                        <rect x="1" y="2" width="10" height="12" rx="2" fill="#1c3042" stroke="#52c9ff" stroke-width="1" />
+                        <line x1="1" y1="13" x2="11" y2="13" stroke="#00e5ff" stroke-width="2" />
+                        <rect x="13" y="3" width="9" height="11" rx="2" fill="#0f1d28" stroke="#213545" stroke-width="1" />
+                        <rect x="24" y="3" width="9" height="11" rx="2" fill="#0f1d28" stroke="#213545" stroke-width="1" />
+                      </svg>
+                    </span>
+                    <span class="bar-preset-name">Lengüetas</span>
+                    <span class="bar-preset-desc">Borde Activo</span>
+                  </button>
+
+                  <button type="button" class="bar-preset-btn" data-navbar-preset="numeric-pills" title="Insignias numéricas circulares / cuadradas compactas">
+                    <span class="bar-preset-icon">
+                      <svg width="34" height="16" viewBox="0 0 34 16" fill="none" style="display:block;margin:0 auto 2px;">
+                        <rect x="2" y="2" width="12" height="12" rx="3" fill="#ff9a43" />
+                        <rect x="18" y="2" width="12" height="12" rx="3" fill="#13222e" stroke="#2d4253" stroke-width="1" />
+                      </svg>
+                    </span>
+                    <span class="bar-preset-name">Insignias N°</span>
+                    <span class="bar-preset-desc">Números Puros</span>
+                  </button>
+
+                  <button type="button" class="bar-preset-btn" data-navbar-preset="counter" title="Sólo el contador página actual / total (indicador de Alpha11): negro al elegir página, blanco al entrar al contenido">
+                    <span class="bar-preset-icon">
+                      <svg width="34" height="16" viewBox="0 0 34 16" fill="none" style="display:block;margin:0 auto 2px;">
+                        <rect x="5.5" y="2.5" width="23" height="11" fill="#000000" stroke="#ffffff" stroke-width="1" />
+                        <text x="17" y="11" text-anchor="middle" font-family="monospace" font-size="7" fill="#ffffff">06/12</text>
+                      </svg>
+                    </span>
+                    <span class="bar-preset-name">Contador</span>
+                    <span class="bar-preset-desc">Sólo NN/TT</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Tarjeta 2: Posición en Pantalla y Alineación Rápida -->
+              <div class="bar-card">
+                <div class="bar-card-section-title">▾ Posición y Orientación (ST7789)</div>
+                <div class="bar-visual-grid-4" data-navbar-counter-only hidden style="margin-bottom: 8px;">
+                  <button type="button" class="bar-visual-btn" data-navbar-corner="tl" title="Arriba a la izquierda"><span>↖ Arriba izq.</span></button>
+                  <button type="button" class="bar-visual-btn" data-navbar-corner="tr" title="Arriba a la derecha (Alpha11)"><span>↗ Arriba der.</span></button>
+                  <button type="button" class="bar-visual-btn" data-navbar-corner="bl" title="Abajo a la izquierda"><span>↙ Abajo izq.</span></button>
+                  <button type="button" class="bar-visual-btn" data-navbar-corner="br" title="Abajo a la derecha"><span>↘ Abajo der.</span></button>
+                </div>
+                <div class="bar-info-note" data-navbar-counter-only hidden style="margin-bottom: 8px;">
+                  <span class="bar-info-icon">ℹ</span>
+                  <div>Recuadro fijo de 36×12 px dibujado por el firmware: negro mientras eliges página (◀ ▶) y blanco al entrar al contenido (OK); ESC vuelve.</div>
+                </div>
+                <div class="bar-visual-grid-4" data-navbar-bar-only style="margin-bottom: 8px;">
+                  <button type="button" class="bar-visual-btn active" data-navbar-pos="bottom" title="Barra horizontal inferior (Y: 147)">
+                    <svg width="18" height="14" viewBox="0 0 24 14">
+                      <rect x="1" y="1" width="22" height="12" rx="2" stroke="#3b5366" stroke-width="1" fill="#0d1720" />
+                      <rect x="2" y="9" width="20" height="3" fill="#ff9a43" />
+                    </svg>
+                    <span>Inferior</span>
+                  </button>
+                  <button type="button" class="bar-visual-btn" data-navbar-pos="top" title="Barra horizontal superior (Y: 2)">
+                    <svg width="18" height="14" viewBox="0 0 24 14">
+                      <rect x="1" y="1" width="22" height="12" rx="2" stroke="#3b5366" stroke-width="1" fill="#0d1720" />
+                      <rect x="2" y="2" width="20" height="3" fill="#ff9a43" />
+                    </svg>
+                    <span>Superior</span>
+                  </button>
+                  <button type="button" class="bar-visual-btn" data-navbar-pos="left" title="Barra vertical lateral izquierda (X: 2)">
+                    <svg width="18" height="14" viewBox="0 0 24 14">
+                      <rect x="1" y="1" width="22" height="12" rx="2" stroke="#3b5366" stroke-width="1" fill="#0d1720" />
+                      <rect x="2" y="2" width="3" height="10" fill="#ff9a43" />
+                    </svg>
+                    <span>Izquierda</span>
+                  </button>
+                  <button type="button" class="bar-visual-btn" data-navbar-pos="right" title="Barra vertical lateral derecha (X: 296)">
+                    <svg width="18" height="14" viewBox="0 0 24 14">
+                      <rect x="1" y="1" width="22" height="12" rx="2" stroke="#3b5366" stroke-width="1" fill="#0d1720" />
+                      <rect x="19" y="2" width="3" height="10" fill="#ff9a43" />
+                    </svg>
+                    <span>Derecha</span>
+                  </button>
+                </div>
+
+                <div class="bar-card-section-title" data-navbar-bar-only style="margin-top: 6px;">▾ Alineación Rápida</div>
+                <div class="bar-visual-grid-3" data-navbar-bar-only style="margin-bottom: 8px;">
+                  <button type="button" class="bar-visual-btn" data-navbar-align="hcenter" title="Centrar horizontalmente respecto al ancho (320 px)">
+                    <svg width="16" height="14" viewBox="0 0 24 14">
+                      <line x1="12" y1="1" x2="12" y2="13" stroke="#52c9ff" stroke-width="1.5" stroke-dasharray="2 2" />
+                      <rect x="6" y="3" width="12" height="8" rx="1.5" stroke="#ff9a43" stroke-width="1.2" fill="rgba(255,154,67,0.2)" />
+                    </svg>
+                    <span>Centrar H</span>
+                  </button>
+                  <button type="button" class="bar-visual-btn" data-navbar-align="vcenter" title="Centrar verticalmente respecto al alto (170 px)">
+                    <svg width="16" height="14" viewBox="0 0 24 14">
+                      <line x1="1" y1="7" x2="23" y2="7" stroke="#52c9ff" stroke-width="1.5" stroke-dasharray="2 2" />
+                      <rect x="3" y="4" width="18" height="6" rx="1.5" stroke="#ff9a43" stroke-width="1.2" fill="rgba(255,154,67,0.2)" />
+                    </svg>
+                    <span>Centrar V</span>
+                  </button>
+                  <button type="button" class="bar-visual-btn" data-navbar-align="full" title="Ajustar al 100% del borde de la pantalla">
+                    <svg width="16" height="14" viewBox="0 0 24 14">
+                      <line x1="2" y1="1" x2="2" y2="13" stroke="#52c9ff" stroke-width="1.5" />
+                      <line x1="22" y1="1" x2="22" y2="13" stroke="#52c9ff" stroke-width="1.5" />
+                      <rect x="2" y="3" width="20" height="8" rx="1.5" stroke="#ff9a43" stroke-width="1.2" fill="rgba(255,154,67,0.2)" />
+                    </svg>
+                    <span>100% Pantalla</span>
+                  </button>
+                </div>
+
+                <div class="bar-card-section-title" style="margin-top: 6px;">▾ Coordenadas de Precisión (px)</div>
+                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;">
+                  <div>
+                    <span class="bar-field-subtitle" style="font-size: 9px;">X</span>
+                    <input id="navBarCoordX" class="geom-input" type="number" min="0" max="319" value="0" />
+                  </div>
+                  <div>
+                    <span class="bar-field-subtitle" style="font-size: 9px;">Y</span>
+                    <input id="navBarCoordY" class="geom-input" type="number" min="0" max="169" value="147" />
+                  </div>
+                  <div>
+                    <span class="bar-field-subtitle" style="font-size: 9px;">Ancho (W)</span>
+                    <input id="navBarCoordW" class="geom-input" type="number" min="10" max="320" value="320" />
+                  </div>
+                  <div>
+                    <span class="bar-field-subtitle" style="font-size: 9px;">Alto (H)</span>
+                    <input id="navBarCoordH" class="geom-input" type="number" min="10" max="170" value="22" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Tarjeta 3: Distribución y Alineación -->
+              <div class="bar-card" data-navbar-bar-only>
+                <div class="bar-card-section-title">▾ Distribución de Pestañas</div>
+                <div class="bar-visual-grid-4" style="margin-bottom: 8px;">
+                  <button type="button" class="bar-visual-btn active" data-navbar-dist="center" title="Pestañas centradas en el eje principal">
+                    <span>Centrada</span>
+                  </button>
+                  <button type="button" class="bar-visual-btn" data-navbar-dist="stretch" title="Pestañas expandidas para ocupar todo el ancho/alto disponible">
+                    <span>Expandir</span>
+                  </button>
+                  <button type="button" class="bar-visual-btn" data-navbar-dist="start" title="Alineadas al inicio (izquierda o arriba)">
+                    <span>Inicio</span>
+                  </button>
+                  <button type="button" class="bar-visual-btn" data-navbar-dist="end" title="Alineadas al final (derecha o abajo)">
+                    <span>Fin</span>
+                  </button>
+                </div>
+
+                <div class="bar-card-section-title">▾ Alineación del Texto en Pestaña</div>
+                <div class="bar-visual-grid-3">
+                  <button type="button" class="bar-visual-btn" data-navbar-textalign="left" title="Texto a la izquierda">
+                    <span>Izquierda</span>
+                  </button>
+                  <button type="button" class="bar-visual-btn active" data-navbar-textalign="center" title="Texto centrado en la pestaña">
+                    <span>Centrado</span>
+                  </button>
+                  <button type="button" class="bar-visual-btn" data-navbar-textalign="right" title="Texto a la derecha">
+                    <span>Derecha</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Tarjeta 4: Tipografía y Etiquetas -->
+              <div class="bar-card" data-navbar-bar-only>
+                <div class="bar-card-section-title">▾ Tipografía de la Barra</div>
+                <div class="bar-visual-grid-3" style="margin-bottom: 8px;">
+                  <button type="button" class="bar-visual-btn" data-navbar-fontsize="micro" title="Microfuente bitmap 4x6 px para pestañas compactas o laterales">
+                    <span style="font-size: 11px; font-weight: 700; color: #52c9ff;">4×6 px</span>
+                    <span style="font-size: 9px; opacity: 0.8;">Micro</span>
+                  </button>
+                  <button type="button" class="bar-visual-btn active" data-navbar-fontsize="normal" title="Fuente estándar ST7789 5x7 px (Texto tamaño 1)">
+                    <span style="font-size: 11px; font-weight: 700; color: #ff9a43;">5×7 px</span>
+                    <span style="font-size: 9px; opacity: 0.8;">Normal</span>
+                  </button>
+                  <button type="button" class="bar-visual-btn" data-navbar-fontsize="medium" title="Fuente mediana 7x9 px">
+                    <span style="font-size: 11px; font-weight: 700; color: #52c9ff;">7×9 px</span>
+                    <span style="font-size: 9px; opacity: 0.8;">Mediana</span>
+                  </button>
+                </div>
+
+                <div class="bar-card-section-title">▾ Formato de Etiqueta</div>
+                <div class="bar-visual-grid-3">
+                  <button type="button" class="bar-visual-btn active" data-navbar-labelformat="short" title="Abreviatura personalizada o auto (máx 4 letras)">
+                    <span>Nombre</span>
+                  </button>
+                  <button type="button" class="bar-visual-btn" data-navbar-labelformat="num_short" title="Número de página seguido de abreviatura: 1 MAIN">
+                    <span>N° + Nom</span>
+                  </button>
+                  <button type="button" class="bar-visual-btn" data-navbar-labelformat="number" title="Solo número de página: 01, 02...">
+                    <span>Solo N°</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Tarjeta 5: Acabados, Bordes y Redondeo -->
+              <div class="bar-card" data-navbar-bar-only>
+                <div class="bar-card-section-title">▾ Acabado de Fondo</div>
+                <div class="bar-visual-grid-3" style="margin-bottom: 8px;">
+                  <button type="button" class="bar-visual-btn active" data-navbar-bgmode="solid" title="Fondo oscuro sólido para aislamiento visual">
+                    <span>Sólido</span>
+                  </button>
+                  <button type="button" class="bar-visual-btn" data-navbar-bgmode="dark" title="Fondo ultra oscuro 0x0810">
+                    <span>Oscuro</span>
+                  </button>
+                  <button type="button" class="bar-visual-btn" data-navbar-bgmode="transparent" title="Fondo transparente flotante">
+                    <span>Flotante</span>
+                  </button>
+                </div>
+
+                <div class="bar-card-section-title">▾ Estilo de Borde</div>
+                <div class="bar-visual-grid-3" style="margin-bottom: 8px;">
+                  <button type="button" class="bar-visual-btn active" data-navbar-bordermode="none" title="Sin borde exterior">
+                    <span>Sin Borde</span>
+                  </button>
+                  <button type="button" class="bar-visual-btn" data-navbar-bordermode="line" title="Línea divisoria simple hacia el contenido">
+                    <span>Divisoria</span>
+                  </button>
+                  <button type="button" class="bar-visual-btn" data-navbar-bordermode="frame" title="Marco completo perimetral">
+                    <span>Marco</span>
+                  </button>
+                </div>
+
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px;">
+                  <div>
+                    <span class="bar-field-subtitle" style="font-size: 9px;">Redondeo (px)</span>
+                    <div class="bar-visual-grid-4">
+                      <button type="button" class="bar-visual-btn" data-navbar-radius="0"><span>0</span></button>
+                      <button type="button" class="bar-visual-btn active" data-navbar-radius="3"><span>3</span></button>
+                      <button type="button" class="bar-visual-btn" data-navbar-radius="6"><span>6</span></button>
+                      <button type="button" class="bar-visual-btn" data-navbar-radius="11"><span>Max</span></button>
+                    </div>
+                  </div>
+                  <div>
+                    <span class="bar-field-subtitle" style="font-size: 9px;">Separación Gap</span>
+                    <div class="bar-visual-grid-4">
+                      <button type="button" class="bar-visual-btn" data-navbar-gap="1"><span>1</span></button>
+                      <button type="button" class="bar-visual-btn active" data-navbar-gap="3"><span>3</span></button>
+                      <button type="button" class="bar-visual-btn" data-navbar-gap="6"><span>6</span></button>
+                      <button type="button" class="bar-visual-btn" data-navbar-gap="10"><span>10</span></button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Tarjeta 6: Ocupación Geométrica -->
+              <div class="bar-card">
+                <div class="bar-card-section-title">▾ Geometría de Pantalla</div>
+                <div class="bar-two-cols" style="font-family: 'Cascadia Code', Consolas, monospace; font-size: 10.5px;">
+                  <div style="background: #09131a; padding: 6px 8px; border-radius: 4px; border: 1px solid #1e3342;">
+                    <span style="color: #6a8292;">X / Y:</span> <strong id="navBarGeoXY" style="color: #00d7ef;">0 / 147</strong>
+                  </div>
+                  <div style="background: #09131a; padding: 6px 8px; border-radius: 4px; border: 1px solid #1e3342;">
+                    <span style="color: #6a8292;">W / H:</span> <strong id="navBarGeoWH" style="color: #00d7ef;">320 × 22</strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- PANEL 2: PÁGINAS -->
+            <div class="bar-tab-panel" id="navBarPanePages" hidden>
+              <div class="bar-card">
+                <div class="bar-card-section-title">▾ Pestañas del Menú HMI</div>
+                <p style="font-size: 10px; color: #7890a8; margin: 0 0 8px 0; line-height: 1.35;">
+                  Abreviatura (máx. 4 caracteres) y color ST7789 para cada pestaña en pantalla:
+                </p>
+                <div id="navBarInspectorPagesList" class="hmi-nav-pages-list"></div>
+              </div>
+
+              <div class="bar-card">
+                <div class="bar-info-note">
+                  <span class="bar-info-icon">ℹ</span>
+                  <div>
+                    <strong>Paginación inteligente:</strong> Si las pestañas exceden los 320 px de ancho, el motor HMI activará flechas laterales <code>[◄]</code> <code>[►]</code> y el indicador <code>[NN/TT]</code>.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- PANEL 3: TÉCNICO -->
+            <div class="bar-tab-panel" id="navBarPaneTech" hidden>
+              <!-- Tarjeta Identidad -->
+              <div class="bar-card">
+                <div class="bar-card-section-title">▾ Identidad del Objeto</div>
+                <div style="display: flex; flex-direction: column; gap: 6px; font-size: 11px;">
+                  <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #1a2a36; padding-bottom: 4px;">
+                    <span style="color: #7890a8;">Tipo de Campo:</span>
+                    <strong style="color: #ff9a43;">NAV_BAR (Global)</strong>
+                  </div>
+                  <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #1a2a36; padding-bottom: 4px;">
+                    <span style="color: #7890a8;">Ámbito / Scope:</span>
+                    <strong style="color: #00d7ef;">Todas las páginas (Global)</strong>
+                  </div>
+                  <div style="display: flex; justify-content: space-between;">
+                    <span style="color: #7890a8;">Consumo enum ID:</span>
+                    <strong style="color: #34c759;">0 (No consume HMIFieldId)</strong>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Tarjeta Código C++ -->
+              <div class="bar-card">
+                <div class="bar-card-section-title">▾ Llamada C++ del Motor HMI</div>
+                <div class="bar-code-box">
+                  <code id="navBarCppCallCode">jwplcDrawPageNavBar(JWPLC_Display.userPage());</code>
+                  <button type="button" class="bar-copy-icon-btn" id="navBarCopyCodeBtn" title="Copiar código C++">⧉</button>
+                </div>
+                <div class="bar-info-note" style="margin-top: 8px;">
+                  <span class="bar-info-icon">ℹ</span>
+                  <span>Esta función se compila en <code>jwplc_ui.cpp</code> y se invoca automáticamente en cada ciclo de refresco de pantalla cuando cambia de página.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="textFieldControlsSection" class="inspector-section" hidden>
         <div class="inspector-title">
           <h2 id="fieldInspectorTitle">Inspector · TEXT field</h2>
           <span class="inspector-delete">♲</span>
         </div>
 
-        <details open>
-          <summary>Identidad</summary>
-          <div class="inspector-body two-cols">
-            <label class="field-label full" title="Nombre amigable usado por el Designer y la lista de Objetos. No se imprime en la TFT.">Nombre del objeto
-              <input id="fieldName" class="field-input" type="text" value="Estado" maxlength="24" />
-            </label>
-            <label class="field-label full" title="Identificador del enum HMIFieldId generado en C++.">ID C++ del campo
-              <input id="fieldId" class="field-input code-input" type="text" value="FIELD_STATUS" maxlength="32" />
-            </label>
-          </div>
-        </details>
-
-        <details open>
-          <summary>Vinculación de datos</summary>
-          <div class="inspector-body two-cols">
-            <label class="field-label full" title="Variable C++ declarada por el Designer y utilizada por el usuario para alimentar este campo.">Variable vinculada (C++)
-              <input id="fieldVariable" class="field-input code-input" type="text" value="estadoTexto" maxlength="32" />
-            </label>
-            <label class="field-label">Tipo C++
-              <input id="fieldCppType" class="field-input" value="char[]" disabled />
-            </label>
-            <label id="fieldCapacityWrap" class="field-label">Capacidad
-              <input id="fieldCapacity" class="field-input" type="number" min="1" max="39" value="12" />
-            </label>
-          </div>
-        </details>
-
-        <details open>
+        <details id="fieldContentDetails" open>
           <summary>Contenido</summary>
           <div class="inspector-body two-cols">
-            <label class="field-label full" title="Texto fijo que sí se dibuja en la TFT como etiqueta del campo.">Etiqueta visible
+            <label class="field-label" id="fieldLabelWrap" title="Texto fijo que sí se dibuja en la TFT como etiqueta del campo.">Etiqueta visible
               <input id="fieldLabel" class="field-input" type="text" value="Estado" maxlength="24" />
             </label>
-            <label class="field-label" title="Valor utilizado sólo para previsualizar el diseño. No genera lógica de actualización.">Valor de prueba
-              <input id="fieldPreview" class="field-input" type="text" value="READY" maxlength="39" />
-            </label>
-            <label class="field-label">Unidad
+            <label class="field-label" id="fieldUnitWrap">Unidad
               <input id="fieldUnit" class="field-input" type="text" value="" maxlength="12" />
             </label>
+            <label class="field-label" id="fieldPreviewWrap" title="Valor utilizado sólo para previsualizar el diseño. No genera lógica de actualización.">Valor de prueba
+              <input id="fieldPreview" class="field-input" type="text" value="READY" maxlength="39" />
+            </label>
+            <label class="field-label" id="fieldLayoutWrap">Layout
+              <select id="fieldLayout" class="field-input">
+                <option value="INLINE" selected>INLINE</option>
+                <option value="STACKED">STACKED</option>
+              </select>
+            </label>
+            <label class="field-label" id="fieldAlignWrap">Alineación
+              <select id="fieldAlign" class="field-input">
+                <option value="LEFT" selected>LEFT</option>
+                <option value="CENTER">CENTER</option>
+                <option value="RIGHT">RIGHT</option>
+              </select>
+            </label>
+            <label class="field-label" id="fieldLabelSizeWrap">Tamaño etiqueta
+              <select id="fieldLabelSize" class="field-input">
+                <option value="1" selected>1×</option>
+                <option value="2">2×</option>
+                <option value="3">3×</option>
+                <option value="4">4×</option>
+              </select>
+            </label>
+            <label class="field-label" id="fieldValueSizeWrap">Tamaño valor
+              <select id="fieldValueSize" class="field-input">
+                <option value="1">1×</option>
+                <option value="2" selected>2×</option>
+                <option value="3">3×</option>
+                <option value="4">4×</option>
+              </select>
+            </label>
+
+            <div id="barAlignMatrixRow" class="full bar-align-matrix-row" style="display:none;">
+              <div class="bar-matrix-col">
+                <span class="bar-matrix-label">Alineación (3×3)</span>
+                <div id="fieldAlignMatrixWrap" class="align-matrix-3x3">
+                  <button type="button" class="matrix-cell" data-align-v="TOP" data-align-h="LEFT" title="Arriba Izquierda">↖</button>
+                  <button type="button" class="matrix-cell active" data-align-v="TOP" data-align-h="CENTER" title="Arriba Centro">↑</button>
+                  <button type="button" class="matrix-cell" data-align-v="TOP" data-align-h="RIGHT" title="Arriba Derecha">↗</button>
+                  <button type="button" class="matrix-cell" data-align-v="MID" data-align-h="LEFT" title="Medio Izquierda">←</button>
+                  <button type="button" class="matrix-cell" data-align-v="MID" data-align-h="CENTER" title="Centro">·</button>
+                  <button type="button" class="matrix-cell" data-align-v="MID" data-align-h="RIGHT" title="Medio Derecha">→</button>
+                  <button type="button" class="matrix-cell" data-align-v="BOTTOM" data-align-h="LEFT" title="Abajo Izquierda">↙</button>
+                  <button type="button" class="matrix-cell" data-align-v="BOTTOM" data-align-h="CENTER" title="Abajo Centro">↓</button>
+                  <button type="button" class="matrix-cell" data-align-v="BOTTOM" data-align-h="RIGHT" title="Abajo Derecha">↘</button>
+                </div>
+              </div>
+              <div class="bar-options-col">
+                <label id="fieldBarShowLabelWrap" class="field-label-checkbox">
+                  <input id="fieldBarShowLabel" type="checkbox" checked />
+                  <span>Mostrar etiqueta</span>
+                </label>
+                <label class="field-label" id="fieldBarLabelSizeWrap">Tamaño etiqueta
+                  <select id="fieldBarLabelSize" class="field-input">
+                    <option value="1" selected>1×</option>
+                    <option value="2">2×</option>
+                    <option value="3">3×</option>
+                    <option value="4">4×</option>
+                  </select>
+                </label>
+              </div>
+            </div>
           </div>
         </details>
 
@@ -210,17 +1296,62 @@
           </div>
         </details>
 
-        <details open>
+        <details id="fieldAppearanceDetails" open>
+          <summary>Apariencia</summary>
+          <div class="inspector-body two-cols">
+            <label class="field-label color-field" id="fieldLabelColorWrap">Color etiqueta
+              <select id="fieldLabelColor" class="field-input"></select>
+            </label>
+            <label class="field-label color-field" id="fieldBackgroundColorWrap">Color fondo
+              <select id="fieldBackgroundColor" class="field-input"></select>
+            </label>
+            <label class="field-label" id="fieldFrameWrap">Borde
+              <select id="fieldFrame" class="field-input">
+                <option value="0" selected>No</option>
+                <option value="1">Sí</option>
+              </select>
+            </label>
+            <label class="field-label color-field" id="fieldFrameColorWrap" style="display:none;">Color borde
+              <select id="fieldFrameColor" class="field-input"></select>
+            </label>
+            <label class="field-label color-field" id="fieldValueColorWrap">Color valor
+              <select id="fieldValueColor" class="field-input"></select>
+            </label>
+            <label class="field-label" id="fieldPageWrap">Página
+              <input class="field-input" value="0" disabled />
+            </label>
+            <label id="fieldFillWrap" class="field-label" hidden>Relleno
+              <select id="fieldFill" class="field-input">
+                <option value="0" selected>No</option>
+                <option value="1">Sí</option>
+              </select>
+            </label>
+            <label id="fieldFillColorWrap" class="field-label color-field" hidden>Color relleno
+              <select id="fieldFillColor" class="field-input"></select>
+            </label>
+          </div>
+        </details>
+
+        <details id="fieldGeometryDetails" open>
           <summary>Geometría</summary>
           <div class="inspector-body two-cols">
-            <label class="field-label">X
+            <label class="field-label">X1
               <input id="fieldX" class="field-input" type="number" min="0" max="319" value="20" />
             </label>
-            <label class="field-label">Y
+            <label class="field-label">Y1
               <input id="fieldY" class="field-input" type="number" min="0" max="169" value="20" />
             </label>
+            <label id="fieldX2Wrap" class="field-label" hidden>X2
+              <input id="fieldX2" class="field-input" type="number" min="0" max="319" value="40" />
+            </label>
+            <label id="fieldY2Wrap" class="field-label" hidden>Y2
+              <input id="fieldY2" class="field-input" type="number" min="0" max="169" value="40" />
+            </label>
+            <label id="fieldSidesWrap" class="field-label" hidden>Lados
+              <input id="fieldSides" class="field-input" type="number" min="3" max="12" value="5" />
+            </label>
             <div class="readout"><span>Ancho/alto</span><strong id="fieldBoundsStatus">—</strong></div>
-            <div class="readout"><span>Región de valor</span><strong id="fieldValueBoundsStatus">—</strong></div>
+            <div id="fieldValueBoundsWrap" class="readout"><span>Región de valor</span><strong id="fieldValueBoundsStatus">—</strong></div>
             <div id="fieldMetricsSection" class="metrics-inline full">
               <span>Padding efectivo <strong id="fieldPadStatus">3 px</strong></span>
               <span>Gap <strong>4 px</strong></span>
@@ -230,69 +1361,34 @@
           </div>
         </details>
 
-        <details open>
-          <summary>Tipografía</summary>
+        <details id="fieldDataBindingDetails" open>
+          <summary>Vinculación de datos</summary>
           <div class="inspector-body two-cols">
-            <label class="field-label">Tamaño etiqueta
-              <select id="fieldLabelSize" class="field-input">
-                <option value="1" selected>1×</option>
-                <option value="2">2×</option>
-                <option value="3">3×</option>
-                <option value="4">4×</option>
-              </select>
+            <label class="field-label full" title="Variable C++ declarada por el Designer y utilizada por el usuario para alimentar este campo.">Variable vinculada (C++)
+              <input id="fieldVariable" class="field-input code-input" type="text" value="estadoTexto" maxlength="32" />
             </label>
-            <label class="field-label">Tamaño valor
-              <select id="fieldValueSize" class="field-input">
-                <option value="1">1×</option>
-                <option value="2" selected>2×</option>
-                <option value="3">3×</option>
-                <option value="4">4×</option>
-              </select>
+            <label class="field-label">Tipo C++
+              <input id="fieldCppType" class="field-input" value="char[]" disabled />
+            </label>
+            <label id="fieldCapacityWrap" class="field-label">Capacidad
+              <input id="fieldCapacity" class="field-input" type="number" min="1" max="39" value="12" />
             </label>
           </div>
         </details>
 
-        <details open>
-          <summary>Apariencia</summary>
-          <div class="inspector-body three-cols">
-            <label class="field-label">Layout
-              <select id="fieldLayout" class="field-input">
-                <option value="INLINE" selected>INLINE</option>
-                <option value="STACKED">STACKED</option>
-              </select>
+        <details id="fieldIdentityDetails" open>
+          <summary>Identidad</summary>
+          <div class="inspector-body two-cols">
+            <label class="field-label full" title="Nombre amigable usado por el Designer y la lista de Objetos. No se imprime en la TFT.">Nombre del objeto
+              <input id="fieldName" class="field-input" type="text" value="Estado" maxlength="24" />
             </label>
-            <label class="field-label">Alineación
-              <select id="fieldAlign" class="field-input">
-                <option value="LEFT" selected>LEFT</option>
-                <option value="CENTER">CENTER</option>
-                <option value="RIGHT">RIGHT</option>
-              </select>
-            </label>
-            <label class="field-label">Borde
-              <select id="fieldFrame" class="field-input">
-                <option value="0" selected>No</option>
-                <option value="1">Sí</option>
-              </select>
-            </label>
-            <label class="field-label color-field">Color etiqueta
-              <select id="fieldLabelColor" class="field-input"></select>
-            </label>
-            <label class="field-label color-field">Color valor
-              <select id="fieldValueColor" class="field-input"></select>
-            </label>
-            <label class="field-label color-field">Color fondo
-              <select id="fieldBackgroundColor" class="field-input"></select>
-            </label>
-            <label class="field-label color-field">Color borde
-              <select id="fieldFrameColor" class="field-input"></select>
-            </label>
-            <label class="field-label">Página
-              <input class="field-input" value="0" disabled />
+            <label class="field-label full" title="Identificador del enum HMIFieldId generado en C++.">ID C++ del campo
+              <input id="fieldId" class="field-input code-input" type="text" value="FIELD_STATUS" maxlength="32" />
             </label>
           </div>
         </details>
 
-        <details open>
+        <details id="fieldContractDetails" open>
           <summary>Contrato C++</summary>
           <div class="contract-mini">
             <code id="inspectorContract">char estadoTexto[13] = {};</code>
@@ -301,37 +1397,623 @@
         </details>
       </section>
 
-      <section id="rawTextControlsSection" class="inspector-section" hidden>
-        <div class="inspector-title"><h2>Inspector · Texto GFX RAW</h2></div>
-        <details open>
-          <summary>Referencia técnica</summary>
-          <div class="inspector-body two-cols">
-            <label class="field-label full">Contenido
-              <input id="rawTextInput" class="field-input" type="text" value="TEMP: 25.6 C" maxlength="40" />
-            </label>
-            <label class="field-label">X
-              <input id="rawTextX" class="field-input" type="number" min="0" max="319" value="20" />
-            </label>
-            <label class="field-label">Y
-              <input id="rawTextY" class="field-input" type="number" min="0" max="169" value="20" />
-            </label>
-            <label class="field-label">Tamaño
-              <select id="rawTextSize" class="field-input">
-                <option value="1">1×</option>
-                <option value="2" selected>2×</option>
+            <section id="rawTextControlsSection" class="inspector-section insp-wrap" hidden>
+        <!-- Cabecera estilo Propuesta 2: Icono Aa + Inspector — Nombre + Acciones -->
+        <div class="inspector-title" style="margin-bottom: 6px;">
+          <h2 style="font-size: 13px; color: #dce9f1; font-weight: 700; display: flex; align-items: center; gap: 6px;">
+            <span style="color: #ff9a43; font-size: 14px; font-weight: bold; font-family: 'Cascadia Code', Consolas, monospace;">Aa</span>
+            <span>Inspector — <span id="rawTextHeaderTitle">Texto RAW</span></span>
+          </h2>
+          <span class="inspector-actions" style="display: inline-flex; gap: 4px;">
+            <button id="rawDuplicateBtn" class="icon-button" type="button" title="Duplicar texto (Ctrl+D)">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            </button>
+            <button id="rawDeleteBtn" class="icon-button inspector-delete" type="button" title="Eliminar texto (Delete)">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            </button>
+          </span>
+        </div>
+
+        <!-- Navegación por pestañas y subpestañas idéntica a Texto Dinámico (Propuesta 2) -->
+        <div class="bar-nav-header insp-nav-header">
+          <div class="bar-main-tabs" id="rawMainTabs" role="tablist">
+            <button type="button" class="bar-main-tab insp-main-tab active" data-raw-tab="design" role="tab">Diseño</button>
+            <button type="button" class="bar-main-tab insp-main-tab" data-raw-tab="data" role="tab">Datos</button>
+            <button type="button" class="bar-main-tab insp-main-tab" data-raw-tab="tech" role="tab">Técnico</button>
+          </div>
+          <div class="bar-sub-tabs" id="rawSubTabs" role="tablist">
+            <button type="button" class="bar-sub-tab insp-sub-tab active" data-raw-subtab="form" role="tab">Forma</button>
+            <button type="button" class="bar-sub-tab insp-sub-tab" data-raw-subtab="content" role="tab">Contenido</button>
+            <button type="button" class="bar-sub-tab insp-sub-tab" data-raw-subtab="appearance" role="tab">Apariencia</button>
+            <button type="button" class="bar-sub-tab insp-sub-tab" data-raw-subtab="placement" role="tab">Ubicación</button>
+          </div>
+        </div>
+
+        <div class="insp-body" id="rawScrollBody">
+          <!-- ==================== SUBPESTAÑA: FORMA ==================== -->
+          <div id="rawPaneForm" class="insp-panel">
+            <div class="bar-card">
+              <div class="bar-card-section-title">Tipografía / Fuente</div>
+              <select id="rawTextFont" class="field-input" style="width: 100%; margin: 4px 0 0 0; min-height: 28px;"></select>
+              <div class="insp-note">GLCD 5×7 clásica o FreeFonts reales de Adafruit GFX integradas en firmware.</div>
+            </div>
+
+            <div class="bar-card">
+              <div class="bar-card-section-title">Tamaño de escala <span class="insp-hint" id="rawScalePxHint">· 8 px de alto</span></div>
+              <div class="insp-chip-row" id="rawScaleChipRow">
+                <button type="button" class="insp-chip active" data-raw-scale="1">1×</button>
+                <button type="button" class="insp-chip" data-raw-scale="2">2×</button>
+                <button type="button" class="insp-chip" data-raw-scale="3">3×</button>
+                <button type="button" class="insp-chip" data-raw-scale="4">4×</button>
+              </div>
+              <select id="rawTextSize" style="display:none;">
+                <option value="1" selected>1×</option>
+                <option value="2">2×</option>
                 <option value="3">3×</option>
                 <option value="4">4×</option>
               </select>
-            </label>
-            <label class="field-label">Fondo de celda GFX
-              <select id="rawTextBackground" class="field-input"></select>
-            </label>
+              <div class="insp-note">Multiplicador entero de píxeles sobre la fuente elegida.</div>
+            </div>
+
+            <div class="bar-card">
+              <div class="bar-card-section-title">Fondo del texto</div>
+              <div class="bar-visual-grid-2" id="rawBgModeGrid">
+                <button type="button" class="bar-visual-btn active" data-raw-bgmode="transparent" title="Sin fondo: muestra lo que hay detrás">
+                  <svg width="34" height="14" viewBox="0 0 34 14"><rect x="1.5" y="1.5" width="31" height="11" rx="1" stroke-width="1" stroke-dasharray="2 2" opacity="0.5"/><rect x="6" y="5" width="22" height="4" fill="currentColor" stroke="none"/></svg>
+                  <span>Transparente</span>
+                </button>
+                <button type="button" class="bar-visual-btn" data-raw-bgmode="opaque" title="Fondo rectangular con 2 px de relleno">
+                  <svg width="34" height="14" viewBox="0 0 34 14"><rect x="1.5" y="1.5" width="31" height="11" rx="1" fill="currentColor" opacity="0.3" stroke="currentColor" stroke-width="1"/><rect x="6" y="5" width="22" height="4" fill="currentColor" stroke="none"/></svg>
+                  <span>Opaco (+2 px)</span>
+                </button>
+              </div>
+              <input id="rawTextTransparentToggle" type="checkbox" style="display:none;" />
+              <select id="rawTextTransparent" style="display:none;">
+                <option value="1">1</option>
+                <option value="0">0</option>
+              </select>
+              <div class="insp-note" id="rawBgModeNote">Texto directo sobre el fondo de la pantalla o capas inferiores.</div>
+            </div>
           </div>
-          <div id="rawMetricsSection" class="metrics-inline">
-            <span>Celda clásica <strong>6×8</strong></span>
-            <span>Bounds <strong id="rawBoundsStatus">—</strong></span>
+
+          <!-- ==================== SUBPESTAÑA: CONTENIDO ==================== -->
+          <div id="rawPaneContent" class="insp-panel" hidden>
+            <div class="bar-card">
+              <div class="bar-card-section-title">Texto visible <span class="insp-hint" id="rawCharCounter">9/40</span></div>
+              <input id="rawTextInput" class="field-input" type="text" value="Texto RAW" maxlength="40" style="width: 100%; box-sizing: border-box; min-height: 28px;" />
+              <div class="insp-ruler" title="Espacio ocupado estimado en pantalla">
+                <code id="rawRulerText">Texto RAW</code>
+                <span class="insp-hint" id="rawRulerPx">53 × 8 px</span>
+              </div>
+              <div class="insp-note">Texto estático fijo. Compatible con caracteres ASCII estándar y GLCD cp437.</div>
+            </div>
           </div>
-        </details>
+
+          <!-- ==================== SUBPESTAÑA: APARIENCIA ==================== -->
+          <div id="rawPaneAppearance" class="insp-panel" hidden>
+            <div class="bar-card">
+              <div class="bar-card-section-title">Vista y colores</div>
+              <div class="menu-case-body field-case-body zone-host" id="rawCaseBody" style="position: relative;">
+                <canvas class="menu-case-canvas field-case-canvas" id="rawCaseCanvas"></canvas>
+                <div class="menu-case-legend" id="rawCaseLegend">
+                  <div class="menu-legend-row is-active" data-raw-swatch-row="textColor">
+                    <span class="menu-legend-label">Texto</span>
+                    <button type="button" class="menu-swatch active" data-raw-swatch="textColor" title="Color del texto">
+                      <span>T</span>
+                    </button>
+                  </div>
+                  <div class="menu-legend-row" data-raw-swatch-row="bgColor">
+                    <span class="menu-legend-label">Fondo</span>
+                    <button type="button" class="menu-swatch" data-raw-swatch="bgColor" title="Color del fondo (sólo modo opaco)">
+                      <span>F</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Elementos de compatibilidad ocultos para scripts heredados -->
+              <div style="display:none;">
+                <input id="rawTextColorInput" type="color" value="#ffffff" />
+                <input id="rawTextBgColorInput" type="color" value="#000000" />
+                <select id="rawTextColor"></select>
+                <select id="rawTextBackground"></select>
+                <div id="rawTextColorSwatch"></div>
+                <div id="rawTextColorCode"></div>
+                <div id="rawTextBgColorWrap"></div>
+                <div id="rawTextBgColorSwatch"></div>
+                <div id="rawTextBgColorCode"></div>
+                <div id="rawTextBackgroundWrap"></div>
+              </div>
+
+              <div class="menu-palette">
+                <div class="insp-note">Selecciona una fila para editar su color: el marco ▶ indica la zona activa.</div>
+                <div id="rawColorEditorHost"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ==================== SUBPESTAÑA: UBICACIÓN ==================== -->
+          <div id="rawPanePlacement" class="insp-panel" hidden>
+            <div class="bar-card">
+              <div class="bar-card-section-title">Página</div>
+              <div class="insp-chip-row" id="rawPageChipRow"></div>
+            </div>
+
+            <div class="bar-card">
+              <div class="bar-card-section-title">Coordenadas y dimensiones</div>
+              <div class="insp-two">
+                <label class="field-label">X (px)
+                  <input id="rawTextX" class="field-input" type="number" min="0" max="319" value="20" />
+                </label>
+                <label class="field-label">Y (px)
+                  <input id="rawTextY" class="field-input" type="number" min="0" max="169" value="20" />
+                </label>
+              </div>
+              <div class="insp-readouts" style="margin-top: 8px;">
+                <span>Área calculada <strong id="rawBoundsStatus" class="insp-mono">—</strong></span>
+              </div>
+            </div>
+
+            <div class="bar-card">
+              <div class="bar-card-section-title">Alineación rápida en pantalla</div>
+              <div class="shape-align-matrix-row" style="margin-top: 6px;">
+                <div class="shape-align-matrix-3x3" id="rawAlignMatrix3x3">
+                  <button type="button" class="shape-matrix-btn" data-align="top-left" title="Arriba Izquierda (X=0, Y=0)">↖</button>
+                  <button type="button" class="shape-matrix-btn" data-align="top" title="Arriba Centro">↑</button>
+                  <button type="button" class="shape-matrix-btn" data-align="top-right" title="Arriba Derecha">↗</button>
+                  <button type="button" class="shape-matrix-btn" data-align="left" title="Medio Izquierda">←</button>
+                  <button type="button" class="shape-matrix-btn" data-align="center" title="Centro de Pantalla">·</button>
+                  <button type="button" class="shape-matrix-btn" data-align="right" title="Medio Derecha">→</button>
+                  <button type="button" class="shape-matrix-btn" data-align="bottom-left" title="Abajo Izquierda">↙</button>
+                  <button type="button" class="shape-matrix-btn" data-align="bottom" title="Abajo Centro">↓</button>
+                  <button type="button" class="shape-matrix-btn" data-align="bottom-right" title="Abajo Derecha">↘</button>
+                </div>
+                <div class="shape-matrix-legend">
+                  <span class="shape-matrix-legend-title">Matriz 3×3 (320 × 170 px)</span>
+                  <span class="shape-matrix-legend-desc">Posiciona el texto en esquinas, bordes o en el centro de la pantalla.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ==================== PESTAÑA: DATOS ==================== -->
+          <div id="rawPaneData" class="insp-panel" hidden>
+            <div class="bar-card">
+              <div class="bar-card-section-title">Vinculación de datos <span class="insp-mode-chip">Estático GFX</span></div>
+              <div class="insp-note">El texto RAW es un objeto gráfico estático: se dibuja en <code>jwplcUIPageEnter()</code> con la librería TFT y no requiere variable vinculada en RAM ni setters en el bucle cíclico <code>jwplcUIUpdate()</code>.</div>
+            </div>
+            <div class="bar-card">
+              <div class="bar-card-section-title">¿Necesitas datos dinámicos?</div>
+              <div class="insp-note">Para mostrar valores de variables del PLC o Arduino que cambien en tiempo real, añade un campo de <strong>Texto Dinámico (TEXT)</strong> desde la barra de herramientas de texto.</div>
+            </div>
+          </div>
+
+          <!-- ==================== PESTAÑA: TÉCNICO ==================== -->
+          <div id="rawPaneTech" class="insp-panel" hidden>
+            <div class="bar-card">
+              <label class="field-label">Nombre del objeto (sólo Designer)
+                <input id="rawTextName" class="field-input" type="text" value="Texto RAW" maxlength="32" />
+              </label>
+              <label class="field-label" style="margin-top: 6px;">ID C++ del objeto
+                <input id="rawTextId" class="field-input code-input" type="text" value="FIELD_RAW_1" disabled />
+              </label>
+            </div>
+
+            <div class="bar-card">
+              <div class="bar-card-header">
+                <span class="bar-card-title">Código C++ generado</span>
+                <button type="button" id="copyRawContractBtn" class="icon-button" title="Copiar código C++">⧉</button>
+              </div>
+              <pre id="rawInspectorContract" class="insp-contract" style="white-space: pre-wrap; word-break: break-all; margin: 4px 0 0 0;">JWPLC_Display.getTFT()->...</pre>
+            </div>
+
+            <div class="bar-card">
+              <div class="bar-card-section-title">Diagnóstico</div>
+              <div class="insp-readouts insp-readouts-grid">
+                <span>Fuente <strong id="rawDiagFont">GLCD</strong></span>
+                <span>Escala <strong id="rawDiagScale">1×</strong></span>
+                <span>Fondo <strong id="rawDiagBg">Transparente</strong></span>
+                <span>Dimensiones <strong id="rawDiagBounds">—</strong></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Inspector Mapa de Píxeles / Pincel (Homogéneo con BAR, TEXT, SHAPE - Propuesta 2) -->
+      <section id="pixelMapControlsSection" class="inspector-section bar-inspector-wrap" hidden>
+        <!-- Cabecera estilo Propuesta 2: Icono ▦ + Inspector — Nombre + Acciones -->
+        <div class="inspector-title" style="margin-bottom: 6px;">
+          <h2 style="font-size: 13px; color: #dce9f1; font-weight: 700; display: flex; align-items: center; gap: 6px;">
+            <span id="pixelInspectorIcon" style="color: #ff9a43; font-size: 14px; font-weight: bold;">▦</span>
+            <span>Inspector — <span id="pixelMapHeaderTitle">PIXEL 1</span></span>
+          </h2>
+          <span class="inspector-actions" style="display: inline-flex; gap: 4px;">
+            <button id="pixelMapDuplicate" class="icon-button" type="button" title="Duplicar mapa de píxeles (Ctrl+D)">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            </button>
+            <button id="pixelMapDelete" class="icon-button inspector-delete" type="button" title="Eliminar mapa de píxeles (Delete)">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            </button>
+          </span>
+        </div>
+
+        <!-- Navegación por pestañas y subpestañas (Propuesta 2) -->
+        <div class="bar-nav-header insp-nav-header">
+          <div class="bar-main-tabs" id="pixelMainTabs" role="tablist">
+            <button type="button" class="bar-main-tab insp-main-tab active" data-pixel-tab="design" role="tab">Diseño</button>
+            <button type="button" class="bar-main-tab insp-main-tab" data-pixel-tab="data" role="tab">Datos</button>
+            <button type="button" class="bar-main-tab insp-main-tab" data-pixel-tab="tech" role="tab">Técnico</button>
+          </div>
+          <div class="bar-sub-tabs" id="pixelSubTabs" role="tablist">
+            <button type="button" class="bar-sub-tab insp-sub-tab active" data-pixel-subtab="edit" role="tab">Edición</button>
+            <button type="button" class="bar-sub-tab insp-sub-tab" data-pixel-subtab="appearance" role="tab">Apariencia</button>
+            <button type="button" class="bar-sub-tab insp-sub-tab" data-pixel-subtab="placement" role="tab">Ubicación</button>
+          </div>
+        </div>
+
+        <div class="insp-body" id="pixelScrollBody">
+          <!-- ==================== SUBPESTAÑA: EDICIÓN ==================== -->
+          <div id="pixelPaneEdit" class="insp-panel" data-pixel-panel="design:edit">
+            <div class="bar-card">
+              <div class="bar-card-section-title">▾ Modo de dibujo</div>
+              <div class="bar-visual-grid-3" id="pixelModeGrid">
+                <button type="button" class="bar-visual-btn active" data-pm-mode="DRAW" title="Pincel / Lápiz (B)">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
+                    <path d="m15 5 4 4"/>
+                  </svg>
+                  <span>Pincel</span>
+                </button>
+                <button type="button" class="bar-visual-btn" data-pm-mode="ERASE" title="Borrador (E)">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/>
+                    <path d="M22 21H7"/>
+                    <path d="m5 11 9 9"/>
+                  </svg>
+                  <span>Borrador</span>
+                </button>
+                <button type="button" class="bar-visual-btn" data-pm-mode="MOVE" title="Mover capa de píxeles">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="5 9 2 12 5 15"/>
+                    <polyline points="9 5 12 2 15 5"/>
+                    <polyline points="15 19 12 22 9 19"/>
+                    <polyline points="19 9 22 12 19 15"/>
+                    <line x1="2" y1="12" x2="22" y2="12"/>
+                    <line x1="12" y1="2" x2="12" y2="22"/>
+                  </svg>
+                  <span>Mover</span>
+                </button>
+              </div>
+              <div class="insp-note">Huella cuadrada pixel-perfect. Pincel y borrador sólo modifican este objeto PIXEL.</div>
+            </div>
+
+            <div class="bar-card">
+              <div class="bar-card-section-title">Tamaño del pincel <span class="insp-hint" id="pixelBrushSizeHint">· 1 × 1 px</span></div>
+              <div class="insp-stepper" style="margin-bottom: 6px;">
+                <button type="button" id="pixelBrushStepDec">−</button>
+                <strong id="pixelBrushSizeReadout">1 × 1 px</strong>
+                <button type="button" id="pixelBrushStepInc">+</button>
+              </div>
+              <div class="insp-chip-row" id="pixelBrushChips">
+                <button type="button" class="insp-chip active" data-brush-chip="1">1×</button>
+                <button type="button" class="insp-chip" data-brush-chip="2">2×</button>
+                <button type="button" class="insp-chip" data-brush-chip="3">3×</button>
+                <button type="button" class="insp-chip" data-brush-chip="4">4×</button>
+                <button type="button" class="insp-chip" data-brush-chip="6">6×</button>
+                <button type="button" class="insp-chip" data-brush-chip="8">8×</button>
+              </div>
+              <select id="pixelBrushSize" style="display:none;"></select>
+              <div class="insp-note">Grosor de trazo en píxeles. Atajo de teclado: [ y ].</div>
+            </div>
+
+            <div class="bar-card">
+              <div class="bar-card-section-title">Tamaño del borrador <span class="insp-hint" id="pixelEraserSizeHint">· 1 × 1 px</span></div>
+              <div class="insp-stepper" style="margin-bottom: 6px;">
+                <button type="button" id="pixelEraserStepDec">−</button>
+                <strong id="pixelEraserSizeReadout">1 × 1 px</strong>
+                <button type="button" id="pixelEraserStepInc">+</button>
+              </div>
+              <div class="insp-chip-row" id="pixelEraserChips">
+                <button type="button" class="insp-chip active" data-eraser-chip="1">1×</button>
+                <button type="button" class="insp-chip" data-eraser-chip="2">2×</button>
+                <button type="button" class="insp-chip" data-eraser-chip="3">3×</button>
+                <button type="button" class="insp-chip" data-eraser-chip="4">4×</button>
+                <button type="button" class="insp-chip" data-eraser-chip="6">6×</button>
+                <button type="button" class="insp-chip" data-eraser-chip="8">8×</button>
+              </div>
+              <select id="pixelEraserSize" style="display:none;"></select>
+              <div class="insp-note">Atajo: rueda del ratón sobre el lienzo mientras el borrador está activo.</div>
+            </div>
+          </div>
+
+          <!-- ==================== SUBPESTAÑA: APARIENCIA ==================== -->
+          <div id="pixelPaneAppearance" class="insp-panel" data-pixel-panel="design:appearance" hidden>
+            <div class="bar-card">
+              <div class="bar-card-section-title">Color de trazado RGB565</div>
+              <div class="menu-case-body field-case-body zone-host" style="position: relative; margin-bottom: 8px;">
+                <div class="menu-case-legend" style="width: 100%;">
+                  <div class="menu-legend-row is-active" data-pixel-swatch-row="drawColor">
+                    <span class="menu-legend-label">Píxeles activos</span>
+                    <button type="button" class="menu-swatch active" id="pixelMapActiveSwatch" title="Muestra de color activo">
+                      <span>P</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Host para el editor de color fijo de la casa (JWPLCColorEditor) -->
+              <div class="menu-palette">
+                <div class="insp-note">Ajusta el color con el editor fijo o las pastillas rápidas RGB565:</div>
+                <div id="pixelMapColorEditorHost"></div>
+              </div>
+              <button id="pixelMapRecolor" class="bar-visual-btn" type="button" style="width: 100%; margin-top: 8px;" title="Pinta todos los píxeles de esta capa con el color activo">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m19 11-8-8-8.6 8.6a2 2 0 0 0 0 2.8l5.2 5.2c.8.8 2 .8 2.8 0L19 11Z"/><path d="M22 20a2 2 0 1 1-4 0c0-1.6 1.7-2.4 2-4 .3 1.6 2 2.4 2 4Z" fill="currentColor"/></svg>
+                <span>Recolorear toda la capa</span>
+              </button>
+              <div class="insp-note">El color elegido es el del pincel; una capa puede tener varios colores. Este botón pinta toda la capa con él.</div>
+
+              <div id="pixelMapColor" style="display:none;"></div>
+            </div>
+
+            <div class="bar-card">
+              <div class="bar-card-section-title">Visibilidad y capa de referencia</div>
+              <div class="bar-visual-grid-2" style="margin-bottom: 8px;">
+                <button id="pixelMapVisibility" class="bar-visual-btn" type="button" title="Ocultar o mostrar capa en el lienzo">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  <span id="pixelMapVisibilityText">Ocultar</span>
+                </button>
+                <button id="pixelMapOnion" class="bar-visual-btn" type="button" title="Conmutar opacidad de referencia">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 0 20z" fill="currentColor"/></svg>
+                  <span id="pixelMapOnionText">Referencia 35%</span>
+                </button>
+              </div>
+
+              <div class="bar-card-section-title" style="margin-top: 10px;">Opacidad de referencia <span class="insp-hint" id="pixelMapOpacityValue">100%</span></div>
+              <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+                <input id="pixelMapOpacity" class="bar-top-slider-input" type="range" min="10" max="100" step="5" value="100" style="flex: 1;" />
+              </div>
+              <div class="insp-note" style="margin-top: 6px;">Sólo afecta al Designer. El codegen siempre genera RGB565 opaco; la opacidad sirve como onion skin para dibujar animaciones o calcar referencias.</div>
+            </div>
+          </div>
+
+          <!-- ==================== SUBPESTAÑA: UBICACIÓN ==================== -->
+          <div id="pixelPanePlacement" class="insp-panel" data-pixel-panel="design:placement" hidden>
+            <div class="bar-card">
+              <div class="bar-card-section-title">Página</div>
+              <div class="insp-chip-row" id="pixelPageChipRow"></div>
+              <input id="pixelMapPage" class="field-input" type="hidden" disabled />
+            </div>
+
+            <div class="bar-card">
+              <div class="bar-card-section-title">Coordenadas y dimensiones</div>
+              <div class="insp-two">
+                <label class="field-label">X (px)
+                  <input id="pixelMapX" class="field-input" type="number" min="0" max="319" value="0" />
+                </label>
+                <label class="field-label">Y (px)
+                  <input id="pixelMapY" class="field-input" type="number" min="0" max="169" value="0" />
+                </label>
+              </div>
+              <div class="insp-readouts" style="margin-top: 8px;">
+                <span>Área calculada <strong id="pixelMapBounds" class="insp-mono">—</strong></span>
+                <span>Píxeles activos <strong id="pixelMapCount" class="insp-mono">0</strong></span>
+              </div>
+            </div>
+
+            <div class="bar-card">
+              <div class="bar-card-section-title">Alineación en pantalla</div>
+              <div class="shape-align-matrix-row" style="margin-top: 6px;">
+                <div class="shape-align-matrix-3x3" id="pixelAlignMatrix3x3">
+                  <button type="button" class="shape-matrix-btn" data-pixel-align="top-left" title="Arriba Izquierda (X=0, Y=0)">↖</button>
+                  <button type="button" class="shape-matrix-btn" data-pixel-align="top" title="Arriba Centro">↑</button>
+                  <button type="button" class="shape-matrix-btn" data-pixel-align="top-right" title="Arriba Derecha">↗</button>
+                  <button type="button" class="shape-matrix-btn" data-pixel-align="left" title="Medio Izquierda">←</button>
+                  <button type="button" class="shape-matrix-btn" data-pixel-align="center" title="Centro de Pantalla (320 × 170)">·</button>
+                  <button type="button" class="shape-matrix-btn" data-pixel-align="right" title="Medio Derecha">→</button>
+                  <button type="button" class="shape-matrix-btn" data-pixel-align="bottom-left" title="Abajo Izquierda">↙</button>
+                  <button type="button" class="shape-matrix-btn" data-pixel-align="bottom" title="Abajo Centro">↓</button>
+                  <button type="button" class="shape-matrix-btn" data-pixel-align="bottom-right" title="Abajo Derecha">↘</button>
+                </div>
+                <div class="shape-matrix-legend">
+                  <span class="shape-matrix-legend-title">Matriz 3×3 (320 × 170 px)</span>
+                  <span class="shape-matrix-legend-desc">Posiciona la capa en esquinas, bordes o en el centro del lienzo.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ==================== PESTAÑA: DATOS ==================== -->
+          <div id="pixelPaneData" class="insp-panel" data-pixel-panel="data" hidden>
+            <div class="bar-card">
+              <div class="bar-card-section-title">Almacenamiento de imagen <span class="insp-mode-chip">PROGMEM · Flash</span></div>
+              <div class="insp-note">
+                Los mapas de píxeles son gráficos de usuario dibujados a mano, almacenados como matrices de datos estáticas en Flash (PROGMEM) y emitidos en <code>jwplcUIPageEnter()</code>.
+              </div>
+              <div class="insp-note" style="margin-top: 6px;">
+                No consumen memoria RAM del microcontrolador ni variables cíclicas del PLC durante el refresco <code>jwplcUIUpdate()</code>.
+              </div>
+            </div>
+            <div class="bar-card">
+              <div class="bar-card-section-title">¿Cómo alternar imágenes o animar?</div>
+              <div class="insp-note">
+                Dibuja cada frame o estado en un objeto PIXEL separado. En el sketch de Arduino o programa OpenPLC, muestra u oculta el mapa deseado en tiempo de ejecución con:
+              </div>
+              <pre class="insp-contract" style="margin-top: 6px; white-space: pre-wrap;">JWPLC_Display.setPixelMapVisible(ID, true);</pre>
+            </div>
+          </div>
+
+          <!-- ==================== PESTAÑA: TÉCNICO ==================== -->
+          <div id="pixelPaneTech" class="insp-panel" data-pixel-panel="tech" hidden>
+            <div class="bar-card">
+              <label class="field-label">Nombre del objeto (sólo Designer)
+                <input id="pixelMapName" class="field-input" type="text" maxlength="24" value="Pixel 1" />
+              </label>
+              <label class="field-label" style="margin-top: 6px;">ID C++ / Símbolo
+                <input id="pixelMapId" class="field-input code-input" type="text" value="HMI_PIXEL_1" disabled />
+              </label>
+            </div>
+
+            <div class="bar-card" id="pixelMapOptimizationDetails">
+              <div class="bar-card-header">
+                <span class="bar-card-title">Optimización C++ (Memoria Flash)</span>
+                <span class="insp-mode-chip" id="pixelOptFormat">RGB565_RUN</span>
+              </div>
+              <div class="insp-readouts insp-readouts-grid">
+                <span>Píxeles objeto <strong id="pixelOptPixels">—</strong></span>
+                <span>Colores objeto <strong id="pixelOptColors">—</strong></span>
+                <span>Runs / spans <strong id="pixelOptSpans">—</strong></span>
+                <span>Tamaño Flash <strong id="pixelOptBytes">—</strong></span>
+                <span>Ahorro proyecto <strong id="pixelOptSaving">—</strong></span>
+              </div>
+              <p id="pixelOptNote" class="insp-note" style="margin-top: 6px;"></p>
+            </div>
+
+            <div class="bar-card">
+              <div class="bar-card-header">
+                <span class="bar-card-title">Código C++ generado</span>
+                <button type="button" id="copyPixelContractBtn" class="icon-button" title="Copiar código C++">⧉</button>
+              </div>
+              <pre id="pixelInspectorContract" class="insp-contract" style="white-space: pre-wrap; word-break: break-all; margin: 4px 0 0 0;"></pre>
+            </div>
+
+            <div class="bar-card">
+              <div class="bar-card-section-title">Diagnóstico</div>
+              <div class="insp-readouts insp-readouts-grid">
+                <span>Total capas pág. <strong id="pixelDiagLayers">0</strong></span>
+                <span>Orden de capa <strong id="pixelDiagLayerOrder">0</strong></span>
+                <span>Bloqueado <strong id="pixelDiagLocked">No</strong></span>
+                <span>Visible <strong id="pixelDiagVisible">Sí</strong></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Inspector Cuentagotas / Relleno (mismo estilo que PIXEL, Propuesta 2) -->
+      <section id="eyedropperSection" class="inspector-section bar-inspector-wrap" hidden>
+        <div class="inspector-title" style="margin-bottom: 6px;">
+          <h2 style="font-size: 13px; color: #dce9f1; font-weight: 700; display: flex; align-items: center; gap: 6px;">
+            <span id="colorToolIcon" style="color: #ff9a43; display: inline-flex;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m19 11-8-8-8.6 8.6a2 2 0 0 0 0 2.8l5.2 5.2c.8.8 2 .8 2.8 0L19 11Z"/><path d="m5 2 5 5"/><path d="M2 13h15"/><path d="M22 20a2 2 0 1 1-4 0c0-1.6 1.7-2.4 2-4 .3 1.6 2 2.4 2 4Z" fill="currentColor"/></svg></span>
+            <span>Inspector — <span id="colorToolTitle">RELLENO</span></span>
+          </h2>
+        </div>
+
+        <div class="insp-body">
+          <div class="bar-card">
+            <div class="bar-card-section-title">▾ Herramienta</div>
+            <div class="bar-visual-grid-2" id="colorToolGrid">
+              <button type="button" class="bar-visual-btn" data-color-tool="fill" title="Rellenar región contigua (G)">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m19 11-8-8-8.6 8.6a2 2 0 0 0 0 2.8l5.2 5.2c.8.8 2 .8 2.8 0L19 11Z"/><path d="m5 2 5 5"/><path d="M2 13h15"/><path d="M22 20a2 2 0 1 1-4 0c0-1.6 1.7-2.4 2-4 .3 1.6 2 2.4 2 4Z" fill="currentColor"/></svg>
+                <span>Relleno</span>
+              </button>
+              <button type="button" class="bar-visual-btn" data-color-tool="pick" title="Cuentagotas (I / Alt+clic)">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m14 7 3 3"/><path d="M19 2a2.83 2.83 0 0 1 2 4l-1 1-5-5 1-1a2.83 2.83 0 0 1 3-1Z"/><path d="m16 8-8.5 8.5a2.12 2.12 0 0 0-.6 1.5V20l-4 2 2-4h2a2.12 2.12 0 0 0 1.5-.6L17 9Z"/></svg>
+                <span>Cuentagotas</span>
+              </button>
+            </div>
+            <div class="insp-note" id="colorToolNote">Clic en el lienzo para rellenar con el color activo.</div>
+          </div>
+
+          <div class="bar-card">
+            <div class="bar-card-section-title">Color activo RGB565</div>
+            <div class="eyedropper-preview-row" style="margin-bottom: 8px;">
+              <div id="eyedropperActiveSwatch" class="eyedropper-preview-box" title="Color activo"></div>
+              <div class="eyedropper-live-info">
+                <div class="live-color-title" id="eyedropperActiveName">ORANGE</div>
+                <div class="live-color-values">
+                  <span>565: <code id="eyedropperActive565">0xFD20</code></span>
+                  <span>HEX: <code id="eyedropperActiveHex">#FFA500</code></span>
+                </div>
+              </div>
+            </div>
+            <div class="menu-palette">
+              <div class="insp-note">Ajusta el color con el editor fijo o las pastillas rápidas RGB565:</div>
+              <div id="colorToolEditorHost"></div>
+            </div>
+          </div>
+
+          <!-- ===== Sólo Relleno ===== -->
+          <div class="bar-card" data-color-tool-pane="fill">
+            <div class="bar-card-section-title">Modo de relleno</div>
+            <div class="bar-visual-grid-2">
+              <button type="button" class="bar-visual-btn active" data-fill-mode="CONTIGUOUS" title="Sólo los píxeles conectados del mismo color">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><rect x="7" y="7" width="6" height="6" fill="currentColor"/></svg>
+                <span>Región contigua</span>
+              </button>
+              <button type="button" class="bar-visual-btn" data-fill-mode="GLOBAL" title="Todos los píxeles de ese color en la página">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" fill="currentColor"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7" fill="currentColor"/></svg>
+                <span>Mismo color</span>
+              </button>
+            </div>
+            <div class="insp-note">Región contigua: 4 vecinos del mismo color que el píxel pulsado. Mismo color: todos los píxeles de ese color en la página activa.</div>
+          </div>
+
+          <div class="bar-card" data-color-tool-pane="fill">
+            <div class="bar-card-section-title">Figuras y destino</div>
+            <div class="menu-legend-row">
+              <span class="menu-legend-label">Rellenar figuras cerradas</span>
+              <label class="bar-toggle-switch" title="Clic dentro de una figura activa su relleno sólido">
+                <input id="fillShapesToggle" type="checkbox" checked />
+                <span class="bar-toggle-slider"></span>
+              </label>
+            </div>
+            <div class="insp-note">Con esto activo, un clic dentro de un rectángulo, elipse, triángulo o polígono activa su relleno con el color activo en vez de pintar píxeles.</div>
+            <div class="insp-note" id="fillTargetNote">El resto se pinta en la capa PIXEL que rodea la región (el trazo cerrado que rellenas), así trazo y relleno quedan en un solo objeto. Si ninguna capa la rodea, va a la capa seleccionada o a una nueva.</div>
+          </div>
+
+          <!-- ===== Sólo Cuentagotas ===== -->
+          <div class="bar-card" data-color-tool-pane="pick">
+            <div class="bar-card-section-title">Muestra bajo el cursor</div>
+            <div class="eyedropper-preview-row">
+              <div id="eyedropperLiveSwatch" class="eyedropper-preview-box" title="Muestra en vivo"></div>
+              <div class="eyedropper-live-info">
+                <div class="live-color-title" id="eyedropperLiveName">—</div>
+                <div class="live-color-values">
+                  <span>565: <code id="eyedropperLive565">—</code></span>
+                  <span>HEX: <code id="eyedropperLiveHex">—</code></span>
+                  <span id="eyedropperLiveRgb">—</span>
+                </div>
+              </div>
+            </div>
+            <div class="readout live-coords-row" style="margin-top: 8px;">
+              <span>Posición cursor:</span>
+              <strong id="eyedropperLiveCoords">Fuera del lienzo</strong>
+            </div>
+            <div class="insp-note">Lee el color final del lienzo (objetos y capas PIXEL visibles). Clic para capturarlo como color activo.</div>
+          </div>
+
+          <div class="bar-card" data-color-tool-pane="pick">
+            <div class="bar-card-section-title">Después de capturar</div>
+            <div class="menu-legend-row">
+              <span class="menu-legend-label">Volver a la herramienta anterior</span>
+              <label class="bar-toggle-switch" title="Tras capturar, regresa a la herramienta que usabas">
+                <input id="pickReturnToggle" type="checkbox" />
+                <span class="bar-toggle-slider"></span>
+              </label>
+            </div>
+            <div class="bar-visual-grid-2" style="margin-top: 8px;">
+              <button id="eyedropperUseFillBtn" class="bar-visual-btn" type="button" title="Activar Rellenar con el color activo">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m19 11-8-8-8.6 8.6a2 2 0 0 0 0 2.8l5.2 5.2c.8.8 2 .8 2.8 0L19 11Z"/><path d="m5 2 5 5"/><path d="M2 13h15"/><path d="M22 20a2 2 0 1 1-4 0c0-1.6 1.7-2.4 2-4 .3 1.6 2 2.4 2 4Z" fill="currentColor"/></svg>
+                <span>Usar en Relleno (G)</span>
+              </button>
+              <button id="eyedropperUseBrushBtn" class="bar-visual-btn" type="button" title="Activar el Pincel con el color activo">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/><path d="m15 5 4 4"/></svg>
+                <span>Usar en Pincel (B)</span>
+              </button>
+            </div>
+            <div class="insp-note">Usar en Pincel deja ese color en el pincel sin cambiar los píxeles ya dibujados.</div>
+          </div>
+
+          <div class="bar-card">
+            <div class="recent-colors-header">
+              <div class="bar-card-section-title" style="margin: 0;">Colores recientes</div>
+              <button id="clearRecentColorsBtn" class="link-btn" type="button">Limpiar</button>
+            </div>
+            <div id="recentColorsGrid" class="recent-colors-grid"></div>
+            <div class="insp-note">Clic en un color para hacerlo el color activo.</div>
+          </div>
+        </div>
       </section>
 
       <section class="pixel-controls">
@@ -352,7 +2034,7 @@
       <button id="statusTab" class="tab active">Estado / Problemas</button>
       <button id="contractTab" class="tab">Código generado</button>
       <button class="tab" disabled>Diagnóstico</button>
-      <span class="bottom-summary">A11-3B · VALUE sobre API pública</span>
+      <span class="bottom-summary">VALUE sobre API pública</span>
       <button id="collapseBottomButton" class="icon-button" title="Contraer panel inferior">⌄</button>
     </div>
     <pre id="codeOutput"></pre>
@@ -373,9 +2055,43 @@
     <span id="framebufferStatus" class="sr-only">Framebuffer: 54,400 px</span>
   </footer>
 
-  <script src="./gfx-classic-font.js"></script>
-  <script src="./app.js"></script>
-  <script src="./ux-foundation.js"></script>
-  <script src="./designer-codegen.js"></script>
+  <div id="hiddenControlContainer" style="display:none !important;" aria-hidden="true">
+    <canvas id="previewCanvas" width="320" height="170"></canvas>
+    <select id="zoomSelect">
+      <option value="1">1×</option>
+      <option value="2">2×</option>
+      <option value="3" selected>3×</option>
+      <option value="4">4×</option>
+      <option value="6">6×</option>
+      <option value="8">8×</option>
+    </select>
+    <input id="gridToggle" type="checkbox" checked />
+    <input id="snapToggle" type="checkbox" checked />
+    <input id="geometryToggle" type="checkbox" />
+    <button id="clearButton" type="button"></button>
+    <button id="demoButton" type="button"></button>
+    <button id="demoValueButton" type="button"></button>
+  </div>
+
+  <script src="./designer-cp437.js?v=1793801300"></script>
+  <script src="./gfx-classic-font.js?v=1793801300"></script>
+  <script src="./designer-fonts-data.js?v=1793801300"></script>
+  <script src="./designer-fonts.js?v=1793801300"></script>
+  <script src="./designer-value-format.js?v=1793801300"></script>
+  <script src="./designer-codegen-core.js?v=1793801300"></script>
+  <script src="./designer-icon-catalog.js?v=1793801700"></script>
+  <script src="./designer-icons-core.js?v=1793801900"></script>
+  <script src="./designer-dialog.js?v=1793801300"></script>
+  <script src="./app.js?v=1793801900"></script>
+  <script src="./ux-foundation.js?v=1793802000"></script>
+  <script src="./designer-codegen.js?v=1793801800"></script>
+
+  
+
 </body>
 </html>
+
+
+
+
+

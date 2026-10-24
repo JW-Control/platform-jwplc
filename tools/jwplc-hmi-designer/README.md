@@ -5,20 +5,137 @@ Herramienta visual para diseñar la HMI/TFT del **JWPLC Basic** sobre `JWPLC_Dis
 Estado de cierre:
 
 ```text
-VERSION_SCOPE=v2.1.0-alpha.11
+VERSION_SCOPE=v2.1.0-alpha.14 (JWPLC_Display 1.1.0, JWPLC_TFT 0.3.0)
 TARGET=ST7789_320x170_ROT3_RGB565
 TEXT=PASS
-VALUE=PASS
-BOOL=PASS
-BAR=PASS
-PIXELMAP=PASS
-MULTIPAGE=PASS
-LIVE_WEB_SERIAL=PASS
+VALUE=PASS (miles, duración, fecha/hora del RTC)
+BOOL=PASS (texto, piloto, color por estado)
+BAR=PASS (repintado incremental)
+MENU=PASS_PHYSICAL
+ICON=PASS_HOST (biblioteca de 24 iconos; placa [no verificado])
+PIXELMAP=PASS (pincel, borrador, mover, relleno, cuentagotas)
+MULTIPAGE=PASS (pestañas con estado y color por página)
+LIVE_WEB_SERIAL=PASS (protocolo v2 con pushImage)
+LIVE_BRIDGE_FLASHER=PASS_HOST (instalación en un clic; placa pendiente)
 CODEGEN=PASS
+AGENT_CLI=PASS (jwhmi)
 DESKTOP_APP=PASS_USER_WINDOWS
-ARDUINO_IDE_2_3_4=PASS_EXPERIMENTAL
+ARDUINO_IDE=recomendado 2.3.10 o superior
 AUTOCOMPLETE_JWPLC_DISPLAY=PASS_USER
 ```
+
+---
+
+## Instalar sin el repositorio (cualquier persona, Windows)
+
+Cada GitHub Release del package trae el Designer listo para usar, sin Node.js ni repositorio:
+
+- **`JWPLC-HMI-Designer-Setup-<versión>-x64.exe`** (recomendado): doble clic y *Siguiente*. Instala por
+  usuario, sin administrador, en `%LOCALAPPDATA%\JWPLC\HMI Designer`, con accesos en el Escritorio y
+  el Menú Inicio y la extensión para Arduino IDE 2. Se desinstala desde *Aplicaciones* de Windows.
+- **`JWPLC-HMI-Designer-Portable-<versión>-x64.exe`**: se abre sin instalar (por ejemplo, desde un USB).
+  No crea accesos ni instala la extensión, así que el botón del Arduino IDE no lo encuentra.
+- **`JWPLC-HMI-Designer-<versión>-SHA256.txt`**: sumas para verificar las descargas.
+
+El .exe no está firmado: Windows SmartScreen puede mostrar «Windows protegió su PC». Pulsa
+*Más información* y luego *Ejecutar de todas formas*.
+
+Los genera `.github/workflows/hmi-designer-windows.yml`, que se ejecuta al publicar la Release
+(`release-jwplc-package.yml`). Para regenerarlos en una Release ya publicada, ejecútalo a mano con la versión.
+En cada PR que toca el Designer solo compila y deja los .exe como artifact.
+
+## Instalar o actualizar la app de escritorio desde el repositorio (Windows)
+
+Doble clic en **`Generar-e-Instalar-App-Escritorio.cmd`**. Requiere Node.js LTS
+(`winget install OpenJS.NodeJS.LTS`); la primera vez descarga Electron.
+
+1. Compila la app de escritorio (Electron) con la versión actual del repositorio.
+2. La instala en `%LOCALAPPDATA%\JWPLC\HMI Designer`, con accesos en el Escritorio y el
+   Menú Inicio y la extensión para Arduino IDE 2.
+
+Repetirlo después de cada `git pull` que cambie el Designer, o usar el modo desarrollo de abajo.
+
+### Ver los cambios sin reinstalar (modo desarrollo)
+
+Doble clic en **`Abrir-Designer-Desarrollo.cmd`**: abre la misma app de escritorio directo desde el
+repositorio, sin compilar ni instalar (la primera vez instala Electron en `electron\node_modules`).
+La ventana dice `[desarrollo]` en el título.
+
+- Al guardar cualquier archivo de `poc\` la ventana se recarga sola y **conserva el diseño en pantalla**.
+- `F5` (o `Ctrl+R`) es como cerrar y volver a abrir la app: diseño en blanco y sin sketch vinculado.
+  `F12` abre las DevTools.
+- Si cambian `electron\main.js` o `electron\preload.cjs`, cierra la app y vuelve a abrir el `.cmd`.
+- La app instalada no se toca y puede estar abierta a la vez. El modo desarrollo no registra el enlace
+  `jwplc-hmi://` del Arduino IDE (sigue abriendo la app instalada).
+
+Si una versión anterior del generador falló con `Cannot create symbolic link : El cliente no dispone de un
+privilegio requerido` (en `winCodeSign`), basta con hacer `git pull` y volver a ejecutarlo. El paquete
+`winCodeSign` de electron-builder trae enlaces simbólicos de macOS que Windows no deja crear sin modo
+desarrollador; ahora el generador lo prepara en la caché de electron-builder sin esa carpeta
+(`JWPLC-ElectronBuilderCache.ps1`). No hace falta activar el modo desarrollador ni ejecutar como administrador.
+
+Sólo la app de escritorio puede **abrir el sketch en el Arduino IDE** y **abrir su
+carpeta** (menú «Sketch: nombre ▾»). La versión de navegador no puede lanzar programas.
+
+### Guardar y cambios sin guardar
+
+- **Guardar** (o `Ctrl+S`) con un sketch vinculado hace lo mismo que «Escribir en sketch»: header,
+  `.jwhmi` y guía. Sólo pregunta antes de reemplazar archivos de un sketch que no es el del diseño en
+  pantalla.
+- **Guardar sin sketch** (app de escritorio) abre el cuadro «Guardar» en `Documentos\Arduino` con el
+  nombre del proyecto. Si se elige un sketch existente (su carpeta o el nombre de una carpeta con
+  `.ino`), se vincula y se escribe ahí. Si no, ofrece **Crear sketch** (`<nombre>\<nombre>.ino` base,
+  vinculado y escrito) o **Solo guardar .jwhmi**.
+- **Nuevo**, **Abrir** y **cerrar la app** preguntan «¿Guardar los cambios?» (Guardar · No guardar ·
+  Cancelar) si el diseño cambió desde lo último guardado o abierto. Zoom, selección y herramienta no
+  cuentan como cambios. El `*` junto a «Proyecto:» usa la misma comparación.
+
+### Abrir y «Nuevo proyecto» con el sketch
+
+En la app de escritorio, **Abrir** despliega «Abrir archivo…» y los **proyectos recientes** (los últimos
+10 `.jwhmi` abiertos o guardados, con su sketch). Uno que ya no existe se quita al elegirlo; «Limpiar
+recientes» vacía la lista. **Abrir** un `.jwhmi` que está junto a un `.ino` vincula ese sketch; un `.jwhmi`
+suelto (sin `.ino` en su carpeta) deja el Designer sin sketch vinculado. **Nuevo proyecto** también
+desvincula el sketch. Necesita la app generada después del 2026-10-23.
+
+Los avisos y confirmaciones son del propio Designer (`poc/designer-dialog.js`); los cuadros de abrir y
+guardar archivos siguen siendo los de Windows.
+
+### Crear un sketch nuevo desde el Designer
+
+«Vincular sketch…» ofrece **Elegir sketch existente…** o **Crear sketch nuevo…** (también en el menú
+«Sketch: nombre ▾»). Al crear, se elige nombre y ubicación (por defecto `Documentos\Arduino`) y el
+Designer crea `<nombre>\<nombre>.ino` con el sketch base de la guía (el `#include`, `jwplcHMISetup()`
+y las variables del diseño ya usadas), lo vincula y hace «Escribir en sketch»: queda listo para abrir y
+compilar en el Arduino IDE. Nombre como en el Arduino IDE: letras, números, `_ . -`, empieza con letra o
+número, máximo 63. Nunca reemplaza una carpeta que ya tenga archivos. Ese `.ino` es tuyo desde ahí: el
+Designer no lo vuelve a modificar. Necesita la app generada después del 2026-10-23.
+
+### Qué deja «Escribir en sketch» en la carpeta del sketch
+
+| Archivo | Qué es |
+|---|---|
+| `JWPLC_HMI_Generated.h` | Pantallas, campos, MENU e IDLE en C++ (se reemplaza en cada escritura) |
+| `<sketch>.jwhmi` | El diseño, para volver a abrirlo («Abrir HMI del sketch») |
+| `JWPLC_HMI_LEEME.md` | Guía con el **sketch base** (todas las variables del HMI ya usadas, `menuChanged` del MENU) y los pasos para un sketch existente |
+
+El `.ino` nunca se modifica: la guía trae el código para copiar. Si en la carpeta ya hay un
+`JWPLC_HMI_LEEME.md` que no escribió el Designer, no se toca. La guía necesita la app generada
+después del 2026-10-19 (si no, se escriben el header y el `.jwhmi` y el aviso pide regenerar la app).
+
+### Qué hace cada archivo
+
+| Archivo | Para qué | ¿Lo uso? |
+|---|---|---|
+| `Generar-e-Instalar-App-Escritorio.cmd` | Compila e instala la app de escritorio | **Sí: es el único paso** |
+| `Abrir-Designer-Desarrollo.cmd` | Abre la app de escritorio desde el repo, sin instalar; recarga al guardar | Para probar cambios |
+| `JWPLC-HMI-Designer.cmd` · `Start-JWPLC-HMI-Designer.ps1` · `JWPLC-HMI-Server.ps1` | Abre la versión de navegador desde el repo, sin instalar (desarrollo) | Opcional |
+| `Build-JWPLC-HMI-Designer-Electron.ps1` | Sólo compila la app (paso 1) | Lo llama el generador |
+| `Install-JWPLC-HMI-Designer.ps1` · `.cmd` | Sólo instala (paso 2). Sin app compilada instala el lanzador de navegador | Lo llama el generador |
+| `Build-JWPLC-HMI-Designer-Setup.ps1` | Genera el instalador `Setup.exe` (y con `-Portable` el portable) para repartir a otras PCs | Lo hace el CI al publicar |
+| `Build-JWPLC-HMI-Designer-Exe.ps1` · `JWPLC-HMI-Designer-Launcher.cs` | Lanzador de compatibilidad (abre el navegador) | Interno |
+| `Build-ArduinoIDE-Launcher.ps1` · `Install-ArduinoIDE-Launcher.ps1` | Extensión de Arduino IDE 2 | Interno |
+| `Test-JWPLC-HMI-Designer-Install.ps1` | Verifica una instalación | Diagnóstico |
 
 ---
 

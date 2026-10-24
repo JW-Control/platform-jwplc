@@ -3,6 +3,11 @@
 
 #include <Arduino.h>
 #include "jwplc_hardware_config.h"
+#include <JW_RS485.h>
+
+// JWPLC_RS485 es una instancia de JW_RS485 preconfigurada para el puerto
+// integrado del JWPLC (Serial2, pines y AutoDirection de jwplc_hardware_config.h).
+// La API publica no cambia; port() da acceso a la instancia generica.
 
 #ifndef JWPLC_RS485_DEFAULT_BAUD
 #define JWPLC_RS485_DEFAULT_BAUD 115200UL
@@ -93,29 +98,20 @@ public:
 
     void printStatus(Print &out);
 
+    // Instancia generica usada como transporte (p. ej. por JWPLC_ModbusRTU).
+    JW_RS485 &port();
+
 private:
-    HardwareSerial *_serial;
+    JW_RS485 &_port;
     uint32_t _baud;
     uint32_t _config;
-    int8_t _rxPin;
-    int8_t _txPin;
-    size_t _txBufferSize;
-    bool _ready;
-    JWPLCRS485Error _lastError;
-
-    uint32_t _lastActivityMs;
-    uint32_t _lastRxActivityMs;
-    uint32_t _lastTxActivityMs;
-
-    void markRxActivity();
-    void markTxActivity();
-    void markActivity();
-
-    void setError(JWPLCRS485Error error);
-    void clearError();
+    JWPLCRS485Error _disabledError;
 };
 
 extern JWPLC_RS485Class JWPLC_RS485;
+
+// Instancia JW_RS485 del puerto integrado (la misma que usa JWPLC_RS485).
+JW_RS485 &jwplcRs485Port();
 
 // Hooks weak para transceptores futuros con DE/RE manual.
 // En JWPLC Basic actual, MAX13487EESA+ usa auto-dirección y estos hooks no hacen nada.

@@ -115,6 +115,18 @@ GPIO12 ROW0  LEFT       UP         RIGHT
 GPIO2  ROW1  ESC        OK         DOWN
 ```
 
+Desde 2.1.0-alpha.14 estos pines tienen nombre en `jwplc_hardware_config.h`
+(el core los define; no hace falta ningún `#include`):
+
+```text
+JWPLC_BTN_ROW0_PIN = GPIO12    JWPLC_BTN_COL0_PIN = GPIO35
+JWPLC_BTN_ROW1_PIN = GPIO2     JWPLC_BTN_COL1_PIN = GPIO34
+                               JWPLC_BTN_COL2_PIN = GPIO36
+```
+
+Úsalos si necesitas citar un pin de la botonera (por ejemplo, para no
+asignarlo a otra cosa); para leer teclas usa siempre `JWPLC_Buttons`.
+
 Los GPIO 34/35/36 del ESP32 son entradas only y no ofrecen pull-up/pull-down interno general. El package configura las columnas de esta matriz como `INPUT` y deja la topología eléctrica a la placa JWPLC.
 
 No reconfigurar estos pines desde el sketch mientras se usa la botonera integrada.
@@ -290,25 +302,30 @@ bool begin(const uint8_t *rowPins, uint8_t nRows,
            uint32_t debounceMs = 35);
 ```
 
-Ejemplo:
+Ejemplo genérico (otra placa, con pines libres). En el JWPLC Basic / Basic Core
+la botonera frontal ya la escanea el objeto global `JWPLC_Buttons` sobre
+`JWPLC_BTN_ROW0_PIN`, `JWPLC_BTN_ROW1_PIN` y `JWPLC_BTN_COL0_PIN`..`JWPLC_BTN_COL2_PIN`
+(`jwplc_hardware_config.h`): no crear otra instancia sobre esos pines y usar
+`JWPLC_Buttons` como en los ejemplos `01`..`03`.
 
 ```cpp
 #include <Arduino.h>
 #include <JW_MatrixButtons.h>
 
-static const uint8_t ROWS[] = {25, 26};
-static const uint8_t COLS[] = {35, 34, 39, 36};
+// Pines de ejemplo: ajustar a la placa (no aplican al JWPLC Basic).
+static const uint8_t ROWS[] = {ROW0_PIN, ROW1_PIN};
+static const uint8_t COLS[] = {COL0_PIN, COL1_PIN, COL2_PIN, COL3_PIN};
 
 enum BtnId : uint8_t
 {
-    BTN_A,
-    BTN_B,
-    BTN_COUNT
+    KEY_A,
+    KEY_B,
+    KEY_COUNT
 };
 
 static const JW_MatrixButtons::BtnMapItem MAP[] = {
-    {BTN_A, 0, 0},
-    {BTN_B, 1, 1},
+    {KEY_A, 0, 0},
+    {KEY_B, 1, 1},
 };
 
 JW_MatrixButtons buttons;
@@ -319,7 +336,7 @@ void setup()
         ROWS, 2,
         COLS, 4,
         MAP, sizeof(MAP) / sizeof(MAP[0]),
-        BTN_COUNT,
+        KEY_COUNT,
         false,
         35);
 }
@@ -328,7 +345,7 @@ void loop()
 {
     buttons.update();
 
-    if (buttons.pressed(BTN_A))
+    if (buttons.pressed(KEY_A))
     {
         // Acción
     }
@@ -352,7 +369,10 @@ bool beginDirect(const uint8_t *buttonPins,
 Ejemplo:
 
 ```cpp
-static const uint8_t PINS[] = {35, 34, 39};
+// Pines de ejemplo: ajustar a la placa. El JWPLC Basic no tiene botones
+// directos libres (GPIO34/35/36 son columnas de la botonera y GPIO39 es la
+// detección de la microSD).
+static const uint8_t PINS[] = {BUTTON0_PIN, BUTTON1_PIN, BUTTON2_PIN};
 
 JW_MatrixButtons buttons;
 
@@ -488,6 +508,28 @@ precompiled=full
 para ESP32 cuando existe el archive correspondiente.
 
 En Alpha8 no se modificó el código fuente de `JW_MatrixButtons`; la corrección de interacción Display/botonera se implementó en las capas `JWPLC_Display` y `JWPLC_GlobalPeripherals`. Por ello el archive 1.0.5 existente no requiere regeneración por el alcance Alpha8.
+
+---
+
+# Ejemplos incluidos (2.1.0-alpha.14)
+
+Los ejemplos de esta librería se rehicieron para la botonera real del
+JWPLC Basic / Basic Core. Todos usan el objeto global `JWPLC_Buttons`, que el
+package ya escanea en segundo plano: no crean otra instancia sobre los mismos
+pines ni llaman a `update()`.
+
+| Ejemplo | Qué enseña |
+|---|---|
+| `01_BasicPress` | Detectar pulsaciones con `pressed()` y mostrarlas por el Monitor Serie. |
+| `02_AxisWrapSerial` | Navegar páginas con LEFT/RIGHT y editar un valor con UP/DOWN usando `applyAxis()` y repeat. |
+| `03_EventQueue` | Ver los eventos `PRESS / RELEASE / REPEAT` del último scan con `eventCount()` / `getEvent()`. |
+
+Se retiraron `04_GLCD_MenuDemo` y `05_DirectButtons_IO35_IO34_IO39`: usaban
+una pantalla GLCD y pines de otra placa que el JWPLC Basic no tiene. Para
+botones directos en otra placa sigue valiendo el «Modo botones directos» de
+la sección genérica.
+
+El código de la librería y `libJW_MatrixButtons.a` (1.0.5) no cambian.
 
 ---
 

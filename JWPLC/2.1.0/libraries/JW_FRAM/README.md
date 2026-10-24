@@ -55,7 +55,7 @@ depends=Adafruit BusIO
 ```cpp
 #include <JW_FRAM.h>
 
-JW_FRAM fram(5);  // Pin CS
+JW_FRAM fram(JWPLC_FRAM_CS);  // CS de la FRAM del JWPLC Basic (GPIO13; GPIO5 es el CS del W5500)
 
 void setup() {
   Serial.begin(115200);
@@ -275,9 +275,31 @@ En JWPLC Basic se mantiene el archive `libJW_FRAM.a` precompilado y
 verificado contra las fuentes correspondientes. Evita usar una copia
 externa de `JW_FRAM` que oculte la versión incluida en el package.
 
+## Pines en el JWPLC Basic (2.1.0-alpha.14)
+
+En el JWPLC Basic la FRAM comparte el bus SPI con la TFT, el W5500 y la
+microSD, y cada chip tiene su propio pin CS. Si escribes el número a mano
+es fácil equivocarse: el GPIO5, que aparecía en ejemplos antiguos, es el CS
+del **W5500**, no el de la FRAM.
+
+Por eso, desde 2.1.0-alpha.14, los ejemplos usan la constante del package:
+
+```cpp
+JW_FRAM fram(JWPLC_FRAM_CS);  // GPIO13 en el JWPLC Basic
+```
+
+`JWPLC_FRAM_CS` la define el core del JWPLC; no necesitas ningún `#include`
+extra. En un sketch normal tampoco necesitas crear tu propio `JW_FRAM`: el
+objeto global `JWPLC_FRAM` (de `JWPLC_GlobalPeripherals`) ya está listo. Crea
+una instancia propia sólo si usas `JW_FRAM` en otra placa o en un ejemplo
+independiente como los de esta librería.
+
+La librería y su `libJW_FRAM.a` no cambian en esta versión.
+
 ## Estado de la versión bundled
 
 ```text
+JWPLC ESP32 v2.1.0-alpha.14
 JW_FRAM 1.0.3
 ```
 

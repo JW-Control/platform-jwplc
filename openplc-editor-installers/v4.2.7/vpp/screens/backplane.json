@@ -1,6 +1,34 @@
 {
   "sections": [
     {
+      "id": "backplane-rtu",
+      "title": "RS-485 Backplane",
+      "layout": "form",
+      "persistence": "backplane_rtu",
+      "fields": [
+        {
+          "id": "baud_rate",
+          "label": "Baudrate",
+          "type": "select",
+          "options": ["9600", "19200", "38400", "57600", "115200"],
+          "default": "115200",
+          "help": "Velocidad del bus RS-485 (Serial2) entre el JWPLC Basic y sus modulos Remote I/O. Todos los modulos del bus deben usar el mismo valor."
+        },
+        {
+          "id": "serial_format",
+          "label": "Formato serie",
+          "type": "select",
+          "options": [
+            { "label": "8N1 (8 datos, sin paridad, 1 stop)", "value": "8N1" },
+            { "label": "8E1 (8 datos, paridad par, 1 stop)", "value": "8E1" },
+            { "label": "8O1 (8 datos, paridad impar, 1 stop)", "value": "8O1" }
+          ],
+          "default": "8N1",
+          "help": "Formato de trama del bus RS-485 del Backplane. Debe coincidir con el configurado en cada modulo Remote I/O."
+        }
+      ]
+    },
+    {
       "id": "jwplc-backplane",
       "title": "JWPLC Backplane Configuration",
       "layout": "module-slots",

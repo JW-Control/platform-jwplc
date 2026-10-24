@@ -1,0 +1,3209 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/JW-Control/platform-jwplc/tools/jwplc-hmi-designer/schema/jwhmi.schema.json",
+  "title": "JWPLC HMI Designer · proyecto .jwhmi (JWPLC_HMI_PROJECT v1)",
+  "description": "Generado desde cli/lib/spec.cjs (node cli/jwhmi.cjs schema). Acepta la forma corta para agentes: la CLI la normaliza al formato completo del Designer. Pantalla ST7789 320×170 RGB565.",
+  "type": "object",
+  "properties": {
+    "format": {
+      "const": "JWPLC_HMI_PROJECT",
+      "description": "Siempre JWPLC_HMI_PROJECT."
+    },
+    "version": {
+      "const": 1,
+      "description": "Siempre 1."
+    },
+    "projectName": {
+      "description": "Nombre del proyecto (48 caracteres).",
+      "type": "string",
+      "default": "HMI_ST7789"
+    },
+    "target": {
+      "description": "Pantalla: ST7789 320×170, rotación 3, RGB565 (fijo).",
+      "type": "object"
+    },
+    "savedAt": {
+      "description": "Fecha de guardado.",
+      "type": "string"
+    },
+    "activePage": {
+      "description": "Página abierta en el Designer.",
+      "type": "integer",
+      "default": 0
+    },
+    "navigationBar": {
+      "description": "Copia de la configuración de la NAV_BAR (la rellena la normalización).",
+      "type": "object"
+    },
+    "display": {
+      "$ref": "#/definitions/display"
+    },
+    "pages": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "description": "Páginas (1 a 16).",
+      "items": {
+        "oneOf": [
+          {
+            "type": "string"
+          },
+          {
+            "$ref": "#/definitions/page"
+          }
+        ]
+      }
+    },
+    "fields": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "$ref": "#/definitions/field"
+      },
+      "description": "Objetos (máximo 32 contando la NAV_BAR)."
+    },
+    "pixelMaps": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "$ref": "#/definitions/pixelMap"
+      },
+      "description": "Capas de píxeles (máximo 16)."
+    },
+    "iconAssets": {
+      "description": "Copia de los bitmaps de los ICON usados (la guarda el Designer).",
+      "type": "object"
+    },
+    "declarativeOnly": {
+      "description": "Siempre true.",
+      "type": "boolean",
+      "default": true
+    },
+    "$schema": {
+      "description": "Ruta opcional al esquema JSON (para editores).",
+      "type": "string"
+    }
+  },
+  "required": [
+    "pages"
+  ],
+  "definitions": {
+    "field": {
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "enum": [
+            "TEXT",
+            "VALUE",
+            "BOOL",
+            "BAR",
+            "ICON",
+            "MENU",
+            "RAW_TEXT",
+            "LINE",
+            "RECT",
+            "ELLIPSE",
+            "TRIANGLE",
+            "POLYGON",
+            "NAV_BAR"
+          ],
+          "description": "Tipo de objeto."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "TEXT"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "type": {
+                "const": "TEXT"
+              },
+              "name": {
+                "description": "Nombre visible en la lista de objetos del Designer (no llega al C++).",
+                "type": "string"
+              },
+              "id": {
+                "description": "Identificador C++ del objeto (único en el proyecto). Si falta se genera FIELD_<TIPO>_<n>.",
+                "type": "string",
+                "pattern": "^([A-Za-z_][A-Za-z0-9_]*)?$"
+              },
+              "page": {
+                "description": "Página (id) donde se dibuja.",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 15,
+                "default": 0
+              },
+              "layerOrder": {
+                "description": "Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9999
+              },
+              "hidden": {
+                "description": "Oculto en el lienzo y fuera del header.",
+                "type": "boolean"
+              },
+              "locked": {
+                "description": "Bloqueado en el lienzo (no se puede mover con el ratón).",
+                "type": "boolean"
+              },
+              "cornerRadius": {
+                "description": "Lo agrega el Designer al abrir (sólo lo usan RECT y MENU).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 85
+              },
+              "x": {
+                "description": "Esquina superior izquierda, X (px).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 319
+              },
+              "y": {
+                "description": "Esquina superior izquierda, Y (px).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 169
+              },
+              "variable": {
+                "description": "Variable C++ que el header declara y tu sketch asigna. Si falta se genera.",
+                "type": "string",
+                "pattern": "^([A-Za-z_][A-Za-z0-9_]*)?$"
+              },
+              "label": {
+                "description": "Etiqueta. Vacía = sin etiqueta.",
+                "type": "string",
+                "default": ""
+              },
+              "unit": {
+                "description": "Unidad tras el valor. Vacía = sin unidad.",
+                "type": "string",
+                "default": ""
+              },
+              "labelSize": {
+                "description": "Escala de la etiqueta (celda GLCD 6×8 px × escala).",
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 4,
+                "default": 1
+              },
+              "valueSize": {
+                "description": "Escala del valor.",
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 4,
+                "default": 2
+              },
+              "frame": {
+                "description": "Marco alrededor del campo.",
+                "type": "boolean",
+                "default": false
+              },
+              "layout": {
+                "description": "INLINE: etiqueta y valor en una fila. STACKED: etiqueta arriba, valor abajo.",
+                "enum": [
+                  "INLINE",
+                  "STACKED"
+                ],
+                "default": "INLINE"
+              },
+              "align": {
+                "description": "Alineación del valor dentro del campo.",
+                "enum": [
+                  "LEFT",
+                  "CENTER",
+                  "RIGHT"
+                ],
+                "default": "LEFT"
+              },
+              "labelColor": {
+                "description": "Color de la etiqueta. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 65535
+              },
+              "valueColor": {
+                "description": "Color del valor. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 2047
+              },
+              "backgroundColor": {
+                "description": "Fondo del campo. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 0
+              },
+              "frameColor": {
+                "description": "Color del marco. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 65535
+              },
+              "preview": {
+                "description": "Texto de muestra en el lienzo del Designer (no llega al C++).",
+                "type": "string"
+              },
+              "capacity": {
+                "description": "Caracteres reservados en pantalla (el ancho del campo sale de aquí).",
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 39,
+                "default": 12
+              }
+            },
+            "required": [
+              "type",
+              "x",
+              "y"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "VALUE"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "type": {
+                "const": "VALUE"
+              },
+              "name": {
+                "description": "Nombre visible en la lista de objetos del Designer (no llega al C++).",
+                "type": "string"
+              },
+              "id": {
+                "description": "Identificador C++ del objeto (único en el proyecto). Si falta se genera FIELD_<TIPO>_<n>.",
+                "type": "string",
+                "pattern": "^([A-Za-z_][A-Za-z0-9_]*)?$"
+              },
+              "page": {
+                "description": "Página (id) donde se dibuja.",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 15,
+                "default": 0
+              },
+              "layerOrder": {
+                "description": "Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9999
+              },
+              "hidden": {
+                "description": "Oculto en el lienzo y fuera del header.",
+                "type": "boolean"
+              },
+              "locked": {
+                "description": "Bloqueado en el lienzo (no se puede mover con el ratón).",
+                "type": "boolean"
+              },
+              "cornerRadius": {
+                "description": "Lo agrega el Designer al abrir (sólo lo usan RECT y MENU).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 85
+              },
+              "x": {
+                "description": "Esquina superior izquierda, X (px).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 319
+              },
+              "y": {
+                "description": "Esquina superior izquierda, Y (px).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 169
+              },
+              "variable": {
+                "description": "Variable C++ que el header declara y tu sketch asigna. Si falta se genera.",
+                "type": "string",
+                "pattern": "^([A-Za-z_][A-Za-z0-9_]*)?$"
+              },
+              "label": {
+                "description": "Etiqueta. Vacía = sin etiqueta.",
+                "type": "string",
+                "default": ""
+              },
+              "unit": {
+                "description": "Unidad tras el valor. Vacía = sin unidad.",
+                "type": "string",
+                "default": ""
+              },
+              "labelSize": {
+                "description": "Escala de la etiqueta (celda GLCD 6×8 px × escala).",
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 4,
+                "default": 1
+              },
+              "valueSize": {
+                "description": "Escala del valor.",
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 4,
+                "default": 2
+              },
+              "frame": {
+                "description": "Marco alrededor del campo.",
+                "type": "boolean",
+                "default": false
+              },
+              "layout": {
+                "description": "INLINE: etiqueta y valor en una fila. STACKED: etiqueta arriba, valor abajo.",
+                "enum": [
+                  "INLINE",
+                  "STACKED"
+                ],
+                "default": "INLINE"
+              },
+              "align": {
+                "description": "Alineación del valor dentro del campo.",
+                "enum": [
+                  "LEFT",
+                  "CENTER",
+                  "RIGHT"
+                ],
+                "default": "RIGHT"
+              },
+              "labelColor": {
+                "description": "Color de la etiqueta. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 65535
+              },
+              "valueColor": {
+                "description": "Color del valor. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 2047
+              },
+              "backgroundColor": {
+                "description": "Fondo del campo. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 0
+              },
+              "frameColor": {
+                "description": "Color del marco. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 65535
+              },
+              "preview": {
+                "description": "Texto de muestra en el lienzo del Designer (no llega al C++).",
+                "type": "string"
+              },
+              "valueKind": {
+                "description": "NUMBER: número. DURATION: segundos o ms mostrados como tiempo. DATETIME: fecha/hora del RTC, sin variable ni setter.",
+                "enum": [
+                  "NUMBER",
+                  "DURATION",
+                  "DATETIME"
+                ],
+                "default": "NUMBER"
+              },
+              "integerDigits": {
+                "description": "Dígitos enteros reservados.",
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9,
+                "default": 3
+              },
+              "decimalDigits": {
+                "description": "Decimales (NUMBER).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 6,
+                "default": 1
+              },
+              "signedValue": {
+                "description": "Reserva el signo menos.",
+                "type": "boolean",
+                "default": false
+              },
+              "leadingZeros": {
+                "description": "Rellena con ceros a la izquierda.",
+                "type": "boolean",
+                "default": false
+              },
+              "thousandsSep": {
+                "description": "Separador de miles (NUMBER). Sin decimales declara un entero de 32 bits.",
+                "enum": [
+                  "",
+                  ",",
+                  ".",
+                  " "
+                ],
+                "default": ""
+              },
+              "durationPattern": {
+                "description": "Formato de la duración (DURATION).",
+                "enum": [
+                  "SS",
+                  "MM_SS",
+                  "HH_MM_SS",
+                  "COMPACT"
+                ],
+                "default": "MM_SS"
+              },
+              "durationUnit": {
+                "description": "Unidad de la variable de duración (DURATION).",
+                "enum": [
+                  "S",
+                  "MS"
+                ],
+                "default": "S"
+              },
+              "dateTimePattern": {
+                "description": "Formato de fecha/hora (DATETIME).",
+                "enum": [
+                  "HH_MM",
+                  "HH_MM_SS",
+                  "DD_MM",
+                  "DD_MM_YYYY",
+                  "DD_MM_YYYY_HH_MM"
+                ],
+                "default": "HH_MM"
+              }
+            },
+            "required": [
+              "type",
+              "x",
+              "y"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "BOOL"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "type": {
+                "const": "BOOL"
+              },
+              "name": {
+                "description": "Nombre visible en la lista de objetos del Designer (no llega al C++).",
+                "type": "string"
+              },
+              "id": {
+                "description": "Identificador C++ del objeto (único en el proyecto). Si falta se genera FIELD_<TIPO>_<n>.",
+                "type": "string",
+                "pattern": "^([A-Za-z_][A-Za-z0-9_]*)?$"
+              },
+              "page": {
+                "description": "Página (id) donde se dibuja.",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 15,
+                "default": 0
+              },
+              "layerOrder": {
+                "description": "Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9999
+              },
+              "hidden": {
+                "description": "Oculto en el lienzo y fuera del header.",
+                "type": "boolean"
+              },
+              "locked": {
+                "description": "Bloqueado en el lienzo (no se puede mover con el ratón).",
+                "type": "boolean"
+              },
+              "cornerRadius": {
+                "description": "Lo agrega el Designer al abrir (sólo lo usan RECT y MENU).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 85
+              },
+              "x": {
+                "description": "Esquina superior izquierda, X (px).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 319
+              },
+              "y": {
+                "description": "Esquina superior izquierda, Y (px).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 169
+              },
+              "variable": {
+                "description": "Variable C++ que el header declara y tu sketch asigna. Si falta se genera.",
+                "type": "string",
+                "pattern": "^([A-Za-z_][A-Za-z0-9_]*)?$"
+              },
+              "label": {
+                "description": "Etiqueta. Vacía = sin etiqueta.",
+                "type": "string",
+                "default": ""
+              },
+              "unit": {
+                "description": "Unidad tras el valor. Vacía = sin unidad.",
+                "type": "string",
+                "default": ""
+              },
+              "labelSize": {
+                "description": "Escala de la etiqueta (celda GLCD 6×8 px × escala).",
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 4,
+                "default": 1
+              },
+              "valueSize": {
+                "description": "Escala del valor.",
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 4,
+                "default": 2
+              },
+              "frame": {
+                "description": "Marco alrededor del campo.",
+                "type": "boolean",
+                "default": false
+              },
+              "layout": {
+                "description": "INLINE: etiqueta y valor en una fila. STACKED: etiqueta arriba, valor abajo.",
+                "enum": [
+                  "INLINE",
+                  "STACKED"
+                ],
+                "default": "INLINE"
+              },
+              "align": {
+                "description": "Alineación del valor dentro del campo.",
+                "enum": [
+                  "LEFT",
+                  "CENTER",
+                  "RIGHT"
+                ],
+                "default": "CENTER"
+              },
+              "labelColor": {
+                "description": "Color de la etiqueta. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 65535
+              },
+              "valueColor": {
+                "description": "Color del valor. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 2047
+              },
+              "backgroundColor": {
+                "description": "Fondo del campo. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 0
+              },
+              "frameColor": {
+                "description": "Color del marco. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 65535
+              },
+              "preview": {
+                "description": "Texto de muestra en el lienzo del Designer (no llega al C++).",
+                "type": "string"
+              },
+              "falseText": {
+                "description": "Texto para false.",
+                "type": "string",
+                "default": "OFF"
+              },
+              "trueText": {
+                "description": "Texto para true.",
+                "type": "string",
+                "default": "ON"
+              },
+              "boolStyle": {
+                "description": "TEXT: texto por estado. PILOT: círculo de color (7 px × valueSize).",
+                "enum": [
+                  "TEXT",
+                  "PILOT"
+                ],
+                "default": "TEXT"
+              },
+              "stateColors": {
+                "description": "TEXT: colores distintos por estado (falseColor/trueColor y fondos).",
+                "type": "boolean",
+                "default": false
+              },
+              "falseColor": {
+                "description": "Color del texto o del piloto en false. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ]
+              },
+              "trueColor": {
+                "description": "Color del texto o del piloto en true. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ]
+              },
+              "falseBackground": {
+                "description": "Fondo del campo en false. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ]
+              },
+              "trueBackground": {
+                "description": "Fondo del campo en true. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ]
+              },
+              "boolValue": {
+                "description": "Estado de muestra en el lienzo.",
+                "type": "boolean",
+                "default": false
+              },
+              "capacity": {
+                "description": "Uso interno del Designer.",
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 39,
+                "default": 3
+              }
+            },
+            "required": [
+              "type",
+              "x",
+              "y"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "BAR"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "type": {
+                "const": "BAR"
+              },
+              "name": {
+                "description": "Nombre visible en la lista de objetos del Designer (no llega al C++).",
+                "type": "string"
+              },
+              "id": {
+                "description": "Identificador C++ del objeto (único en el proyecto). Si falta se genera FIELD_<TIPO>_<n>.",
+                "type": "string",
+                "pattern": "^([A-Za-z_][A-Za-z0-9_]*)?$"
+              },
+              "page": {
+                "description": "Página (id) donde se dibuja.",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 15,
+                "default": 0
+              },
+              "layerOrder": {
+                "description": "Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9999
+              },
+              "hidden": {
+                "description": "Oculto en el lienzo y fuera del header.",
+                "type": "boolean"
+              },
+              "locked": {
+                "description": "Bloqueado en el lienzo (no se puede mover con el ratón).",
+                "type": "boolean"
+              },
+              "cornerRadius": {
+                "description": "Lo agrega el Designer al abrir (sólo lo usan RECT y MENU).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 85
+              },
+              "x": {
+                "description": "Esquina superior izquierda, X (px).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 319
+              },
+              "y": {
+                "description": "Esquina superior izquierda, Y (px).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 169
+              },
+              "variable": {
+                "description": "Variable C++ que el header declara y tu sketch asigna. Si falta se genera.",
+                "type": "string",
+                "pattern": "^([A-Za-z_][A-Za-z0-9_]*)?$"
+              },
+              "label": {
+                "description": "Etiqueta. Vacía = sin etiqueta.",
+                "type": "string",
+                "default": ""
+              },
+              "unit": {
+                "description": "Unidad tras el valor. Vacía = sin unidad.",
+                "type": "string",
+                "default": ""
+              },
+              "labelSize": {
+                "description": "Escala de la etiqueta (celda GLCD 6×8 px × escala).",
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 4,
+                "default": 1
+              },
+              "valueSize": {
+                "description": "Escala del valor.",
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 4,
+                "default": 1
+              },
+              "frame": {
+                "description": "Marco alrededor del campo.",
+                "type": "boolean",
+                "default": false
+              },
+              "layout": {
+                "description": "INLINE: etiqueta y valor en una fila. STACKED: etiqueta arriba, valor abajo.",
+                "enum": [
+                  "INLINE",
+                  "STACKED"
+                ],
+                "default": "STACKED"
+              },
+              "align": {
+                "description": "Alineación del valor dentro del campo.",
+                "enum": [
+                  "LEFT",
+                  "CENTER",
+                  "RIGHT"
+                ],
+                "default": "LEFT"
+              },
+              "labelColor": {
+                "description": "Color de la etiqueta. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 65535
+              },
+              "valueColor": {
+                "description": "Color del relleno. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 2047
+              },
+              "backgroundColor": {
+                "description": "Fondo del campo. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 0
+              },
+              "frameColor": {
+                "description": "Color del marco. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 65535
+              },
+              "preview": {
+                "description": "Texto de muestra en el lienzo del Designer (no llega al C++).",
+                "type": "string"
+              },
+              "showLabel": {
+                "description": "Muestra barLabel.",
+                "type": "boolean",
+                "default": true
+              },
+              "barLabel": {
+                "description": "Etiqueta de la barra.",
+                "type": "string",
+                "default": "Nivel"
+              },
+              "barUnit": {
+                "description": "Unidad tras el porcentaje.",
+                "type": "string",
+                "default": "%"
+              },
+              "barMin": {
+                "description": "Valor de la variable que dibuja la barra vacía.",
+                "type": "number",
+                "default": 0
+              },
+              "barMax": {
+                "description": "Valor de la variable que dibuja la barra llena.",
+                "type": "number",
+                "default": 100
+              },
+              "barValue": {
+                "description": "Valor de muestra en el lienzo.",
+                "type": "number",
+                "default": 50
+              },
+              "barWidth": {
+                "description": "Ancho total del campo (px).",
+                "type": "integer",
+                "minimum": 20,
+                "maximum": 320,
+                "default": 110
+              },
+              "trackColor": {
+                "description": "Fondo de la pista (parte vacía). RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 0
+              },
+              "capacity": {
+                "description": "Uso interno.",
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 39,
+                "default": 1
+              },
+              "barPreset": {
+                "description": "Sólo LINEAR (el resto cae a LINEAR).",
+                "enum": [
+                  "LINEAR",
+                  "CIRCULAR",
+                  "GRADIENT"
+                ],
+                "default": "LINEAR"
+              },
+              "barFillMode": {
+                "description": "Sólo SOLID.",
+                "enum": [
+                  "SOLID",
+                  "GRADIENT"
+                ],
+                "default": "SOLID"
+              },
+              "barOrientation": {
+                "description": "Sólo HORIZONTAL.",
+                "enum": [
+                  "HORIZONTAL",
+                  "VERTICAL"
+                ],
+                "default": "HORIZONTAL"
+              },
+              "barStyle": {
+                "description": "Sólo SOLID.",
+                "type": "string",
+                "default": "SOLID"
+              },
+              "linearPctPos": {
+                "description": "Sólo NONE.",
+                "type": "string",
+                "default": "NONE"
+              },
+              "barCornerRadius": {
+                "description": "Sólo 0.",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 20,
+                "default": 0
+              },
+              "barBorderEnabled": {
+                "description": "Sólo false.",
+                "type": "boolean",
+                "default": false
+              },
+              "barBorderColor": {
+                "description": "Sin uso. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 65535
+              },
+              "barBorderWidth": {
+                "description": "Sin uso.",
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 4,
+                "default": 1
+              },
+              "barAutoWidth": {
+                "description": "Sólo false.",
+                "type": "boolean",
+                "default": false
+              },
+              "barHeight": {
+                "description": "Fijo.",
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 170,
+                "default": 12
+              },
+              "alignV": {
+                "description": "Lo fija el Designer.",
+                "type": "string",
+                "default": "TOP"
+              },
+              "alignH": {
+                "description": "Lo fija el Designer.",
+                "type": "string",
+                "default": "LEFT"
+              },
+              "valueColorEnd": {
+                "description": "Sin uso (degradado). RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 2016
+              },
+              "circleRadius": {
+                "description": "Sin uso (circular).",
+                "type": "number",
+                "default": 26
+              },
+              "circleThickness": {
+                "description": "Sin uso.",
+                "type": "number",
+                "default": 5
+              },
+              "circleSweep": {
+                "description": "Sin uso.",
+                "type": "number",
+                "default": 360
+              },
+              "circleDirection": {
+                "description": "Sin uso.",
+                "type": "string",
+                "default": "CW"
+              },
+              "circleStartAngle": {
+                "description": "Sin uso.",
+                "type": "string",
+                "default": "TOP"
+              },
+              "circleStyle": {
+                "description": "Sin uso.",
+                "type": "string",
+                "default": "CONTINUOUS"
+              },
+              "circleCenterMode": {
+                "description": "Sin uso.",
+                "type": "string",
+                "default": "PERCENT"
+              },
+              "circleColorMode": {
+                "description": "Sin uso.",
+                "type": "string",
+                "default": "SOLID"
+              },
+              "circleShowPercent": {
+                "description": "Sin uso.",
+                "type": "boolean",
+                "default": true
+              },
+              "circleTextSize": {
+                "description": "Sin uso.",
+                "type": "number",
+                "default": 1
+              },
+              "circleTextColor": {
+                "description": "Sin uso. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 65535
+              },
+              "circleTrackColor": {
+                "description": "Sin uso. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 0
+              },
+              "linearPctColor": {
+                "description": "Sin uso. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 65535
+              },
+              "transparentBackground": {
+                "description": "Sin uso.",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "type",
+              "x",
+              "y"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "ICON"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "type": {
+                "const": "ICON"
+              },
+              "name": {
+                "description": "Nombre visible en la lista de objetos del Designer (no llega al C++).",
+                "type": "string"
+              },
+              "id": {
+                "description": "Identificador C++ del objeto (único en el proyecto). Si falta se genera FIELD_<TIPO>_<n>.",
+                "type": "string",
+                "pattern": "^([A-Za-z_][A-Za-z0-9_]*)?$"
+              },
+              "page": {
+                "description": "Página (id) donde se dibuja.",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 15,
+                "default": 0
+              },
+              "layerOrder": {
+                "description": "Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9999
+              },
+              "hidden": {
+                "description": "Oculto en el lienzo y fuera del header.",
+                "type": "boolean"
+              },
+              "locked": {
+                "description": "Bloqueado en el lienzo (no se puede mover con el ratón).",
+                "type": "boolean"
+              },
+              "cornerRadius": {
+                "description": "Lo agrega el Designer al abrir (sólo lo usan RECT y MENU).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 85
+              },
+              "x": {
+                "description": "Esquina superior izquierda, X (px).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 319
+              },
+              "y": {
+                "description": "Esquina superior izquierda, Y (px).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 169
+              },
+              "variable": {
+                "description": "Variable C++ que el header declara y tu sketch asigna. Si falta se genera.",
+                "type": "string",
+                "pattern": "^([A-Za-z_][A-Za-z0-9_]*)?$"
+              },
+              "label": {
+                "description": "Etiqueta opcional (arriba con STACKED, a la izquierda con INLINE). Vacía = sin etiqueta.",
+                "type": "string",
+                "default": ""
+              },
+              "unit": {
+                "description": "Sin uso.",
+                "type": "string",
+                "default": ""
+              },
+              "labelSize": {
+                "description": "Escala de la etiqueta (celda GLCD 6×8 px × escala).",
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 4,
+                "default": 1
+              },
+              "valueSize": {
+                "description": "Uso interno.",
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 4,
+                "default": 1
+              },
+              "frame": {
+                "description": "Marco alrededor del campo.",
+                "type": "boolean",
+                "default": false
+              },
+              "layout": {
+                "description": "INLINE: etiqueta y valor en una fila. STACKED: etiqueta arriba, valor abajo.",
+                "enum": [
+                  "INLINE",
+                  "STACKED"
+                ],
+                "default": "STACKED"
+              },
+              "align": {
+                "description": "Alineación del valor dentro del campo.",
+                "enum": [
+                  "LEFT",
+                  "CENTER",
+                  "RIGHT"
+                ],
+                "default": "LEFT"
+              },
+              "labelColor": {
+                "description": "Color de la etiqueta. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 65535
+              },
+              "valueColor": {
+                "description": "Sin uso (los colores salen del icono). RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 65535
+              },
+              "backgroundColor": {
+                "description": "Fondo del campo; también el de los píxeles transparentes del icono. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 0
+              },
+              "frameColor": {
+                "description": "Color del marco. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 65535
+              },
+              "preview": {
+                "description": "Sin uso.",
+                "type": "string"
+              },
+              "iconId": {
+                "description": "Icono del catálogo, `categoria/nombre` (p. ej. `motores/motor`).",
+                "type": "string"
+              },
+              "iconSize": {
+                "description": "Lado del icono (px). Sólo los tamaños que tiene ese icono (64 en algunos).",
+                "enum": [
+                  24,
+                  32,
+                  48,
+                  64
+                ],
+                "default": 32
+              },
+              "iconVarType": {
+                "description": "Tipo de la variable: bool usa los estados 0 y 1; uint8 todos (0..N-1). Por defecto bool con 2 estados y uint8 con más.",
+                "enum": [
+                  "bool",
+                  "uint8"
+                ],
+                "default": "bool"
+              },
+              "iconState": {
+                "description": "Estado de muestra en el lienzo.",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 7,
+                "default": 0
+              },
+              "transparentBackground": {
+                "description": "Sin fondo: no pinta el recuadro ni detrás de la etiqueta, y lo transparente en todos los estados deja ver la gráfica estática (RECT, RAW_TEXT…). Lo que cambia entre estados usa backgroundColor.",
+                "type": "boolean",
+                "default": false
+              },
+              "capacity": {
+                "description": "Uso interno.",
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 39,
+                "default": 1
+              }
+            },
+            "required": [
+              "type",
+              "x",
+              "y",
+              "iconId"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "MENU"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "type": {
+                "const": "MENU"
+              },
+              "name": {
+                "description": "Nombre visible en la lista de objetos del Designer (no llega al C++).",
+                "type": "string"
+              },
+              "id": {
+                "description": "Identificador C++ del objeto (único en el proyecto). Si falta se genera FIELD_<TIPO>_<n>.",
+                "type": "string",
+                "pattern": "^([A-Za-z_][A-Za-z0-9_]*)?$"
+              },
+              "page": {
+                "description": "Página (id) donde se dibuja.",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 15,
+                "default": 0
+              },
+              "layerOrder": {
+                "description": "Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9999
+              },
+              "hidden": {
+                "description": "Oculto en el lienzo y fuera del header.",
+                "type": "boolean"
+              },
+              "locked": {
+                "description": "Bloqueado en el lienzo (no se puede mover con el ratón).",
+                "type": "boolean"
+              },
+              "cornerRadius": {
+                "description": "Uso interno.",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 20,
+                "default": 0
+              },
+              "x": {
+                "description": "Esquina superior izquierda, X (px).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 319
+              },
+              "y": {
+                "description": "Esquina superior izquierda, Y (px).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 169
+              },
+              "title": {
+                "description": "Título de la cabecera.",
+                "type": "string",
+                "default": "Ajustes"
+              },
+              "width": {
+                "description": "Ancho (px).",
+                "type": "integer",
+                "minimum": 40,
+                "maximum": 320,
+                "default": 300
+              },
+              "height": {
+                "description": "Alto (px). Filas de 12 px (textSize 1) o 20 px (textSize 2) bajo la cabecera.",
+                "type": "integer",
+                "minimum": 30,
+                "maximum": 170,
+                "default": 124
+              },
+              "textSize": {
+                "description": "Escala del texto.",
+                "enum": [
+                  1,
+                  2
+                ],
+                "default": 1
+              },
+              "frame": {
+                "description": "Marco exterior.",
+                "type": "boolean",
+                "default": true
+              },
+              "colors": {
+                "type": "object",
+                "description": "Colores: text, background, value, selectText, selectBackground, editText, editBackground, title, titleBackground, frame. Los que falten toman su valor por defecto.",
+                "properties": {
+                  "text": {
+                    "description": "RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                    "oneOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 65535
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                      }
+                    ],
+                    "default": 65535
+                  },
+                  "background": {
+                    "description": "RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                    "oneOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 65535
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                      }
+                    ],
+                    "default": 0
+                  },
+                  "value": {
+                    "description": "RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                    "oneOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 65535
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                      }
+                    ],
+                    "default": 2047
+                  },
+                  "selectText": {
+                    "description": "RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                    "oneOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 65535
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                      }
+                    ],
+                    "default": 0
+                  },
+                  "selectBackground": {
+                    "description": "RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                    "oneOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 65535
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                      }
+                    ],
+                    "default": 2047
+                  },
+                  "editText": {
+                    "description": "RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                    "oneOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 65535
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                      }
+                    ],
+                    "default": 0
+                  },
+                  "editBackground": {
+                    "description": "RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                    "oneOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 65535
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                      }
+                    ],
+                    "default": 64800
+                  },
+                  "title": {
+                    "description": "RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                    "oneOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 65535
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                      }
+                    ],
+                    "default": 0
+                  },
+                  "titleBackground": {
+                    "description": "RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                    "oneOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 65535
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                      }
+                    ],
+                    "default": 65535
+                  },
+                  "frame": {
+                    "description": "RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                    "oneOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 65535
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                      }
+                    ],
+                    "default": 65535
+                  }
+                }
+              },
+              "nodes": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/definitions/menuNode"
+                },
+                "minItems": 1,
+                "description": "Nodos del árbol (ver «Nodos de MENU»). Se pueden anidar con `children` en lugar de `parent`."
+              }
+            },
+            "required": [
+              "type",
+              "x",
+              "y",
+              "nodes"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "RAW_TEXT"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "type": {
+                "const": "RAW_TEXT"
+              },
+              "name": {
+                "description": "Nombre visible en la lista de objetos del Designer (no llega al C++).",
+                "type": "string"
+              },
+              "id": {
+                "description": "Identificador C++ del objeto (único en el proyecto). Si falta se genera FIELD_<TIPO>_<n>.",
+                "type": "string",
+                "pattern": "^([A-Za-z_][A-Za-z0-9_]*)?$"
+              },
+              "page": {
+                "description": "Página (id) donde se dibuja.",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 15,
+                "default": 0
+              },
+              "layerOrder": {
+                "description": "Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9999
+              },
+              "hidden": {
+                "description": "Oculto en el lienzo y fuera del header.",
+                "type": "boolean"
+              },
+              "locked": {
+                "description": "Bloqueado en el lienzo (no se puede mover con el ratón).",
+                "type": "boolean"
+              },
+              "cornerRadius": {
+                "description": "Lo agrega el Designer al abrir (sólo lo usan RECT y MENU).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 85
+              },
+              "x": {
+                "description": "Esquina superior izquierda, X (px).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 319
+              },
+              "y": {
+                "description": "Esquina superior izquierda, Y (px).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 169
+              },
+              "text": {
+                "description": "Texto. Tildes, ñ y ° sí existen en GLCD.",
+                "type": "string"
+              },
+              "font": {
+                "description": "Fuente. GLCD = clásica 6×8 escalable; FONT2/FONT4 bitmap de 16/26 px; FreeFonts SANS/SERIF/MONO [BOLD] 9/12/18/24 pt.",
+                "enum": [
+                  "GLCD",
+                  "FONT2",
+                  "FONT4",
+                  "SANS_9",
+                  "SANS_BOLD_9",
+                  "SANS_12",
+                  "SANS_BOLD_12",
+                  "SANS_18",
+                  "SANS_BOLD_18",
+                  "SANS_24",
+                  "SANS_BOLD_24",
+                  "SERIF_9",
+                  "SERIF_BOLD_9",
+                  "SERIF_12",
+                  "SERIF_BOLD_12",
+                  "SERIF_18",
+                  "SERIF_BOLD_18",
+                  "SERIF_24",
+                  "SERIF_BOLD_24",
+                  "MONO_9",
+                  "MONO_BOLD_9",
+                  "MONO_12",
+                  "MONO_BOLD_12",
+                  "MONO_18",
+                  "MONO_BOLD_18",
+                  "MONO_24",
+                  "MONO_BOLD_24"
+                ],
+                "default": "GLCD"
+              },
+              "size": {
+                "description": "Escala (GLCD y bitmap).",
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 4,
+                "default": 1
+              },
+              "textColor": {
+                "description": "Color del texto. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 65535
+              },
+              "backgroundColor": {
+                "description": "Fondo detrás del texto (si no es transparente). RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 0
+              },
+              "transparentBackground": {
+                "description": "Sin fondo detrás del texto.",
+                "type": "boolean",
+                "default": true
+              }
+            },
+            "required": [
+              "type",
+              "x",
+              "y",
+              "text"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "LINE"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "type": {
+                "const": "LINE"
+              },
+              "name": {
+                "description": "Nombre visible en la lista de objetos del Designer (no llega al C++).",
+                "type": "string"
+              },
+              "id": {
+                "description": "Identificador C++ del objeto (único en el proyecto). Si falta se genera FIELD_<TIPO>_<n>.",
+                "type": "string",
+                "pattern": "^([A-Za-z_][A-Za-z0-9_]*)?$"
+              },
+              "page": {
+                "description": "Página (id) donde se dibuja.",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 15,
+                "default": 0
+              },
+              "layerOrder": {
+                "description": "Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9999
+              },
+              "hidden": {
+                "description": "Oculto en el lienzo y fuera del header.",
+                "type": "boolean"
+              },
+              "locked": {
+                "description": "Bloqueado en el lienzo (no se puede mover con el ratón).",
+                "type": "boolean"
+              },
+              "cornerRadius": {
+                "description": "Radio de esquinas (RECT).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 85,
+                "default": 0
+              },
+              "x": {
+                "description": "Esquina superior izquierda, X (px).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 319
+              },
+              "y": {
+                "description": "Esquina superior izquierda, Y (px).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 169
+              },
+              "x2": {
+                "description": "Esquina opuesta (o extremo de la línea), X.",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 319
+              },
+              "y2": {
+                "description": "Esquina opuesta (o extremo de la línea), Y.",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 169
+              },
+              "frameColor": {
+                "description": "Color del contorno (o de la línea). RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 65535
+              },
+              "fill": {
+                "description": "Relleno.",
+                "type": "boolean",
+                "default": false
+              },
+              "fillColor": {
+                "description": "Color de relleno. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 31
+              },
+              "borderEnabled": {
+                "description": "Dibuja el contorno (con relleno se puede quitar).",
+                "type": "boolean",
+                "default": true
+              },
+              "size": {
+                "description": "Grosor del trazo (px).",
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 8,
+                "default": 1
+              },
+              "rotation": {
+                "description": "Rotación en grados alrededor del centro.",
+                "type": "number",
+                "default": 0
+              },
+              "sides": {
+                "description": "Lados (POLYGON).",
+                "type": "integer",
+                "minimum": 3,
+                "maximum": 12,
+                "default": 5
+              },
+              "variable": {
+                "description": "Sin uso.",
+                "type": "string",
+                "default": ""
+              },
+              "backgroundColor": {
+                "description": "Sin uso. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 0
+              }
+            },
+            "required": [
+              "type",
+              "x",
+              "y",
+              "x2",
+              "y2"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "RECT"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "type": {
+                "const": "RECT"
+              },
+              "name": {
+                "description": "Nombre visible en la lista de objetos del Designer (no llega al C++).",
+                "type": "string"
+              },
+              "id": {
+                "description": "Identificador C++ del objeto (único en el proyecto). Si falta se genera FIELD_<TIPO>_<n>.",
+                "type": "string",
+                "pattern": "^([A-Za-z_][A-Za-z0-9_]*)?$"
+              },
+              "page": {
+                "description": "Página (id) donde se dibuja.",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 15,
+                "default": 0
+              },
+              "layerOrder": {
+                "description": "Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9999
+              },
+              "hidden": {
+                "description": "Oculto en el lienzo y fuera del header.",
+                "type": "boolean"
+              },
+              "locked": {
+                "description": "Bloqueado en el lienzo (no se puede mover con el ratón).",
+                "type": "boolean"
+              },
+              "cornerRadius": {
+                "description": "Radio de esquinas (RECT).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 85,
+                "default": 0
+              },
+              "x": {
+                "description": "Esquina superior izquierda, X (px).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 319
+              },
+              "y": {
+                "description": "Esquina superior izquierda, Y (px).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 169
+              },
+              "x2": {
+                "description": "Esquina opuesta (o extremo de la línea), X.",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 319
+              },
+              "y2": {
+                "description": "Esquina opuesta (o extremo de la línea), Y.",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 169
+              },
+              "frameColor": {
+                "description": "Color del contorno (o de la línea). RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 65535
+              },
+              "fill": {
+                "description": "Relleno.",
+                "type": "boolean",
+                "default": false
+              },
+              "fillColor": {
+                "description": "Color de relleno. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 31
+              },
+              "borderEnabled": {
+                "description": "Dibuja el contorno (con relleno se puede quitar).",
+                "type": "boolean",
+                "default": true
+              },
+              "size": {
+                "description": "Grosor del trazo (px).",
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 8,
+                "default": 1
+              },
+              "rotation": {
+                "description": "Rotación en grados alrededor del centro.",
+                "type": "number",
+                "default": 0
+              },
+              "sides": {
+                "description": "Lados (POLYGON).",
+                "type": "integer",
+                "minimum": 3,
+                "maximum": 12,
+                "default": 5
+              },
+              "variable": {
+                "description": "Sin uso.",
+                "type": "string",
+                "default": ""
+              },
+              "backgroundColor": {
+                "description": "Sin uso. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 0
+              }
+            },
+            "required": [
+              "type",
+              "x",
+              "y",
+              "x2",
+              "y2"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "ELLIPSE"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "type": {
+                "const": "ELLIPSE"
+              },
+              "name": {
+                "description": "Nombre visible en la lista de objetos del Designer (no llega al C++).",
+                "type": "string"
+              },
+              "id": {
+                "description": "Identificador C++ del objeto (único en el proyecto). Si falta se genera FIELD_<TIPO>_<n>.",
+                "type": "string",
+                "pattern": "^([A-Za-z_][A-Za-z0-9_]*)?$"
+              },
+              "page": {
+                "description": "Página (id) donde se dibuja.",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 15,
+                "default": 0
+              },
+              "layerOrder": {
+                "description": "Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9999
+              },
+              "hidden": {
+                "description": "Oculto en el lienzo y fuera del header.",
+                "type": "boolean"
+              },
+              "locked": {
+                "description": "Bloqueado en el lienzo (no se puede mover con el ratón).",
+                "type": "boolean"
+              },
+              "cornerRadius": {
+                "description": "Radio de esquinas (RECT).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 85,
+                "default": 0
+              },
+              "x": {
+                "description": "Esquina superior izquierda, X (px).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 319
+              },
+              "y": {
+                "description": "Esquina superior izquierda, Y (px).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 169
+              },
+              "x2": {
+                "description": "Esquina opuesta (o extremo de la línea), X.",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 319
+              },
+              "y2": {
+                "description": "Esquina opuesta (o extremo de la línea), Y.",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 169
+              },
+              "frameColor": {
+                "description": "Color del contorno (o de la línea). RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 65535
+              },
+              "fill": {
+                "description": "Relleno.",
+                "type": "boolean",
+                "default": false
+              },
+              "fillColor": {
+                "description": "Color de relleno. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 31
+              },
+              "borderEnabled": {
+                "description": "Dibuja el contorno (con relleno se puede quitar).",
+                "type": "boolean",
+                "default": true
+              },
+              "size": {
+                "description": "Grosor del trazo (px).",
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 8,
+                "default": 1
+              },
+              "rotation": {
+                "description": "Rotación en grados alrededor del centro.",
+                "type": "number",
+                "default": 0
+              },
+              "sides": {
+                "description": "Lados (POLYGON).",
+                "type": "integer",
+                "minimum": 3,
+                "maximum": 12,
+                "default": 5
+              },
+              "variable": {
+                "description": "Sin uso.",
+                "type": "string",
+                "default": ""
+              },
+              "backgroundColor": {
+                "description": "Sin uso. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 0
+              }
+            },
+            "required": [
+              "type",
+              "x",
+              "y",
+              "x2",
+              "y2"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "TRIANGLE"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "type": {
+                "const": "TRIANGLE"
+              },
+              "name": {
+                "description": "Nombre visible en la lista de objetos del Designer (no llega al C++).",
+                "type": "string"
+              },
+              "id": {
+                "description": "Identificador C++ del objeto (único en el proyecto). Si falta se genera FIELD_<TIPO>_<n>.",
+                "type": "string",
+                "pattern": "^([A-Za-z_][A-Za-z0-9_]*)?$"
+              },
+              "page": {
+                "description": "Página (id) donde se dibuja.",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 15,
+                "default": 0
+              },
+              "layerOrder": {
+                "description": "Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9999
+              },
+              "hidden": {
+                "description": "Oculto en el lienzo y fuera del header.",
+                "type": "boolean"
+              },
+              "locked": {
+                "description": "Bloqueado en el lienzo (no se puede mover con el ratón).",
+                "type": "boolean"
+              },
+              "cornerRadius": {
+                "description": "Radio de esquinas (RECT).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 85,
+                "default": 0
+              },
+              "x": {
+                "description": "Esquina superior izquierda, X (px).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 319
+              },
+              "y": {
+                "description": "Esquina superior izquierda, Y (px).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 169
+              },
+              "x2": {
+                "description": "Esquina opuesta (o extremo de la línea), X.",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 319
+              },
+              "y2": {
+                "description": "Esquina opuesta (o extremo de la línea), Y.",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 169
+              },
+              "frameColor": {
+                "description": "Color del contorno (o de la línea). RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 65535
+              },
+              "fill": {
+                "description": "Relleno.",
+                "type": "boolean",
+                "default": false
+              },
+              "fillColor": {
+                "description": "Color de relleno. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 31
+              },
+              "borderEnabled": {
+                "description": "Dibuja el contorno (con relleno se puede quitar).",
+                "type": "boolean",
+                "default": true
+              },
+              "size": {
+                "description": "Grosor del trazo (px).",
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 8,
+                "default": 1
+              },
+              "rotation": {
+                "description": "Rotación en grados alrededor del centro.",
+                "type": "number",
+                "default": 0
+              },
+              "sides": {
+                "description": "Lados (POLYGON).",
+                "type": "integer",
+                "minimum": 3,
+                "maximum": 12,
+                "default": 5
+              },
+              "variable": {
+                "description": "Sin uso.",
+                "type": "string",
+                "default": ""
+              },
+              "backgroundColor": {
+                "description": "Sin uso. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 0
+              }
+            },
+            "required": [
+              "type",
+              "x",
+              "y",
+              "x2",
+              "y2"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "POLYGON"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "type": {
+                "const": "POLYGON"
+              },
+              "name": {
+                "description": "Nombre visible en la lista de objetos del Designer (no llega al C++).",
+                "type": "string"
+              },
+              "id": {
+                "description": "Identificador C++ del objeto (único en el proyecto). Si falta se genera FIELD_<TIPO>_<n>.",
+                "type": "string",
+                "pattern": "^([A-Za-z_][A-Za-z0-9_]*)?$"
+              },
+              "page": {
+                "description": "Página (id) donde se dibuja.",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 15,
+                "default": 0
+              },
+              "layerOrder": {
+                "description": "Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9999
+              },
+              "hidden": {
+                "description": "Oculto en el lienzo y fuera del header.",
+                "type": "boolean"
+              },
+              "locked": {
+                "description": "Bloqueado en el lienzo (no se puede mover con el ratón).",
+                "type": "boolean"
+              },
+              "cornerRadius": {
+                "description": "Radio de esquinas (RECT).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 85,
+                "default": 0
+              },
+              "x": {
+                "description": "Esquina superior izquierda, X (px).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 319
+              },
+              "y": {
+                "description": "Esquina superior izquierda, Y (px).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 169
+              },
+              "x2": {
+                "description": "Esquina opuesta (o extremo de la línea), X.",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 319
+              },
+              "y2": {
+                "description": "Esquina opuesta (o extremo de la línea), Y.",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 169
+              },
+              "frameColor": {
+                "description": "Color del contorno (o de la línea). RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 65535
+              },
+              "fill": {
+                "description": "Relleno.",
+                "type": "boolean",
+                "default": false
+              },
+              "fillColor": {
+                "description": "Color de relleno. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 31
+              },
+              "borderEnabled": {
+                "description": "Dibuja el contorno (con relleno se puede quitar).",
+                "type": "boolean",
+                "default": true
+              },
+              "size": {
+                "description": "Grosor del trazo (px).",
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 8,
+                "default": 1
+              },
+              "rotation": {
+                "description": "Rotación en grados alrededor del centro.",
+                "type": "number",
+                "default": 0
+              },
+              "sides": {
+                "description": "Lados (POLYGON).",
+                "type": "integer",
+                "minimum": 3,
+                "maximum": 12,
+                "default": 5
+              },
+              "variable": {
+                "description": "Sin uso.",
+                "type": "string",
+                "default": ""
+              },
+              "backgroundColor": {
+                "description": "Sin uso. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 0
+              }
+            },
+            "required": [
+              "type",
+              "x",
+              "y",
+              "x2",
+              "y2"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "NAV_BAR"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "type": {
+                "const": "NAV_BAR"
+              },
+              "name": {
+                "description": "Nombre visible en la lista de objetos del Designer (no llega al C++).",
+                "type": "string",
+                "default": "Barra de Navegación"
+              },
+              "key": {
+                "description": "Siempre NAV_BAR.",
+                "type": "string",
+                "default": "NAV_BAR"
+              },
+              "label": {
+                "description": "Siempre NAV_BAR.",
+                "type": "string",
+                "default": "NAV_BAR"
+              },
+              "preset": {
+                "description": "Estilo. counter: sólo el indicador NN/TT que pinta el firmware (sin barra).",
+                "enum": [
+                  "industrial-color",
+                  "dark-pill",
+                  "segmented-bar",
+                  "compact-dots",
+                  "edge-tabs",
+                  "numeric-pills",
+                  "counter"
+                ],
+                "default": "industrial-color"
+              },
+              "position": {
+                "description": "Borde de la pantalla.",
+                "enum": [
+                  "bottom",
+                  "top",
+                  "left",
+                  "right"
+                ],
+                "default": "bottom"
+              },
+              "x": {
+                "description": "X (se calcula de position si falta).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 319
+              },
+              "y": {
+                "description": "Y (se calcula de position si falta).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 169
+              },
+              "width": {
+                "description": "Ancho (320 horizontal, ~24 vertical).",
+                "type": "integer",
+                "minimum": 8,
+                "maximum": 320
+              },
+              "height": {
+                "description": "Alto (~22 horizontal, 170 vertical).",
+                "type": "integer",
+                "minimum": 8,
+                "maximum": 170,
+                "default": 22
+              },
+              "tabDistribution": {
+                "description": "Reparto de las pestañas.",
+                "enum": [
+                  "center",
+                  "start",
+                  "end",
+                  "stretch"
+                ],
+                "default": "center"
+              },
+              "textAlign": {
+                "description": "Texto dentro de la pestaña.",
+                "enum": [
+                  "center",
+                  "left",
+                  "right"
+                ],
+                "default": "center"
+              },
+              "fontSize": {
+                "description": "Tamaño del texto.",
+                "enum": [
+                  "normal",
+                  "medium",
+                  "micro"
+                ],
+                "default": "normal"
+              },
+              "labelFormat": {
+                "description": "short: nombre corto de la página; number: 1, 2, 3; num_short: ambos.",
+                "enum": [
+                  "short",
+                  "number",
+                  "num_short"
+                ],
+                "default": "short"
+              },
+              "bgMode": {
+                "description": "Fondo de la barra.",
+                "enum": [
+                  "solid",
+                  "dark",
+                  "transparent"
+                ],
+                "default": "solid"
+              },
+              "borderMode": {
+                "description": "Borde de la barra.",
+                "enum": [
+                  "none",
+                  "line",
+                  "frame"
+                ],
+                "default": "none"
+              },
+              "radius": {
+                "description": "Radio de las pestañas.",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 11,
+                "default": 3
+              },
+              "gap": {
+                "description": "Separación entre pestañas.",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 10,
+                "default": 3
+              },
+              "orientation": {
+                "description": "Sale de position.",
+                "type": "string"
+              },
+              "global": {
+                "description": "Siempre true.",
+                "type": "boolean",
+                "default": true
+              },
+              "hidden": {
+                "description": "Oculta = sin barra.",
+                "type": "boolean",
+                "default": false
+              },
+              "locked": {
+                "description": "Bloqueo en el lienzo.",
+                "type": "boolean",
+                "default": false
+              },
+              "layerOrder": {
+                "description": "Siempre al frente.",
+                "type": "integer",
+                "default": 999
+              },
+              "page": {
+                "description": "Sin uso (es global).",
+                "type": "integer"
+              },
+              "cornerRadius": {
+                "description": "Lo agrega el Designer al abrir.",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          }
+        }
+      ]
+    },
+    "menuNode": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "description": "Clave única del nodo dentro del MENU (se genera si falta).",
+          "type": "string"
+        },
+        "parent": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Clave del nodo padre (SUBMENU). null = raíz. Con `children` no hace falta."
+        },
+        "type": {
+          "description": "SUBMENU: abre hijos. VIEW: muestra una variable. EDIT_NUM/EDIT_BOOL: el operador la edita. GO_IDLE: vuelve a la pantalla de inicio.",
+          "enum": [
+            "SUBMENU",
+            "VIEW",
+            "EDIT_NUM",
+            "EDIT_BOOL",
+            "GO_IDLE"
+          ]
+        },
+        "label": {
+          "description": "Texto de la fila.",
+          "type": "string"
+        },
+        "variable": {
+          "description": "Variable C++ (VIEW, EDIT_NUM, EDIT_BOOL). Puede ser la misma que la de un campo si el tipo coincide.",
+          "type": "string",
+          "pattern": "^([A-Za-z_][A-Za-z0-9_]*)?$",
+          "default": ""
+        },
+        "valueType": {
+          "description": "VIEW: float|int32|bool. EDIT_NUM: float|int32. EDIT_BOOL: bool. SUBMENU/GO_IDLE: vacío.",
+          "enum": [
+            "float",
+            "int32",
+            "bool",
+            ""
+          ]
+        },
+        "initial": {
+          "description": "Valor inicial de la variable.",
+          "type": "number",
+          "default": 0
+        },
+        "min": {
+          "description": "Mínimo (EDIT_NUM).",
+          "type": "number",
+          "default": 0
+        },
+        "max": {
+          "description": "Máximo (EDIT_NUM).",
+          "type": "number",
+          "default": 100
+        },
+        "step": {
+          "description": "Paso de ▲▼ (EDIT_NUM). int32: entero.",
+          "type": "number",
+          "default": 1
+        },
+        "decimals": {
+          "description": "Decimales mostrados (float).",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 6,
+          "default": 1
+        },
+        "unit": {
+          "description": "Unidad.",
+          "type": "string",
+          "default": ""
+        },
+        "falseText": {
+          "description": "Texto para false (bool).",
+          "type": "string",
+          "default": "OFF"
+        },
+        "trueText": {
+          "description": "Texto para true (bool).",
+          "type": "string",
+          "default": "ON"
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/menuNode"
+          },
+          "description": "Atajo: hijos anidados de un SUBMENU (la normalización los aplana con `parent`)."
+        }
+      },
+      "required": [
+        "type",
+        "label"
+      ]
+    },
+    "page": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "Índice 0..N-1 (se asigna por posición si falta).",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 15
+        },
+        "name": {
+          "description": "Nombre de la página (también da el símbolo C++ PAGE_<NOMBRE>).",
+          "type": "string"
+        },
+        "shortName": {
+          "description": "Nombre corto para las pestañas de la barra de navegación.",
+          "type": "string"
+        },
+        "color": {
+          "description": "Color de la pestaña de la página. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            },
+            {
+              "type": "string",
+              "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+            }
+          ]
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/field"
+          },
+          "description": "Atajo: objetos de esta página (la normalización los pasa a `fields` con page = id)."
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "display": {
+      "type": "object",
+      "properties": {
+        "start": {
+          "description": "Al encender: pantalla de inicio JWPLC (IDLE) o directo al HMI.",
+          "enum": [
+            "IDLE",
+            "HMI"
+          ],
+          "default": "IDLE"
+        },
+        "wake": {
+          "description": "Cómo se entra al HMI desde IDLE: cualquier tecla, una tecla (wakeButton) o nunca.",
+          "enum": [
+            "ANY",
+            "BUTTON",
+            "NONE"
+          ],
+          "default": "ANY"
+        },
+        "wakeButton": {
+          "description": "Tecla de entrada si wake = BUTTON.",
+          "enum": [
+            "BTN_LEFT",
+            "BTN_UP",
+            "BTN_RIGHT",
+            "BTN_ESC",
+            "BTN_OK",
+            "BTN_DOWN"
+          ],
+          "default": "BTN_OK"
+        },
+        "back": {
+          "description": "Cómo se vuelve a IDLE: ESC, por inactividad (timeoutS) o nunca.",
+          "enum": [
+            "ESC",
+            "TIMEOUT",
+            "NONE"
+          ],
+          "default": "ESC"
+        },
+        "timeoutS": {
+          "description": "Segundos sin teclas para volver a IDLE (back = TIMEOUT).",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3600,
+          "default": 15
+        },
+        "backButton": {
+          "description": "Retirado (proyectos anteriores); se ignora.",
+          "type": "string"
+        }
+      }
+    },
+    "pixelMap": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "description": "Siempre PIXELMAP.",
+          "type": "string",
+          "default": "PIXELMAP"
+        },
+        "name": {
+          "description": "Nombre de la capa.",
+          "type": "string"
+        },
+        "page": {
+          "description": "Página.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 15,
+          "default": 0
+        },
+        "x": {
+          "description": "Origen X.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 319,
+          "default": 0
+        },
+        "y": {
+          "description": "Origen Y.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 169,
+          "default": 0
+        },
+        "pixels": {
+          "type": "array",
+          "description": "Píxeles {x, y, color} relativos al origen. Una capa = un solo color (para otro color, otra capa).",
+          "items": {
+            "type": "object",
+            "required": [
+              "x",
+              "y"
+            ],
+            "properties": {
+              "x": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "y": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "color": {
+                "description": "RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "editorVisible": {
+          "description": "Visibilidad en el lienzo.",
+          "type": "boolean",
+          "default": true
+        },
+        "editorOpacity": {
+          "description": "Opacidad en el lienzo.",
+          "type": "number",
+          "default": 1
+        },
+        "layerOrder": {
+          "description": "Orden de capa.",
+          "type": "integer"
+        }
+      }
+    }
+  }
+}

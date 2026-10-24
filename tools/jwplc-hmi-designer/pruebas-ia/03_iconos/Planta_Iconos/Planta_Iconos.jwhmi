@@ -1,0 +1,1864 @@
+{
+  "format": "JWPLC_HMI_PROJECT",
+  "version": 1,
+  "target": {
+    "display": "ST7789",
+    "width": 320,
+    "height": 170,
+    "rotation": 3,
+    "pixelFormat": "RGB565"
+  },
+  "projectName": "Planta_Iconos",
+  "savedAt": "2026-10-23T20:57:49.463Z",
+  "activePage": 0,
+  "navigationBar": {
+    "enabled": true,
+    "preset": "industrial-color",
+    "position": "bottom",
+    "height": 22,
+    "showIndicator": true,
+    "showArrows": true,
+    "x": 0,
+    "y": 147,
+    "width": 320,
+    "orientation": "horizontal"
+  },
+  "display": {
+    "start": "HMI",
+    "wake": "ANY",
+    "wakeButton": "BTN_OK",
+    "back": "ESC",
+    "timeoutS": 15
+  },
+  "pages": [
+    {
+      "id": 0,
+      "name": "Proceso",
+      "shortName": "PROCESO",
+      "color": 2047
+    },
+    {
+      "id": 1,
+      "name": "Equipos",
+      "shortName": "EQUIPOS",
+      "color": 64800
+    }
+  ],
+  "fields": [
+    {
+      "type": "NAV_BAR",
+      "preset": "industrial-color",
+      "position": "bottom",
+      "height": 22,
+      "name": "Barra de Navegación",
+      "label": "NAV_BAR",
+      "global": true,
+      "hidden": false,
+      "locked": false,
+      "layerOrder": 999,
+      "width": 320,
+      "x": 0,
+      "y": 147,
+      "orientation": "horizontal",
+      "page": 0,
+      "cornerRadius": 0
+    },
+    {
+      "type": "RECT",
+      "x": 0,
+      "y": 0,
+      "x2": 319,
+      "y2": 16,
+      "fill": true,
+      "fillColor": 15,
+      "frameColor": 15,
+      "page": 0,
+      "cornerRadius": 0,
+      "size": 1,
+      "sides": 5,
+      "variable": "",
+      "backgroundColor": 0,
+      "id": "FIELD_RECT_2",
+      "name": "FIELD_RECT_2",
+      "layerOrder": 20
+    },
+    {
+      "type": "RAW_TEXT",
+      "text": "Planta de agua",
+      "x": 4,
+      "y": 5,
+      "font": "GLCD",
+      "textColor": 65535,
+      "page": 0,
+      "size": 1,
+      "backgroundColor": 0,
+      "transparentBackground": true,
+      "id": "FIELD_RAW_TEXT_3",
+      "name": "Planta de agua",
+      "layerOrder": 19,
+      "cornerRadius": 0
+    },
+    {
+      "type": "VALUE",
+      "id": "FIELD_HORA",
+      "x": 262,
+      "y": 1,
+      "valueKind": "DATETIME",
+      "dateTimePattern": "HH_MM",
+      "valueSize": 1,
+      "valueColor": 65535,
+      "backgroundColor": 15,
+      "page": 0,
+      "decimalDigits": 0,
+      "label": "",
+      "unit": "",
+      "labelSize": 1,
+      "frame": false,
+      "layout": "INLINE",
+      "align": "RIGHT",
+      "labelColor": 65535,
+      "frameColor": 65535,
+      "integerDigits": 3,
+      "signedValue": false,
+      "leadingZeros": false,
+      "name": "FIELD_HORA",
+      "variable": "reloj",
+      "preview": "",
+      "layerOrder": 18,
+      "cornerRadius": 0
+    },
+    {
+      "type": "ICON",
+      "id": "ICON_TANQUE",
+      "variable": "tanque",
+      "iconId": "equipos/tanque",
+      "iconSize": 64,
+      "label": "Tanque",
+      "x": 2,
+      "y": 20,
+      "iconState": 2,
+      "page": 0,
+      "unit": "",
+      "labelSize": 1,
+      "valueSize": 1,
+      "frame": false,
+      "layout": "STACKED",
+      "align": "LEFT",
+      "labelColor": 65535,
+      "valueColor": 65535,
+      "backgroundColor": 0,
+      "frameColor": 65535,
+      "capacity": 1,
+      "name": "Tanque (nivel) (ICON_TANQUE)",
+      "iconVarType": "uint8",
+      "layerOrder": 17,
+      "cornerRadius": 0
+    },
+    {
+      "type": "ICON",
+      "id": "ICON_ENTRADA",
+      "variable": "valvulaEntrada",
+      "iconId": "valvulas/valvula",
+      "iconSize": 48,
+      "label": "Entrada",
+      "x": 76,
+      "y": 20,
+      "iconState": 1,
+      "page": 0,
+      "unit": "",
+      "labelSize": 1,
+      "valueSize": 1,
+      "frame": false,
+      "layout": "STACKED",
+      "align": "LEFT",
+      "labelColor": 65535,
+      "valueColor": 65535,
+      "backgroundColor": 0,
+      "frameColor": 65535,
+      "capacity": 1,
+      "name": "Válvula (ICON_ENTRADA)",
+      "iconVarType": "uint8",
+      "layerOrder": 16,
+      "cornerRadius": 0
+    },
+    {
+      "type": "ICON",
+      "id": "ICON_BOMBA",
+      "variable": "bomba",
+      "iconId": "bombas/bomba",
+      "iconSize": 64,
+      "label": "Bomba",
+      "x": 134,
+      "y": 20,
+      "iconState": 1,
+      "page": 0,
+      "unit": "",
+      "labelSize": 1,
+      "valueSize": 1,
+      "frame": false,
+      "layout": "STACKED",
+      "align": "LEFT",
+      "labelColor": 65535,
+      "valueColor": 65535,
+      "backgroundColor": 0,
+      "frameColor": 65535,
+      "capacity": 1,
+      "name": "Bomba (ICON_BOMBA)",
+      "iconVarType": "uint8",
+      "layerOrder": 15,
+      "cornerRadius": 0
+    },
+    {
+      "type": "ICON",
+      "id": "ICON_AGITADOR",
+      "variable": "agitador",
+      "iconId": "motores/motor",
+      "iconSize": 48,
+      "label": "Agitador",
+      "x": 208,
+      "y": 20,
+      "page": 0,
+      "unit": "",
+      "labelSize": 1,
+      "valueSize": 1,
+      "frame": false,
+      "layout": "STACKED",
+      "align": "LEFT",
+      "labelColor": 65535,
+      "valueColor": 65535,
+      "backgroundColor": 0,
+      "frameColor": 65535,
+      "iconState": 0,
+      "capacity": 1,
+      "name": "Motor (ICON_AGITADOR)",
+      "iconVarType": "uint8",
+      "layerOrder": 14,
+      "cornerRadius": 0
+    },
+    {
+      "type": "ICON",
+      "id": "ICON_PARO",
+      "variable": "paro",
+      "iconId": "botones/paro_emergencia",
+      "iconSize": 32,
+      "label": "Paro",
+      "x": 270,
+      "y": 20,
+      "page": 0,
+      "unit": "",
+      "labelSize": 1,
+      "valueSize": 1,
+      "frame": false,
+      "layout": "STACKED",
+      "align": "LEFT",
+      "labelColor": 65535,
+      "valueColor": 65535,
+      "backgroundColor": 0,
+      "frameColor": 65535,
+      "iconState": 0,
+      "capacity": 1,
+      "name": "Paro de emergencia (ICON_PARO)",
+      "iconVarType": "bool",
+      "layerOrder": 13,
+      "cornerRadius": 0
+    },
+    {
+      "type": "BAR",
+      "id": "FIELD_NIVEL",
+      "variable": "nivel",
+      "barLabel": "Nivel",
+      "barUnit": "%",
+      "x": 2,
+      "y": 104,
+      "barWidth": 128,
+      "valueColor": 2047,
+      "trackColor": 4292,
+      "barValue": 55,
+      "page": 0,
+      "label": "",
+      "unit": "",
+      "labelSize": 1,
+      "valueSize": 1,
+      "frame": false,
+      "layout": "STACKED",
+      "align": "LEFT",
+      "labelColor": 65535,
+      "backgroundColor": 4292,
+      "frameColor": 65535,
+      "showLabel": true,
+      "barMin": 0,
+      "barMax": 100,
+      "capacity": 1,
+      "barPreset": "LINEAR",
+      "barFillMode": "SOLID",
+      "barOrientation": "HORIZONTAL",
+      "barStyle": "SOLID",
+      "linearPctPos": "NONE",
+      "barCornerRadius": 0,
+      "barBorderEnabled": false,
+      "barBorderColor": 65535,
+      "barBorderWidth": 1,
+      "barAutoWidth": false,
+      "barHeight": 12,
+      "alignV": "TOP",
+      "alignH": "LEFT",
+      "valueColorEnd": 2016,
+      "circleRadius": 26,
+      "circleThickness": 5,
+      "circleSweep": 360,
+      "circleDirection": "CW",
+      "circleStartAngle": "TOP",
+      "circleStyle": "CONTINUOUS",
+      "circleCenterMode": "PERCENT",
+      "circleColorMode": "SOLID",
+      "circleShowPercent": true,
+      "circleTextSize": 1,
+      "circleTextColor": 65535,
+      "circleTrackColor": 0,
+      "linearPctColor": 65535,
+      "name": "FIELD_NIVEL",
+      "layerOrder": 12,
+      "cornerRadius": 0,
+      "preview": ""
+    },
+    {
+      "type": "ICON",
+      "id": "ICON_AUTO",
+      "variable": "modoAuto",
+      "iconId": "pilotos/piloto",
+      "iconSize": 24,
+      "label": "Auto",
+      "layout": "INLINE",
+      "x": 136,
+      "y": 92,
+      "iconState": 1,
+      "page": 0,
+      "unit": "",
+      "labelSize": 1,
+      "valueSize": 1,
+      "frame": false,
+      "align": "LEFT",
+      "labelColor": 65535,
+      "valueColor": 65535,
+      "backgroundColor": 0,
+      "frameColor": 65535,
+      "capacity": 1,
+      "name": "Piloto (ICON_AUTO)",
+      "iconVarType": "uint8",
+      "layerOrder": 11,
+      "cornerRadius": 0
+    },
+    {
+      "type": "ICON",
+      "id": "ICON_ALARMA",
+      "variable": "alarma",
+      "iconId": "alarmas/alarma",
+      "iconSize": 24,
+      "label": "Alarma",
+      "layout": "INLINE",
+      "x": 136,
+      "y": 118,
+      "page": 0,
+      "unit": "",
+      "labelSize": 1,
+      "valueSize": 1,
+      "frame": false,
+      "align": "LEFT",
+      "labelColor": 65535,
+      "valueColor": 65535,
+      "backgroundColor": 0,
+      "frameColor": 65535,
+      "iconState": 0,
+      "capacity": 1,
+      "name": "Alarma (ICON_ALARMA)",
+      "iconVarType": "bool",
+      "layerOrder": 10,
+      "cornerRadius": 0
+    },
+    {
+      "type": "VALUE",
+      "id": "FIELD_CAUDAL",
+      "variable": "caudal",
+      "label": "Caudal",
+      "unit": "L/m",
+      "x": 220,
+      "y": 100,
+      "layout": "STACKED",
+      "integerDigits": 3,
+      "decimalDigits": 1,
+      "valueSize": 2,
+      "page": 0,
+      "labelSize": 1,
+      "frame": false,
+      "align": "RIGHT",
+      "labelColor": 65535,
+      "valueColor": 2047,
+      "backgroundColor": 0,
+      "frameColor": 65535,
+      "signedValue": false,
+      "leadingZeros": false,
+      "name": "FIELD_CAUDAL",
+      "preview": "123.5",
+      "layerOrder": 9,
+      "cornerRadius": 0
+    },
+    {
+      "type": "ICON",
+      "id": "ICON_CINTA",
+      "variable": "cinta",
+      "iconId": "equipos/transportador",
+      "iconSize": 32,
+      "label": "Cinta",
+      "x": 4,
+      "y": 4,
+      "iconState": 1,
+      "page": 1,
+      "unit": "",
+      "labelSize": 1,
+      "valueSize": 1,
+      "frame": false,
+      "layout": "STACKED",
+      "align": "LEFT",
+      "labelColor": 65535,
+      "valueColor": 65535,
+      "backgroundColor": 0,
+      "frameColor": 65535,
+      "capacity": 1,
+      "name": "Cinta transportadora (ICON_CINTA)",
+      "iconVarType": "uint8",
+      "layerOrder": 8,
+      "cornerRadius": 0
+    },
+    {
+      "type": "ICON",
+      "id": "ICON_SILO",
+      "variable": "silo",
+      "iconId": "equipos/silo",
+      "iconSize": 32,
+      "label": "Silo",
+      "x": 84,
+      "y": 4,
+      "iconState": 1,
+      "page": 1,
+      "unit": "",
+      "labelSize": 1,
+      "valueSize": 1,
+      "frame": false,
+      "layout": "STACKED",
+      "align": "LEFT",
+      "labelColor": 65535,
+      "valueColor": 65535,
+      "backgroundColor": 0,
+      "frameColor": 65535,
+      "capacity": 1,
+      "name": "Silo / tolva (ICON_SILO)",
+      "iconVarType": "uint8",
+      "layerOrder": 7,
+      "cornerRadius": 0
+    },
+    {
+      "type": "ICON",
+      "id": "ICON_VENTILADOR",
+      "variable": "ventilador",
+      "iconId": "bombas/ventilador",
+      "iconSize": 32,
+      "label": "Ventil.",
+      "x": 164,
+      "y": 4,
+      "iconState": 1,
+      "page": 1,
+      "unit": "",
+      "labelSize": 1,
+      "valueSize": 1,
+      "frame": false,
+      "layout": "STACKED",
+      "align": "LEFT",
+      "labelColor": 65535,
+      "valueColor": 65535,
+      "backgroundColor": 0,
+      "frameColor": 65535,
+      "capacity": 1,
+      "name": "Ventilador (ICON_VENTILADOR)",
+      "iconVarType": "uint8",
+      "layerOrder": 6,
+      "cornerRadius": 0
+    },
+    {
+      "type": "ICON",
+      "id": "ICON_COMPRESOR",
+      "variable": "compresor",
+      "iconId": "bombas/compresor",
+      "iconSize": 32,
+      "label": "Compresor",
+      "x": 244,
+      "y": 4,
+      "page": 1,
+      "unit": "",
+      "labelSize": 1,
+      "valueSize": 1,
+      "frame": false,
+      "layout": "STACKED",
+      "align": "LEFT",
+      "labelColor": 65535,
+      "valueColor": 65535,
+      "backgroundColor": 0,
+      "frameColor": 65535,
+      "iconState": 0,
+      "capacity": 1,
+      "name": "Compresor (ICON_COMPRESOR)",
+      "iconVarType": "uint8",
+      "layerOrder": 5,
+      "cornerRadius": 0
+    },
+    {
+      "type": "ICON",
+      "id": "ICON_RESISTENCIA",
+      "variable": "resistencia",
+      "iconId": "equipos/resistencia",
+      "iconSize": 32,
+      "label": "Calefac.",
+      "x": 4,
+      "y": 70,
+      "iconState": 1,
+      "page": 1,
+      "unit": "",
+      "labelSize": 1,
+      "valueSize": 1,
+      "frame": false,
+      "layout": "STACKED",
+      "align": "LEFT",
+      "labelColor": 65535,
+      "valueColor": 65535,
+      "backgroundColor": 0,
+      "frameColor": 65535,
+      "capacity": 1,
+      "name": "Resistencia / calefactor (ICON_RESISTENCIA)",
+      "iconVarType": "bool",
+      "layerOrder": 4,
+      "cornerRadius": 0
+    },
+    {
+      "type": "ICON",
+      "id": "ICON_TEMP",
+      "variable": "temperatura",
+      "iconId": "sensores/termometro",
+      "iconSize": 32,
+      "label": "Temp.",
+      "x": 84,
+      "y": 70,
+      "iconState": 1,
+      "page": 1,
+      "unit": "",
+      "labelSize": 1,
+      "valueSize": 1,
+      "frame": false,
+      "layout": "STACKED",
+      "align": "LEFT",
+      "labelColor": 65535,
+      "valueColor": 65535,
+      "backgroundColor": 0,
+      "frameColor": 65535,
+      "capacity": 1,
+      "name": "Temperatura (ICON_TEMP)",
+      "iconVarType": "uint8",
+      "layerOrder": 3,
+      "cornerRadius": 0
+    },
+    {
+      "type": "ICON",
+      "id": "ICON_PRESION",
+      "variable": "presion",
+      "iconId": "sensores/manometro",
+      "iconSize": 32,
+      "label": "Presión",
+      "x": 164,
+      "y": 70,
+      "iconState": 2,
+      "page": 1,
+      "unit": "",
+      "labelSize": 1,
+      "valueSize": 1,
+      "frame": false,
+      "layout": "STACKED",
+      "align": "LEFT",
+      "labelColor": 65535,
+      "valueColor": 65535,
+      "backgroundColor": 0,
+      "frameColor": 65535,
+      "capacity": 1,
+      "name": "Presión (ICON_PRESION)",
+      "iconVarType": "uint8",
+      "layerOrder": 2,
+      "cornerRadius": 0
+    },
+    {
+      "type": "ICON",
+      "id": "ICON_BALIZA",
+      "variable": "baliza",
+      "iconId": "pilotos/baliza",
+      "iconSize": 32,
+      "label": "Baliza",
+      "x": 244,
+      "y": 70,
+      "iconState": 1,
+      "page": 1,
+      "unit": "",
+      "labelSize": 1,
+      "valueSize": 1,
+      "frame": false,
+      "layout": "STACKED",
+      "align": "LEFT",
+      "labelColor": 65535,
+      "valueColor": 65535,
+      "backgroundColor": 0,
+      "frameColor": 65535,
+      "capacity": 1,
+      "name": "Torre de señalización (ICON_BALIZA)",
+      "iconVarType": "uint8",
+      "layerOrder": 1,
+      "cornerRadius": 0
+    }
+  ],
+  "iconAssets": {
+    "equipos/tanque@64": {
+      "name": "Tanque (nivel)",
+      "category": "equipos",
+      "stateNames": [
+        "Vacío",
+        "Bajo",
+        "Medio",
+        "Lleno"
+      ],
+      "entry": {
+        "width": 64,
+        "height": 64,
+        "transparent": 0,
+        "images": [
+          "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEREREREREREREREREREREREAAAAAAAAAAAAAAAAAAAERERERERERERERERERERERERAAAAAAAAAAAAAAAAAAEREREREREREREREREREREREREQAAAAAAAAAAAAAAAAEREiIiIiIiIiIiIiIiIiIiIiEREAAAAAAAAAAAAAAAEREiIiIiIiIiIiIiIiIiIiIiIhERAAAAAAAAAAAAAAAREiIiIiIiIiIiIiIiIiIiIiIiIREAAAAAAAAAAAAAARESIiIiIiIiIiIiIiIiIiIiIiIhERAAAAAAAAAAAAABESIiIiIiIiIiIiIiIiIiIiIiIiIREAAAAAAAAAAAAAERIiIiIiIiIiIiIiIiIiIiIiIiIhEQAAAAAAAAAAAAAREiIiIiIiIiIiIiIiIiIiIiIiIiERAAAAAAAAAAAAABESIiIiIiIiIiIiIiIiIiIiIiIiIREAAAAAAAAAAAAAERIiIiIiIiIiIiIiIiIiIiIiIiIhEQAAAAAAAAAAAAAREiIiIiIiIiIiIiIiIiIiIiIiIiERAAAAAAAAAAAAABESIiIiIiIiIiIiIiIiIiIiIiIiIREAAAAAAAAAAAAAERIiIiIiIiIiIiIiIiIiIiIiIiIhEQAAAAAAAAAAAAAREiIiIiIiIiIiIiIiIiIiIiIiIiERAAAAAAAAAAAAABESIiIiIiIiIiIiIiIiIiIiIiIiIREAAAAAAAAAAAAAERIiIiIiIiIiIiIiIiIiIiIiIiIhEQAAAAAAAAAAAAAREiIiIiIiIiIiIiIiIiIiIiIiIiERAAAAAAAAAAAAABESIiIiIiIiIiIiIiIiIiIiIiIiIREAAAAAAAAAAAAAERIiIiIiIiIiIiIiIiIiIiIiIiIhEQAAAAAAAAAAAAAREiIiIiIiIiIiIiIiIiIiIiIiIiERAAAAAAAAAAAAABESIiIiIiIiIiIiIiIiIiIiIiIiIREAAAAAAAAAAAAAERIiIiIiIiIiIiIiIiIiIiIiIiIhEQAAAAAAAAAAAAAREiIiIiIiIiIiIiIiIiIiIiIiIiERAAAAAAAAAAAAABESIiIiIiIiIiIiIiIiIiIiIiIiIREAAAAAAAAAAAAAERIiIiIiIiIiIiIiIiIiIiIiIiIhEQAAAAAAAAAAAAAREiIiIiIiIiIiIiIiIiIiIiIiIiERAAAAAAAAAAAAABESIiIiIiIiIiIiIiIiIiIiIiIiIREAAAAAAAAAAAAAERIiIiIiIiIiIiIiIiIiIiIiIiIhEQAAAAAAAAAAAAAREiIiIiIiIiIiIiIiIiIiIiIiIiERAAAAAAAAAAAAABESIiIiIiIiIiIiIiIiIiIiIiIiIREAAAAAAAAAAAAAERIiIiIiIiIiIiIiIiIiIiIiIiIhEQAAAAAAAAAAAAAREiIiIiIiIiIiIiIiIiIiIiIiIiERAAAAAAAAAAAAABESIiIiIiIiIiIiIiIiIiIiIiIiIREAAAAAAAAAAAAAERIiIiIiIiIiIiIiIiIiIiIiIiIhEQAAAAAAAAAAAAAREiIiIiIiIiIiIiIiIiIiIiIiIiERAAAAAAAAAAAAABESIiIiIiIiIiIiIiIiIiIiIiIiIREAAAAAAAAAAAAAERIiIiIiIiIiIiIiIiIiIiIiIiIhEQAAAAAAAAAAAAAREiIiIiIiIiIiIiIiIiIiIiIiIiERAAAAAAAAAAAAABESIiIiIiIiIiIiIiIiIiIiIiIiIREAAAAAAAAAAAAAERIiIiIiIiIiIiIiIiIiIiIiIiIhEQAAAAAAAAAAAAAREiIiIiIiIiIiIiIiIiIiIiIiIiERAAAAAAAAAAAAABESIiIiIiIiIiIiIiIiIiIiIiIiIREAAAAAAAAAAAAAERIiIiIiIiIiIiIiIiIiIiIiIiIhEQAAAAAAAAAAAAAREiIiIiIiIiIiIiIiIiIiIiIiIiERAAAAAAAAAAAAABESIiIiIiIiIiIiIiIiIiIiIiIiIREAAAAAAAAAAAAAERIiIiIiIiIiIiIiIiIiIiIiIiIhEQAAAAAAAAAAAAAREiIiIiIiIiIiIiIiIiIiIiIiIiERAAAAAAAAAAAAABESIiIiIiIiIiIiIiIiIiIiIiIiIREAAAAAAAAAAAAAERIiIiIiIiIiIiIiIiIiIiIiIiIhEQAAAAAAAAAAAAARESIiIiIiIiIiIiIiIiIiIiIiIhERAAAAAAAAAAAAAAERIiIiIiIiIiIiIiIiIiIiIiIiERAAAAAAAAAAAAAAARESIiIiIiIiIiIiIiIiIiIiIiEREAAAAAAAAAAAAAAAEREiIiIiIiIiIiIiIiIiIiIiEREAAAAAAAAAAAAAAAABEREREREREREREREREREREREREAAAAAAAAAAAAAAAAAAREREREREREREREREREREREREAAAAAAAAAAAAAAAAAAAEREREREREREREREREREREREAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+          "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEREREREREREREREREREREREAAAAAAAAAAAAAAAAAAAERERERERERERERERERERERERAAAAAAAAAAAAAAAAAAEREREREREREREREREREREREREQAAAAAAAAAAAAAAAAEREiIiIiIiIiIiIiIiIiIiIiEREAAAAAAAAAAAAAAAEREiIiIiIiIiIiIiIiIiIiIiIhERAAAAAAAAAAAAAAAREiIiIiIiIiIiIiIiIiIiIiIiIREAAAAAAAAAAAAAARESIiIiIiIiIiIiIiIiIiIiIiIhERAAAAAAAAAAAAABESIiIiIiIiIiIiIiIiIiIiIiIiIREAAAAAAAAAAAAAERIiIiIiIiIiIiIiIiIiIiIiIiIhEQAAAAAAAAAAAAAREiIiIiIiIiIiIiIiIiIiIiIiIiERAAAAAAAAAAAAABESIiIiIiIiIiIiIiIiIiIiIiIiIREAAAAAAAAAAAAAERIiIiIiIiIiIiIiIiIiIiIiIiIhEQAAAAAAAAAAAAAREiIiIiIiIiIiIiIiIiIiIiIiIiERAAAAAAAAAAAAABESIiIiIiIiIiIiIiIiIiIiIiIiIREAAAAAAAAAAAAAERIiIiIiIiIiIiIiIiIiIiIiIiIhEQAAAAAAAAAAAAAREiIiIiIiIiIiIiIiIiIiIiIiIiERAAAAAAAAAAAAABESIiIiIiIiIiIiIiIiIiIiIiIiIREAAAAAAAAAAAAAERIiIiIiIiIiIiIiIiIiIiIiIiIhEQAAAAAAAAAAAAAREiIiIiIiIiIiIiIiIiIiIiIiIiERAAAAAAAAAAAAABESIiIiIiIiIiIiIiIiIiIiIiIiIREAAAAAAAAAAAAAERIiIiIiIiIiIiIiIiIiIiIiIiIhEQAAAAAAAAAAAAAREiIiIiIiIiIiIiIiIiIiIiIiIiERAAAAAAAAAAAAABESIiIiIiIiIiIiIiIiIiIiIiIiIREAAAAAAAAAAAAAERIiIiIiIiIiIiIiIiIiIiIiIiIhEQAAAAAAAAAAAAAREiIiIiIiIiIiIiIiIiIiIiIiIiERAAAAAAAAAAAAABESIiIiIiIiIiIiIiIiIiIiIiIiIREAAAAAAAAAAAAAERIiIiIiIiIiIiIiIiIiIiIiIiIhEQAAAAAAAAAAAAAREiIiIiIiIiIiIiIiIiIiIiIiIiERAAAAAAAAAAAAABESIiIiIiIiIiIiIiIiIiIiIiIiIREAAAAAAAAAAAAAERIiIiIiIiIiIiIiIiIiIiIiIiIhEQAAAAAAAAAAAAAREiIiIiIiIiIiIiIiIiIiIiIiIiERAAAAAAAAAAAAABESIiIiIiIiIiIiIiIiIiIiIiIiIREAAAAAAAAAAAAAERIiIiIiIiIiIiIiIiIiIiIiIiIhEQAAAAAAAAAAAAAREiIiIiIiIiIiIiIiIiIiIiIiIiERAAAAAAAAAAAAABESIiIiIiIiIiIiIiIiIiIiIiIiIREAAAAAAAAAAAAAERIiIiIiIiIiIiIiIiIiIiIiIiIhEQAAAAAAAAAAAAAREiIiIiIiIiIiIiIiIiIiIiIiIiERAAAAAAAAAAAAABESIiIiIiIiIiIiIiIiIiIiIiIiIREAAAAAAAAAAAAAERIiIiIiIiIiIiIiIiIiIiIiIiIhEQAAAAAAAAAAAAAREiIiIiIiIiIiIiIiIiIiIiIiIiERAAAAAAAAAAAAABESIiIiIiIiIiIiIiIiIiIiIiIiIREAAAAAAAAAAAAAERIiIiIiIiIiIiIiIiIiIiIiIiIhEQAAAAAAAAAAAAAREiIiIiIiIiIiIiIiIiIiIiIiIiERAAAAAAAAAAAAABETMzMzMzMzMzMzMzMzMzMzMzMzMREAAAAAAAAAAAAAERMzMzMzMzMzMzMzMzMzMzMzMzMxEQAAAAAAAAAAAAAREzMzMzMzMzMzMzMzMzMzMzMzMzERAAAAAAAAAAAAABETMzMzMzMzMzMzMzMzMzMzMzMzMREAAAAAAAAAAAAAERMzMzMzMzMzMzMzMzMzMzMzMzMxEQAAAAAAAAAAAAAREzMzMzMzMzMzMzMzMzMzMzMzMzERAAAAAAAAAAAAABETMzMzMzMzMzMzMzMzMzMzMzMzMREAAAAAAAAAAAAAERMzMzMzMzMzMzMzMzMzMzMzMzMxEQAAAAAAAAAAAAARETMzMzMzMzMzMzMzMzMzMzMzMxERAAAAAAAAAAAAAAERMzMzMzMzMzMzMzMzMzMzMzMzERAAAAAAAAAAAAAAARETMzMzMzMzMzMzMzMzMzMzMzEREAAAAAAAAAAAAAAAEREzMzMzMzMzMzMzMzMzMzMzEREAAAAAAAAAAAAAAAABEREREREREREREREREREREREREAAAAAAAAAAAAAAAAAAREREREREREREREREREREREREAAAAAAAAAAAAAAAAAAAEREREREREREREREREREREREAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+          "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEREREREREREREREREREREREAAAAAAAAAAAAAAAAAAAERERERERERERERERERERERERAAAAAAAAAAAAAAAAAAEREREREREREREREREREREREREQAAAAAAAAAAAAAAAAEREiIiIiIiIiIiIiIiIiIiIiEREAAAAAAAAAAAAAAAEREiIiIiIiIiIiIiIiIiIiIiIhERAAAAAAAAAAAAAAAREiIiIiIiIiIiIiIiIiIiIiIiIREAAAAAAAAAAAAAARESIiIiIiIiIiIiIiIiIiIiIiIhERAAAAAAAAAAAAABESIiIiIiIiIiIiIiIiIiIiIiIiIREAAAAAAAAAAAAAERIiIiIiIiIiIiIiIiIiIiIiIiIhEQAAAAAAAAAAAAAREiIiIiIiIiIiIiIiIiIiIiIiIiERAAAAAAAAAAAAABESIiIiIiIiIiIiIiIiIiIiIiIiIREAAAAAAAAAAAAAERIiIiIiIiIiIiIiIiIiIiIiIiIhEQAAAAAAAAAAAAAREiIiIiIiIiIiIiIiIiIiIiIiIiERAAAAAAAAAAAAABESIiIiIiIiIiIiIiIiIiIiIiIiIREAAAAAAAAAAAAAERIiIiIiIiIiIiIiIiIiIiIiIiIhEQAAAAAAAAAAAAAREiIiIiIiIiIiIiIiIiIiIiIiIiERAAAAAAAAAAAAABESIiIiIiIiIiIiIiIiIiIiIiIiIREAAAAAAAAAAAAAERIiIiIiIiIiIiIiIiIiIiIiIiIhEQAAAAAAAAAAAAAREiIiIiIiIiIiIiIiIiIiIiIiIiERAAAAAAAAAAAAABESIiIiIiIiIiIiIiIiIiIiIiIiIREAAAAAAAAAAAAAERIiIiIiIiIiIiIiIiIiIiIiIiIhEQAAAAAAAAAAAAAREiIiIiIiIiIiIiIiIiIiIiIiIiERAAAAAAAAAAAAABESIiIiIiIiIiIiIiIiIiIiIiIiIREAAAAAAAAAAAAAERIiIiIiIiIiIiIiIiIiIiIiIiIhEQAAAAAAAAAAAAAREiIiIiIiIiIiIiIiIiIiIiIiIiERAAAAAAAAAAAAABESIiIiIiIiIiIiIiIiIiIiIiIiIREAAAAAAAAAAAAAERIiIiIiIiIiIiIiIiIiIiIiIiIhEQAAAAAAAAAAAAAREiIiIiIiIiIiIiIiIiIiIiIiIiERAAAAAAAAAAAAABETMzMzMzMzMzMzMzMzMzMzMzMzMREAAAAAAAAAAAAAERMzMzMzMzMzMzMzMzMzMzMzMzMxEQAAAAAAAAAAAAAREzMzMzMzMzMzMzMzMzMzMzMzMzERAAAAAAAAAAAAABETMzMzMzMzMzMzMzMzMzMzMzMzMREAAAAAAAAAAAAAERMzMzMzMzMzMzMzMzMzMzMzMzMxEQAAAAAAAAAAAAAREzMzMzMzMzMzMzMzMzMzMzMzMzERAAAAAAAAAAAAABETMzMzMzMzMzMzMzMzMzMzMzMzMREAAAAAAAAAAAAAERMzMzMzMzMzMzMzMzMzMzMzMzMxEQAAAAAAAAAAAAAREzMzMzMzMzMzMzMzMzMzMzMzMzERAAAAAAAAAAAAABETMzMzMzMzMzMzMzMzMzMzMzMzMREAAAAAAAAAAAAAERMzMzMzMzMzMzMzMzMzMzMzMzMxEQAAAAAAAAAAAAAREzMzMzMzMzMzMzMzMzMzMzMzMzERAAAAAAAAAAAAABETMzMzMzMzMzMzMzMzMzMzMzMzMREAAAAAAAAAAAAAERMzMzMzMzMzMzMzMzMzMzMzMzMxEQAAAAAAAAAAAAAREzMzMzMzMzMzMzMzMzMzMzMzMzERAAAAAAAAAAAAABETMzMzMzMzMzMzMzMzMzMzMzMzMREAAAAAAAAAAAAAERMzMzMzMzMzMzMzMzMzMzMzMzMxEQAAAAAAAAAAAAAREzMzMzMzMzMzMzMzMzMzMzMzMzERAAAAAAAAAAAAABETMzMzMzMzMzMzMzMzMzMzMzMzMREAAAAAAAAAAAAAERMzMzMzMzMzMzMzMzMzMzMzMzMxEQAAAAAAAAAAAAAREzMzMzMzMzMzMzMzMzMzMzMzMzERAAAAAAAAAAAAABETMzMzMzMzMzMzMzMzMzMzMzMzMREAAAAAAAAAAAAAERMzMzMzMzMzMzMzMzMzMzMzMzMxEQAAAAAAAAAAAAARETMzMzMzMzMzMzMzMzMzMzMzMxERAAAAAAAAAAAAAAERMzMzMzMzMzMzMzMzMzMzMzMzERAAAAAAAAAAAAAAARETMzMzMzMzMzMzMzMzMzMzMzEREAAAAAAAAAAAAAAAEREzMzMzMzMzMzMzMzMzMzMzEREAAAAAAAAAAAAAAAABEREREREREREREREREREREREREAAAAAAAAAAAAAAAAAAREREREREREREREREREREREREAAAAAAAAAAAAAAAAAAAEREREREREREREREREREREREAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+          "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEREREREREREREREREREREREAAAAAAAAAAAAAAAAAAAERERERERERERERERERERERERAAAAAAAAAAAAAAAAAAEREREREREREREREREREREREREQAAAAAAAAAAAAAAAAEREiIiIiIiIiIiIiIiIiIiIiEREAAAAAAAAAAAAAAAEREiIiIiIiIiIiIiIiIiIiIiIhERAAAAAAAAAAAAAAAREiIiIiIiIiIiIiIiIiIiIiIiIREAAAAAAAAAAAAAARESIiIiIiIiIiIiIiIiIiIiIiIhERAAAAAAAAAAAAABETMzMzMzMzMzMzMzMzMzMzMzMzMREAAAAAAAAAAAAAERMzMzMzMzMzMzMzMzMzMzMzMzMxEQAAAAAAAAAAAAAREzMzMzMzMzMzMzMzMzMzMzMzMzERAAAAAAAAAAAAABETMzMzMzMzMzMzMzMzMzMzMzMzMREAAAAAAAAAAAAAERMzMzMzMzMzMzMzMzMzMzMzMzMxEQAAAAAAAAAAAAAREzMzMzMzMzMzMzMzMzMzMzMzMzERAAAAAAAAAAAAABETMzMzMzMzMzMzMzMzMzMzMzMzMREAAAAAAAAAAAAAERMzMzMzMzMzMzMzMzMzMzMzMzMxEQAAAAAAAAAAAAAREzMzMzMzMzMzMzMzMzMzMzMzMzERAAAAAAAAAAAAABETMzMzMzMzMzMzMzMzMzMzMzMzMREAAAAAAAAAAAAAERMzMzMzMzMzMzMzMzMzMzMzMzMxEQAAAAAAAAAAAAAREzMzMzMzMzMzMzMzMzMzMzMzMzERAAAAAAAAAAAAABETMzMzMzMzMzMzMzMzMzMzMzMzMREAAAAAAAAAAAAAERMzMzMzMzMzMzMzMzMzMzMzMzMxEQAAAAAAAAAAAAAREzMzMzMzMzMzMzMzMzMzMzMzMzERAAAAAAAAAAAAABETMzMzMzMzMzMzMzMzMzMzMzMzMREAAAAAAAAAAAAAERMzMzMzMzMzMzMzMzMzMzMzMzMxEQAAAAAAAAAAAAAREzMzMzMzMzMzMzMzMzMzMzMzMzERAAAAAAAAAAAAABETMzMzMzMzMzMzMzMzMzMzMzMzMREAAAAAAAAAAAAAERMzMzMzMzMzMzMzMzMzMzMzMzMxEQAAAAAAAAAAAAAREzMzMzMzMzMzMzMzMzMzMzMzMzERAAAAAAAAAAAAABETMzMzMzMzMzMzMzMzMzMzMzMzMREAAAAAAAAAAAAAERMzMzMzMzMzMzMzMzMzMzMzMzMxEQAAAAAAAAAAAAAREzMzMzMzMzMzMzMzMzMzMzMzMzERAAAAAAAAAAAAABETMzMzMzMzMzMzMzMzMzMzMzMzMREAAAAAAAAAAAAAERMzMzMzMzMzMzMzMzMzMzMzMzMxEQAAAAAAAAAAAAAREzMzMzMzMzMzMzMzMzMzMzMzMzERAAAAAAAAAAAAABETMzMzMzMzMzMzMzMzMzMzMzMzMREAAAAAAAAAAAAAERMzMzMzMzMzMzMzMzMzMzMzMzMxEQAAAAAAAAAAAAAREzMzMzMzMzMzMzMzMzMzMzMzMzERAAAAAAAAAAAAABETMzMzMzMzMzMzMzMzMzMzMzMzMREAAAAAAAAAAAAAERMzMzMzMzMzMzMzMzMzMzMzMzMxEQAAAAAAAAAAAAAREzMzMzMzMzMzMzMzMzMzMzMzMzERAAAAAAAAAAAAABETMzMzMzMzMzMzMzMzMzMzMzMzMREAAAAAAAAAAAAAERMzMzMzMzMzMzMzMzMzMzMzMzMxEQAAAAAAAAAAAAAREzMzMzMzMzMzMzMzMzMzMzMzMzERAAAAAAAAAAAAABETMzMzMzMzMzMzMzMzMzMzMzMzMREAAAAAAAAAAAAAERMzMzMzMzMzMzMzMzMzMzMzMzMxEQAAAAAAAAAAAAAREzMzMzMzMzMzMzMzMzMzMzMzMzERAAAAAAAAAAAAABETMzMzMzMzMzMzMzMzMzMzMzMzMREAAAAAAAAAAAAAERMzMzMzMzMzMzMzMzMzMzMzMzMxEQAAAAAAAAAAAAAREzMzMzMzMzMzMzMzMzMzMzMzMzERAAAAAAAAAAAAABETMzMzMzMzMzMzMzMzMzMzMzMzMREAAAAAAAAAAAAAERMzMzMzMzMzMzMzMzMzMzMzMzMxEQAAAAAAAAAAAAARETMzMzMzMzMzMzMzMzMzMzMzMxERAAAAAAAAAAAAAAERMzMzMzMzMzMzMzMzMzMzMzMzERAAAAAAAAAAAAAAARETMzMzMzMzMzMzMzMzMzMzMzEREAAAAAAAAAAAAAAAEREzMzMzMzMzMzMzMzMzMzMzEREAAAAAAAAAAAAAAAABEREREREREREREREREREREREREAAAAAAAAAAAAAAAAAAREREREREREREREREREREREREAAAAAAAAAAAAAAAAAAAEREREREREREREREREREREREAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+        ],
+        "states": [
+          {
+            "image": 0,
+            "palette": [
+              0,
+              50712,
+              8484,
+              11647,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "image": 1,
+            "palette": [
+              0,
+              50712,
+              8484,
+              11647,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "image": 2,
+            "palette": [
+              0,
+              50712,
+              8484,
+              11647,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "image": 3,
+            "palette": [
+              0,
+              50712,
+              8484,
+              11647,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          }
+        ]
+      }
+    },
+    "valvulas/valvula@48": {
+      "name": "Válvula",
+      "category": "valvulas",
+      "stateNames": [
+        "Cerrada",
+        "Abierta",
+        "Falla"
+      ],
+      "entry": {
+        "width": 48,
+        "height": 48,
+        "transparent": 0,
+        "images": [
+          "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABEREREREREREREAAAAAAAAAAAAAAAAAABEREREREREREREAAAAAAAAAAAAAAAAAABEREREREREREREAAAAAAAAAAAAAAAAAABEREREREREREREAAAAAAAAAAAAAAAAAAAAAAAAREAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAREAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAREAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAREAAAAAAAAAAAAAAAABEAAAAAAAAAAAAREAAAAAAAAAAAABEAARERAAAAAAAAAAAREAAAAAAAAAAAEREQAREREQAAAAAAAAAREAAAAAAAAAAREREQARERERAAAAAAAAAREAAAAAAAAAEREREQAREhEREQAAAAAAAREAAAAAAAAREREhEQAREiIREREAAAAAAREAAAAAABERESIhEQAREiIiEREQAAAAAREAAAAAARERIiIhEQAREiIiIREREAAAAREAAAABERESIiIhEQAREiIiIiERERAAAREAAAERERIiIiIhEQAREiIiIiIhEREQAREAAREREiIiIiIhEQAREiIiIiIiERERAREAERERIiIiIiIhEQAREiIiIiIiIhEREREREREiIiIiIiIhEQAREiIiIiIiIiIRERERESIiIiIiIiIhEQAREiIiIiIiIiIhEREREiIiIiIiIiIhEQAREiIiIiIiIiIhEREREiIiIiIiIiIhEQAREiIiIiIiIiERERERERIiIiIiIiIhEQAREiIiIiIiIhEREQAREREiIiIiIiIhEQAREiIiIiIiERERAAAAERERIiIiIiIhEQAREiIiIiIREREAAAAAABERESIiIiIhEQAREiIiIiEREQAAAAAAAAARERIiIiIhEQAREiIiIREREAAAAAAAAAABERESIiIhEQAREiIhEREQAAAAAAAAAAAAAREREiIhEQAREiERERAAAAAAAAAAAAAAAAERERIhEQAREhEREQAAAAAAAAAAAAAAAAAREREhEQARERERAAAAAAAAAAAAAAAAAAAAEREREQAREREAAAAAAAAAAAAAAAAAAAAAABEREQARERAAAAAAAAAAAAAAAAAAAAAAAAEREQABEAAAAAAAAAAAAAAAAAAAAAAAAAABEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+        ],
+        "states": [
+          {
+            "image": 0,
+            "palette": [
+              0,
+              50712,
+              25388,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "image": 0,
+            "palette": [
+              0,
+              50712,
+              2016,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "image": 0,
+            "palette": [
+              0,
+              50712,
+              63488,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          }
+        ]
+      }
+    },
+    "bombas/bomba@64": {
+      "name": "Bomba",
+      "category": "bombas",
+      "stateNames": [
+        "Parado",
+        "En marcha",
+        "Falla"
+      ],
+      "entry": {
+        "width": 64,
+        "height": 64,
+        "transparent": 0,
+        "images": [
+          "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAARERERERERAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAREREREREREREREQAAAAAAAAAAAAAAAAAAAAAAAAAAEREREREREREREREREQAAAAAAAAAAAAAAAAAAAAAAABEREREiIiIiIiIiEREREQAAAAAAAAAAAAAAAAAAAAABERESIiIiIiIiIiIiIREREAAAAAAAAAAAAAAAAAAAAREREiIiIiIiIiIiIiIiIREREAAAAAAAAAAAAAAAAAARERIiIiIiIiIiIiIiIiIiIRERAAAAAAAAAAAAAAAAARERIiIiIiIiIiIiIiIiIiIiEREQAAAAAAAAAAAAAAARESIiIiIiIiIiIiIiIiIiIiIiEREAAAAAAAAAAAAAARESIiIiIiIiIiIiIiIiIiIiIiIhERAAAAAAAAAAAAARESIiIiIiIiIiIiIiIiIiIiIiIiIREQAAAAAAAAAAARESIiIiMiIiIiIiIiIiIiIiIiIiIiEREAAAAAAAAAABESIiIiIzMiIiIiIiIiIiIiIiIiIiIhEQAAAAAAAAABERIiIiIjMzMiIiIiIiIiIiIiIiIiIiEREAAAAAAAABERIiIiIiMzMzMiIiIiIiIiIiIiIiIiIhERAAAAAAAAERIiIiIiIzMzMzMiIiIiIiIiIiIiIiIiIREAAAAAAAEREiIiIiIjMzMzMzMiIiIiIiIiIiIiIiIhERAAAAAAAREiIiIiIiMzMzMzMzMiIiIiIiIiIiIiIiIREAAAAAARESIiIiIiIzMzMzMzMzMiIiIiIiIiIiIiIhERAAAAABESIiIiIiIjMzMzMzMzMzIiIiIiIiIiIiIiIREAAAAAERIiIiIiIiMzMzMzMzMzMzIiIiIiIiIiIiIhEQAAAAAREiIiIiIiIzMzMzMzMzMzMzIiIiIiIiIiIiERAAAAAREiIiIiIiIjMzMzMzMzMzMzMzIiIiIiIiIiIhEQAAABESIiIiIiIiMzMzMzMzMzMzMzMzIiIiIiIiIiERAAAAERIiIiIiIiIzMzMzMzMzMzMzMzMzIiIiIiIiIREAAAAREiIiIiIiIjMzMzMzMzMzMzMzMzMzIiIiIiIhEQAAABESIiIiIiIiMzMzMzMzMzMzMzMzMzMzIiIiIiERAAAAERIiIiIiIiIzMzMzMzMzMzMzMzMzMzMzIiIiIREAAAAREiIiIiIiIjMzMzMzMzMzMzMzMzMzMzMzIiIhEQAAABESIiIiIiIiMzMzMzMzMzMzMzMzMzMzMzMiIiERAAAAERIiIiIiIiIzMzMzMzMzMzMzMzMzMzMzIiIiIREAAAAREiIiIiIiIjMzMzMzMzMzMzMzMzMzMyIiIiIhEQAAABESIiIiIiIiMzMzMzMzMzMzMzMzMzMiIiIiIiERAAAAERIiIiIiIiIzMzMzMzMzMzMzMzMzIiIiIiIiIREAAAAREiIiIiIiIjMzMzMzMzMzMzMzMyIiIiIiIiIhEQAAABESIiIiIiIiMzMzMzMzMzMzMzMiIiIiIiIiIiERAAAAAREiIiIiIiIzMzMzMzMzMzMzIiIiIiIiIiIiERAAAAABESIiIiIiIjMzMzMzMzMzMyIiIiIiIiIiIiIREAAAAAERIiIiIiIiMzMzMzMzMzMiIiIiIiIiIiIiIhEQAAAAARESIiIiIiIzMzMzMzMzMiIiIiIiIiIiIiIhERAAAAAAERIiIiIiIjMzMzMzMzIiIiIiIiIiIiIiIiERAAAAAAARESIiIiIiMzMzMzMyIiIiIiIiIiIiIiIiEREAAAAAAAERIiIiIiIzMzMzMiIiIiIiIiIiIiIiIiIREAAAAAAAARESIiIiIjMzMzIiIiIiIiIiIiIiIiIiIREQAAAAAAAAEREiIiIiMzMyIiIiIiIiIiIiIiIiIiIREQAAAAAAAAABESIiIiIzMiIiIiIiIiIiIiIiIiIiIhEQAAAAAAAAAAEREiIiIjIiIiIiIiIiIiIiIiIiIiIhERAAAAAAAAAAABERIiIiIiIiIiIiIiIiIiIiIiIiIhERAAAAAAAAAAAAARESIiIiIiIiIiIiIiIiIiIiIiIhERAAAAAAAAAAAAAAEREiIiIiIiIiIiIiIiIiIiIiIhERAAAAAAAAAAAAAAABEREiIiIiIiIiIiIiIiIiIiIRERAAAAAAAAAAAAAAAAARERIiIiIiIiIiIiIiIiIiIRERAAAAAAAAAAAAAAAAAAERERIiIiIiIiIiIiIiIiERERAAAAAAAAAAAAAAAAAAAAERERIiIiIiIiIiIiIhEREQAAAAAAAAAAAAAAAAAAAAABEREREiIiIiIiIiEREREQAAAAAAAAAAAAAAAAAAAAAAABEREREREREREREREREAAAAAAAAAAAAAAAAAAAAAAAAAABERERERERERERERAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAARERERERERAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+        ],
+        "states": [
+          {
+            "image": 0,
+            "palette": [
+              0,
+              50712,
+              25388,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "image": 0,
+            "palette": [
+              0,
+              50712,
+              2016,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "image": 0,
+            "palette": [
+              0,
+              50712,
+              63488,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          }
+        ]
+      }
+    },
+    "motores/motor@48": {
+      "name": "Motor",
+      "category": "motores",
+      "stateNames": [
+        "Parado",
+        "En marcha",
+        "Falla"
+      ],
+      "entry": {
+        "width": 48,
+        "height": 48,
+        "transparent": 0,
+        "images": [
+          "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAREREREQAAAAAAAAAAAAAAAAAAAAAAAREREREREREQAAAAAAAAAAAAAAAAAAABEREiIiIiIhEREAAAAAAAAAAAAAAAAAEREiIiIiIiIiIhERAAAAAAAAAAAAAAABESIiIiIiIiIiIiIREAAAAAAAAAAAAAEREiIiIiIiIiIiIiIhERAAAAAAAAAAABESIiIiIiIiIiIiIiIiIREAAAAAAAAAAREiIiIiIiIiIiIiIiIiIhEQAAAAAAAAARIiIiIiIiIiIiIiIiIiIiEQAAAAAAAAESIiIiIiIiIiIiIiIiIiIiIRAAAAAAABESIiIiIiIiIiIiIiIiIiIiIREAAAAAABEiIiMzMiIiIiIiIiIjMzIiIhEAAAAAARIiIiMzMiIiIiIiIiIjMzIiIiEQAAAAARIiIiMzMyIiIiIiIiIzMzIiIiEQAAAAESIiIiMzMzIiIiIiIiMzMzIiIiIRAAAAESIiIiMzMzMiIiIiIjMzMzIiIiIRAAAAESIiIiMzMzMyIiIiIzMzMzIiIiIRAAABEiIiIiMzMzMzIiIiMzMzMzIiIiIhEAABEiIiIiMzMzMzIiIiMzMzMzIiIiIhEAABEiIiIiMzMjMzMiIjMzMjMzIiIiIhEAABEiIiIiMzMjMzMyIzMzMjMzIiIiIhEAABEiIiIiMzMiMzMzMzMzIjMzIiIiIhEAABEiIiIiMzMiIzMzMzMyIjMzIiIiIhEAABEiIiIiMzMiIjMzMzMiIjMzIiIiIhEAABEiIiIiMzMiIiMzMzIiIjMzIiIiIhEAABEiIiIiMzMiIiIzMyIiIjMzIiIiIhEAABEiIiIiMzMiIiIjMiIiIjMzIiIiIhEAAAESIiIiMzMiIiIiIiIiIjMzIiIiIRAAAAESIiIiMzMiIiIiIiIiIjMzIiIiIRAAAAESIiIiMzMiIiIiIiIiIjMzIiIiIRAAAAARIiIiMzMiIiIiIiIiIjMzIiIiEQAAAAARIiIiMzMiIiIiIiIiIjMzIiIiEQAAAAABEiIiMzMiIiIiIiIiIjMzIiIhEAAAAAABESIiIzIiIiIiIiIiIiMyIiIREAAAAAAAESIiIiIiIiIiIiIiIiIiIiIRAAAAAAAAARIiIiIiIiIiIiIiIiIiIiEQAAAAAAAAAREiIiIiIiIiIiIiIiIiIhEQAAAAAAAAABESIiIiIiIiIiIiIiIiIREAAAAAAAAAAAEREiIiIiIiIiIiIiIhERAAAAAAAAAAAAABESIiIiIiIiIiIiIREAAAAAAAAAAAAAAAEREiIiIiIiIiIhERAAAAAAAAAAAAAAAAABEREiIiIiIhEREAAAAAAAAAAAAAAAAAAAAREREREREREQAAAAAAAAAAAAAAAAAAAAAAAREREREQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+        ],
+        "states": [
+          {
+            "image": 0,
+            "palette": [
+              0,
+              50712,
+              25388,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "image": 0,
+            "palette": [
+              0,
+              50712,
+              2016,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "image": 0,
+            "palette": [
+              0,
+              50712,
+              63488,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          }
+        ]
+      }
+    },
+    "botones/paro_emergencia@32": {
+      "name": "Paro de emergencia",
+      "category": "botones",
+      "stateNames": [
+        "Normal",
+        "Activado"
+      ],
+      "entry": {
+        "width": 32,
+        "height": 32,
+        "transparent": 0,
+        "images": [
+          "AAAAAAAAAAAAAAAAAAAAAAAREREREREREREREREREQABIiIiIiIiIiIiIiIiIiIQASIiIiIiIiIiIiIiIiIiEAEiIiIiIhEREREiIiIiIhABIiIiIhEzMzMzESIiIiIQASIiIhEzQzMzMzMRIiIiEAEiIiETREMzMzMzMRIiIhABIiIRNEQzMzMzMzMRIiIQASIiE0RDMzMzMzMzMSIiEAEiITREMzMzMzMzMzMSIhABIiE0QzMzMzMzMzMzEiIQASITRDMzMzMzMzMzMzEiEAEiEzMzMzMzMzMzMzMxIhABIhMzMzMzMzMzMzMzMSIQASITMzMzMzMzMzMzMzEiEAEiEzMzMzMzMzMzMzMxIhABIhMzMzMzMzMzMzMzMSIQASITMzMzMzMzMzMzMzEiEAEiEzMzMzMzMzMzMzMxIhABIiEzMzMzMzMzMzMzEiIQASIhMzMzMzMzMzMzMxIiEAEiIhMzMzMzMzMzMzEiIhABIiIRMzMzMzMzMzMRIiIQASIiIRMzMzMzMzMxEiIiEAEiIiIRMzMzMzMzESIiIhABIiIiIhEzMzMzESIiIiIQASIiIiIiERERESIiIiIiEAEiIiIiIiIiIiIiIiIiIhABIiIiIiIiIiIiIiIiIiIQABERERERERERERERERERAAAAAAAAAAAAAAAAAAAAAAA=",
+          "AAAAAAAAAAAAAAAAAAAAAAAREREREREREREREREREQABIiIiIiIiIiIiIiIiIiIQASIiIiIiIiIiIiIiIiIiEAEiIiIiIiIiIiIiIiIiIhABIiIiIiIiIiIiIiIiIiIQASIiIiIiIiESIiIiIiIiEAEiIiIiIhEUQREiIiIiIhABIiIiIhFEREREESIiIiIQASIiIiFEQzMzNEQSIiIiEAEiIiIURDMzMzNEQSIiIhABIiIiFEMzMzMzNEEiIiIQASIiIUQzMzMzMzNEEiIiEAEiIiFDMzMzMzMzNBIiIhABIiIhQzMzMzMzMzQSIiIQASIiFEMzMzMzMzM0QSIiEAEiIhRDMzMzMzMzNEEiIhABIiIhQzMzMzMzMzQSIiIQASIiIUMzMzMzMzM0EiIiEAEiIiFEMzMzMzMzRBIiIhABIiIiFEMzMzMzNEEiIiIQASIiIhREMzMzM0RBIiIiEAEiIiIhREMzMzREEiIiIhABIiIiIhFEREREESIiIiIQASIiIiIiERRBESIiIiIiEAEiIiIiIiIhEiIiIiIiIhABIiIiIiIiIiIiIiIiIiIQASIiIiIiIiIiIiIiIiIiEAEiIiIiIiIiIiIiIiIiIhABIiIiIiIiIiIiIiIiIiIQABERERERERERERERERERAAAAAAAAAAAAAAAAAAAAAAA="
+        ],
+        "states": [
+          {
+            "image": 0,
+            "palette": [
+              0,
+              50712,
+              65504,
+              63488,
+              64950,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "image": 1,
+            "palette": [
+              0,
+              50712,
+              65504,
+              24576,
+              63488,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          }
+        ]
+      }
+    },
+    "pilotos/piloto@24": {
+      "name": "Piloto",
+      "category": "pilotos",
+      "stateNames": [
+        "Apagado",
+        "Verde",
+        "Amarillo",
+        "Rojo"
+      ],
+      "entry": {
+        "width": 24,
+        "height": 24,
+        "transparent": 0,
+        "images": [
+          "AAAAAAAAAAAAAAAAAAAAABEREREAAAAAAAAAESIiIiIRAAAAAAABIiIiIiIiEAAAAAASIiMzMzIiIQAAAAEiIzMzMzMyIhAAABIiMzMzMzMzIiEAABIjM0RDMzMzMiEAASIjNERDMzMzMiIQASIzNERDMzMzMyIQASIzNERDMzMzMyIQASIzMzMzMzMzMyIQASIzMzMzMzMzMyIQASIzMzMzMzMzMyIQASIzMzMzMzMzMyIQASIjMzMzMzMzMiIQABIjMzMzMzMzMiEAABIiMzMzMzMzIiEAAAEiIzMzMzMyIhAAAAASIiMzMzIiIQAAAAABIiIiIiIiEAAAAAAAESIiIiIRAAAAAAAAABEREREAAAAAAAAAAAAAAAAAAAAA"
+        ],
+        "states": [
+          {
+            "image": 0,
+            "palette": [
+              0,
+              50712,
+              8484,
+              16904,
+              33808,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "image": 0,
+            "palette": [
+              0,
+              50712,
+              8484,
+              2016,
+              45045,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "image": 0,
+            "palette": [
+              0,
+              50712,
+              8484,
+              65504,
+              65526,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "image": 0,
+            "palette": [
+              0,
+              50712,
+              8484,
+              63488,
+              64950,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          }
+        ]
+      }
+    },
+    "alarmas/alarma@24": {
+      "name": "Alarma",
+      "category": "alarmas",
+      "stateNames": [
+        "Normal",
+        "Activa"
+      ],
+      "entry": {
+        "width": 24,
+        "height": 24,
+        "transparent": 0,
+        "images": [
+          "AAAAAAAAAAAAAAAAAAAAAAABEAAAAAAAAAAAAAABEAAAAAAAAAAAAAAREQAAAAAAAAAAAAASIQAAAAAAAAAAAAESIRAAAAAAAAAAABEiIhEAAAAAAAAAABEiIhEAAAAAAAAAARIjMiEQAAAAAAAAARIjMiEQAAAAAAAAESIjMiIRAAAAAAAAEiIjMiIhAAAAAAABEiIjMiIhEAAAAAABIiIjMiIiEAAAAAARIiIjMiIiEQAAAAASIiIjMiIiIQAAAAESIiIiIiIiIRAAAAEiIiIjMiIiIhAAABEiIiIjMiIiIhEAARIiIiIjMiIiIiEQARIiIiIiIiIiIiEQERERERERERERERERAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+        ],
+        "states": [
+          {
+            "image": 0,
+            "palette": [
+              0,
+              50712,
+              25388,
+              8484,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "image": 0,
+            "palette": [
+              0,
+              50712,
+              65504,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          }
+        ]
+      }
+    },
+    "equipos/transportador@32": {
+      "name": "Cinta transportadora",
+      "category": "equipos",
+      "stateNames": [
+        "Parado",
+        "En marcha",
+        "Falla"
+      ],
+      "entry": {
+        "width": 32,
+        "height": 32,
+        "transparent": 0,
+        "images": [
+          "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABEREQAAAAAAAAAAAAAAAAAREREAAAAAAAAAAAAAAAAAERERAAAAAAAAAAAAAAAAABEREQAAAAAAAAAAAAAAAAAREREAAAAAAAAAAAERERERERERERERERAAAAESIhERERERERERESIhEAARIiIiEAAAAAAAASIiIhEAEiIiIiEAAAAAABIiIiIhASIiMiIhAAAAAAASIiMiIhEiIzMiIQAAAAAAEiIzMiIRIiMzIiEAAAAAABIiMzIiESIiMiIhAAAAAAASIiMiIhASIiIiIQAAAAAAEiIiIiEAESIiIhAAAAAAAAEiIiIRAAESIhERERERERERESIhEAAAAREREREREREREREREAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+        ],
+        "states": [
+          {
+            "image": 0,
+            "palette": [
+              0,
+              50712,
+              25388,
+              16904,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "image": 0,
+            "palette": [
+              0,
+              50712,
+              2016,
+              16904,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "image": 0,
+            "palette": [
+              0,
+              50712,
+              63488,
+              16904,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          }
+        ]
+      }
+    },
+    "equipos/silo@32": {
+      "name": "Silo / tolva",
+      "category": "equipos",
+      "stateNames": [
+        "Vacío",
+        "Con material",
+        "Falla"
+      ],
+      "entry": {
+        "width": 32,
+        "height": 32,
+        "transparent": 0,
+        "images": [
+          "AAAAAAAAAAAAAAAAAAAAAAAAAREREREREREREREQAAAAAAEREREREREREREREAAAAAABEiIiIiIiIiIiIRAAAAAAARIiIiIiIiIiIiEQAAAAAAESIiIiIiIiIiIhEAAAAAABEiIiIiIiIiIiIRAAAAAAARIiIiIiIiIiIiEQAAAAAAESIiIiIiIiIiIhEAAAAAABEiIiIiIiIiIiIRAAAAAAARIiIiIiIiIiIiEQAAAAAAESIiIiIiIiIiIhEAAAAAABEiIiIiIiIiIiIRAAAAAAARIiIiIiIiIiIiEQAAAAAAESIiIiIiIiIiIhEAAAAAABEiIiIiIiIiIiIRAAAAAAARIiIiIiIiIiIiEQAAAAAAESIiIiIiIiIiIhEAAAAAABEiIiIiIiIiIiIRAAAAAAABEiIiIiIiIiIhEAAAAAAAABEiIiIiIiIiEQAAAAAAAAARIiIiIiIiIhEAAAAAAAAAARIiIiIiIiEQAAAAAAAAAAARIiIiIiIRAAAAAAAAAAAAARIiIiIhEAAAAAAAAAAAAAARIiIiEQAAAAAAAAAAAAAAARERERAAAAAAAAAAAAAAAAAREREAAAAAAAAAAAAAAAAAERERAAAAAAAAAAAAAAAAABEREQAAAAAAAAAAAAAAAAAREREAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+        ],
+        "states": [
+          {
+            "image": 0,
+            "palette": [
+              0,
+              50712,
+              8484,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "image": 0,
+            "palette": [
+              0,
+              50712,
+              64800,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "image": 0,
+            "palette": [
+              0,
+              50712,
+              63488,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          }
+        ]
+      }
+    },
+    "bombas/ventilador@32": {
+      "name": "Ventilador",
+      "category": "bombas",
+      "stateNames": [
+        "Parado",
+        "En marcha",
+        "Falla"
+      ],
+      "entry": {
+        "width": 32,
+        "height": 32,
+        "transparent": 0,
+        "images": [
+          "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAERERAAAAAAAAAAAAAAABERIiIREQAAAAAAAAAAABEiIiIiIiIRAAAAAAAAAAESIiIzMzIiIRAAAAAAAAASIiIiMzMyIiIhAAAAAAABIiIiIjMzMiIiIhAAAAAAEiIiIiMzMzMiIiIhAAAAARIiIiIjMzMzIiIiIRAAAAEiIiIiIzMzMyIiIiIQAAASIiIiIiMzMzMiIiIiIQAAEiIiIiIiMzMyIiIiIiEAABIiIiIiIjMzMiIiIiIhAAESIiIiIiIhEyIiIiIiIRABIiIiIiIiEREiIiIiIiIQASIiIiMzIREREiIiIiIiEAEiIiIzMzERERMzMiIiIhABIiIzMzMzEREzMzMiIiIQARIjMzMzMyETMzMzMiIhEAASIzMzMzMiIzMzMzMiIQAAEiMzMzMyIiIzMzMzMiEAABIjMzMzIiIiMzMzMzIhAAABIjMyIiIiIiIzMzMiEAAAARIiIiIiIiIiIjMyIRAAAAASIiIiIiIiIiIiIiEAAAAAASIiIiIiIiIiIiIQAAAAAAASIiIiIiIiIiIhAAAAAAAAARIiIiIiIiIhEAAAAAAAAAARIiIiIiIiEQAAAAAAAAAAABERIiIREQAAAAAAAAAAAAAAAREREAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+        ],
+        "states": [
+          {
+            "image": 0,
+            "palette": [
+              0,
+              50712,
+              8484,
+              25388,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "image": 0,
+            "palette": [
+              0,
+              50712,
+              8484,
+              2016,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "image": 0,
+            "palette": [
+              0,
+              50712,
+              8484,
+              63488,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          }
+        ]
+      }
+    },
+    "bombas/compresor@32": {
+      "name": "Compresor",
+      "category": "bombas",
+      "stateNames": [
+        "Parado",
+        "En marcha",
+        "Falla"
+      ],
+      "entry": {
+        "width": 32,
+        "height": 32,
+        "transparent": 0,
+        "images": [
+          "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAERERAAAAAAAAAAAAAAABERIiIREQAAAAAAAAAAABEiIiIiIiIRAAAAAAAAAAESIiIiIiIiIRAAAAAAAAASIiIiIiIiIiIhAAAAAAABIiIiIiIiIiIiIhAAAAAAEiIiIiIiIiIiIiIhAAAAAzMzMyIiIiIiIiIiIRAAAAMzMzMzMzMiIiIiIiIQAAASIjMzMzMzMzMzIiIiIQAAEiIiIiIzMzMzMzMzMyEAABIiIiIiIiIiMzMzMzMxAAESIiIiIiIiIiIiIjMzMRABIiIiIiIiIiIiIiIiIiIQASIiIiIiIiIiIiIiIiIiEAEiIiIiIiIiIiIiIiIiIhABIiIiIiIiIiIiIiIiIiIQARIiIiIiIiIiIiIiMzMxEAASIiIiIiIiIjMzMzMzMQAAEiIiIiIzMzMzMzMzMyEAABIiMzMzMzMzMzMiIiIhAAADMzMzMzMzIiIiIiIiEAAAAzMzMyIiIiIiIiIiIRAAAAASIiIiIiIiIiIiIiEAAAAAASIiIiIiIiIiIiIQAAAAAAASIiIiIiIiIiIhAAAAAAAAARIiIiIiIiIhEAAAAAAAAAARIiIiIiIiEQAAAAAAAAAAABERIiIREQAAAAAAAAAAAAAAAREREAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+        ],
+        "states": [
+          {
+            "image": 0,
+            "palette": [
+              0,
+              50712,
+              25388,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "image": 0,
+            "palette": [
+              0,
+              50712,
+              2016,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "image": 0,
+            "palette": [
+              0,
+              50712,
+              63488,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          }
+        ]
+      }
+    },
+    "equipos/resistencia@32": {
+      "name": "Resistencia / calefactor",
+      "category": "equipos",
+      "stateNames": [
+        "Apagada",
+        "Encendida"
+      ],
+      "entry": {
+        "width": 32,
+        "height": 32,
+        "transparent": 0,
+        "images": [
+          "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABERERERERERERERERERAAESIiIiIiIiIiIiIiIiIRABIiIzIiIiMiIiIjIiIiIQASIiMyIiIzMiIiMzIiIiEAEiIzMyIiMzIiIjMyIiIhABIiMzMiIjMzIiMzMiIiIQASIzMzIiIzMyIjMzIiIiEAEiMzMzIjMzMiIzMzIiIhABIzMjMyIzMzMiMzMyIiIQASMzIzMiMyMzIzMjMiMyEAEjMiIzIzMjMyMzIzIjMhABIiIiMzMzIjMjMiMzMzIQASIiIjMzMiIzMzIjMzMyEAEiIiIjMzIiMzMyIjMzIhABIiIiIzMyIiMzIiIzMyIQASIiIiMzIiIjMyIiMzIiEAEiIiIiMyIiIzMiIjMyIhABIiIiIjMiIiIyIiIjIiIQARIiIiIiIiIiIiIiIiIhEAAREREREREREREREREREQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+        ],
+        "states": [
+          {
+            "image": 0,
+            "palette": [
+              0,
+              50712,
+              8484,
+              33808,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "image": 0,
+            "palette": [
+              0,
+              50712,
+              8484,
+              64512,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          }
+        ]
+      }
+    },
+    "sensores/termometro@32": {
+      "name": "Temperatura",
+      "category": "sensores",
+      "stateNames": [
+        "Baja",
+        "Normal",
+        "Alta"
+      ],
+      "entry": {
+        "width": 32,
+        "height": 32,
+        "transparent": 0,
+        "images": [
+          "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAERERAAAAAAAAAAAAAAAAARIiIRAAAAAAAAAAAAAAAAEiIiIQAAAAAAAAAAAAAAABIiIiEAAAAAAAAAAAAAAAASIiIhAAAAAAAAAAAAAAAAEiIiIQAAAAAAAAAAAAAAABIiIiEAAAAAAAAAAAAAAAASIiIhAAAAAAAAAAAAAAAAEiIiIQAAAAAAAAAAAAAAABIiIiEAAAAAAAAAAAAAAAASIiIhAAAAAAAAAAAAAAAAEiIiIQAAAAAAAAAAAAAAABIiIiEAAAAAAAAAAAAAAAASIiIhAAAAAAAAAAAAAAAAEiIiIQAAAAAAAAAAAAAAABIiIiEAAAAAAAAAAAAAAAASIiIhAAAAAAAAAAAAAAAAEiIiIQAAAAAAAAAAAAAAABIiIiEAAAAAAAAAAAAAAAESMzMhEAAAAAAAAAAAAAABIzMzMhAAAAAAAAAAAAAAEjMzMzMhAAAAAAAAAAAAABIzMzMzIQAAAAAAAAAAAAASMzMzMyEAAAAAAAAAAAAAEjMzMzMhAAAAAAAAAAAAABIzMzMzIQAAAAAAAAAAAAASMzMzMyEAAAAAAAAAAAAAASMzMzIQAAAAAAAAAAAAAAESIiIhEAAAAAAAAAAAAAAAAREREAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+          "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAERERAAAAAAAAAAAAAAAAARIiIRAAAAAAAAAAAAAAAAEiIiIQAAAAAAAAAAAAAAABIiIiEAAAAAAAAAAAAAAAASIiIhAAAAAAAAAAAAAAAAEiIiIQAAAAAAAAAAAAAAABIiIiEAAAAAAAAAAAAAAAASIiIhAAAAAAAAAAAAAAAAEiIiIQAAAAAAAAAAAAAAABIiIiEAAAAAAAAAAAAAAAASIiIhAAAAAAAAAAAAAAAAEiIiIQAAAAAAAAAAAAAAABIzMyEAAAAAAAAAAAAAAAASMzMhAAAAAAAAAAAAAAAAEjMzIQAAAAAAAAAAAAAAABIzMyEAAAAAAAAAAAAAAAASMzMhAAAAAAAAAAAAAAAAEjMzIQAAAAAAAAAAAAAAABIzMyEAAAAAAAAAAAAAAAESMzMhEAAAAAAAAAAAAAABIzMzMhAAAAAAAAAAAAAAEjMzMzMhAAAAAAAAAAAAABIzMzMzIQAAAAAAAAAAAAASMzMzMyEAAAAAAAAAAAAAEjMzMzMhAAAAAAAAAAAAABIzMzMzIQAAAAAAAAAAAAASMzMzMyEAAAAAAAAAAAAAASMzMzIQAAAAAAAAAAAAAAESIiIhEAAAAAAAAAAAAAAAAREREAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+          "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAERERAAAAAAAAAAAAAAAAARIiIRAAAAAAAAAAAAAAAAEiIiIQAAAAAAAAAAAAAAABIzMyEAAAAAAAAAAAAAAAASMzMhAAAAAAAAAAAAAAAAEjMzIQAAAAAAAAAAAAAAABIzMyEAAAAAAAAAAAAAAAASMzMhAAAAAAAAAAAAAAAAEjMzIQAAAAAAAAAAAAAAABIzMyEAAAAAAAAAAAAAAAASMzMhAAAAAAAAAAAAAAAAEjMzIQAAAAAAAAAAAAAAABIzMyEAAAAAAAAAAAAAAAASMzMhAAAAAAAAAAAAAAAAEjMzIQAAAAAAAAAAAAAAABIzMyEAAAAAAAAAAAAAAAASMzMhAAAAAAAAAAAAAAAAEjMzIQAAAAAAAAAAAAAAABIzMyEAAAAAAAAAAAAAAAESMzMhEAAAAAAAAAAAAAABIzMzMhAAAAAAAAAAAAAAEjMzMzMhAAAAAAAAAAAAABIzMzMzIQAAAAAAAAAAAAASMzMzMyEAAAAAAAAAAAAAEjMzMzMhAAAAAAAAAAAAABIzMzMzIQAAAAAAAAAAAAASMzMzMyEAAAAAAAAAAAAAASMzMzIQAAAAAAAAAAAAAAESIiIhEAAAAAAAAAAAAAAAAREREAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+        ],
+        "states": [
+          {
+            "image": 0,
+            "palette": [
+              0,
+              50712,
+              8484,
+              1055,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "image": 1,
+            "palette": [
+              0,
+              50712,
+              8484,
+              2016,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "image": 2,
+            "palette": [
+              0,
+              50712,
+              8484,
+              63488,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          }
+        ]
+      }
+    },
+    "sensores/manometro@32": {
+      "name": "Presión",
+      "category": "sensores",
+      "stateNames": [
+        "Baja",
+        "Normal",
+        "Alta"
+      ],
+      "entry": {
+        "width": 32,
+        "height": 32,
+        "transparent": 0,
+        "images": [
+          "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAERERAAAAAAAAAAAAAAABERIiIREQAAAAAAAAAAABEiIiIiIiIRAAAAAAAAAAESIiIiIiIiIRAAAAAAAAASIiIjMzMyIiIhAAAAAAABIiIjMzMzMzIiIhAAAAAAEiIjMzMzMzMzMiIhAAAAARIiMzMzMzMzMzMiIRAAAAEiIzMzMzMzMzMzMiIQAAASIiMzMzMzMzMzMzIiIQAAEiIzMzMzMzMzMzMzIiEAABIiMzMzMzMzMzMzMyIhAAESIzMzMzMzMzMzMzMyIRABIiMzMzMzREQzMzMzMiIQASIjMzMzM0REMzMzMzIiEAEiIzMzMzRERDMzMzMyIhABIiMzMzREREQzMzMzMiIQARIjMzRERDMzMzMzMzIhEAASIjNERDMzMzMzMzMiIQAAEiJERDMzMzMzMzMzIiEAABIiREMzMzMzMzMzMiIhAAABIiMzMzMzMzMzMzIiEAAAARIiMzMzMzMzMzMiIRAAAAASIjMzMzMzMzMzIiEAAAAAASMzMzMzMzMzMzIQAAAAAAATMzMzMzMzMzMxAAAAAAAAARMzMzMzMzMxEAAAAAAAAAARMzMzMzMzEQAAAAAAAAAAABERMzMREQAAAAAAAAAAAAAAAREREAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+          "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAERERAAAAAAAAAAAAAAABERIiIREQAAAAAAAAAAABEiIiIiIiIRAAAAAAAAAAESIiIiIiIiIRAAAAAAAAASIiIjNEMyIiIhAAAAAAABIiIjMzRDMzIiIhAAAAAAEiIjMzM0QzMzMiIhAAAAARIiMzMzNEMzMzMiIRAAAAEiIzMzMzRDMzMzMiIQAAASIiMzMzM0QzMzMzIiIQAAEiIzMzMzNEMzMzMzIiEAABIiMzMzMzRDMzMzMyIhAAESIzMzMzM0QzMzMzMyIRABIiMzMzMzREQzMzMzMiIQASIjMzMzM0REMzMzMzIiEAEiIzMzMzNERDMzMzMyIhABIiMzMzMzREQzMzMzMiIQARIjMzMzMzMzMzMzMzIhEAASIjMzMzMzMzMzMzMiIQAAEiIzMzMzMzMzMzMzIiEAABIiIzMzMzMzMzMzMiIhAAABIiMzMzMzMzMzMzIiEAAAARIiMzMzMzMzMzMiIRAAAAASIjMzMzMzMzMzIiEAAAAAASMzMzMzMzMzMzIQAAAAAAATMzMzMzMzMzMxAAAAAAAAARMzMzMzMzMxEAAAAAAAAAARMzMzMzMzEQAAAAAAAAAAABERMzMREQAAAAAAAAAAAAAAAREREAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+          "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAERERAAAAAAAAAAAAAAABERIiIREQAAAAAAAAAAABEiIiIiIiIRAAAAAAAAAAESIiIiIiIiIRAAAAAAAAASIiIjMzMyIiIhAAAAAAABIiIjMzMzMzIiIhAAAAAAEiIjMzMzMzMzMiIhAAAAARIiMzMzMzMzMzMiIRAAAAEiIzMzMzMzMzMzMiIQAAASIiMzMzMzMzMzMzIiIQAAEiIzMzMzMzMzMzMzIiEAABIiMzMzMzMzMzMzMyIhAAESIzMzMzMzMzMzMzMyIRABIiMzMzMzREQzMzMzMiIQASIjMzMzM0REMzMzMzIiEAEiIzMzMzNEREMzMzMyIhABIiMzMzMzREREQzMzMiIQARIjMzMzMzMzRERDMzIhEAASIjMzMzMzMzNERDMiIQAAEiIzMzMzMzMzM0REIiEAABIiIzMzMzMzMzM0RCIhAAABIiMzMzMzMzMzMzIiEAAAARIiMzMzMzMzMzMiIRAAAAASIjMzMzMzMzMzIiEAAAAAASMzMzMzMzMzMzIQAAAAAAATMzMzMzMzMzMxAAAAAAAAARMzMzMzMzMxEAAAAAAAAAARMzMzMzMzEQAAAAAAAAAAABERMzMREQAAAAAAAAAAAAAAAREREAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+        ],
+        "states": [
+          {
+            "image": 0,
+            "palette": [
+              0,
+              50712,
+              1055,
+              65535,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "image": 1,
+            "palette": [
+              0,
+              50712,
+              2016,
+              65535,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "image": 2,
+            "palette": [
+              0,
+              50712,
+              63488,
+              65535,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          }
+        ]
+      }
+    },
+    "pilotos/baliza@32": {
+      "name": "Torre de señalización",
+      "category": "pilotos",
+      "stateNames": [
+        "Apagada",
+        "Verde",
+        "Amarilla",
+        "Roja"
+      ],
+      "entry": {
+        "width": 32,
+        "height": 32,
+        "transparent": 0,
+        "images": [
+          "AAAAAAAAAAAAAAAAAAAAAAAAAAAAERERERERAAAAAAAAAAAAASIiIiIiIhAAAAAAAAAAAAEiIiIiIiIQAAAAAAAAAAABIiIiIiIiEAAAAAAAAAAAASIiIiIiIhAAAAAAAAAAAAEiIiIiIiIQAAAAAAAAAAABIiIiIiIiEAAAAAAAAAAAARIiIiIiIRAAAAAAAAAAAAEzMzMzMzMQAAAAAAAAAAABMzMzMzMzEAAAAAAAAAAAATMzMzMzMxAAAAAAAAAAAAEzMzMzMzMQAAAAAAAAAAABMzMzMzMzEAAAAAAAAAAAATMzMzMzMxAAAAAAAAAAAAEzMzMzMzMQAAAAAAAAAAABMzMzMzMzEAAAAAAAAAAAAURERERERBAAAAAAAAAAAAFEREREREQQAAAAAAAAAAABREREREREEAAAAAAAAAAAAURERERERBAAAAAAAAAAAAFEREREREQQAAAAAAAAAAABREREREREEAAAAAAAAAAAAURERERERBAAAAAAAAAAAABEREREREQAAAAAAAAAAAAAAREREREQAAAAAAAAAAAAAABVVVVVAAAAAAAAAAAAAAAAVVVVVQAAAAAAAAAAAAAAAFVVVVUAAAAAAAAAAAAAEREREREREREAAAAAAAAAABERERERERERAAAAAAAAAAAREREREREREQAAAAA="
+        ],
+        "states": [
+          {
+            "image": 0,
+            "palette": [
+              0,
+              50712,
+              24576,
+              25344,
+              800,
+              16904,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "image": 0,
+            "palette": [
+              0,
+              50712,
+              24576,
+              25344,
+              2016,
+              16904,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "image": 0,
+            "palette": [
+              0,
+              50712,
+              24576,
+              65504,
+              800,
+              16904,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "image": 0,
+            "palette": [
+              0,
+              50712,
+              63488,
+              25344,
+              800,
+              16904,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "declarativeOnly": true,
+  "pixelMaps": []
+}

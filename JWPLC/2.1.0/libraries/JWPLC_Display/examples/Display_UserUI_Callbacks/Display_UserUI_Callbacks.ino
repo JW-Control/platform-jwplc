@@ -82,7 +82,7 @@ void setup()
     Serial.begin(115200);
     delay(1200);
 
-    // Alpha8+ usa IDLE_WAKE_DISABLED por defecto. Este ejemplo solicita
+    // Por defecto se usa IDLE_WAKE_DISABLED. Este ejemplo solicita
     // explícitamente que OK abra la pantalla USER.
     JWPLC_Display.setIdleWakeButton(BTN_OK);
     JWPLC_Display.setIdleWakeMode(IDLE_WAKE_BUTTON_ONLY);

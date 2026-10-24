@@ -3,7 +3,23 @@
 
 #include <Arduino.h>
 #include <JWPLC_RS485.h>
+#include <JW_ModbusRTU.h>
+
+// JWPLC_ModbusRTU es una instancia de JW_ModbusRTU sobre el puerto integrado
+// (JWPLC_RS485). La API publica no cambia; engine() da acceso al motor generico.
+
+// El core jwcontrol publica JWPLCModbusMotor. La placa ESP32 generica del
+// package no expone ese header: se declara aqui con los mismos valores.
+#if __has_include(<jwplc_modbus_motor.h>)
 #include <jwplc_modbus_motor.h>
+#elif !defined(JWPLC_MODBUS_MOTOR_H)
+#define JWPLC_MODBUS_MOTOR_H
+enum JWPLCModbusMotor : uint8_t
+{
+    SYNC = 0,
+    ASYNC = 1
+};
+#endif
 
 #ifndef JWPLC_MODBUS_RTU_DEFAULT_BAUD
 #define JWPLC_MODBUS_RTU_DEFAULT_BAUD 19200UL
@@ -54,36 +70,8 @@ enum JWPLCModbusMasterState : uint8_t
     JWPLC_MODBUS_MASTER_ERROR
 };
 
-struct JWPLCModbusRTUStats
-{
-    uint32_t rxFrames;
-    uint32_t txFrames;
-    uint32_t requestsOk;
-    uint32_t crcErrors;
-    uint32_t exceptionsSent;
-    uint32_t masterTimeouts;
-
-    // H3B.3: contabilidad de transporte/framing para diagnostico.
-    // Aditivo: no altera la semantica de los contadores historicos.
-    uint64_t rxBytes;
-    uint64_t txBytes;
-    uint32_t serverDiscardedTails;
-    uint64_t serverDiscardedBytes;
-
-    // H3C.1: forma temporal de los tails descartados.
-    uint32_t serverDiscardedLastLength;
-    uint32_t serverDiscardedLastAgeUs;
-    uint32_t serverDiscardedMaxAgeUs;
-    uint32_t serverDiscardedLen1;
-    uint32_t serverDiscardedLen2;
-    uint32_t serverDiscardedLen3;
-    uint32_t serverDiscardedLen4;
-    uint32_t serverDiscardedLen5;
-    uint32_t serverDiscardedLen6;
-    uint32_t serverDiscardedLen7;
-    uint32_t serverDiscardedLen8;
-    uint32_t serverDiscardedLenGt8;
-};
+// Mismo layout que JWModbusRTUStats.
+typedef JWModbusRTUStats JWPLCModbusRTUStats;
 
 class JWPLC_ModbusRTUClass
 {
@@ -332,138 +320,11 @@ public:
     void resetStats();
     void printStatus(Print &out) const;
 
+    // Instancia generica JW_ModbusRTU que ejecuta el motor.
+    JW_ModbusRTU &engine();
+
 private:
-    enum JWPLCModbusMasterOperation : uint8_t
-    {
-        JWPLC_MODBUS_MASTER_OP_NONE = 0,
-        JWPLC_MODBUS_MASTER_OP_READ_COILS,
-        JWPLC_MODBUS_MASTER_OP_READ_DISCRETE_INPUTS,
-        JWPLC_MODBUS_MASTER_OP_READ_HOLDING_REGISTERS,
-        JWPLC_MODBUS_MASTER_OP_READ_INPUT_REGISTERS,
-        JWPLC_MODBUS_MASTER_OP_WRITE_SINGLE_COIL,
-        JWPLC_MODBUS_MASTER_OP_WRITE_SINGLE_REGISTER,
-        JWPLC_MODBUS_MASTER_OP_WRITE_MULTIPLE_COILS,
-        JWPLC_MODBUS_MASTER_OP_WRITE_MULTIPLE_REGISTERS
-    };
-
-    bool _ready;
-    uint8_t _slaveId;
-    uint32_t _baud;
-    uint32_t _config;
-    uint16_t _frameGapMs;
-    uint32_t _frameGapUs;
-    JWPLCModbusMotor _motor;
-    bool _queuedTxEnabled;
-    bool _bulkRxEnabled;
-    bool _earlyServerDispatchEnabled;
-
-    uint8_t *_coils;
-    uint16_t _coilCount;
-    const uint8_t *_discreteInputs;
-    uint16_t _discreteInputCount;
-    uint16_t *_holdingRegisters;
-    uint16_t _holdingCount;
-    const uint16_t *_inputRegisters;
-    uint16_t _inputCount;
-
-    bool _validRequestSeen;
-    uint32_t _lastValidRequestMs;
-    bool _coilWriteSeen;
-    uint32_t _lastCoilWriteMs;
-
-    uint8_t _rxBuffer[JWPLC_MODBUS_RTU_MAX_FRAME];
-    uint16_t _rxLength;
-    uint32_t _lastByteUs;
-
-    JWPLCModbusRTUError _lastError;
-    JWPLCModbusRTUStats _stats;
-
-    JWPLCModbusMasterState _masterState;
-    JWPLCModbusMasterOperation _masterOperation;
-    JWPLCModbusRTUError _masterResult;
-    uint8_t _masterTargetSlaveId;
-    uint8_t _masterExpectedFunction;
-    uint16_t _masterStartAddress;
-    uint16_t _masterQuantity;
-    uint16_t *_masterRegisterDestination;
-    uint8_t *_masterBitDestination;
-    uint16_t _masterWriteValue;
-    uint32_t _masterStartMs;
-    uint32_t _masterTimeoutMs;
-
-    void clearRxBuffer();
-    size_t writeTransport(const uint8_t *buffer, size_t size);
-    void setError(JWPLCModbusRTUError error);
-    void clearError();
-
-    void pollServer();
-    void pollMaster();
-    void resetMasterContext();
-    void completeMasterTransaction(JWPLCModbusRTUError result);
-    bool processMasterFrame(const uint8_t *frame, uint16_t length);
-    void drainRs485();
-    bool finishSyncRequest(bool started);
-
-    bool startReadBitsRequest(uint8_t functionCode,
-                              JWPLCModbusMasterOperation operation,
-                              uint8_t targetSlaveId,
-                              uint16_t startAddress,
-                              uint16_t quantity,
-                              uint8_t *destinationPacked,
-                              uint32_t timeoutMs);
-
-    bool startReadRegistersRequest(uint8_t functionCode,
-                                   JWPLCModbusMasterOperation operation,
-                                   uint8_t targetSlaveId,
-                                   uint16_t startAddress,
-                                   uint16_t quantity,
-                                   uint16_t *destination,
-                                   uint32_t timeoutMs);
-
-    bool startWriteSingleRequest(uint8_t functionCode,
-                                 JWPLCModbusMasterOperation operation,
-                                 uint8_t targetSlaveId,
-                                 uint16_t address,
-                                 uint16_t value,
-                                 uint32_t timeoutMs);
-
-    bool processServerFrame(const uint8_t *frame, uint16_t length);
-    void sendException(uint8_t functionCode, uint8_t exceptionCode);
-    void sendFrame(uint8_t *frame, uint16_t payloadLength);
-
-    bool handleReadBits(const uint8_t *frame,
-                        uint16_t length,
-                        bool broadcast,
-                        uint8_t functionCode,
-                        const uint8_t *map,
-                        uint16_t count);
-
-    bool handleReadRegisters(const uint8_t *frame,
-                             uint16_t length,
-                             bool broadcast,
-                             uint8_t functionCode,
-                             const uint16_t *map,
-                             uint16_t count);
-
-    bool handleWriteSingleCoil(const uint8_t *frame,
-                               uint16_t length,
-                               bool broadcast);
-    bool handleWriteSingleRegister(const uint8_t *frame,
-                                   uint16_t length,
-                                   bool broadcast);
-    bool handleWriteMultipleCoils(const uint8_t *frame,
-                                  uint16_t length,
-                                  bool broadcast);
-    bool handleWriteMultipleRegisters(const uint8_t *frame,
-                                      uint16_t length,
-                                      bool broadcast);
-
-    static bool packedBit(const uint8_t *map, uint16_t address);
-    static void setPackedBit(uint8_t *map, uint16_t address, bool value);
-
-    static bool _crcLookupEnabled;
-    static uint16_t crc16Bitwise(const uint8_t *data, size_t length);
-    static uint16_t crc16Lookup(const uint8_t *data, size_t length);
+    JW_ModbusRTU _impl;
 };
 
 extern JWPLC_ModbusRTUClass JWPLC_ModbusRTU;
