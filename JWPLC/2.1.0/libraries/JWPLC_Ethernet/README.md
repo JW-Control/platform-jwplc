@@ -552,6 +552,39 @@ TCP crea una conexión. UDP envía datagramas independientes.
 No es necesario. Procesa red periódicamente dentro del flujo normal de
 `loop()`.
 
+### Envolver `EthernetClient` con `jwplcSPI_acquire()`
+
+Es tentador «proteger» una consulta TCP o DNS tomando el bus SPI antes de
+empezar:
+
+```cpp
+// Incorrecto: connect() y DNS fallan siempre
+if (jwplcSPI_acquire(1000))
+{
+    cliente.connect("example.com", 80);
+    jwplcSPI_release();
+}
+```
+
+No hace falta y además rompe la conexión. `EthernetClient`, `EthernetUDP` y
+`DNSClient` ya toman el bus en **cada** operación. El mutex SPI del JWPLC no
+es recursivo: si el sketch ya lo tiene, la librería no puede tomarlo y la
+operación termina en error (por ejemplo, «FALLO CONNECT/DNS»).
+
+Lo correcto es llamar directamente:
+
+```cpp
+if (cliente.connect("example.com", 80))
+{
+    cliente.print("GET / HTTP/1.0\r\n\r\n");
+}
+```
+
+Entre una operación y la siguiente la TFT, la FRAM y la microSD pueden seguir
+usando el bus. `jwplcSPI_acquire()` sólo tiene sentido para leer varios datos
+de estado seguidos (hardware, enlace, IP) sin que otro periférico se intercale,
+como hace el ejemplo `Ethernet_Continuous_Stress_TFT`.
+
 ## API avanzada
 
 ### Timeouts y retransmisiones del runtime
@@ -779,6 +812,16 @@ Tu código habitual con `useDHCP()`, `isReady()`,
 desconexión/reconexión Ethernet en dos JWPLC Basic. Eso no garantiza la
 ausencia de cualquier fallo de DNS, renovación de DHCP o saturación de sockets.
 
+## Cambios en 2.1.0-alpha.14
+
+La librería y su `libJWPLC_Ethernet.a` no cambian respecto de Alpha13. Se
+corrigieron dos ejemplos:
+
+- `Ethernet_HTTP_TFT_Diagnostics` y `Ethernet_Continuous_Stress_TFT` ya no
+  envuelven DNS, `connect()`, envío y recepción con `jwplcSPI_acquire()`.
+  Con ese bloqueo externo las consultas fallaban siempre (ver
+  «Envolver `EthernetClient` con `jwplcSPI_acquire()`» en Errores comunes).
+
 ## Compatibilidad
 
 Se conservan rutas Arduino Ethernet históricas como:
@@ -812,6 +855,6 @@ hardware del producto desde un sketch normal.
 Documentado para:
 
 ```text
-JWPLC ESP32 v2.1.0-alpha.13 (candidata)
+JWPLC ESP32 v2.1.0-alpha.14
 JWPLC_Ethernet 1.0.0
 ```

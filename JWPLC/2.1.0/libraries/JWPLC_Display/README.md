@@ -866,6 +866,78 @@ sube un nivel. En una edición numérica, LEFT/RIGHT cambian de 10 en 10 pasos.
   sketch no debe leer esas teclas para otra cosa en esa página.
 - `JWPLC_UIMenuView(...)` muestra un valor sin dejar editarlo.
 
+### ICON con estado — Intermedio
+
+Un ICON muestra una imagen distinta según el estado de una variable: motor
+parado, en marcha o en falla; válvula cerrada o abierta; tanque vacío, medio
+o lleno. Es la forma más rápida de que el operador entienda la planta de un
+vistazo.
+
+Lo normal es elegir el icono en el HMI Designer (botón «Iconos» de la barra
+del lienzo: 24 iconos en 8 categorías). El Designer genera la imagen y una
+variable por icono, comentada con el significado de cada estado:
+
+```cpp
+uint8_t bomba = 0;   // ICON: 0=Parado 1=En marcha 2=Falla
+bool paro = false;   // ICON: false=Normal true=Activado
+```
+
+Tu sketch sólo cambia la variable; `jwplcUIUpdate()` pasa el estado a la
+pantalla y el icono se redibuja únicamente cuando el estado cambia:
+
+```cpp
+bool falla = false;   // tu propia lógica de diagnóstico
+
+void loop()
+{
+    if (falla)
+        bomba = 2;
+    else
+        bomba = digitalRead(I0_0) ? 1 : 0;
+
+    paro = digitalRead(I0_7);
+}
+```
+
+A mano (sin Designer) se declara así:
+
+```cpp
+static const uint8_t  MOTOR_PX[] = { /* 32x32 a 4 bpp -> 512 B */ };
+static const uint16_t MOTOR_OFF[16] = { /* paleta RGB565 */ };
+static const uint16_t MOTOR_ON[16]  = { /* paleta RGB565 */ };
+
+static const JWPLC_UIIconState MOTOR_STATES[] = {
+    { MOTOR_PX, MOTOR_OFF },   // estado 0
+    { MOTOR_PX, MOTOR_ON } };  // estado 1
+
+// 32x32, 2 estados, el índice 0 de la paleta es transparente
+static const JWPLC_UIIcon MOTOR(32, 32, 2, MOTOR_STATES, 0);
+
+// en la tabla de campos:
+JWPLC_UIIconField(ID_MOTOR, JWPLC_UIRect(10, 20), &MOTOR, JWPLC_UIText("Motor"))
+
+// en el programa:
+JWPLC_Display.setIconState(ID_MOTOR, marcha ? 1 : 0);   // o setBool()
+```
+
+- Hasta 8 estados por icono y hasta 64 × 64 px. Cada imagen usa 4 bits por
+  píxel con una paleta de 16 colores; varios estados pueden compartir los
+  píxeles y cambiar sólo la paleta (así un 32 × 32 ocupa 512 B en flash).
+- Variable `bool` para 2 estados o `uint8_t` para más. Un estado fuera de
+  rango muestra el último.
+- «Sin fondo» (último parámetro de `JWPLC_UIIconField` en `true`): el icono
+  se dibuja sobre la gráfica estática de la página, sin recuadro.
+- Un ICON cuenta en el límite de 32 campos.
+
+### BAR — cambio incremental
+
+Desde 2.1.0-alpha.14, cuando el valor de una BAR cambia la pantalla sólo
+pinta o borra el tramo que cambió, en vez de redibujar la barra entera. No
+tienes que hacer nada: sigue usando la variable que generó el Designer (o
+`JWPLC_Display.setBar(id, valor)` a mano). El resultado es una barra sin
+parpadeo y menos tiempo de bus SPI, que queda libre para Ethernet, FRAM y
+microSD.
+
 ### Refresco USER — Intermedio / Avanzado
 
 Modo bajo demanda:
