@@ -14,7 +14,7 @@ CIERRE_NUBE_24_10=PASS         83/83 sketches (76 ejemplos + 7 gates) en Basic y
                                tests del Designer 16/16; Live Bridge recompilado desde el package congelado (#160)
 FASE_4_DOCS=DONE               READMEs de librerías (#159), PRE_RELEASE.md y README raíz (marcador 2.1.0-alpha.14);
                                workflow temporal retirado (PR de cierre)
-FASE_2_FISICA=PENDING          tools/jwplc-hmi-designer/gates/A14_F2_Combinado (sketch + checklist), local
+FASE_2_FISICA=PASS_PHYSICAL    24/10, gates/A14_F2_Combinado (Master COM6 + Slave COM3): pantalla, TCP, RTU, 10 min, LIVE
 BENCHMARK_PC=PENDING           tools/build-speed-benchmark/Compare-JWPLCBuildBenchmark.ps1 (#161); nube: tabla en PRE_RELEASE
 ```
 
@@ -25,7 +25,7 @@ PR de release: #157 (borrador, sustituye a #141). Fusionadas en la principal el 
 `designer-tests`. Los PRs #141 y #151–#156 quedaron sustituidos y sus ramas borradas.
 
 Siguiente (merge y Release solo con autorización explícita del propietario):
-1. Prueba física con el checklist del gate y benchmark en la PC; anotar resultados en `PRE_RELEASE.md` (quitar `[pendiente]`).
+1. Benchmark en la PC (`Compare-JWPLCBuildBenchmark.ps1`); anotar la fila en `PRE_RELEASE.md` (último `[pendiente]`).
 2. Sacar el #157 de borrador (con autorización).
 3. Fusionar el #157 (publica la Release) y la fase 5 de §4.
 

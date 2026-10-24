@@ -110,9 +110,16 @@ envoltorio de `JW_ModbusRTU`/`JW_RS485`, se compila desde la fuente en esta vers
   de despertar, pestañas y color de pestaña.
 - `[ejecutado, Alpha13 y PR #138]` Modbus RTU con los envoltorios nuevos: COM4 Master ↔ COM14 Slave, FC03
   30/30 y FC06 15/15, CRC 0.
-- `[pendiente]` package integrado en COM4 (pantalla + Ethernet) con COM14 como Slave RTU; Live Bridge
-  instalado desde la app y LIVE conectado. Sketch y checklist:
-  `tools/jwplc-hmi-designer/gates/A14_F2_Combinado/`.
+- `[ejecutado 24/10]` package integrado, todo precompilado salvo `JWPLC_ModbusRTU`, en dos JWPLC Basic unidos por
+  RS-485 (Master COM6 con pantalla y Ethernet, Slave COM3), con el sketch y el checklist de
+  `tools/jwplc-hmi-designer/gates/A14_F2_Combinado/`:
+  - pantalla: arranque sin destellos, tecla de despertar, pestañas, reloj del RTC, `°C`, BAR, ICON, MENU con
+    submenú, buzzer y vuelta a IDLE: PASS;
+  - Ethernet DHCP y Modbus TCP (lectura FC03 de HR0..HR3 y mando de la bomba por HR10 desde la PC): PASS;
+  - Modbus RTU: FC03 cada 500 ms sin errores y FC06 desde el MENU (`HR1=250` confirmado por el Slave): PASS;
+  - 10 minutos con Modbus TCP y RTU a la vez, sin reinicios ni errores RTU: PASS;
+  - Live Bridge instalado desde la app con «⚡ Instalar Firmware Live», LIVE conectado y el sketch vuelto a
+    subir después: PASS.
 
 ## Limitaciones conocidas
 
