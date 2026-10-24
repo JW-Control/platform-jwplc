@@ -97,7 +97,7 @@ envoltorio de `JW_ModbusRTU`/`JW_RS485`, se compila desde la fuente en esta vers
   públicos añadidos o quitados frente a los publicados (la TFT con `ST7789_DISPON_DEFERRED=YES`); ningún
   cambio de fuente después de su regeneración. `JWPLC_Display`, `JWPLC_TFT`, `JWPLC_Ethernet`,
   `JWPLC_ModbusTCP`, `JW_FRAM`, `JW_MatrixButtons` y `JW_SD` van `precompiled=full`; `JWPLC_ModbusRTU`, desde
-  la fuente.
+  la fuente (se retiró su `libJWPLC_ModbusRTU.a` de Alpha13, que ya no correspondía al envoltorio).
 - Compilación ESP32 de **todos los ejemplos del package (76) y los 7 gates del Designer** (MENU, MENU desde el
   Designer, formatos, reloj, tildes, codegen estático y OpenPLC F0) en **JWPLC Basic y JWPLC Basic Core**:
   83/83 en cada placa, sin warnings (arduino-cli, package de la rama, sketchbook vacío). Flash: Basic
