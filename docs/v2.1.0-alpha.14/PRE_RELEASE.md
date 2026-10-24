@@ -1,13 +1,8 @@
 # v2.1.0-alpha.14 — JWPLC HMI Designer: MENU, formatos industriales y Live Bridge en un clic
 
-> **Borrador de notas de publicación (23/10/2026).** Las secciones marcadas `[pendiente]` se completan
-> al cerrar las fases 2 y 3 del traspaso
-> ([JWPLC_NEW_CHAT_START_ALPHA14_20261023.md](../v2.1.0-alpha.15/JWPLC_NEW_CHAT_START_ALPHA14_20261023.md) §4).
-> Estas notas no anticipan tag, ZIP ni checksum: pertenecen al GitHub Release y al índice dev.
-
 **Canal:** PreRelease de desarrollo (índice dev). No sustituye a `v2.0.0` estable.
 **Origen:** línea de trabajo `v2.1.0-alpha.15-HmiDesigner` (documentación en `docs/v2.1.0-alpha.15/`),
-integrada sobre la 2.1.0-alpha.13 publicada en la rama `v2.1.0-alpha.14/feature/hmi-designer` (PR #141).
+integrada sobre la 2.1.0-alpha.13 publicada en la rama `v2.1.0-alpha.14/HmiDesigner/main` (PR #157, antes #141).
 La numeración sigue el orden de publicación: el trabajo de OpenPLC se publicará como 2.1.0-alpha.15.
 
 ## Requisito recomendado: Arduino IDE 2.3.10 o superior
@@ -23,7 +18,19 @@ compilación en caliente. Medición en la PC del jefe (`Run-JWPLCBuildBenchmark.
 | 1.4.1 | 43,6 s | 14,3 s |
 | 1.5.1 (Arduino IDE 2.3.10) | 41,5 s | **9,0 s** |
 
-Referencia adoptada: arduino-cli 1.5.1. Benchmark de la alpha.14 con todo precompilado: `[pendiente]`.
+Referencia adoptada: arduino-cli 1.5.1.
+
+**Alpha.14 frente a alpha.13** (mismo equipo, mismos sketches, mediana de 3; detalle en
+[A14_BENCHMARK_COMPILACION_20261024.md](A14_BENCHMARK_COMPILACION_20261024.md)):
+
+| Medición | Placa | Frío a13 → a14 | Caliente a13 → a14 |
+|---|---|---|---|
+| Nube Linux, arduino-cli 1.5.2-rc.1 | JWPLC Basic | 30,3 s → 38,9 s | 4,9 s → 4,4 s |
+| Nube Linux, arduino-cli 1.5.2-rc.1 | JWPLC Basic Core | 38,4 s → 45,9 s | 4,3 s → 5,1 s |
+| PC del jefe, arduino-cli 1.5.1 | JWPLC Basic | `[pendiente]` | `[pendiente]` |
+
+La recompilación (caliente) no cambia. La primera compilación tarda unos 8 s más porque `JWPLC_ModbusRTU`, ahora
+envoltorio de `JW_ModbusRTU`/`JW_RS485`, se compila desde la fuente en esta versión.
 
 ## Novedades
 
@@ -78,16 +85,24 @@ Referencia adoptada: arduino-cli 1.5.1. Benchmark de la alpha.14 con todo precom
 
 ### Compilación y CI `[ejecutado]`
 
-- CI del PR #141 en `d7afe353`: tests del HMI Designer 10/10 (incluye `codegen-smoke`, que verifica los
-  símbolos en los `.a`, y `menu-host-sim`, el firmware real del MENU en host) y smoke del package. Sobre el
-  SHA final: `[pendiente]`.
+- CI del PR #141 (hoy #157) en `9a27b13` (24/10): tests del HMI Designer y smoke del package en verde.
+- Tests del HMI Designer en la nube sobre la rama final: **16/16 PASS** (`run-all.cjs`: codegen puro y golden,
+  inspector, MENU e ICON con paridad lienzo/firmware, firmware real en host, CLI para agentes, flasheador del
+  Live Bridge y `codegen-smoke`, que compila los headers y verifica los símbolos en los `.a`).
 - `libJWPLC_TFT.a` regenerado desde la fuente integrada: `ABI_COMPAT=PASS`, `ST7789_DISPON_DEFERRED=YES`,
   1 733 562 B, sha256 `f4108833…16919eaa` (commit `161e406`).
 - `libJWPLC_Display.a` regenerado desde la fuente final: `ABI_COMPAT=PASS` (0 símbolos públicos quitados, 27
   añadidos), 1 370 778 B, sha256 `20d23abe…a0055745`; `JWPLC_Display` vuelve a `precompiled=full`.
-- Compilación ESP32 (arduino-cli, package de la rama) de 17 sketches en **JWPLC Basic y JWPLC Basic Core**
-  (17/17 en cada placa, también con `JWPLC_Display` precompilado): ejemplos de Display 01–04, gates del Designer (MENU, formatos, reloj, tildes,
-  codegen, OpenPLC F0), Ethernet DHCP, Modbus TCP Server/Client, Modbus RTU Slave/Master y RS485_Echo.
+- Revisión de cierre (24/10): reconstruir ambos `.a` desde la fuente da `ABI_COMPAT=PASS` con 0 símbolos
+  públicos añadidos o quitados frente a los publicados (la TFT con `ST7789_DISPON_DEFERRED=YES`); ningún
+  cambio de fuente después de su regeneración. `JWPLC_Display`, `JWPLC_TFT`, `JWPLC_Ethernet`,
+  `JWPLC_ModbusTCP`, `JW_FRAM`, `JW_MatrixButtons` y `JW_SD` van `precompiled=full`; `JWPLC_ModbusRTU`, desde
+  la fuente (se retiró su `libJWPLC_ModbusRTU.a` de Alpha13, que ya no correspondía al envoltorio).
+- Compilación ESP32 de **todos los ejemplos del package (76) y los 7 gates del Designer** (MENU, MENU desde el
+  Designer, formatos, reloj, tildes, codegen estático y OpenPLC F0) en **JWPLC Basic y JWPLC Basic Core**:
+  83/83 en cada placa, sin warnings (arduino-cli, package de la rama, sketchbook vacío). Flash: Basic
+  436 477–473 589 B; Core 394 195–433 517 B.
+- Live Bridge del Designer recompilado desde el package congelado (440 752 B).
 
 ### Pruebas en placa
 
@@ -96,7 +111,8 @@ Referencia adoptada: arduino-cli 1.5.1. Benchmark de la alpha.14 con todo precom
 - `[ejecutado, Alpha13 y PR #138]` Modbus RTU con los envoltorios nuevos: COM4 Master ↔ COM14 Slave, FC03
   30/30 y FC06 15/15, CRC 0.
 - `[pendiente]` package integrado en COM4 (pantalla + Ethernet) con COM14 como Slave RTU; Live Bridge
-  instalado desde la app y LIVE conectado.
+  instalado desde la app y LIVE conectado. Sketch y checklist:
+  `tools/jwplc-hmi-designer/gates/A14_F2_Combinado/`.
 
 ## Limitaciones conocidas
 

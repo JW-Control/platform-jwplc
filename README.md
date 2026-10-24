@@ -1,6 +1,6 @@
 # JWPLC Platform for Arduino IDE
 
-<!-- JWPLC_RELEASE_VERSION: 2.1.0-alpha.13 -->
+<!-- JWPLC_RELEASE_VERSION: 2.1.0-alpha.14 -->
 
 Package oficial de **JW Control** para programar el **JWPLC Basic** desde
 Arduino IDE y Arduino CLI.
@@ -116,9 +116,14 @@ pantalla necesitaba para usarse como HMI de máquina.
 - **Dibujo directo** con elipses, triángulos, fuentes grandes e imágenes
   (`JWPLC_TFT` 0.3.0).
 
+Además, las librerías y los ejemplos usan **pines con nombre** (`JWPLC_FRAM_CS`,
+`JWPLC_SD_CS`, `JWPLC_BTN_*`…) en lugar de números sueltos, y `JWPLC_RS485` /
+`JWPLC_ModbusRTU` se apoyan ahora en las librerías `JW_RS485` y `JW_ModbusRTU`,
+con la misma API.
+
 **Probado en banco:** menús, formatos, reloj, tildes, buzzer, pestañas y
-tecla de despertar en un JWPLC Basic; compilación de los ejemplos principales
-en JWPLC Basic y Basic Core.
+tecla de despertar en un JWPLC Basic; Modbus RTU entre dos equipos; los 76
+ejemplos del package compilan en JWPLC Basic y Basic Core.
 
 ---
 

@@ -4,29 +4,30 @@ Documento para retomar en otro chat (nube o local) el trabajo hecho en la sesió
 Leer antes: `CLAUDE.md` de este repo, `jwplc-dev-mcp/CLAUDE.md` y
 `jwplc-dev-mcp/knowledge/projects/platform-jwplc/RAMAS_Y_TAGS.md` (en `main`).
 
-## 0. Estado al 24/10/2026 (leer primero; el resto del documento es la historia hasta el 23/10)
+## 0. Estado al 24/10/2026, tarde (leer primero; el resto del documento es la historia hasta el 23/10)
 
 ```text
-FASE_1_INTEGRACION=CLOSED      17 sketches x (Basic, Basic Core) compilan; CI del #141 en verde
-FASE_3_FREEZE=DONE             libJWPLC_Display.a regenerado (ced1f93): ABI_COMPAT=PASS, precompiled=full
-                               libJWPLC_TFT.a con DISPON diferido (161e406); solo JWPLC_ModbusRTU en modo fuente
-FASE_4_DOCS=DRAFT_DONE         docs/v2.1.0-alpha.14/PRE_RELEASE.md, README raíz, README de librerías y del Designer
-                               (marcador JWPLC_RELEASE_VERSION del README sigue en 2.1.0-alpha.13 a propósito)
-FASE_2_FISICA=PENDING          sketch combinado COM4<->COM14, Live Bridge + LIVE, app de escritorio regenerada (local)
-BENCHMARK=PENDING              arduino-cli 1.5.1 en la PC del jefe, con todo precompilado
-PRS_HACIA_141=ninguno abierto (#142-#145, #148-#150 ya fusionados)
+FASE_1_INTEGRACION=CLOSED      CI del #141 en verde (9a27b13); hoy PR #157
+FASE_3_FREEZE=DONE             Display .a ced1f93 y TFT .a 161e406 reconstruidos el 24/10: ABI_COMPAT=PASS,
+                               0 símbolos +/-, ST7789_DISPON_DEFERRED=YES; solo JWPLC_ModbusRTU en modo fuente
+CIERRE_NUBE_24_10=PASS         83/83 sketches (76 ejemplos + 7 gates) en Basic y en Basic Core, sin warnings;
+                               tests del Designer 16/16; Live Bridge recompilado desde el package congelado (#160)
+FASE_4_DOCS=DONE               READMEs de librerías (#159), PRE_RELEASE.md y README raíz (marcador 2.1.0-alpha.14);
+                               workflow temporal retirado (PR de cierre)
+FASE_2_FISICA=PENDING          tools/jwplc-hmi-designer/gates/A14_F2_Combinado (sketch + checklist), local
+BENCHMARK_PC=PENDING           tools/build-speed-benchmark/Compare-JWPLCBuildBenchmark.ps1 (#161); nube: tabla en PRE_RELEASE
 ```
 
-Decisiones del propietario el 23–24/10:
-- `JWPLC_UIValueFormat` conserva el constructor de 4 argumentos para no romper el ABI del `.a` (`77b87e4`).
-- `regenerate_libJWPLC_Display.sh` busca los imports también en `precompiled/core/*/core.a` (`jwplcGetRTCState`).
-- `JWPLC_GlobalPeripherals` sube a 1.1.0 por `JWPLC_Buzzer` (se puede revertir si el propietario lo pide).
+Ramas (24/10): principal `v2.1.0-alpha.14/HmiDesigner/main`; features `v2.1.0-alpha.14/HmiDesigner/feature/<tema>` (CLAUDE.md §5).
+PR de release: #157 (borrador, sustituye a #141). Fusionadas en la principal el 24/10: #164 (convención de ramas),
+#158 (instalador), #159 (READMEs), #160 (gate físico + Live Bridge), #161 (benchmark), #162 (consolidación) y
+#163 (cierre: README/PRE_RELEASE/workflow, el último). Al quitar `alpha14-integracion.yml` el #157 ya no corre
+`designer-tests`. Los PRs #141 y #151–#156 quedaron sustituidos y sus ramas borradas.
 
-Siguiente, en orden (merge y Release solo con autorización explícita del propietario):
-1. Fase 2 física y benchmark, o decisión de publicar sin ellos y anotarlo en `PRE_RELEASE.md` (quitar los `[pendiente]`).
-2. Retirar `.github/workflows/alpha14-integracion.yml`, poner `JWPLC_RELEASE_VERSION: 2.1.0-alpha.14` en el README y
-   sacar el #141 de borrador.
-3. Fusionar el #141 (publica la Release) y la fase 5 de §4.
+Siguiente (merge y Release solo con autorización explícita del propietario):
+1. Prueba física con el checklist del gate y benchmark en la PC; anotar resultados en `PRE_RELEASE.md` (quitar `[pendiente]`).
+2. Sacar el #157 de borrador (con autorización).
+3. Fusionar el #157 (publica la Release) y la fase 5 de §4.
 
 ## 1. Dónde está cada cosa
 
