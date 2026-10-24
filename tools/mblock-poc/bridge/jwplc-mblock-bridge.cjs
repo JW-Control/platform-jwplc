@@ -110,7 +110,9 @@ function runCli(args, onLine) {
         let tail = '';
         const feed = (chunk) => {
             const text = tail + chunk.toString();
-            const lines = text.split(/\r?\n/);
+            // esptool v5 actualiza el progreso con \r y sólo pone \n al terminar
+            // cada archivo: se corta también en \r para seguirlo en vivo.
+            const lines = text.split(/\r\n|\n|\r/);
             tail = lines.pop();
             for (const l of lines) if (l.trim()) onLine(l);
         };

@@ -13,8 +13,8 @@ GATE6B_PALETTE_WIFI=PASS              [ejecutado] categoría WiFi visible
 GATE6C_CODEGEN_PHASE3=PASS            [ejecutado]
 GATE6D_COMPILE_A14_FROM_MBLOCK=PASS   [ejecutado]
 GATE6E_NO_WIFI_COST_WITHOUT_BLOCKS=PASS [ejecutado] programa sin WiFi sigue en 425 608 B
-GATE6F_UPLOAD_AND_PHYSICAL=PARTIAL    [verificado por el usuario] conecta, muestra IP y envía;
-                                      recepción sin probar (PC en otra subred)
+GATE6F_UPLOAD_AND_PHYSICAL=PASS       [ejecutado + verificado por el usuario] conexión, IP,
+                                      envío, recepción y filtro de canal con la PC en la misma LAN
 GATE6G_UPLOAD_DIALOG_WITHOUT_FALSE_FAIL=PASS [ejecutado] sin «Fallo al subir» durante la subida
 ~~~
 
@@ -97,12 +97,32 @@ WiFi» (no se registran en el repo) y el programa se subió desde mBlock a COM14
 [verificado por el usuario] La placa se conecta y muestra «IP 192.168.1.16» en
 la línea 1 y «Enviado N» subiendo cada 2 s en la línea 2.
 
-Recepción sin probar: la PC está en 192.168.0.4/24 (Ethernet) y la placa en la
-WiFi 192.168.1.x. [ejecutado] La PC no recibió los broadcast de la placa (escucha
+Primer intento con la red de un repetidor: la PC está en 192.168.0.4/24
+(Ethernet) y la placa quedó en 192.168.1.x. [ejecutado] La PC no recibió los broadcast de la placa (escucha
 UDP 47821 durante 10 s) y los enviados por la PC (broadcast 192.168.0.255 y
 unicast 192.168.1.16) no llegaron; ping a 192.168.1.16 sin respuesta: no hay
 ruta entre las dos subredes. Para cerrar el gate hace falta la PC en la misma
 WiFi, una segunda JWPLC o un móvil con una app UDP en 192.168.1.x.
+
+Segundo intento: el propietario indicó que su red principal (192.168.0.x) es
+otra; se cambió sólo el nombre de red del bloque (la clave no se tocó ni se
+registra) y se volvió a subir desde mBlock (37 s, un único aviso «El código se
+ha subido»). La placa tomó la IP 192.168.0.3.
+
+~~~text
+PC escucha UDP 47821 (10 s)          5 paquetes "JWPLC|1|contador|10..14" desde 192.168.0.3    PASS [ejecutado]
+PC envía "JWPLC|1|contador|42"       línea 3 "Recibido 42"                                     PASS [usuario]
+PC envía "JWPLC|1|boton|"            un pitido y "Llego boton" en la línea 4                   PASS [usuario]
+PC envía "JWPLC|2|boton|" (canal 2)  ignorado: no suena                                        PASS [usuario]
+~~~
+
+Herramientas usadas (scratchpad, no versionadas): un `dgram` de Node que escucha
+el puerto 47821 y otro que envía por broadcast a 192.168.0.255.
+
+Barra de progreso: esptool v5 actualiza su progreso con `\r` y sólo pone `\n`
+al terminar cada archivo, así que el bridge recibía todo el progreso de la app
+al final (la barra quedaba en 50 % y saltaba a 100 %). El bridge corta ahora las
+líneas también en `\r`. [no verificado] en una subida real: se verá en la próxima.
 
 ### Avisos falsos de «Fallo al subir» (corregido)
 
@@ -138,12 +158,12 @@ Nota de pruebas: en los scripts de prueba los textos fijos se metían como bloqu
 lleva). Corregido en `test/cdp-program-phase2.js` y `phase3.js`: el texto va en
 el propio hueco, como al usar la paleta.
 
-### Checklist pendiente para cerrar 6F
+### Checklist para otra prueba con dos placas
 
 Requiere dos JWPLC Basic (o una JWPLC y un emisor UDP) en la misma red WiFi:
 
 1. PASS: la línea 1 muestra «IP x.x.x.x» tras conectar.
-2. Cada 2 s la línea 2 muestra «Enviado N» (PASS); en la otra placa, la línea 3 «Recibido N».
+2. PASS: cada 2 s la línea 2 muestra «Enviado N»; en la otra placa, la línea 3 «Recibido N» (con la PC: PASS).
 3. OK en una placa: la otra hace un pitido y muestra «Llego boton».
 4. Con canales distintos (`poner canal de red`) las placas no se oyen.
 5. Revisar convivencia con Ethernet activa y la carga del bus mientras llegan mensajes.
