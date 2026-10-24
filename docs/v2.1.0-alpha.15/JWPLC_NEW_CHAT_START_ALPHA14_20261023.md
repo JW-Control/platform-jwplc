@@ -19,14 +19,14 @@ BENCHMARK_PC=PENDING           tools/build-speed-benchmark/Compare-JWPLCBuildBen
 ```
 
 Ramas (24/10): principal `v2.1.0-alpha.14/HmiDesigner/main`; features `v2.1.0-alpha.14/HmiDesigner/feature/<tema>` (CLAUDE.md §5).
-PR de release: #157 (borrador, sustituye a #141). PRs hacia la principal (esperan OK del propietario): #158 (instalador),
-#159 (READMEs), #160 (gate físico + Live Bridge), #161 (benchmark), #162 (consolidación de ramas) y #163 (cierre:
-README/PRE_RELEASE/workflow). El de cierre va el último: al quitar `alpha14-integracion.yml` el #157 deja de correr
-`designer-tests`. Los PRs #141 y #151–#156 quedan sustituidos y sus ramas `v2.1.0-alpha.14/feature/*` y `claude/*` se borran.
+PR de release: #157 (borrador, sustituye a #141). Fusionadas en la principal el 24/10: #164 (convención de ramas),
+#158 (instalador), #159 (READMEs), #160 (gate físico + Live Bridge), #161 (benchmark), #162 (consolidación) y
+#163 (cierre: README/PRE_RELEASE/workflow, el último). Al quitar `alpha14-integracion.yml` el #157 ya no corre
+`designer-tests`. Los PRs #141 y #151–#156 quedaron sustituidos y sus ramas borradas.
 
 Siguiente (merge y Release solo con autorización explícita del propietario):
 1. Prueba física con el checklist del gate y benchmark en la PC; anotar resultados en `PRE_RELEASE.md` (quitar `[pendiente]`).
-2. Fusionar #158–#162 y, al final, #163 en la principal; sacar el #157 de borrador.
+2. Sacar el #157 de borrador (con autorización).
 3. Fusionar el #157 (publica la Release) y la fase 5 de §4.
 
 ## 1. Dónde está cada cosa

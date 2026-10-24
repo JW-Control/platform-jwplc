@@ -15,6 +15,7 @@ ALPHA15_RELEASE=2.1.0-alpha.14 (por orden de publicación; ver «Organización d
 ALPHA15_RELEASE_PR=#157 (borrador; rama v2.1.0-alpha.14/HmiDesigner/main desde release/v2.1.x; sustituye a #141)
 ALPHA14_INTEGRATION=FASE_1_CLOSED + FASE_3_FREEZE_DONE (Display .a ced1f93 y TFT .a 161e406: ABI_COMPAT=PASS, precompiled=full)
 ALPHA14_CLOSURE_CHECK=PASS (24/10: 83/83 sketches en Basic y Basic Core, Designer 16/16, .a reconstruidos sin cambios de ABI)
+ALPHA14_FEATURES_MERGED=#164 828eaf3, #158 d782cca, #159 8ddc06d, #160 a00c268, #161 69478cf, #162 a0d3ba7; #163 (cierre) el último
 ALPHA14_NEXT=FASE_2_FISICA (gates/A14_F2_Combinado) + benchmark en la PC del jefe -> merge #157 con autorización
 ALPHA14_NOTES=docs/v2.1.0-alpha.14/PRE_RELEASE.md (final salvo prueba física y benchmark de PC; marcador del README en 2.1.0-alpha.14)
 ```
@@ -145,3 +146,5 @@ Registro detallado hasta el 23/10/2026: [history/ALPHA15_REGISTRO_20261016_20261
 - 2026-10-22/23 — Integración sobre Alpha13 (PR #141, fase 1); LIVE con `pushImage` y protocolo v2; `libJWPLC_TFT.a`
   regenerado con DISPON diferido (`161e406`); herramientas PIXEL, guardado, recientes y CLI `jwhmi` (#143);
   borradores de publicación (README, `PRE_RELEASE.md`, README de librerías).
+- 2026-10-24 — Cierre en la nube (83/83 sketches por placa, Designer 16/16, `.a` sin cambios de ABI); ramas al esquema
+  `v2.1.0-alpha.14/HmiDesigner/main` + `…/feature/<tema>`; features #164 y #158–#162 fusionadas en la principal.
