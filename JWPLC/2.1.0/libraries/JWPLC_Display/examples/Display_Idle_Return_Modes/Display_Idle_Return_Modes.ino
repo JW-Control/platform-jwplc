@@ -36,7 +36,7 @@ void setup()
     Serial.begin(115200);
     delay(1200);
 
-    // Alpha8+ mantiene IDLE_WAKE_DISABLED por defecto. El ejemplo habilita
+    // Por defecto se mantiene IDLE_WAKE_DISABLED. El ejemplo habilita
     // de forma deliberada únicamente OK para entrar a USER.
     JWPLC_Display.setIdleWakeButton(BTN_OK);
     JWPLC_Display.setIdleWakeMode(IDLE_WAKE_BUTTON_ONLY);
@@ -46,7 +46,7 @@ void setup()
     JWPLC_Display.clearPendingInput();
 
     JWPLC_Display.setRunLed(true);
-    JWPLC_Display.setErrLed(false);
+    JWPLC_Display.setErrCode(""); // sin error
     JWPLC_Display.setBusLed(false);
     JWPLC_Display.setEthLed(false);
 

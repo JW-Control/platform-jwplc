@@ -94,7 +94,7 @@ void setup()
     Serial.begin(115200);
     delay(1200);
 
-    // Alpha8+ no despierta USER por defecto. OK se habilita de forma explícita.
+    // Por defecto no se despierta USER con una tecla. OK se habilita de forma explícita.
     JWPLC_Display.setIdleWakeButton(BTN_OK);
     JWPLC_Display.setIdleWakeMode(IDLE_WAKE_BUTTON_ONLY);
     JWPLC_Display.setIdleReturnMode(IDLE_RETURN_TIMEOUT);
@@ -131,7 +131,7 @@ void loop()
         g_runState = !g_runState;
 
         JWPLC_Display.setRunLed(g_runState);
-        JWPLC_Display.setErrLed(false);
+        JWPLC_Display.setErrCode(""); // sin error
 
         Serial.print("Counter: ");
         Serial.println(g_processCounter);

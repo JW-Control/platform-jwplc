@@ -1,7 +1,8 @@
 /*
   02.Display_HMI_Fields
 
-  HMI USER compacta con cuatro tipos de campo Alpha8:
+  HMI USER compacta con los cuatro tipos de campo básicos, declarados a mano
+  (el HMI Designer añade MENU, ICON, formatos y pilotos: ver 05..07):
   - VALUE: valor numérico.
   - TEXT : texto.
   - BOOL : estado booleano.

@@ -4,7 +4,8 @@
   Ejemplo de HMI con dos páginas y datos cacheados del runtime.
 
   Página 0: entradas digitales.
-  Página 1: hora del RTC.
+  Página 1: hora del RTC (campo de fecha/hora: el firmware lee el RTC solo,
+            sin variable ni setValue()).
 
   Funciones mostradas:
   - setUserPage(page): cambia la página USER.
@@ -36,14 +37,13 @@ static const JWPLC_UIField FIELDS[] = {
         FIELD_INPUT0, 20, 90, "I0_0",
         JWPLC_UIBoolText("LOW", "HIGH"), 0),
 
-    JWPLC_UITextField(
-        FIELD_TIME, 20, 45, "Hora", 12, 1),
+    JWPLC_UIValueField(
+        FIELD_TIME, 20, 45, "Hora", "",
+        JWPLC_UIDateTimeFormat(JWPLC_UI_DATETIME_HH_MM_SS), 1),
 
     JWPLC_UIBoolField(
         FIELD_RTC_VALID, 20, 90, "RTC",
         JWPLC_UIBoolText("INVALID", "OK"), 1)};
-
-static char timeText[12] = "--:--:--";
 
 void setup()
 {
@@ -94,18 +94,7 @@ void loop()
         JWPLC_Display.setValue(FIELD_INPUTS, JWPLC_IO.inputs());
         JWPLC_Display.setBool(FIELD_INPUT0, JWPLC_IO.input(0));
 
-        if (JWPLC_Time.valid())
-        {
-            snprintf(
-                timeText, sizeof(timeText), "%02u:%02u:%02u",
-                JWPLC_Time.hour(), JWPLC_Time.minute(), JWPLC_Time.second());
-        }
-        else
-        {
-            snprintf(timeText, sizeof(timeText), "--:--:--");
-        }
-
-        JWPLC_Display.setText(FIELD_TIME, timeText);
+        // FIELD_TIME no necesita código: se repinta solo cada segundo.
         JWPLC_Display.setBool(FIELD_RTC_VALID, JWPLC_Time.valid());
     }
 
