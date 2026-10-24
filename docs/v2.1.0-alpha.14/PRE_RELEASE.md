@@ -129,6 +129,9 @@ versión; se volverá a precompilar en una alpha posterior.
     subir después: PASS, repetido con el Live Bridge recompilado desde el package congelado (440 752 B, el que
     se publica). El LIVE sigue los cambios del lienzo; el operador notó algo más de latencia que con el
     binario anterior, dentro de lo aceptable.
+- `[ejecutado 24/10]` plantillas HMI de `JWPLC_Display` (`05.HMI_Plantilla_Caldera`, `06.HMI_Botonera_Interactiva`,
+  `07.HMI_Iconos_Planta`) subidas desde *Archivo → Ejemplos* a un JWPLC Basic: se ven como sus vistas previas y
+  responden a la botonera: PASS.
 
 ## Limitaciones conocidas
 
