@@ -5,6 +5,8 @@ Fecha: `2026-10-17` · propuesta de Kenyi (Alpha14) para validar con el jefe y A
 ```text
 ESTADO=PROPUESTA (pendiente de visto bueno del jefe y André)
 IMPLEMENTADO_OPENPLC=sí (openplc-editor develop/alpha14-openplc-hmi-v1)
+VERSION_1_1=IMPLEMENTADA (24/10/2026, §7): puente para el Designer de 2.1.0-alpha.14 en
+  v2.1.0-alpha.15/OpenPLC-HMI/feature/designer-alpha14-en-openplc (los dos repos)
 ADELANTO_DESIGNER=tools/jwplc-hmi-designer/poc/designer-openplc-host.js (selector "Variable PLC"; André decide si lo integra en A15-6)
 OBJETIVO=en un proyecto OpenPLC, el Designer no crea variables: elige variables del PLC
 BASE_PROBADA=bindings.json + header del Designer (F0, F0b, F0c PASS en placa)
@@ -111,7 +113,8 @@ interface HostVariable {
 - La lista es la del momento de abrir el Designer; si el programa cambia, se
   vuelve a abrir (refresco en vivo: más adelante).
 - `loadProject()` también lo usa OpenPLC al abrir: si existe
-  `hmi/JWPLC_HMI.jwhmi` se carga en el Designer.
+  `hmi/JWPLC_HMI.jwhmi` se carga en el Designer. (Desde 1.1 lo abre el propio
+  Designer con `JWPLCHMINative.readProject()`; `loadProject()` queda disponible.)
 
 ## 4. Compilación en OpenPLC
 
@@ -145,14 +148,53 @@ tampoco `EDIT_BOOL` en RW; TEXT (`char[]`); valores en vivo en el lienzo.
 
 Cambios a este contrato: se acuerdan entre Alpha14 y Alpha15 y se anotan aquí.
 
-## 7. Pendiente: versión 1.1 (24/10/2026)
+## 7. Versión 1.1: Designer de 2.1.0-alpha.14 dentro de OpenPLC (24/10/2026)
 
-El Designer integrado en `v2.1.0-alpha.14/feature/hmi-designer` amplió
-`JWPLCHMINative` de 4 a unas 20 funciones (`readProject`, `chooseSaveTarget`,
-`applySaveTarget`, `writeGuide`, `registerCloseGuard`, recientes, selector de
-puerto serie, ...). Algunas se llaman sin comprobar que existan, así que el
-anfitrión de OpenPLC tiene que implementarlas antes de usar ese Designer.
+El Designer de 2.1.0-alpha.14 amplió `JWPLCHMINative` de 4 a unas 20 funciones. En OpenPLC el
+«sketch» vinculado sigue siendo la carpeta `hmi/` del proyecto abierto, así que el anfitrión expone
+sólo lo que tiene sentido ahí y el Designer, en modo OpenPLC (`JWPLCHMIHost.mode === 'openplc'`),
+oculta el resto.
 
-Propuesta de cómo responde cada una en OpenPLC:
-`JWPLC_NEW_CHAT_START_ALPHA14_OPENPLC_20261024.md` §3.2. Se acuerda con André y
-se anota aquí como `jwplc-hmi-host/1.1`.
+Ramas: `v2.1.0-alpha.15/OpenPLC-HMI/feature/designer-alpha14-en-openplc` en openplc-editor
+(`src/main/modules/hmi-designer/index.ts`, `src/main/modules/preload/hmi-designer-preload.ts`,
+helpers puros en `src/backend/shared/compile/jwplc-hmi-host.ts`) y en platform-jwplc (Designer).
+
+### 7.1 `JWPLCHMINative` en OpenPLC
+
+| Función | En OpenPLC 1.1 |
+|---|---|
+| `getLinkedSketch()` / `selectSketchDirectory()` | `{ ok, name: <proyecto>, path: <proyecto>/hmi, headerExists, projectFile: 'JWPLC_HMI.jwhmi', projectExists }` (`describeHmiFolder`) |
+| `readProject()` | `{ ok, text, fileName }` de `hmi/JWPLC_HMI.jwhmi` (o el único `.jwhmi`); si no hay, `{ ok: false, missing: true }`. Con `projectExists` el Designer lo abre solo al iniciar |
+| `writeGeneratedHeader(text)` | Escribe `hmi/JWPLC_HMI_Generated.h`. Ya no guarda además el `.jwhmi`: lo escribe el Designer a continuación |
+| `writeProject(fileName, text)` | Escribe `hmi/JWPLC_HMI.jwhmi` (ignora `fileName`) |
+| `openSketchFolder()` | Abre `hmi/` en el explorador (la crea si no existe) |
+| `registerCloseGuard(cb)` / `confirmClose()` | Cerrar la ventana con cambios sin guardar pregunta (Guardar / No guardar / Cancelar). Sin respuesta en 2 s, cierra. Si se cierra OpenPLC, se guarda el `.jwhmi` sin preguntar |
+| `registerSerialPortPicker()` / `chooseSerialPort()` | Selector de puertos del Designer para Live Preview y el flasheo del Live Bridge. La ventana usa su propia sesión (`persist:jwplc-hmi-designer`), así que los permisos serie no tocan a OpenPLC |
+| `writeGuide` | **No se expone.** En OpenPLC no hay `.ino`: no se escribe `JWPLC_HMI_LEEME.md` |
+| `chooseSaveTarget`, `applySaveTarget` | **No se exponen.** Siempre hay destino (`hmi/`): «Guardar» = «Actualizar HMI» |
+| `createSketch`, `unlinkSketch`, `setLinkedSketch`, `openSketchIno`, `onSketchOpened` | **No se exponen.** «Nuevo» vacía el diseño sin desvincular |
+| `listRecentProjects`, `openRecentProject`, `clearRecentProjects`, `openProjectFile` | **No se exponen.** «Abrir» usa el selector de archivos del navegador; lo abierto se guarda en `hmi/` |
+
+### 7.2 El Designer en modo OpenPLC
+
+- Botón «OpenPLC: <proyecto> ▾» (en vez de «Sketch: …»), con un menú de dos acciones: «Recargar HMI guardado» y
+  «Abrir carpeta hmi/».
+- «Actualizar HMI» (en vez de «Escribir en sketch») y Ctrl+S: escriben el header y `JWPLC_HMI.jwhmi`, sin guía.
+- «Variable PLC» en la pestaña Datos (`designer-openplc-host.js`, sin cambios desde 1.0).
+- Los textos los escriben `designer-sketch-menu.js`, `designer-native-project.js`,
+  `designer-project-integration-fix.js` y `desktop-responsive.js` con la misma regla, para que no parpadeen.
+- El modo Arduino y el `.exe` no cambian (regla 6 del `CLAUDE.md`).
+
+### 7.3 Qué Designer abre OpenPLC
+
+OpenPLC toma los archivos de `JWPLC_HMI_DESIGNER_DIR` o del checkout vecino
+`../platform-jwplc/tools/jwplc-hmi-designer/poc`. Desde 1.1 exige `designer-save-flow.js` (Designer
+2.1.0-alpha.14) y `designer-openplc-host.js` (modo OpenPLC). Si falta alguno, no abre un Designer viejo: avisa
+que hay que cambiar platform-jwplc a `v2.1.0-alpha.15/OpenPLC-HMI/main`.
+
+### 7.4 Verificación
+
+- `[ejecutado]` platform-jwplc: `tools/jwplc-hmi-designer/tests/openplc-host-smoke.cjs` (puente 1.1 simulado,
+  también en `run-all.cjs`).
+- `[ejecutado]` openplc-editor: `jwplc-hmi-host.test.ts` (100 % de `jwplc-hmi-host.ts`), `tsc`, `eslint`.
+- `[no verificado]` en la app y en la placa: guía `A14_F3_1_DESIGNER_ALPHA14_EN_OPENPLC_20261024.md`.

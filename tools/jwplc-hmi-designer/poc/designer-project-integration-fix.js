@@ -6,6 +6,7 @@
   const HEADER_NAME = 'JWPLC_HMI_Generated.h';
   const MAX_PIXEL_MAPS = 16;
   const native = window.JWPLCHMINative || null;
+  const openplc = window.JWPLCHMIHost?.mode === 'openplc';
 
   let openButtonInstalled = false;
   let nativeUpdateInstalled = false;
@@ -198,13 +199,14 @@
     const linked = Boolean(info?.ok);
 
     if (linkButton) {
-      linkButton.textContent = linked ? `Sketch: ${info.name}` : 'Vincular sketch…';
+      linkButton.textContent = linked ? `${openplc ? 'OpenPLC' : 'Sketch'}: ${info.name}` : 'Vincular sketch…';
       linkButton.classList.toggle('linked', linked);
       linkButton.title = linked ? `Sketch vinculado: ${info.path}` : 'Seleccionar la carpeta del sketch Arduino';
     }
     if (updateButton) updateButton.disabled = !linked;
     if (status) {
-      status.textContent = linked ? `Sketch: ${info.name} · ${HEADER_NAME}` : 'Sketch: sin vincular';
+      status.textContent = !linked ? 'Sketch: sin vincular'
+        : openplc ? `OpenPLC: ${info.name} · hmi/${HEADER_NAME}` : `Sketch: ${info.name} · ${HEADER_NAME}`;
       status.classList.toggle('linked', linked);
       status.classList.remove('warning');
     }

@@ -28,6 +28,7 @@ const TESTS = [
   { file: 'sketch-guide.test.cjs', what: 'guía JWPLC_HMI_LEEME.md: contenido + sketch base compila (sin g++ sólo contenido)' },
   { file: 'agent-cli.test.cjs', what: 'CLI para agentes: spec == Designer, validación, paridad con golden, ejemplos, build' },
   { file: 'port-picker-smoke.cjs', what: 'selector de puertos serie propio (app de escritorio simulada)' },
+  { file: 'openplc-host-smoke.cjs', what: 'Designer dentro de OpenPLC (puente 1.1 simulado): Actualizar HMI, Variable PLC, cierre' },
   { file: 'live-bridge-flasher.test.cjs', what: 'flasheador Live Bridge (WebSerial + esptool-js + binarios ESP32)' },
   { file: 'live-bridge-host-sim.cjs', what: 'Live Bridge real en host (g++): TFT == lienzo, pushImage, protocolo v1/v2', needs: gpp ? null : 'g++' },
   { file: 'menu-host-sim.cjs', what: 'MENU: firmware real en host', needs: gpp ? null : 'g++' },
