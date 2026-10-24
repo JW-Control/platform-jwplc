@@ -93,7 +93,10 @@ function openplcMock(seed) {
     listVariables: async () => [
       { name: 'RELE', scope: 'global', iecType: 'BOOL', address: '%QX0.0', hmiTypes: ['bool'], access: 'R' },
       { name: 'CONTADOR', scope: 'global', iecType: 'INT', address: '%MW0', hmiTypes: ['float', 'int32_t'], access: 'RW' },
-      { name: 'LIMITE', scope: 'global', iecType: 'INT', address: '%MW1', hmiTypes: ['float', 'int32_t'], access: 'RW' }
+      { name: 'LIMITE', scope: 'global', iecType: 'INT', address: '%MW1', hmiTypes: ['float', 'int32_t'], access: 'RW' },
+      // Sin dirección (contrato 1.2): OpenPLC la enlaza por la tabla de depuración del programa.
+      { name: 'CUENTA', scope: 'program', pou: 'main', iecType: 'INT', address: null, hmiTypes: ['float', 'int32_t'], access: 'RW' },
+      { name: 'TIEMPO', scope: 'program', pou: 'main', iecType: 'TIME', address: null, hmiTypes: [], access: null, reason: 'TIME sin dirección todavía no se enlaza' }
     ],
     loadProject: async () => (files['JWPLC_HMI.jwhmi'] ? JSON.parse(files['JWPLC_HMI.jwhmi']) : null)
   };
@@ -170,6 +173,11 @@ async function main() {
     await a.page.click('#fieldInspectorV2 [data-insp-main="data"]');
     await a.page.waitForTimeout(300);
     const select = '.insp-panel[data-insp-panel="data"] .jwplc-plc-select';
+    const options = await a.page.$$eval(`${select} option`, (els) => els.map((o) => ({ value: o.value, text: o.textContent, disabled: o.disabled })));
+    const cuenta = options.find((o) => o.value === 'CUENTA');
+    const tiempo = options.find((o) => /TIEMPO/.test(o.text));
+    check(cuenta && !cuenta.disabled && /variable del programa/.test(cuenta.text) && tiempo?.disabled && /TIME sin dirección/.test(tiempo.text),
+      `variable sin dirección elegible («${cuenta?.text}») y la no enlazable con su motivo («${tiempo?.text}»)`);
     await a.page.selectOption(select, 'CONTADOR');
     await a.page.waitForTimeout(300);
     dialogs.length = 0;

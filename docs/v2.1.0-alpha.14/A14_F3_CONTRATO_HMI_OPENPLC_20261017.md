@@ -5,6 +5,7 @@ Fecha: `2026-10-17` · propuesta de Kenyi (Alpha14) para validar con el jefe y A
 ```text
 ESTADO=PROPUESTA (pendiente de visto bueno del jefe y André)
 IMPLEMENTADO_OPENPLC=sí (openplc-editor develop/alpha14-openplc-hmi-v1)
+VERSION_1_2=IMPLEMENTADA (24/10/2026, §8): variables sin dirección (tabla de depuración de STruC++)
 VERSION_1_1=IMPLEMENTADA (24/10/2026, §7): puente para el Designer de 2.1.0-alpha.14 en
   v2.1.0-alpha.15/OpenPLC-HMI/feature/designer-alpha14-en-openplc (los dos repos)
 ADELANTO_DESIGNER=tools/jwplc-hmi-designer/poc/designer-openplc-host.js (selector "Variable PLC"; André decide si lo integra en A15-6)
@@ -198,3 +199,41 @@ que hay que cambiar platform-jwplc a `v2.1.0-alpha.15/OpenPLC-HMI/main`.
   también en `run-all.cjs`).
 - `[ejecutado]` openplc-editor: `jwplc-hmi-host.test.ts` (100 % de `jwplc-hmi-host.ts`), `tsc`, `eslint`.
 - `[no verificado]` en la app y en la placa: guía `A14_F3_1_DESIGNER_ALPHA14_EN_OPENPLC_20261024.md`.
+
+## 8. Versión 1.2: variables sin dirección (24/10/2026)
+
+Hasta 1.1 sólo se enlazaban variables con dirección (`%IX`/`%QX`/`%IW`/`%QW`/`%MW`/`%MD`/`%ID`/`%QD`). Las que crea el
+Ladder no tienen dirección, así que la lista «Variable PLC» quedaba vacía. Desde 1.2 se enlazan también las
+variables **sin dirección** de los programas instanciados y las globales: el HMI las lee y escribe por la tabla
+de depuración que STruC++ ya compila en el firmware.
+
+| Tema | Regla |
+|---|---|
+| Tipos | BOOL; SINT, USINT, BYTE, INT, UINT, WORD, DINT, UDINT, DWORD; REAL. Otros (TIME, LREAL, STRING, tipos de usuario) aparecen deshabilitados con el motivo |
+| Acceso | `RW` siempre: son memoria del programa. La escritura **no fuerza** (`handle_write`): si el depurador fuerza la variable, manda el forzado |
+| `listVariables()` | `address: null`, `access: 'RW'`, sin `reason`. El Designer muestra «variable del programa» |
+| Ruta | Globales: `NOMBRE`; variables de programa: `<INSTANCIA>.<NOMBRE>` (primera instancia del programa). `VAR_EXTERNAL` es la global; `VAR_TEMP` no se enlaza |
+| Las que tienen dirección | Igual que antes: buffers del runtime (F0–F0c en placa) |
+
+Cómo se arma al compilar (openplc-editor):
+
+1. `generateJwplcHmi()` escribe `jwplc_hmi.h` con marcas `@@JWPLC_HMI_VAR(<ruta>,<TIPO>)@@` para cada enlace sin
+   dirección y los ayudantes `jwplcHmiReadVar` / `jwplcHmiWriteVar`.
+2. Tras STruC++, el pipeline llama `finalizeFirmwareSkeleton` → `finalizeJwplcHmiSkeleton()`: reemplaza cada marca
+   por `arr, elem` de `debug-map.json` y comprueba el tipo. Si falta la variable o cambió de tipo, error con el
+   nombre y no se llama a arduino-cli.
+3. El runtime Arduino exporta `openplc_debug_write` (escritura sin forzar) junto a `openplc_debug_read`
+   (`resources/sources/arduino/arduino_runtime_glue.{h,cpp}`).
+
+Además, en 1.2:
+
+- Un `hmi/JWPLC_HMI.jwhmi` sin `JWPLC_HMI_Generated.h` ya no detiene la compilación: aviso y la placa muestra la IDLE.
+- Al cambiar de proyecto o cerrar OpenPLC, el anfitrión guarda el header **y** el `.jwhmi`.
+
+Verificación:
+
+- `[ejecutado]` openplc-editor: tests de `jwplc-hmi.ts` y `jwplc-hmi-host.ts` al 100 %, gancho del pipeline;
+  tests de `compile` (284) en verde, `tsc`.
+- `[ejecutado]` compilación ESP32 del HAL del VPP + `jwplc_hmi.h` con los 7 enlaces del gate F0c sin dirección
+  (índices resueltos, tabla de depuración simulada): PASS, 448 525 B.
+- `[no verificado]` en la app y en la placa con un programa Ladder real (guía `A14_F3_1_…` paso 4).

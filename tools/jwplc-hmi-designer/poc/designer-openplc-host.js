@@ -77,7 +77,8 @@
   }
 
   function optionLabel(variable) {
-    const parts = [variable.name, variable.iecType, variable.address || 'sin dirección'];
+    // Sin dirección: OpenPLC la enlaza por la tabla de depuración del programa (contrato 1.2).
+    const parts = [variable.name, variable.iecType, variable.address || (variable.access ? 'variable del programa' : 'sin dirección')];
     if (variable.access === 'RW') parts.push('RW');
     return parts.join(' · ');
   }

@@ -7,6 +7,7 @@ Contrato: `A14_F3_CONTRATO_HMI_OPENPLC_20261017.md` §7 (`jwplc-hmi-host/1.1`).
 A14_F3_1_PUENTE_1_1=PASS [ejecutado] (simulado: openplc-host-smoke.cjs; editor: tests + tsc + eslint)
 A14_F3_1_EN_LA_APP=PENDING [no verificado] (sección 3)
 A14_F3_1_EN_PLACA=PENDING [no verificado] (sección 3, pasos 6-7)
+A14_F3_2_VARIABLES_SIN_DIRECCION=PASS [ejecutado] (tests + compilación ESP32 con tabla simulada); en placa PENDING
 ```
 
 ## 1. Por qué OpenPLC mostraba el HMI antiguo
@@ -60,8 +61,12 @@ nuevo (sección 3). El VPP `2.1.0-alpha.15` es el mismo payload que alpha.32 (`A
    - «Actualizar HMI»;
    - si el proyecto ya tenía `hmi/JWPLC_HMI.jwhmi`, esa pantalla cargada.
 4. **Enlazar.** En la pestaña Datos de cada objeto, «Variable PLC»: Relé → `RELE`, Contador y Nivel → `CONTADOR`,
-   nodo del MENU Límite → `LIMITE` (como F0c).
+   nodo del MENU Límite → `LIMITE` (como F0c). Desde el contrato 1.2 también aparecen las variables **sin
+   dirección** del `main` (las que crea el Ladder), marcadas «variable del programa»: probar al menos una BOOL
+   (piloto) y una INT en un nodo EDIT_NUM del MENU (escritura). La lista es la del momento de abrir el Designer:
+   si agregas variables, ciérralo y vuelve a abrirlo.
 5. **Actualizar HMI.** Escribe `hmi/JWPLC_HMI_Generated.h` y `hmi/JWPLC_HMI.jwhmi`, sin `JWPLC_HMI_LEEME.md`.
+   Sin «Actualizar HMI» el proyecto compila igual, con aviso y sin la pantalla (la placa muestra la IDLE).
    Si el proyecto tiene un `hmi/bindings.json` de F0, borrarlo (los nombres C++ cambian, p. ej. `rele_q0_0` →
    `rele`), igual que el `.jwhmi` viejo `A14_F0c_OpenPLC_Escritura.jwhmi`.
 6. **Compilar y subir** desde OpenPLC: la placa debe comportarse como en F0c.
