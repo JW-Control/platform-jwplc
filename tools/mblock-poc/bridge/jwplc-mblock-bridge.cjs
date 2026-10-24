@@ -128,29 +128,43 @@ async function compile(code, fqbn, emit) {
     return exit;
 }
 
+// mLink puede tardar en soltar el COM tras la desconexión de mBlock: si esptool
+// lo encuentra ocupado, se reintenta antes de dar el upload por fallido.
+const UPLOAD_BUSY_RETRIES = 3;
+const UPLOAD_BUSY_WAIT_MS = 2000;
+
 async function upload(port, fqbn, emit) {
     emit({ type: 'stage', stage: 'upload', port });
-    let lastPct = -1;
-    const exit = await runCli([
-        'upload',
-        '--fqbn', fqbn,
-        '--port', port,
-        '--input-dir', OUTPUT_DIR,
-        SKETCH_DIR,
-    ], (line) => {
-        const m = /\((\d+)\s*%\)/.exec(line);
-        if (m) {
-            const pct = Number(m[1]);
-            if (pct !== lastPct) {
-                lastPct = pct;
-                emit({ type: 'progress', percent: pct });
+    for (let attempt = 1; ; attempt++) {
+        let lastPct = -1;
+        let busy = false;
+        const exit = await runCli([
+            'upload',
+            '--fqbn', fqbn,
+            '--port', port,
+            '--input-dir', OUTPUT_DIR,
+            SKETCH_DIR,
+        ], (line) => {
+            // esptool v5: "Writing at 0x... [===   ]  7.0% 16384/233911 bytes..."
+            // (varias actualizaciones por línea); esptool v4: "(7 %)".
+            const all = [...line.matchAll(/(\d+(?:\.\d+)?)\s*%/g)];
+            if (/^Writing at/.test(line) && all.length) {
+                const pct = Math.floor(Number(all[all.length - 1][1]));
+                if (pct !== lastPct) {
+                    lastPct = pct;
+                    emit({ type: 'progress', percent: pct });
+                }
+                return;
             }
-            return;
-        }
-        logLine('  ' + line);
-        emit({ type: 'log', line });
-    });
-    return exit;
+            if (/port is busy|Acceso denegado|Access is denied/i.test(line)) busy = true;
+            logLine('  ' + line);
+            emit({ type: 'log', line });
+        });
+        if (exit === 0 || !busy || attempt > UPLOAD_BUSY_RETRIES) return exit;
+        emit({ type: 'log', line: `COM ocupado; reintento ${attempt}/${UPLOAD_BUSY_RETRIES} en ${UPLOAD_BUSY_WAIT_MS} ms` });
+        logLine(`  UPLOAD_BUSY_RETRY=${attempt}`);
+        await new Promise((r) => setTimeout(r, UPLOAD_BUSY_WAIT_MS));
+    }
 }
 
 function readBody(req) {

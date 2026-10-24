@@ -19,7 +19,7 @@ GATE3E_COMPILE_FROM_MBLOCK_RENDERER=PASS               [ejecutado]
 GATE3F_BRIDGE_SECURITY=PASS                            [ejecutado]
 GATE3G_UPLOAD_FROM_MBLOCK=PASS                         [ejecutado] botón "Upload Code" de mBlock -> COM14
 GATE3H_PROGRAM_RUNNING=PASS                            [ejecutado] salida serie del programa de bloques
-GATE3I_PHYSICAL_IO=PARTIAL                             [verificado por el usuario] Q0.7 y Q0.0 aislada PASS; "si I0.0 entonces Q0.0" + Q0.7 abierto
+GATE3I_PHYSICAL_IO=PASS                                [verificado por el usuario] mismo comportamiento que el sketch de Arduino IDE
 ~~~
 
 ## Gate 2 runtime: `child_process` dentro de mBlock
@@ -225,7 +225,7 @@ CH340) vuelve a estar en la extensión; sin él la lista de puertos sale vacía.
 ~~~text
 Q0.7 conmutar cada 0,5 s                 -> PASS (parpadea)
 I0.0 -> TFT                               -> PASS (el recuadro de I0.0 responde al instante)
-si I0.0 entonces Q0.0 ON si no OFF        -> ABIERTO: la TFT muestra Q0.0 encendida, pero no hay accionamiento físico
+si I0.0 entonces Q0.0 ON si no OFF        -> la TFT muestra Q0.0, pero no se oye un clic propio (explicado abajo)
 ~~~
 
 Análisis [visto] en `cores/jwcontrol`: el indicador Q0.0 de la TFT sale del
@@ -268,20 +268,97 @@ Q0.0_FISICA=PASS      [verificado por el usuario] LED de la TFT y relé conmutan
 Log: `results/20261024_gate3i/GATE3I_Q00_ISOLATED_UPLOAD.log`.
 
 Conclusión: el canal Q0.0 (core, TCA6424A P10, relé) y los bloques "poner
-salida" funcionan. El fallo del programa de demostración depende de la
-combinación "si I0.0 entonces Q0.0" con "conmutar Q0.7" en el mismo ciclo de
-0,5 s. Pruebas siguientes para aislarlo:
+salida" funcionan.
 
-1. "por siempre: si I0.0 entonces Q0.0 ON si no OFF" sin esperas ni Q0.7.
-2. Lo mismo más "conmutar Q0.7" y "esperar 0,5".
+### Causa del "fallo" del programa de demostración
 
-Si (1) pasa y (2) falla, revisar en el core la interacción de dos
-`TCA6424A_writePin` sobre el banco 1 (read-modify-write con shadow) frente a
-escrituras de otras tareas.
+Identificada por el propietario: no era un fallo del core ni de mBlock. Con
+`delay(500)` el bucle sólo leía I0.0 una vez cada 0,5 s, así que cualquier
+cambio de Q0.0 caía en el mismo instante que la conmutación de Q0.7: los dos
+relés hacían clic sincronizados y nunca se oía un clic propio de Q0.0. La TFT
+sí reflejaba Q0.0 porque la orden se aplicaba. Lección para los ejemplos de
+bloques: en un PLC, temporizar con `millis()` y no bloquear el scan con esperas.
+
+### Ejemplo del propietario reproducido en bloques
+
+Sketch de referencia (Arduino IDE), validado por el propietario en la placa:
+
+~~~cpp
+bool inside = false;
+
+void setup() {
+  Serial.begin(115200);
+  JWPLC_writeOutputs(0);
+}
+
+void loop() {
+  if ((digitalRead(I0_0) == HIGH)) {
+    digitalWrite(Q0_0, HIGH);
+  } else {
+    digitalWrite(Q0_0, LOW);
+  }
+  while (millis() % 1000 < 500 && inside == false) {
+    digitalWrite(Q0_7, !digitalRead(Q0_7));
+    inside = true;
+  }
+  if (millis() % 1000 >= 500) inside = false;
+}
+~~~
+
+Mismo programa armado con bloques (`test/cdp-program-millis-scan.js`); código
+generado por la extensión [ejecutado]:
+
+~~~cpp
+float inside = 0;
+
+void setup() {
+  JWPLC_writeOutputs(0);
+  inside = 0;
+}
+
+void loop() {
+  if((digitalRead(I0_0) == HIGH)){
+    digitalWrite(Q0_0, HIGH);
+  }else{
+    digitalWrite(Q0_0, LOW);
+  }
+  if((fmod(millis(), 1000) < 500)  &&  (inside == 0.000000)){
+    digitalWrite(Q0_7, !digitalRead(Q0_7));
+    inside = 1;
+  }
+  if(!((fmod(millis(), 1000) < 500))){
+    inside = 0;
+  }
+}
+~~~
+
+Diferencias sin efecto en el comportamiento: el `while` del sketch se ejecuta
+como mucho una vez (su cuerpo pone `inside = true`), equivalente al `if`; las
+variables de mBlock son `float`; el operador "módulo" de mBlock emite `fmod`.
+
+~~~text
+COMPILE=PASS          [ejecutado] 416801 bytes (10%), 13 s
+UPLOAD=PASS           [ejecutado] 28 s, hash verificado, reset por RTS
+FISICA=PASS           [verificado por el usuario] igual que el sketch de Arduino IDE:
+                      Q0.7 con su clic periódico y Q0.0 alineado con el toque en I0.0
+~~~
+
+Logs: `results/20261024_gate3i/GATE3I_MILLIS_SCAN_UPLOAD.log`. Un intento previo
+falló con el COM ocupado (`GATE3I_MILLIS_PORT_BUSY_ATTEMPT.log`) tras dejar la GUI
+con el diálogo de conexión abierto sobre el de subida; desde entonces el bridge
+reintenta hasta 3 veces (cada 2 s) si esptool encuentra el COM ocupado. En el
+upload válido no hizo falta reintentar.
+
+El propietario da por correcto el core/package: el mismo comportamiento se
+obtiene con Arduino IDE y con mBlock.
+
+Ajuste menor del bridge: esptool v5 informa el progreso como `[===] 7.0%`, no
+`(7 %)`; el parser ahora reconoce ambos formatos para la barra de mBlock.
 
 ## Pendiente
 
-- Cerrar Gate 3I con las pruebas (1) y (2) de la sección Q0.0.
+- Bloques de temporización tipo PLC (TON/TOF, intermitencia con `millis()`) para
+  que los programas no dependan de "esperar".
 - Arranque del bridge sin consola (tarea programada al iniciar sesión o handler
   de protocolo que la extensión pueda abrir con `MeApi.fe.openLink`).
 - Bloques de siguiente nivel: botonera (BTN_*), TFT vía `JWPLC_Display`/`JWPLC_UI`,

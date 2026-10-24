@@ -1,0 +1,12 @@
+[2026-10-24T16:14:40.857Z] {"type":"stage","stage":"compile","fqbn":"jwplc:esp32:jwplcbasic"}
+[2026-10-24T16:14:40.857Z] RUN C:\Program Files\Arduino CLI\arduino-cli.exe compile --fqbn jwplc:esp32:jwplcbasic --build-path C:\Users\jeykc\.jwplc\mblock-bridge\build --output-dir C:\Users\jeykc\.jwplc\mblock-bridge\output C:\Users\jeykc\.jwplc\mblock-bridge\sketch\jwplc_mblock
+[2026-10-24T16:15:03.085Z]   Sketch uses 416801 bytes (10%) of program storage space. Maximum is 4063232 bytes.
+[2026-10-24T16:15:03.086Z]   Global variables use 29524 bytes (9%) of dynamic memory, leaving 298156 bytes for local variables. Maximum is 327680 bytes.
+[2026-10-24T16:15:04.217Z] {"type":"stage","stage":"upload","port":"COM14"}
+[2026-10-24T16:15:04.217Z] RUN C:\Program Files\Arduino CLI\arduino-cli.exe upload --fqbn jwplc:esp32:jwplcbasic --port COM14 --input-dir C:\Users\jeykc\.jwplc\mblock-bridge\output C:\Users\jeykc\.jwplc\mblock-bridge\sketch\jwplc_mblock
+[2026-10-24T16:15:09.249Z]   esptool v5.2.0
+[2026-10-24T16:15:09.254Z]   A fatal error occurred: Could not open COM14, the port is busy or doesn't exist.
+[2026-10-24T16:15:09.254Z]   (could not open port 'COM14': PermissionError(13, 'Acceso denegado.', None, 5))
+[2026-10-24T16:15:09.299Z]   Serial port COM14:
+[2026-10-24T16:15:09.617Z]   Failed uploading: uploading error: exit status 2
+[2026-10-24T16:15:09.640Z] {"type":"result","ok":false,"stage":"upload","exit":1,"ms":28784}
