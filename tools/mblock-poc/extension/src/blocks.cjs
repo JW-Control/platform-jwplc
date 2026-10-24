@@ -22,6 +22,10 @@
 // - Memoria: JWPLC_Memory sobre JWPLC_FRAM (bloques con checksum).
 // - microSD: JWPLC_Files sobre JWPLC_SD (mutex del bus SPI).
 // - WiFi: JWPLC_Net (JWPLC_mBlock_WiFi.h) con WiFi.h/WiFiUdp.h del core ESP32.
+// - RS485: JWPLC_RS485 (begin) y JWPLC_Line485 (líneas de texto).
+// - Ethernet: JWPLC_Ethernet (useDHCP/setStaticIP; el runtime la atiende).
+// - Modbus: JWPLC_Registers (16 registros), JWPLC_ModbusEasy sobre JWPLC_ModbusRTU
+//   (esclavo y maestro *Sync) y JWPLC_ModbusTcpEasy sobre JWPLC_ModbusTCP (servidor).
 // No se emite pinMode(): el core configura internamente I0_x/Q0_x.
 
 'use strict';
@@ -36,6 +40,9 @@ const CATEGORIES = [
     { name: 'jwplc_memory', colors: ['#E07B39', '#D86D29', '#C25F20'], text: { en: 'Memory', es: 'Memoria' } },
     { name: 'jwplc_sd', colors: ['#8C7AE6', '#7D6AD9', '#6C59C9'], text: { en: 'microSD', es: 'microSD' } },
     { name: 'jwplc_wifi', colors: ['#2EB872', '#28A465', '#209055'], text: { en: 'WiFi', es: 'WiFi' } },
+    { name: 'jwplc_rs485', colors: ['#607D8B', '#56717E', '#4B6370'], text: { en: 'RS485', es: 'RS485' } },
+    { name: 'jwplc_ethernet', colors: ['#3F7CAC', '#386F9A', '#306088'], text: { en: 'Ethernet', es: 'Ethernet' } },
+    { name: 'jwplc_modbus', colors: ['#795548', '#6D4C41', '#5D4037'], text: { en: 'Modbus', es: 'Modbus' } },
 ];
 
 const OUTPUT_MENU = [0, 1, 2, 3, 4, 5, 6, 7].map((i) => ({ label: 'Q0.' + i, value: 'Q0_' + i }));
@@ -76,6 +83,15 @@ const SOUND_SECTIONS = { include: [LIB_INCLUDE] };
 const LIB_SECTIONS = { include: [LIB_INCLUDE] };
 // WiFi en un header aparte: los programas sin WiFi no compilan la librería WiFi.
 const WIFI_SECTIONS = { include: ['"JWPLC_mBlock_WiFi.h"'] };
+// RS485, Modbus RTU, Ethernet y Modbus TCP: un header cada uno, por la misma razón.
+const RS485_SECTIONS = { include: ['"JWPLC_mBlock_RS485.h"'] };
+const MODBUS_RTU_SECTIONS = { include: ['"JWPLC_mBlock_ModbusRTU.h"'] };
+// Iniciar Modbus RTU añade el servicio de tramas en cada vuelta de loop().
+const MODBUS_RTU_START_SECTIONS = { include: ['"JWPLC_mBlock_ModbusRTU.h"'], loop: 'JWPLC_ModbusRTU.task();' };
+const ETHERNET_SECTIONS = { include: ['"JWPLC_mBlock_Ethernet.h"'] };
+const MODBUS_TCP_SECTIONS = { include: ['"JWPLC_mBlock_ModbusTCP.h"'] };
+
+const BAUD_MENU = [9600, 19200, 38400, 57600, 115200].map((b) => ({ label: String(b), value: String(b) }));
 
 const TIME_UNIT_MENU = {
     en: [
@@ -551,6 +567,166 @@ const BLOCKS = [
         arguments: { CH: { type: 'number', defaultValue: 1 } },
         code: 'JWPLC_Net.channel(/*{CH}*/);',
         sections: WIFI_SECTIONS,
+    },
+
+    // ---- RS485 -----------------------------------------------------------
+    {
+        category: 'jwplc_rs485',
+        opcode: 'jwplc_rs485_begin',
+        blockType: 'command',
+        text: { en: 'start RS485 at [BAUD] baud', es: 'iniciar RS485 a [BAUD] baudios' },
+        arguments: { BAUD: { type: 'fieldMenu', defaultValue: '115200', menu: BAUD_MENU } },
+        code: 'JWPLC_RS485.begin(/*{BAUD}*/, SERIAL_8N1);',
+        sections: RS485_SECTIONS,
+    },
+    {
+        category: 'jwplc_rs485',
+        opcode: 'jwplc_rs485_send_line',
+        blockType: 'command',
+        text: { en: 'send line [TEXT] by RS485', es: 'enviar línea [TEXT] por RS485' },
+        arguments: { TEXT: { type: 'string', defaultValue: 'hola' } },
+        code: 'JWPLC_Line485.send(/*{TEXT}*/);',
+        sections: RS485_SECTIONS,
+    },
+    {
+        category: 'jwplc_rs485',
+        opcode: 'jwplc_rs485_when_line',
+        blockType: 'hat',
+        text: { en: 'when a line arrives by RS485', es: 'cuando llegue una línea por RS485' },
+        arguments: {},
+        code: '',
+        sections: {
+            include: RS485_SECTIONS.include,
+            loop: 'if (JWPLC_Line485.available()) {\n  /*{$BRANCH}*/\n}',
+        },
+    },
+    {
+        category: 'jwplc_rs485',
+        opcode: 'jwplc_rs485_last_line',
+        blockType: 'string',
+        text: { en: 'last line received by RS485', es: 'última línea recibida por RS485' },
+        arguments: {},
+        code: 'JWPLC_Line485.line()',
+        sections: RS485_SECTIONS,
+    },
+
+    // ---- Ethernet --------------------------------------------------------
+    {
+        category: 'jwplc_ethernet',
+        opcode: 'jwplc_eth_dhcp',
+        blockType: 'command',
+        text: { en: 'use Ethernet with automatic IP (DHCP)', es: 'usar Ethernet con IP automática (DHCP)' },
+        arguments: {},
+        code: 'JWPLC_EthernetEasy.useDHCP();',
+        sections: ETHERNET_SECTIONS,
+    },
+    {
+        category: 'jwplc_ethernet',
+        opcode: 'jwplc_eth_static',
+        blockType: 'command',
+        text: { en: 'use Ethernet with IP [IP] and gateway [GW]', es: 'usar Ethernet con IP [IP] y puerta de enlace [GW]' },
+        arguments: {
+            IP: { type: 'string', defaultValue: '192.168.0.50' },
+            GW: { type: 'string', defaultValue: '192.168.0.1' },
+        },
+        code: 'JWPLC_EthernetEasy.useStaticIP(/*{IP}*/, /*{GW}*/);',
+        sections: ETHERNET_SECTIONS,
+    },
+    {
+        category: 'jwplc_ethernet',
+        opcode: 'jwplc_eth_ready',
+        blockType: 'boolean',
+        text: { en: 'Ethernet connected?', es: '¿Ethernet conectada?' },
+        arguments: {},
+        code: 'JWPLC_EthernetEasy.ready()',
+        sections: ETHERNET_SECTIONS,
+    },
+    {
+        category: 'jwplc_ethernet',
+        opcode: 'jwplc_eth_ip',
+        blockType: 'string',
+        text: { en: 'Ethernet IP', es: 'IP de Ethernet' },
+        arguments: {},
+        code: 'JWPLC_EthernetEasy.ip()',
+        sections: ETHERNET_SECTIONS,
+    },
+
+    // ---- Modbus ----------------------------------------------------------
+    {
+        category: 'jwplc_modbus',
+        opcode: 'jwplc_reg_set',
+        blockType: 'command',
+        text: { en: 'set register [N] to [VALUE]', es: 'poner registro [N] a [VALUE]' },
+        arguments: {
+            N: { type: 'number', defaultValue: 1 },
+            VALUE: { type: 'number', defaultValue: 0 },
+        },
+        code: 'JWPLC_Registers.set(/*{N}*/, /*{VALUE}*/);',
+        sections: LIB_SECTIONS,
+    },
+    {
+        category: 'jwplc_modbus',
+        opcode: 'jwplc_reg_get',
+        blockType: 'number',
+        text: { en: 'value of register [N]', es: 'valor del registro [N]' },
+        arguments: { N: { type: 'number', defaultValue: 1 } },
+        code: 'JWPLC_Registers.get(/*{N}*/)',
+        sections: LIB_SECTIONS,
+    },
+    {
+        category: 'jwplc_modbus',
+        opcode: 'jwplc_mbrtu_slave',
+        blockType: 'command',
+        text: { en: 'start Modbus RTU slave with ID [ID] at [BAUD] baud', es: 'iniciar Modbus RTU esclavo con ID [ID] a [BAUD] baudios' },
+        arguments: {
+            ID: { type: 'number', defaultValue: 1 },
+            BAUD: { type: 'fieldMenu', defaultValue: '115200', menu: BAUD_MENU },
+        },
+        code: 'JWPLC_ModbusEasy.beginSlave(/*{ID}*/, /*{BAUD}*/);',
+        sections: MODBUS_RTU_START_SECTIONS,
+    },
+    {
+        category: 'jwplc_modbus',
+        opcode: 'jwplc_mbrtu_master',
+        blockType: 'command',
+        text: { en: 'start Modbus RTU master at [BAUD] baud', es: 'iniciar Modbus RTU maestro a [BAUD] baudios' },
+        arguments: { BAUD: { type: 'fieldMenu', defaultValue: '115200', menu: BAUD_MENU } },
+        code: 'JWPLC_ModbusEasy.beginMaster(/*{BAUD}*/);',
+        sections: MODBUS_RTU_START_SECTIONS,
+    },
+    {
+        category: 'jwplc_modbus',
+        opcode: 'jwplc_mbrtu_read',
+        blockType: 'number',
+        text: { en: 'read register [N] of slave [ID]', es: 'leer registro [N] del esclavo [ID]' },
+        arguments: {
+            N: { type: 'number', defaultValue: 1 },
+            ID: { type: 'number', defaultValue: 1 },
+        },
+        code: 'JWPLC_ModbusEasy.readRegister(/*{ID}*/, /*{N}*/)',
+        sections: MODBUS_RTU_SECTIONS,
+    },
+    {
+        category: 'jwplc_modbus',
+        opcode: 'jwplc_mbrtu_write',
+        blockType: 'command',
+        text: { en: 'write [VALUE] to register [N] of slave [ID]', es: 'escribir [VALUE] en el registro [N] del esclavo [ID]' },
+        arguments: {
+            VALUE: { type: 'number', defaultValue: 0 },
+            N: { type: 'number', defaultValue: 1 },
+            ID: { type: 'number', defaultValue: 1 },
+        },
+        code: 'JWPLC_ModbusEasy.writeRegister(/*{ID}*/, /*{N}*/, /*{VALUE}*/);',
+        sections: MODBUS_RTU_SECTIONS,
+    },
+    {
+        category: 'jwplc_modbus',
+        opcode: 'jwplc_mbtcp_server',
+        blockType: 'command',
+        text: { en: 'start Modbus TCP server', es: 'iniciar servidor Modbus TCP' },
+        arguments: {},
+        code: 'JWPLC_ModbusTcpEasy.beginServer();',
+        sections: MODBUS_TCP_SECTIONS,
     },
 ];
 

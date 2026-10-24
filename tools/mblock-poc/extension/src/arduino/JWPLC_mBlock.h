@@ -13,8 +13,9 @@
 //   JWPLC_Memory.save(1, contador);       // número que no se borra al apagar (FRAM)
 //   JWPLC_Files.appendLine("datos.txt", x); // línea nueva en la microSD
 //
-// WiFi y mensajes entre placas: JWPLC_mBlock_WiFi.h (aparte, para que los
-// programas sin WiFi no compilen ni enlacen la librería WiFi).
+// WiFi, RS485, Modbus RTU, Ethernet y Modbus TCP van en headers aparte
+// (JWPLC_mBlock_WiFi.h, _RS485.h, _ModbusRTU.h, _Ethernet.h, _ModbusTCP.h)
+// para que cada programa sólo compile y enlace lo que usa.
 //
 // Sólo header: se compila con el sketch que lo incluye y no añade nada a los
 // demás sketches ni precompilados al package. Usa la API pública del package
@@ -308,11 +309,39 @@ private:
     static String path(const String &name) { return name.startsWith("/") ? name : "/" + name; }
 };
 
+// 16 "registros" Modbus para los bloques (registro 1 = 40001 = dirección 0).
+// Los publican el esclavo Modbus RTU (JWPLC_mBlock_ModbusRTU.h) y el servidor
+// Modbus TCP (JWPLC_mBlock_ModbusTCP.h); un maestro/SCADA puede escribirlos.
+class JWPLC_RegistersHelper
+{
+public:
+    static const uint8_t COUNT = 16;
+
+    void set(int number, double value)
+    {
+        if (number < 1 || number > COUNT)
+            return;
+        const long v = lround(value);
+        _values[number - 1] = (uint16_t)constrain(v, 0L, 65535L);
+    }
+
+    double get(int number) const
+    {
+        return (number >= 1 && number <= COUNT) ? _values[number - 1] : 0;
+    }
+
+    uint16_t *data() { return _values; }
+
+private:
+    uint16_t _values[COUNT] = {};
+};
+
 inline JWPLC_ScreenLines JWPLC_Screen;
 inline JWPLC_SoundHelper JWPLC_Sound;
 inline JWPLC_TimerHelper JWPLC_Timer;
 inline JWPLC_ClockHelper JWPLC_Clock;
 inline JWPLC_MemoryHelper JWPLC_Memory;
 inline JWPLC_FilesHelper JWPLC_Files;
+inline JWPLC_RegistersHelper JWPLC_Registers;
 
 #endif // JWPLC_MBLOCK_H
