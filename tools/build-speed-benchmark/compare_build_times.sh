@@ -63,7 +63,7 @@ mkdir -p "$BENCH/user/hardware/jwplc_base" "$BENCH/user/hardware/jwplc_head" "$B
 # Versión base desde git (worktree desprendido) y candidata desde el árbol actual.
 BASE_TREE="$BENCH/base-tree"
 if [[ ! -d "$BASE_TREE" ]]; then
-  git -C "$REPO" worktree add --detach "$BASE_TREE" "$BASE_REF" >/dev/null
+  git -C "$REPO" worktree add --quiet --detach "$BASE_TREE" "$BASE_REF" >/dev/null
 fi
 trap 'git -C "$REPO" worktree remove --force "$BASE_TREE" >/dev/null 2>&1 || true' EXIT
 ln -sfn "$BASE_TREE/JWPLC/2.1.0" "$BENCH/user/hardware/jwplc_base/esp32"
