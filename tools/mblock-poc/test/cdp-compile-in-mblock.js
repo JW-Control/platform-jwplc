@@ -8,7 +8,7 @@
     const home = await MeApi.sys.getPath('home');
     const token = String(await fe.read2Str(join(home, '.jwplc', 'mblock-bridge', 'token.txt'))).trim();
     const files = {};
-    for (const name of ['JWPLC_mBlock.h']) {
+    for (const name of ['JWPLC_mBlock.h', 'JWPLC_mBlock_WiFi.h']) {
         const p = join(fe.extDirPath, 'jwplc_basic', 'arduino', name);
         if (fe.exists(p)) files[name] = String(await fe.read2Str(p));
     }

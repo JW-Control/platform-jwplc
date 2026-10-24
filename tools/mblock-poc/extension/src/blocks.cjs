@@ -21,6 +21,7 @@
 // - Tiempo: JWPLC_Time (vista cacheada del RTC) y JWPLC_Timer/JWPLC_Clock.
 // - Memoria: JWPLC_Memory sobre JWPLC_FRAM (bloques con checksum).
 // - microSD: JWPLC_Files sobre JWPLC_SD (mutex del bus SPI).
+// - WiFi: JWPLC_Net (JWPLC_mBlock_WiFi.h) con WiFi.h/WiFiUdp.h del core ESP32.
 // No se emite pinMode(): el core configura internamente I0_x/Q0_x.
 
 'use strict';
@@ -34,6 +35,7 @@ const CATEGORIES = [
     { name: 'jwplc_time', colors: ['#5CB1D6', '#47A8D1', '#2E8EB8'], text: { en: 'Time', es: 'Tiempo' } },
     { name: 'jwplc_memory', colors: ['#E07B39', '#D86D29', '#C25F20'], text: { en: 'Memory', es: 'Memoria' } },
     { name: 'jwplc_sd', colors: ['#8C7AE6', '#7D6AD9', '#6C59C9'], text: { en: 'microSD', es: 'microSD' } },
+    { name: 'jwplc_wifi', colors: ['#2EB872', '#28A465', '#209055'], text: { en: 'WiFi', es: 'WiFi' } },
 ];
 
 const OUTPUT_MENU = [0, 1, 2, 3, 4, 5, 6, 7].map((i) => ({ label: 'Q0.' + i, value: 'Q0_' + i }));
@@ -72,6 +74,8 @@ const LIB_INCLUDE = '"JWPLC_mBlock.h"';
 const SCREEN_SECTIONS = { include: [LIB_INCLUDE], setup: 'JWPLC_Screen.begin();' };
 const SOUND_SECTIONS = { include: [LIB_INCLUDE] };
 const LIB_SECTIONS = { include: [LIB_INCLUDE] };
+// WiFi en un header aparte: los programas sin WiFi no compilan la librería WiFi.
+const WIFI_SECTIONS = { include: ['"JWPLC_mBlock_WiFi.h"'] };
 
 const TIME_UNIT_MENU = {
     en: [
@@ -455,6 +459,98 @@ const BLOCKS = [
         arguments: { FILE: { type: 'string', defaultValue: 'datos.txt' } },
         code: 'JWPLC_Files.remove(/*{FILE}*/);',
         sections: LIB_SECTIONS,
+    },
+
+    // ---- WiFi ------------------------------------------------------------
+    {
+        category: 'jwplc_wifi',
+        opcode: 'jwplc_wifi_connect',
+        blockType: 'command',
+        text: { en: 'connect to WiFi [SSID] password [PASS]', es: 'conectar a WiFi [SSID] contraseña [PASS]' },
+        arguments: {
+            SSID: { type: 'string', defaultValue: 'MiRed' },
+            PASS: { type: 'string', defaultValue: 'clave' },
+        },
+        code: 'JWPLC_Net.connect(/*{SSID}*/, /*{PASS}*/);',
+        sections: WIFI_SECTIONS,
+    },
+    {
+        category: 'jwplc_wifi',
+        opcode: 'jwplc_wifi_connected',
+        blockType: 'boolean',
+        text: { en: 'connected to WiFi?', es: '¿conectado a WiFi?' },
+        arguments: {},
+        code: 'JWPLC_Net.connected()',
+        sections: WIFI_SECTIONS,
+    },
+    {
+        category: 'jwplc_wifi',
+        opcode: 'jwplc_wifi_ip',
+        blockType: 'string',
+        text: { en: 'IP address', es: 'dirección IP' },
+        arguments: {},
+        code: 'JWPLC_Net.ip()',
+        sections: WIFI_SECTIONS,
+    },
+    {
+        category: 'jwplc_wifi',
+        opcode: 'jwplc_wifi_disconnect',
+        blockType: 'command',
+        text: { en: 'disconnect WiFi', es: 'desconectar WiFi' },
+        arguments: {},
+        code: 'JWPLC_Net.disconnect();',
+        sections: WIFI_SECTIONS,
+    },
+    {
+        category: 'jwplc_wifi',
+        opcode: 'jwplc_net_send',
+        blockType: 'command',
+        text: { en: 'send message [MSG] on the network', es: 'enviar mensaje [MSG] por la red' },
+        arguments: { MSG: { type: 'string', defaultValue: 'hola' } },
+        code: 'JWPLC_Net.send(/*{MSG}*/);',
+        sections: WIFI_SECTIONS,
+    },
+    {
+        category: 'jwplc_wifi',
+        opcode: 'jwplc_net_send_value',
+        blockType: 'command',
+        text: { en: 'send message [MSG] with value [VALUE] on the network', es: 'enviar mensaje [MSG] con valor [VALUE] por la red' },
+        arguments: {
+            MSG: { type: 'string', defaultValue: 'hola' },
+            VALUE: { type: 'number', defaultValue: 1 },
+        },
+        code: 'JWPLC_Net.send(/*{MSG}*/, /*{VALUE}*/);',
+        sections: WIFI_SECTIONS,
+    },
+    {
+        category: 'jwplc_wifi',
+        opcode: 'jwplc_net_when_received',
+        blockType: 'hat',
+        text: { en: 'when I receive message [MSG]', es: 'cuando reciba el mensaje [MSG]' },
+        arguments: { MSG: { type: 'string', defaultValue: 'hola' } },
+        code: '',
+        sections: {
+            include: WIFI_SECTIONS.include,
+            loop: 'if (JWPLC_Net.received(/*{MSG}*/)) {\n  /*{$BRANCH}*/\n}',
+        },
+    },
+    {
+        category: 'jwplc_wifi',
+        opcode: 'jwplc_net_value',
+        blockType: 'number',
+        text: { en: 'value received with message [MSG]', es: 'valor recibido del mensaje [MSG]' },
+        arguments: { MSG: { type: 'string', defaultValue: 'hola' } },
+        code: 'JWPLC_Net.value(/*{MSG}*/)',
+        sections: WIFI_SECTIONS,
+    },
+    {
+        category: 'jwplc_wifi',
+        opcode: 'jwplc_net_channel',
+        blockType: 'command',
+        text: { en: 'set network channel to [CH]', es: 'poner canal de red [CH]' },
+        arguments: { CH: { type: 'number', defaultValue: 1 } },
+        code: 'JWPLC_Net.channel(/*{CH}*/);',
+        sections: WIFI_SECTIONS,
     },
 ];
 

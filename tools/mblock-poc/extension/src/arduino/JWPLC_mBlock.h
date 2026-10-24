@@ -13,6 +13,9 @@
 //   JWPLC_Memory.save(1, contador);       // número que no se borra al apagar (FRAM)
 //   JWPLC_Files.appendLine("datos.txt", x); // línea nueva en la microSD
 //
+// WiFi y mensajes entre placas: JWPLC_mBlock_WiFi.h (aparte, para que los
+// programas sin WiFi no compilen ni enlacen la librería WiFi).
+//
 // Sólo header: se compila con el sketch que lo incluye y no añade nada a los
 // demás sketches ni precompilados al package. Usa la API pública del package
 // 2.1.0-alpha.14: JWPLC_Display (campos HMI, sin TFT_eSPI), JWPLC_Buzzer,

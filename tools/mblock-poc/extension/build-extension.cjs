@@ -20,7 +20,7 @@ const zlib = require('zlib');
 const { execFileSync } = require('child_process');
 
 const EXT_ID = 'jwplc_basic';
-const EXT_VERSION = '0.4.0';
+const EXT_VERSION = '0.5.0';
 const HERE = __dirname;
 const DIST = path.join(HERE, 'dist');
 const OUT = path.join(DIST, EXT_ID);
