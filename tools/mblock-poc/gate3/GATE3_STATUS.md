@@ -19,7 +19,7 @@ GATE3E_COMPILE_FROM_MBLOCK_RENDERER=PASS               [ejecutado]
 GATE3F_BRIDGE_SECURITY=PASS                            [ejecutado]
 GATE3G_UPLOAD_FROM_MBLOCK=PASS                         [ejecutado] botón "Upload Code" de mBlock -> COM14
 GATE3H_PROGRAM_RUNNING=PASS                            [ejecutado] salida serie del programa de bloques
-GATE3I_PHYSICAL_IO=PARTIAL                             [verificado por el usuario] Q0.7 PASS, Q0.0 abierto
+GATE3I_PHYSICAL_IO=PARTIAL                             [verificado por el usuario] Q0.7 y Q0.0 aislada PASS; "si I0.0 entonces Q0.0" + Q0.7 abierto
 ~~~
 
 ## Gate 2 runtime: `child_process` dentro de mBlock
@@ -237,13 +237,51 @@ expansor acepta la escritura. Falta aislar si el problema está en el canal Q0.0
 (core o hardware) o en algo del programa. Notar que el programa muestrea I0.0
 una vez cada 0,5 s: un pulso corto puede dejar Q0.0 encendida hasta 0,5 s.
 
-Prueba siguiente propuesta: programa de bloques sólo con "poner salida Q0.0
-encendida, esperar 1, apagada, esperar 1" (sin I0.0 ni Q0.7) y, si Q0.0 tampoco
-acciona, el mismo patrón con un sketch Arduino IDE para descartar mBlock.
+### Prueba aislada de Q0.0
+
+[ejecutado] `test/cdp-program-q00-isolated.js`, subida desde el botón de mBlock
+con la extensión instalada (sin parches en caliente):
+
+~~~cpp
+void setup() {
+  Serial.begin(115200);
+  JWPLC_writeOutputs(0);
+}
+
+void loop() {
+  digitalWrite(Q0_0, HIGH);
+  Serial.println(1);
+  delay((unsigned long)((1) * 1000));
+  digitalWrite(Q0_0, LOW);
+  Serial.println(0);
+  delay((unsigned long)((1) * 1000));
+}
+~~~
+
+~~~text
+RECONEXION_GUI=PASS   [ejecutado] filtro CH340: COM14 aparece sin "mostrar todos"
+UPLOAD=PASS           [ejecutado] 38 s, hash verificado, reset por RTS, primer intento
+SERIE=PASS            [ejecutado] "0 | 1 | 0 | 1" en 4,5 s
+Q0.0_FISICA=PASS      [verificado por el usuario] LED de la TFT y relé conmutan cada 1 s
+~~~
+
+Log: `results/20261024_gate3i/GATE3I_Q00_ISOLATED_UPLOAD.log`.
+
+Conclusión: el canal Q0.0 (core, TCA6424A P10, relé) y los bloques "poner
+salida" funcionan. El fallo del programa de demostración depende de la
+combinación "si I0.0 entonces Q0.0" con "conmutar Q0.7" en el mismo ciclo de
+0,5 s. Pruebas siguientes para aislarlo:
+
+1. "por siempre: si I0.0 entonces Q0.0 ON si no OFF" sin esperas ni Q0.7.
+2. Lo mismo más "conmutar Q0.7" y "esperar 0,5".
+
+Si (1) pasa y (2) falla, revisar en el core la interacción de dos
+`TCA6424A_writePin` sobre el banco 1 (read-modify-write con shadow) frente a
+escrituras de otras tareas.
 
 ## Pendiente
 
-- Cerrar Gate 3I (Q0.0) con la prueba anterior.
+- Cerrar Gate 3I con las pruebas (1) y (2) de la sección Q0.0.
 - Arranque del bridge sin consola (tarea programada al iniciar sesión o handler
   de protocolo que la extensión pueda abrir con `MeApi.fe.openLink`).
 - Bloques de siguiente nivel: botonera (BTN_*), TFT vía `JWPLC_Display`/`JWPLC_UI`,
