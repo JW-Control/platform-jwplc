@@ -6,7 +6,7 @@ Rama: `v2.1.0-alpha.15/OpenPLC-HMI/feature/vpp-version-alpha15` (desde `v2.1.0-a
 VPP_VERSION_ANTERIOR=2.1.0-alpha.32   (serie propia del VPP, firmada el 17/10)
 VPP_VERSION_NUEVA=2.1.0-alpha.15      (= la alpha que la publica)
 PAYLOAD=sin cambios salvo manifest.json (sólo package.version)
-FIRMA=PENDIENTE  (signature.json todavía es la de alpha.32: hay que firmar en la PC con la llave)
+FIRMA=PASS (25/10, 3b46176, jwcontrol-2026; verifyPackageSignature del editor con TRUSTED_PACKAGE_KEYS: valid)
 COMPILA_CON_PACKAGE_2_1_0_ALPHA_14=PASS [ejecutado] (§5)
 FIRMA_Y_VERIFICACION=PASS [ejecutado] con una llave de prueba desechable (§5)
 ```
@@ -81,7 +81,7 @@ Luego:
    `out\` no se versiona.
 
 ```text
-A14_VPP_ALPHA15_FIRMA=PENDING
+A14_VPP_ALPHA15_FIRMA=PASS [ejecutado] (3b46176; verificada en la nube con las llaves de confianza del editor)
 A14_VPP_ALPHA15_INSTALA_EN_OPENPLC=PENDING [no verificado]
 ```
 
@@ -101,4 +101,6 @@ A14_VPP_ALPHA15_INSTALA_EN_OPENPLC=PENDING [no verificado]
 - `[ejecutado]` **Firma**: copia de `vpp/` firmada con `sign-vpp-package.mjs` y una llave de prueba generada
   con `generate-dev-keypair.mjs` (borrada después); `verifyPackageSignature` del editor: `{"valid":true}` con
   `version 2.1.0-alpha.15`. El editor confía en `jwcontrol-2026` (`src/backend/shared/utils/vpp/trusted-keys.ts`).
-- `[no verificado]` firma con `jwcontrol-2026`, instalación en OpenPLC y placa: §4, en la PC.
+- `[ejecutado]` firma real con `jwcontrol-2026` (commit `3b46176`, 25/10): `verifyPackageSignature(vpp/, TRUSTED_PACKAGE_KEYS)`
+  del editor devuelve `{"valid":true}`.
+- `[no verificado]` instalación en OpenPLC y placa: §4, en la PC.
