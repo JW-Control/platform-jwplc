@@ -12,7 +12,7 @@ GATE8C_HMI_DESIGNER_INTEGRATION=PASS  [ejecutado] pantalla del Designer usada de
 GATE8D_HMI_UPLOAD_AND_PHYSICAL=PASS   [verificado por el usuario] pantalla «Demo» en la JWPLC de COM4
 GATE8E_HMI_PICK_BUTTON=PASS           [verificado por el usuario] botón «Elegir pantalla…», bridge 0.5.0
 GATE8F_IDLE_USER_TRANSITIONS=PASS     [verificado por el usuario] 4 líneas y pantalla «Demo» en COM4
-GATE8G_MENU_CHANGED_EVENT=PASS        [ejecutado] compila; prueba en placa pendiente
+GATE8G_MENU_CHANGED_EVENT=PASS        [verificado por el usuario] dos variables del mismo MENU en COM4
 ~~~
 
 ## Gate 8A/8B - Core publicado
@@ -307,12 +307,24 @@ menu_changed.ino   PASS  466 480 B flash, 38 884 B RAM
 ~~~
 
 Log: `results/20261025_gate8f/GATE8G_COMPILE_MENU_CHANGED.log`. La extensión
-0.10.0 se generó e instaló (mBlock la carga al reiniciar). Prueba en placa
-pendiente.
+0.10.0 se generó e instaló (mBlock la carga al reiniciar).
+
+### Prueba en placa
+
+[ejecutado] 2026-10-25: `menu_changed.ino` subido a la JWPLC Basic de **COM4** por el
+bridge, hash verificado, 27 s. Log: `results/20261025_gate8f/GATE8G_UPLOAD_COM4.log`.
+
+[verificado por el usuario]:
+
+~~~text
+MENU_CONSIGNA  confirmar Consigna con OK: pitido agudo, Piezas +1, estado «Consigna N»   PASS
+MENU_MODO      confirmar Modo auto con OK: pitido grave, estado AUTO / MANUAL;
+               los dos bloques del mismo MENU no se quitan los cambios                 PASS
+MENU_ESC       editar y cancelar con ESC: no pita ni cambia nada                       PASS
+~~~
 
 ## Pendiente
 
-- Prueba en placa del Gate 8G (`menu_changed.ino`).
 - Botón o atajo para abrir el HMI Designer en la carpeta `JWPLC-HMI` desde mBlock.
 - Para el package: una consulta pública «¿la página N tiene MENU?» evitaría la
   macro `setMenus` de `JWPLC_mBlock_HMI.h`.
