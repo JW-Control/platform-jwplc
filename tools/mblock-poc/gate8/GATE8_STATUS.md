@@ -11,7 +11,7 @@ GATE8B_BRIDGE_ON_PUBLISHED_CORE=PASS  [ejecutado] fase 1 y programa A de la fase
 GATE8C_HMI_DESIGNER_INTEGRATION=PASS  [ejecutado] pantalla del Designer usada desde bloques, compila
 GATE8D_HMI_UPLOAD_AND_PHYSICAL=PASS   [verificado por el usuario] pantalla «Demo» en la JWPLC de COM4
 GATE8E_HMI_PICK_BUTTON=PASS           [verificado por el usuario] botón «Elegir pantalla…», bridge 0.5.0
-GATE8F_IDLE_USER_TRANSITIONS=PASS     [ejecutado] compila; prueba en placa pendiente
+GATE8F_IDLE_USER_TRANSITIONS=PASS     [verificado por el usuario] 4 líneas en COM4; Designer solo compilado
 ~~~
 
 ## Gate 8A/8B - Core publicado
@@ -234,12 +234,29 @@ idle_hmi.ino    pantalla «Demo» (2 páginas, MENU), abrir con cualquier botón
 Logs y programas: `results/20261025_gate8f/`. La extensión 0.9.0 se generó e
 instaló en `%USERPROFILE%\mblock\exts\jwplc_basic` (mBlock la carga al reiniciar).
 
-Verificación en placa pendiente (con confirmación del propietario):
+### Prueba en placa
+
+[ejecutado] 2026-10-25: `idle_lines.ino` subido a la JWPLC Basic de **COM4** por el
+bridge (`compile-via-bridge.cjs idle_lines.ino COM4`), hash verificado, 28 s. Log:
+`results/20261025_gate8f/GATE8F_UPLOAD_COM4.log`.
+
+Incidencias de la subida: los dos primeros intentos fallaron porque Windows no
+abría COM4 (error 31, «Uno de los dispositivos conectados al sistema no
+funciona»), también fuera del bridge. El propietario cambió el puerto USB y el
+cable; entonces COM4 estaba abierto por mBlock, que se reconectó solo. Se cerró
+igual que lo hace el driver (`setIgnoreError('close')` + `close()`) y la subida pasó.
+
+[verificado por el usuario] Programa de las 4 líneas:
 
 ~~~text
-LINES_WAKE     en la IDLE, ▲ no hace nada; OK abre mi pantalla y no cuenta como ▲/OK del programa
-LINES_KEYS     en mi pantalla ▲ suma, ▼ mantiene Q0.0, ESC llega al programa (vuelta por tiempo)
-LINES_TIMEOUT  20 s sin tocar botones -> pantalla de entradas/salidas
+LINES_WAKE     en la IDLE, ▲ no hace nada; OK abre mi pantalla y no cuenta como ▲/OK del programa   PASS
+LINES_KEYS     en mi pantalla ▲ suma, ▼ mantiene Q0.0, ESC llega al programa (vuelta por tiempo)   PASS
+LINES_TIMEOUT  20 s sin tocar botones -> pantalla de entradas/salidas                                PASS
+~~~
+
+Pendiente en placa, con la pantalla «Demo» del Designer (`idle_hmi.ino`):
+
+~~~text
 HMI_SELECTOR   en el selector NN/TT, OK entra a la página y no suma piezas
 HMI_MENU       en Ajustes, ▲ ▼ OK editan el MENU y no suman piezas
 HMI_CONTENT    en Planta, OK suma piezas; ESC vuelve al selector
@@ -248,7 +265,7 @@ HMI_CONTENT    en Planta, OK suma piezas; ESC vuelve al selector
 
 ## Pendiente
 
-- Prueba en placa del Gate 8F (lista de arriba).
+- Prueba en placa del Gate 8F con la pantalla del Designer (`idle_hmi.ino`).
 - Bloque de evento «cuando el operador cambie [variable] en el MENU»
   (`JWPLC_Display.menuChanged`).
 - Botón o atajo para abrir el HMI Designer en la carpeta `JWPLC-HMI` desde mBlock.
