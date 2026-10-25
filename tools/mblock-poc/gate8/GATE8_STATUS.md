@@ -9,7 +9,7 @@ Rama: `experiment/mblock-jwplc`
 GATE8A_PUBLISHED_A14_CORE=PASS        [ejecutado] jwplc:esp32 2.1.0-alpha.14 instalada por el propietario
 GATE8B_BRIDGE_ON_PUBLISHED_CORE=PASS  [ejecutado] fase 1 y programa A de la fase 4 compilan
 GATE8C_HMI_DESIGNER_INTEGRATION=PASS  [ejecutado] pantalla del Designer usada desde bloques, compila
-GATE8D_HMI_UPLOAD_AND_PHYSICAL=PENDING [no verificado] sólo compilación por indicación del propietario
+GATE8D_HMI_UPLOAD_AND_PHYSICAL=PASS   [verificado por el usuario] pantalla «Demo» en la JWPLC de COM4
 ~~~
 
 ## Gate 8A/8B - Core publicado
@@ -116,10 +116,28 @@ Log: `results/20261024_gate8/GATE8_COMPILE.log` (incluye el primer intento, que
 falló porque el script de prueba no enviaba `JWPLC_mBlock_HMI.h`; el driver real
 envía todos los headers de la extensión).
 
+## Gate 8D - Subida y prueba física
+
+[ejecutado] 2026-10-25: a pedido del propietario el programa se subió a la otra
+JWPLC Basic, en **COM4** (CH340), eligiendo COM4 en el desplegable del diálogo de
+conexión de mBlock. Compilación 16 s, upload 35 s en total, 455 776 B con hash
+verificado. Log: `results/20261024_gate8/GATE8D_UPLOAD_COM4.log`.
+
+[verificado por el usuario] Todo PASS:
+
+~~~text
+PAGINA_PLANTA   título, Temp (RTC), Piezas cada segundo, barra Tanque 0..100, Bomba = I0.0   PASS
+NAVEGACION      ◀ ▶ entre Planta y Ajustes, barra inferior PLNT / AJST                        PASS
+MENU_AJUSTES    Consigna y Modo auto editables con ▲▼ OK                                     PASS
+LOGICA_MENU     Modo auto + temperatura > consigna -> Q0.0 y «CALIENTE»; si no, «LISTO»       PASS
+~~~
+
+Nota de GUI: tras conectar, el diálogo de conexión de mBlock quedó abierto y no se
+cerró por DOM; con una sola conexión activa (COM4) la subida funcionó sin
+reintentos.
+
 ## Pendiente
 
-- Gate 8D: subir el programa y verificar la pantalla «Demo» en la placa (valores,
-  MENU de Ajustes y Q0.0).
 - Bloque de evento «cuando el operador cambie [variable] en el MENU»
   (`JWPLC_Display.menuChanged`).
 - Botón o atajo para abrir el HMI Designer en la carpeta `JWPLC-HMI` desde mBlock.
