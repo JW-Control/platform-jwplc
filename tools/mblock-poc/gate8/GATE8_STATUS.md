@@ -12,6 +12,7 @@ GATE8C_HMI_DESIGNER_INTEGRATION=PASS  [ejecutado] pantalla del Designer usada de
 GATE8D_HMI_UPLOAD_AND_PHYSICAL=PASS   [verificado por el usuario] pantalla «Demo» en la JWPLC de COM4
 GATE8E_HMI_PICK_BUTTON=PASS           [verificado por el usuario] botón «Elegir pantalla…», bridge 0.5.0
 GATE8F_IDLE_USER_TRANSITIONS=PASS     [verificado por el usuario] 4 líneas y pantalla «Demo» en COM4
+GATE8G_MENU_CHANGED_EVENT=PASS        [ejecutado] compila; prueba en placa pendiente
 ~~~
 
 ## Gate 8A/8B - Core publicado
@@ -269,10 +270,49 @@ HMI_BACK_NONE  ESC en el selector no va a la IDLE aunque el diseño diga ESC; el
 ~~~
 
 
+## Gate 8G - «cuando el operador cambie [variable] en el MENU» (extensión 0.10.0)
+
+Bloque de evento en **Pantalla HMI**. El niño escribe el nombre de una variable
+editable del MENU del Designer (`EDIT_NUM` o `EDIT_BOOL`) y el bloque se dispara
+una vez cada vez que el operador confirma un valor con OK (ESC no cuenta):
+
+~~~cpp
+if (JWPLC_HMI.changed(&consigna)) {
+  ...
+}
+~~~
+
+`JWPLC_Display.menuChanged(menuId, &nodo)` guarda sólo el último cambio de cada
+MENU y lo consume al leerlo: dos bloques de variables del mismo MENU se lo
+quitarían entre sí. `JWPLC_HMI.changed()` recoge en cada llamada los cambios de
+todos los MENU (la lista que anota la macro `setMenus`, Gate 8F), los guarda por
+variable (`JWPLC_UIMenuNode::value` apunta a ella) y cada bloque toma el suyo.
+Una variable sin bloque queda anotada una sola vez (como mucho
+`JWPLC_UI_MENU_MAX_NODES` entradas). Si el programa tarda en volver a `loop()`
+y el operador confirma dos veces en el mismo MENU, solo se ve el último cambio
+(límite del package).
+
+Comprobado en el código de mBlock 5.4.3 (`681.e49f0983.js`): las secciones de
+un bloque (aquí `loop`) pasan por el mismo procesador de expresiones que su
+código, así que `/*{{…}}*/` deja el nombre de la variable como identificador C++.
+
+### Prueba [ejecutado, solo compilación]
+
+`menu_changed.ino`: pantalla «Demo» con dos bloques del mismo MENU (Ajustes):
+consigna (cuenta los cambios en Piezas, muestra «Consigna N» y pita 880 Hz) y
+modoAuto (muestra AUTO/MANUAL y pita 440 Hz).
+
+~~~text
+menu_changed.ino   PASS  466 480 B flash, 38 884 B RAM
+~~~
+
+Log: `results/20261025_gate8f/GATE8G_COMPILE_MENU_CHANGED.log`. La extensión
+0.10.0 se generó e instaló (mBlock la carga al reiniciar). Prueba en placa
+pendiente.
+
 ## Pendiente
 
-- Bloque de evento «cuando el operador cambie [variable] en el MENU»
-  (`JWPLC_Display.menuChanged`).
+- Prueba en placa del Gate 8G (`menu_changed.ino`).
 - Botón o atajo para abrir el HMI Designer en la carpeta `JWPLC-HMI` desde mBlock.
 - Para el package: una consulta pública «¿la página N tiene MENU?» evitaría la
   macro `setMenus` de `JWPLC_mBlock_HMI.h`.

@@ -8,6 +8,7 @@
 //   JWPLC_HMI.begin("Caldera");          // páginas, campos, MENU e IDLE (jwplcHMISetup)
 //   JWPLC_HmiSet(temperatura, 25.5);     // variable que declara el header del Designer
 //   JWPLC_HmiGet(consignaPresion);       // valor que el operador cambió en el MENU
+//   JWPLC_HMI.changed(&consignaPresion); // el operador la confirmó con OK en el MENU
 //
 // Las variables las declara JWPLC_HMI_Generated.h: en mBlock no crear
 // variables con el mismo nombre. No mezclar con «escribir en la línea» (JWPLC_Screen):
@@ -41,6 +42,49 @@ public:
         (void)designName;
         jwplcHMISetup();
         JWPLC_Screen.applyProgramSettings();
+    }
+
+    // «cuando el operador cambie [variable] en el MENU»: true una vez por cada
+    // valor de esa variable confirmado con OK. Cada MENU guarda sólo su último
+    // cambio y menuChanged() lo consume, así que se recogen los de todos los
+    // MENU y cada bloque toma el de su variable (los nodos apuntan a ella).
+    bool changed(const void *variable)
+    {
+        collectMenuChanges();
+        for (uint8_t i = 0; i < _pendingCount; i++)
+        {
+            if (_pending[i] == variable)
+            {
+                _pending[i] = _pending[--_pendingCount];
+                return true;
+            }
+        }
+        return false;
+    }
+
+private:
+    const void *_pending[JWPLC_UI_MENU_MAX_NODES] = {};
+    uint8_t _pendingCount = 0;
+
+    void collectMenuChanges()
+    {
+        for (size_t i = 0; i < jwplc_mblock::menuCount; i++)
+        {
+            const JWPLC_UIMenu &menu = jwplc_mblock::menus[i];
+            uint8_t node;
+            if (JWPLC_Display.menuChanged(menu.id, &node) && node < menu.nodeCount)
+                remember(menu.nodes[node].value);
+        }
+    }
+
+    // Un cambio de una variable sin bloque queda anotado una sola vez.
+    void remember(const void *variable)
+    {
+        for (uint8_t i = 0; i < _pendingCount; i++)
+            if (_pending[i] == variable)
+                return;
+        if (_pendingCount < JWPLC_UI_MENU_MAX_NODES)
+            _pending[_pendingCount++] = variable;
     }
 };
 

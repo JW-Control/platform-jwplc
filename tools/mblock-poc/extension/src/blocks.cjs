@@ -845,6 +845,19 @@ const BLOCKS = [
         code: '(JWPLC_HmiGet(' + HMI_VAR + ') != 0)',
         sections: HMI_SECTIONS,
     },
+    {
+        // Variable editable del MENU (EDIT_NUM / EDIT_BOOL) del diseño.
+        category: 'jwplc_hmi',
+        opcode: 'jwplc_hmi_when_menu_changed',
+        blockType: 'hat',
+        text: { en: 'when the operator changes [VAR] in the MENU', es: 'cuando el operador cambie [VAR] en el MENU' },
+        arguments: { VAR: { type: 'string', defaultValue: 'consigna' } },
+        code: '',
+        sections: {
+            include: HMI_SECTIONS.include,
+            loop: 'if (JWPLC_HMI.changed(&' + HMI_VAR + ')) {\n  /*{$BRANCH}*/\n}',
+        },
+    },
 ];
 
 // Bloques estándar de control con código Arduino ajustado a la plantilla:
