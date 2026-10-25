@@ -6,6 +6,9 @@
 //
 //   JWPLC_Screen.begin();                 // 4 líneas de texto en la pantalla de usuario
 //   JWPLC_Screen.print(2, contador);      // texto, números o verdadero/falso
+//   JWPLC_Screen.openWith(BTN_OK);        // OK abre mi pantalla desde la de entradas/salidas
+//   JWPLC_Screen.closeAfter(30);          // volver a entradas/salidas tras 30 s sin tocar botones
+//   JWPLC_Keypad.pressed(BTN_OK);         // OK pulsado, si no es una tecla de la pantalla
 //   JWPLC_Sound.play(523, 0.5);           // nota de 523 Hz durante 0,5 s
 //   JWPLC_Sound.volume(50);               // volumen al 50 %
 //   JWPLC_Timer.seconds();                // cronómetro en segundos
@@ -49,7 +52,30 @@ inline String text(unsigned int value) { return String(value); } // uint32_t en 
 inline String text(long value) { return String(value); }
 inline String text(unsigned long value) { return String(value); }
 inline String text(bool value) { return String(value ? "SI" : "NO"); }
+
+// Páginas con MENU de la pantalla del HMI Designer (las anota JWPLC_mBlock_HMI.h).
+inline const JWPLC_UIMenu *menus = nullptr;
+inline size_t menuCount = 0;
+
+inline const JWPLC_UIMenu *rememberMenus(const JWPLC_UIMenu *list, size_t count)
+{
+    menus = list;
+    menuCount = count;
+    return list;
+}
+
+inline bool menuOnPage(uint8_t page)
+{
+    for (size_t i = 0; i < menuCount; i++)
+        if (menus[i].page == page)
+            return true;
+    return false;
+}
 } // namespace jwplc_mblock
+
+// Botones de «abrir mi pantalla con…» que no son una tecla.
+constexpr uint8_t JWPLC_ANY_BUTTON = 0xFE;
+constexpr uint8_t JWPLC_NO_BUTTON = 0xFF;
 
 // Bloque "unir": como String(a) + String(b), pero con el formato de arriba
 // ("Arranques: 3" y no "Arranques: 3.00").
@@ -79,7 +105,52 @@ public:
 
         JWPLC_Display.setUserRefreshMode(USER_REFRESH_ON_DEMAND);
         JWPLC_Display.setFields(fields, LINES);
+        // Como una pantalla nueva del HMI Designer: cualquier botón abre mi
+        // pantalla y ESC vuelve a la de entradas/salidas (sin esto el package
+        // no despierta la IDLE y, tras ESC, la pantalla no vuelve).
+        JWPLC_Display.setIdleWakeMode(JWPLC_DisplayClass::IDLE_WAKE_ANY_BUTTON);
+        JWPLC_Display.setIdleReturnMode(JWPLC_DisplayClass::IDLE_RETURN_ESC_ONLY);
+        applyProgramSettings();
         JWPLC_Display.enterUserUI();
+    }
+
+    // Cambio entre la pantalla de entradas/salidas (IDLE) y mi pantalla, con
+    // las opciones de «Pantalla y arranque» del HMI Designer:
+    //   openWith(JWPLC_ANY_BUTTON | BTN_x | JWPLC_NO_BUTTON)   entrar
+    //   closeWith(BTN_ESC | JWPLC_NO_BUTTON), closeAfter(s)    volver
+    // Lo que pide el programa se recuerda: una pantalla del Designer trae su
+    // configuración (jwplcHMISetup) y JWPLC_HMI.begin() la vuelve a aplicar.
+    void openWith(uint8_t button)
+    {
+        _wake = button;
+        _wakeSet = true;
+        applyWake();
+    }
+
+    void closeWith(uint8_t button)
+    {
+        _back = (button == BTN_ESC) ? BACK_ESC : BACK_NONE;
+        _backSet = true;
+        applyBack();
+    }
+
+    void closeAfter(double seconds)
+    {
+        const long s = constrain(lround(seconds), 1L, 3600L); // como el Designer
+        _timeoutMs = (uint32_t)s * 1000UL;
+        _back = BACK_TIMEOUT;
+        _backSet = true;
+        applyBack();
+    }
+
+    bool isShown() const { return !JWPLC_Display.isIdleMode(); }
+
+    void applyProgramSettings()
+    {
+        if (_wakeSet)
+            applyWake();
+        if (_backSet)
+            applyBack();
     }
 
     template <typename T>
@@ -96,6 +167,50 @@ public:
     }
 
 private:
+    enum Back : uint8_t
+    {
+        BACK_ESC,
+        BACK_TIMEOUT,
+        BACK_NONE
+    };
+
+    uint8_t _wake = JWPLC_ANY_BUTTON;
+    Back _back = BACK_ESC;
+    uint32_t _timeoutMs = 15000;
+    bool _wakeSet = false;
+    bool _backSet = false;
+
+    void applyWake()
+    {
+        if (_wake == JWPLC_ANY_BUTTON)
+        {
+            JWPLC_Display.setIdleWakeMode(JWPLC_DisplayClass::IDLE_WAKE_ANY_BUTTON);
+        }
+        else if (_wake == JWPLC_NO_BUTTON)
+        {
+            JWPLC_Display.setIdleWakeMode(JWPLC_DisplayClass::IDLE_WAKE_DISABLED);
+        }
+        else
+        {
+            JWPLC_Display.setIdleWakeMode(JWPLC_DisplayClass::IDLE_WAKE_BUTTON_ONLY);
+            JWPLC_Display.setIdleWakeButton(_wake);
+        }
+    }
+
+    void applyBack()
+    {
+        if (_back == BACK_TIMEOUT)
+        {
+            JWPLC_Display.setIdleTimeoutMs(_timeoutMs);
+            JWPLC_Display.setIdleReturnMode(JWPLC_DisplayClass::IDLE_RETURN_TIMEOUT);
+        }
+        else
+        {
+            JWPLC_Display.setIdleReturnMode(_back == BACK_ESC ? JWPLC_DisplayClass::IDLE_RETURN_ESC_ONLY
+                                                              : JWPLC_DisplayClass::IDLE_RETURN_DISABLED);
+        }
+    }
+
     static JWPLC_UIField line(uint8_t id, int16_t y)
     {
         return JWPLC_UITextField(
@@ -105,6 +220,65 @@ private:
             JWPLC_UITextFieldStyle(TEXT_SIZE));
     }
 };
+
+// Botonera de «cuando se pulse el botón» y «¿botón presionado?». La pantalla
+// usa las mismas teclas y lee los mismos avisos pressed(): la tecla que abre
+// mi pantalla, ESC para volver, el selector de páginas y el MENU del Designer.
+// Un bloque sólo toma la tecla cuando no es de la pantalla, así no se la roba
+// al sistema ni hace dos cosas con una pulsación (mismo criterio que el
+// ejemplo 06.HMI_Botonera_Interactiva del package).
+class JWPLC_KeypadHelper
+{
+public:
+    bool pressed(uint8_t button) const
+    {
+        return isFree(button) && JWPLC_Buttons.pressed(button);
+    }
+
+    bool isDown(uint8_t button) const
+    {
+        return isFree(button) && JWPLC_Buttons.isDown(button);
+    }
+
+    bool isFree(uint8_t button) const
+    {
+        if (JWPLC_Display.isIdleMode())
+        {
+            switch (JWPLC_Display.idleWakeMode())
+            {
+            case JWPLC_DisplayClass::IDLE_WAKE_ANY_BUTTON:
+                return false;
+            case JWPLC_DisplayClass::IDLE_WAKE_BUTTON_ONLY:
+                return button != JWPLC_Display.idleWakeButton();
+            default:
+                return true; // sin pantalla propia: todas las teclas son del programa
+            }
+        }
+
+        if (JWPLC_Display.isUserPageSelection() || jwplc_mblock::menuOnPage(JWPLC_Display.userPage()))
+            return false;
+
+        if (JWPLC_Display.userPageCount() > 1)
+            return button != BTN_ESC; // ESC vuelve al selector de páginas
+
+        switch (JWPLC_Display.idleReturnMode())
+        {
+        case JWPLC_DisplayClass::IDLE_RETURN_ESC_ONLY:
+            return button != BTN_ESC;
+        case JWPLC_DisplayClass::IDLE_RETURN_BUTTON_ONLY:
+            return button != JWPLC_Display.idleReturnButton();
+        default:
+            return true;
+        }
+    }
+};
+
+// La tecla que cambia entre la pantalla de entradas/salidas y mi pantalla ya
+// cumplió su función: no debe llegar además a un bloque de botón. Hooks weak
+// de JWPLC_Display (también los define JWPLC_LogicRuntime_UI, que los
+// programas de mBlock no usan).
+extern "C" void jwplcUserDisplayEnterCallback(void) { JWPLCButtons::clearPendingInput(); }
+extern "C" void jwplcUserDisplayExitCallback(void) { JWPLCButtons::clearPendingInput(); }
 
 // Sonido con espera, como "tocar nota durante" de mBot: el buzzer es no
 // bloqueante y delay() cede la CPU al runtime JWPLC mientras suena.
@@ -338,6 +512,7 @@ private:
 };
 
 inline JWPLC_ScreenLines JWPLC_Screen;
+inline JWPLC_KeypadHelper JWPLC_Keypad;
 inline JWPLC_SoundHelper JWPLC_Sound;
 inline JWPLC_TimerHelper JWPLC_Timer;
 inline JWPLC_ClockHelper JWPLC_Clock;

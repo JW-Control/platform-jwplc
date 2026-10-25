@@ -12,13 +12,25 @@
 // Las variables las declara JWPLC_HMI_Generated.h: en mBlock no crear
 // variables con el mismo nombre. No mezclar con «escribir en la línea» (JWPLC_Screen):
 // las dos registran los campos de la pantalla.
+//
+// IDLE y mi pantalla: el diseño trae su «Pantalla y arranque» (entrar con
+// cualquier botón / un botón / nunca; volver con ESC / por tiempo / nunca).
+// Los bloques «abrir mi pantalla con…» y «volver a la pantalla de
+// entradas/salidas…» la cambian, estén antes o después de «usar la pantalla».
 
 #ifndef JWPLC_MBLOCK_HMI_H
 #define JWPLC_MBLOCK_HMI_H
 
 #include <type_traits>
 #include "JWPLC_mBlock.h"
+
+// Los bloques de botón no toman teclas en una página con MENU (el MENU usa
+// ▲ ▼ ◀ ▶ OK). El header registra sus MENU con JWPLC_Display.setMenus(lista, n);
+// mientras se incluye, esta macro anota la lista antes de pasarla. La
+// declaración de setMenus en JWPLC_Display_API.h ya está incluida y no cambia.
+#define setMenus(list, count) setMenus(jwplc_mblock::rememberMenus((list), (count)), (count))
 #include "JWPLC_HMI_Generated.h"
+#undef setMenus
 
 class JWPLC_HmiHelper
 {
@@ -28,6 +40,7 @@ public:
     {
         (void)designName;
         jwplcHMISetup();
+        JWPLC_Screen.applyProgramSettings();
     }
 };
 

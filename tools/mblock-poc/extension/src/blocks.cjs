@@ -14,8 +14,11 @@
 //   JWPLC_readInputs/readOutputs/writeOutputs (core).
 // - Pantalla: JWPLC_Screen (JWPLC_mBlock.h) sobre JWPLC_Display (campos
 //   JWPLC_UITextField: sólo redibuja lo que cambia, no expone TFT_eSPI),
-//   más enterUserUI/goIdle directos.
-// - Botonera: JWPLC_Buttons.pressed/isDown/clearPendingInput (BTN_*).
+//   más enterUserUI/goIdle directos y el cambio IDLE <-> mi pantalla con las
+//   opciones de «Pantalla y arranque» del HMI Designer (setIdleWakeMode,
+//   setIdleReturnMode, setIdleTimeoutMs).
+// - Botonera: JWPLC_Keypad (JWPLC_mBlock.h) sobre JWPLC_Buttons.pressed/isDown:
+//   no toma las teclas que en ese momento usa la pantalla (BTN_*).
 // - Sonido: JWPLC_Buzzer (GPIO26, no bloqueante) de JWPLC_GlobalPeripherals 1.1.0
 //   y JWPLC_Sound.play (JWPLC_mBlock.h) para "tocar ... durante".
 // - Tiempo: JWPLC_Time (vista cacheada del RTC) y JWPLC_Timer/JWPLC_Clock.
@@ -75,6 +78,19 @@ const NOTE_MENU = {
     en: NOTES.map(([en, , hz]) => ({ label: en, value: String(hz) })),
     es: NOTES.map(([, es, hz]) => ({ label: es, value: String(hz) })),
 };
+// «abrir mi pantalla con…»: como «Entrar al HMI» del Designer.
+const WAKE_MENU = {
+    en: [{ label: 'any button', value: 'JWPLC_ANY_BUTTON' }, ...BUTTON_MENU.en,
+        { label: 'no button', value: 'JWPLC_NO_BUTTON' }],
+    es: [{ label: 'cualquier botón', value: 'JWPLC_ANY_BUTTON' }, ...BUTTON_MENU.es,
+        { label: 'ningún botón', value: 'JWPLC_NO_BUTTON' }],
+};
+// «volver … con…»: como «Volver a la IDLE» del Designer (ESC o nunca; el tiempo
+// va en su propio bloque).
+const BACK_MENU = {
+    en: [{ label: 'ESC', value: 'BTN_ESC' }, { label: 'no button', value: 'JWPLC_NO_BUTTON' }],
+    es: [{ label: 'ESC', value: 'BTN_ESC' }, { label: 'ningún botón', value: 'JWPLC_NO_BUTTON' }],
+};
 const LINE_MENU = [1, 2, 3, 4].map((n) => ({ label: String(n), value: String(n) }));
 
 // Pantalla y sonido usan JWPLC_mBlock.h (src/arduino/), que la extensión
@@ -132,8 +148,9 @@ const BLOCKS = [
         arguments: { B: { type: 'fieldMenu', defaultValue: 'BTN_OK', menu: BUTTON_MENU } },
         code: '',
         sections: {
+            include: [LIB_INCLUDE],
             setup: 'JWPLC_Buttons.clearPendingInput();',
-            loop: 'if (JWPLC_Buttons.pressed(/*{B}*/)) {\n  /*{$BRANCH}*/\n}',
+            loop: 'if (JWPLC_Keypad.pressed(/*{B}*/)) {\n  /*{$BRANCH}*/\n}',
         },
     },
     {
@@ -277,7 +294,6 @@ const BLOCKS = [
         text: { en: 'show my screen', es: 'mostrar mi pantalla' },
         arguments: {},
         code: 'JWPLC_Display.enterUserUI();',
-        sections: SCREEN_SECTIONS,
     },
     {
         category: 'jwplc_screen',
@@ -287,6 +303,47 @@ const BLOCKS = [
         arguments: {},
         code: 'JWPLC_Display.goIdle();',
     },
+    // Cambio entre la pantalla de entradas/salidas y mi pantalla. Valen para
+    // las 4 líneas y para una pantalla del HMI Designer (no registran campos).
+    {
+        category: 'jwplc_screen',
+        opcode: 'jwplc_screen_open_with',
+        blockType: 'command',
+        text: { en: 'open my screen with [B]', es: 'abrir mi pantalla con [B]' },
+        arguments: { B: { type: 'fieldMenu', defaultValue: 'JWPLC_ANY_BUTTON', menu: WAKE_MENU } },
+        code: 'JWPLC_Screen.openWith(/*{B}*/);',
+        sections: LIB_SECTIONS,
+    },
+    {
+        category: 'jwplc_screen',
+        opcode: 'jwplc_screen_back_with',
+        blockType: 'command',
+        text: { en: 'return to the inputs/outputs screen with [B]', es: 'volver a la pantalla de entradas/salidas con [B]' },
+        arguments: { B: { type: 'fieldMenu', defaultValue: 'BTN_ESC', menu: BACK_MENU } },
+        code: 'JWPLC_Screen.closeWith(/*{B}*/);',
+        sections: LIB_SECTIONS,
+    },
+    {
+        category: 'jwplc_screen',
+        opcode: 'jwplc_screen_back_after',
+        blockType: 'command',
+        text: {
+            en: 'return to the inputs/outputs screen after [S] s without pressing buttons',
+            es: 'volver a la pantalla de entradas/salidas tras [S] s sin pulsar botones',
+        },
+        arguments: { S: { type: 'number', defaultValue: 15 } },
+        code: 'JWPLC_Screen.closeAfter(/*{S}*/);',
+        sections: LIB_SECTIONS,
+    },
+    {
+        category: 'jwplc_screen',
+        opcode: 'jwplc_screen_shown',
+        blockType: 'boolean',
+        text: { en: 'my screen shown?', es: '¿se ve mi pantalla?' },
+        arguments: {},
+        code: 'JWPLC_Screen.isShown()',
+        sections: LIB_SECTIONS,
+    },
 
     // ---- Botonera --------------------------------------------------------
     {
@@ -295,7 +352,8 @@ const BLOCKS = [
         blockType: 'boolean',
         text: { en: 'button [B] held down?', es: '¿botón [B] presionado?' },
         arguments: { B: { type: 'fieldMenu', defaultValue: 'BTN_OK', menu: BUTTON_MENU } },
-        code: 'JWPLC_Buttons.isDown(/*{B}*/)',
+        code: 'JWPLC_Keypad.isDown(/*{B}*/)',
+        sections: LIB_SECTIONS,
     },
 
     // ---- Sonido ----------------------------------------------------------
@@ -738,6 +796,16 @@ const BLOCKS = [
     },
 
     // ---- Pantalla del HMI Designer --------------------------------------
+    {
+        // Botón de la paleta (no es un bloque de código): abre el diálogo de
+        // archivos y pone la carpeta del diseño en «usar la pantalla…».
+        // Su función está en runtime.js (JWPLC_BUTTONS).
+        category: 'jwplc_hmi',
+        opcode: 'jwplc_hmi_pick',
+        blockType: 'button',
+        text: { en: 'Choose HMI Designer screen…', es: 'Elegir pantalla del HMI Designer…' },
+        arguments: {},
+    },
     {
         category: 'jwplc_hmi',
         opcode: 'jwplc_hmi_use',

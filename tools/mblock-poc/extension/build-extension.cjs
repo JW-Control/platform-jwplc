@@ -20,7 +20,7 @@ const zlib = require('zlib');
 const { execFileSync } = require('child_process');
 
 const EXT_ID = 'jwplc_basic';
-const EXT_VERSION = '0.7.0';
+const EXT_VERSION = '0.9.0';
 const HERE = __dirname;
 const DIST = path.join(HERE, 'dist');
 const OUT = path.join(DIST, EXT_ID);
@@ -110,7 +110,7 @@ function buildInfoData() {
             }
         }
         t(b.opcode, b.text);
-        cat.blocks.push({
+        const entry = {
             opcode: b.opcode,
             blockType: b.blockType,
             checkboxInFlyout: false,
@@ -119,8 +119,11 @@ function buildInfoData() {
             arguments: args,
             branchCount: 0,
             platform: PLATFORM,
-            codes: arduinoCodes(b),
-        });
+        };
+        // Los botones de la paleta no generan código; su func se asigna en
+        // index.js desde JWPLC_BUTTONS (runtime.js).
+        if (b.blockType !== 'button') entry.codes = arduinoCodes(b);
+        cat.blocks.push(entry);
     }
 
     // Sobrescrituras de bloques estándar (mismo opcode, código Arduino propio).
@@ -167,6 +170,11 @@ function buildIndexJs() {
 const extTranslationMap = ${JSON.stringify(translations, null, 2)};
 
 const extCategories = ${JSON.stringify(categories, null, 2)};
+
+// Botones de la paleta: mBlock llama a block.func al pulsarlos.
+extCategories.forEach((c) => c.blocks.forEach((b) => {
+    if (b.blockType === 'button') b.func = JWPLC_BUTTONS[b.opcode];
+}));
 
 const extGenerators = ${JSON.stringify(generators, null, 2)};
 

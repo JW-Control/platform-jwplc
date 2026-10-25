@@ -36,9 +36,9 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const crypto = require('crypto');
-const { spawn } = require('child_process');
+const { spawn, execFileSync } = require('child_process');
 
-const BRIDGE_VERSION = '0.4.0';
+const BRIDGE_VERSION = '0.5.0';
 const PORT = Number(process.env.JWPLC_BRIDGE_PORT || 47820);
 const HOST = '127.0.0.1';
 const ALLOWED_FQBN = /^jwplc[a-z0-9_]*:esp32:[a-z0-9_]+$/;
@@ -157,24 +157,65 @@ function writeSketch(code, files) {
     }
 }
 
-// Si el programa usa una pantalla del HMI Designer (JWPLC_HMI.begin("Nombre")),
-// añade su JWPLC_HMI_Generated.h. Devuelve un error legible si no existe.
+const HMI_HEADER = 'JWPLC_HMI_Generated.h';
+
+// Carpeta de sketches de Arduino del usuario (donde el Designer propone crear
+// el sketch). Se lee sin el sketchbook propio del bridge.
+function arduinoUserDir() {
+    try {
+        const out = execFileSync(ARDUINO_CLI, ['config', 'get', 'directories.user'], { windowsHide: true, timeout: 10000 });
+        const dir = out.toString().trim();
+        return dir && fs.existsSync(dir) ? dir : null;
+    } catch (_) {
+        return null;
+    }
+}
+
+// Dónde se buscan las pantallas por nombre, en orden (bridge.json: hmiRoots).
+const HMI_ROOTS = (Array.isArray(BRIDGE_CONFIG.hmiRoots) ? BRIDGE_CONFIG.hmiRoots : [HMI_ROOT, arduinoUserDir()])
+    .filter(Boolean);
+
+function isAbsolutePath(p) {
+    return /^[A-Za-z]:[\\/]/.test(p) || p.startsWith('/') || p.startsWith('\\\\');
+}
+
+// Si el programa usa una pantalla del HMI Designer (JWPLC_HMI.begin("...")),
+// añade su JWPLC_HMI_Generated.h. El texto del bloque puede ser:
+// - una ruta (la pone el botón «Elegir pantalla…»): la carpeta del sketch del
+//   Designer o su .jwhmi/.ino/.h;
+// - un nombre: se busca <raíz>/<nombre>/ en HMI_ROOTS.
+// Devuelve un error legible si no existe.
 function addHmiDesign(code, files, emit) {
     if (!/#include\s+"JWPLC_mBlock_HMI\.h"/.test(code)) return null;
     const m = /JWPLC_HMI\.begin\("([^"]*)"\)/.exec(code);
     if (!m) return 'falta el bloque «usar la pantalla del HMI Designer»';
-    const name = m[1].trim();
-    if (!/^[A-Za-z0-9 _.-]{1,64}$/.test(name) || name.includes('..')) return 'nombre de pantalla no válido: ' + name;
-    const header = path.join(HMI_ROOT, name, 'JWPLC_HMI_Generated.h');
-    if (!fs.existsSync(header)) {
-        let available = [];
-        try {
-            available = fs.readdirSync(HMI_ROOT).filter((d) => fs.existsSync(path.join(HMI_ROOT, d, 'JWPLC_HMI_Generated.h')));
-        } catch (_) {}
-        return `no existe ${header}. Escribe la pantalla desde el HMI Designer en esa carpeta` +
-            (available.length ? ` (pantallas disponibles: ${available.join(', ')})` : '');
+    const text = m[1].trim();
+    let header;
+    if (isAbsolutePath(text)) {
+        let dir = path.normalize(text);
+        if (/\.(jwhmi|ino|h)$/i.test(dir)) dir = path.dirname(dir);
+        header = path.join(dir, HMI_HEADER);
+        if (!fs.existsSync(header)) {
+            return `no existe ${header}. Elige la carpeta del sketch donde el HMI Designer escribió la pantalla`;
+        }
+    } else {
+        if (!/^[A-Za-z0-9 _.-]{1,64}$/.test(text) || text.includes('..')) return 'nombre de pantalla no válido: ' + text;
+        header = HMI_ROOTS.map((root) => path.join(root, text, HMI_HEADER)).find((h) => fs.existsSync(h));
+        if (!header) {
+            const available = [];
+            for (const root of HMI_ROOTS) {
+                try {
+                    for (const d of fs.readdirSync(root)) {
+                        if (fs.existsSync(path.join(root, d, HMI_HEADER))) available.push(d);
+                    }
+                } catch (_) {}
+            }
+            return `no se encontró la pantalla «${text}» en ${HMI_ROOTS.join(' ; ')}. ` +
+                'Usa el botón «Elegir pantalla del HMI Designer…» o escribe la pantalla desde el Designer en una de esas carpetas' +
+                (available.length ? ` (pantallas disponibles: ${available.join(', ')})` : '');
+        }
     }
-    files['JWPLC_HMI_Generated.h'] = fs.readFileSync(header, 'utf8');
+    files[HMI_HEADER] = fs.readFileSync(header, 'utf8');
     emit({ type: 'log', line: 'pantalla HMI Designer: ' + header });
     return null;
 }
@@ -342,7 +383,7 @@ const server = http.createServer((req, res) => {
             packageSha: BRIDGE_CONFIG.packageSha || null,
             cli: ARDUINO_CLI,
             tokenFile: TOKEN_FILE,
-            hmiRoot: HMI_ROOT,
+            hmiRoots: HMI_ROOTS,
             busy,
         });
     }
@@ -362,5 +403,6 @@ server.listen(PORT, HOST, () => {
     logLine(`FQBN=${DEFAULT_FQBN}`);
     if (SKETCHBOOK) logLine(`SKETCHBOOK=${SKETCHBOOK} PACKAGE=${BRIDGE_CONFIG.packageRef || '?'}@${(BRIDGE_CONFIG.packageSha || '').slice(0, 8)}`);
     logLine(`TOKEN_FILE=${TOKEN_FILE}`);
+    logLine(`HMI_ROOTS=${HMI_ROOTS.join(' ; ')}`);
     logLine(`WORK_DIR=${WORK_DIR}`);
 });

@@ -151,8 +151,73 @@ const jwplcUploadDriver = (app, device, code, log, progress, onSuccess, onError)
     );
 };
 
+// ---- Botón «Elegir pantalla del HMI Designer…» de la paleta -------------
+// mBlock admite blockType "button" en las categorías: al pulsarlo llama a la
+// función func del bloque (generador de paletas de ext-manager). El app que
+// recibe onLoad da acceso al workspace y a Blockly (_mCtx, interno de 5.4.3).
+const HMI_USE_BLOCK = 'jwplc_basic.jwplc_hmi_use';
+let jwplcApp = null;
+
+// Carpeta del diseño elegido, con "/" (en un literal C++ las "\" serían escapes).
+function jwplcDesignFolder(filePath) {
+    const p = String(filePath).replace(/\\/g, '/');
+    return /\.(jwhmi|ino|h)$/i.test(p) ? p.slice(0, p.lastIndexOf('/')) : p;
+}
+
+async function jwplcPickHmiDesign(button) {
+    const ctx = jwplcApp && (jwplcApp.mCtx || jwplcApp._mCtx);
+    const blocklyCtx = ctx && ctx.blocklyCtx;
+    if (!blocklyCtx) throw new Error('no se encontró el área de bloques de mBlock');
+    const B = blocklyCtx.blockly;
+    const ws = button && typeof button.getTargetWorkspace === 'function'
+        ? button.getTargetWorkspace() : blocklyCtx.workspace;
+
+    let files;
+    try {
+        files = await window.MeApi.fe.openFileDialog({
+            title: 'Elegir pantalla del HMI Designer',
+            properties: ['openFile'],
+            filters: [{ name: 'Pantalla del HMI Designer (.jwhmi, .ino)', extensions: ['jwhmi', 'ino', 'h'] }],
+        });
+    } catch (_) {
+        return; // cancelado
+    }
+    if (!files || !files.length) return;
+    const folder = jwplcDesignFolder(files[0]);
+
+    // 1) el bloque «usar la pantalla…» seleccionado, 2) el primero del programa,
+    // 3) uno nuevo arriba a la izquierda de lo que se ve.
+    let block = B.selected && B.selected.type === HMI_USE_BLOCK ? B.selected : null;
+    if (!block) block = ws.getAllBlocks().find((b) => b.type === HMI_USE_BLOCK) || null;
+    if (block) {
+        const input = block.getInput('NAME');
+        const target = input && input.connection && input.connection.targetBlock();
+        if (target) target.setFieldValue(folder, 'TEXT');
+    } else {
+        const m = ws.getMetrics ? ws.getMetrics() : { viewLeft: 0, viewTop: 0 };
+        const scale = ws.scale || 1;
+        const esc = folder.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+        const xml = `<xml xmlns="http://www.w3.org/1999/xhtml"><block type="${HMI_USE_BLOCK}" ` +
+            `x="${Math.round(m.viewLeft / scale) + 40}" y="${Math.round(m.viewTop / scale) + 40}">` +
+            `<value name="NAME"><shadow type="text"><field name="TEXT">${esc}</field></shadow></value></block></xml>`;
+        B.Xml.domToWorkspace(B.Xml.textToDom(xml), ws);
+    }
+    try { window.alert('Pantalla elegida: ' + folder, 'success'); } catch (_) {}
+}
+
+// Funciones de los botones de la paleta, por opcode (las asigna build-extension.cjs).
+const JWPLC_BUTTONS = {
+    jwplc_hmi_pick: (...args) => {
+        jwplcPickHmiDesign(...args).catch((e) => {
+            try { window.alert('No se pudo elegir la pantalla: ' + (e && e.message ? e.message : e), 'error'); } catch (_) {}
+        });
+    },
+};
+
 const ExtHandler = {
-    onLoad(app, target) {},
+    onLoad(app, target) {
+        jwplcApp = app;
+    },
     onUnload(app) {},
     onConnect(app, device) {},
     onDisconnect(app, device) {},
