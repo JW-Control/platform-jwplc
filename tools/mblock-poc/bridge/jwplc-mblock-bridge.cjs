@@ -38,7 +38,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { spawn } = require('child_process');
 
-const BRIDGE_VERSION = '0.3.0';
+const BRIDGE_VERSION = '0.4.0';
 const PORT = Number(process.env.JWPLC_BRIDGE_PORT || 47820);
 const HOST = '127.0.0.1';
 const ALLOWED_FQBN = /^jwplc[a-z0-9_]*:esp32:[a-z0-9_]+$/;
@@ -64,6 +64,9 @@ function readBridgeConfig() {
 const BRIDGE_CONFIG = readBridgeConfig();
 const DEFAULT_FQBN = process.env.JWPLC_FQBN || BRIDGE_CONFIG.fqbn || 'jwplc:esp32:jwplcbasic';
 const SKETCHBOOK = BRIDGE_CONFIG.sketchbook || null;
+// Pantallas del HMI Designer: una carpeta por diseño con su JWPLC_HMI_Generated.h
+// («Escribir en sketch» del Designer en %USERPROFILE%\JWPLC-HMI\<Nombre>).
+const HMI_ROOT = BRIDGE_CONFIG.hmiRoot || path.join(os.homedir(), 'JWPLC-HMI');
 const TOKEN_FILE = path.join(CONFIG_DIR, 'token.txt');
 const SKETCH_NAME = 'jwplc_mblock';
 const SKETCH_DIR = path.join(WORK_DIR, 'sketch', SKETCH_NAME);
@@ -154,7 +157,35 @@ function writeSketch(code, files) {
     }
 }
 
+// Si el programa usa una pantalla del HMI Designer (JWPLC_HMI.begin("Nombre")),
+// añade su JWPLC_HMI_Generated.h. Devuelve un error legible si no existe.
+function addHmiDesign(code, files, emit) {
+    if (!/#include\s+"JWPLC_mBlock_HMI\.h"/.test(code)) return null;
+    const m = /JWPLC_HMI\.begin\("([^"]*)"\)/.exec(code);
+    if (!m) return 'falta el bloque «usar la pantalla del HMI Designer»';
+    const name = m[1].trim();
+    if (!/^[A-Za-z0-9 _.-]{1,64}$/.test(name) || name.includes('..')) return 'nombre de pantalla no válido: ' + name;
+    const header = path.join(HMI_ROOT, name, 'JWPLC_HMI_Generated.h');
+    if (!fs.existsSync(header)) {
+        let available = [];
+        try {
+            available = fs.readdirSync(HMI_ROOT).filter((d) => fs.existsSync(path.join(HMI_ROOT, d, 'JWPLC_HMI_Generated.h')));
+        } catch (_) {}
+        return `no existe ${header}. Escribe la pantalla desde el HMI Designer en esa carpeta` +
+            (available.length ? ` (pantallas disponibles: ${available.join(', ')})` : '');
+    }
+    files['JWPLC_HMI_Generated.h'] = fs.readFileSync(header, 'utf8');
+    emit({ type: 'log', line: 'pantalla HMI Designer: ' + header });
+    return null;
+}
+
 async function compile(code, files, fqbn, emit) {
+    files = Object.assign({}, files);
+    const hmiError = addHmiDesign(code, files, emit);
+    if (hmiError) {
+        emit({ type: 'log', line: 'ERROR: ' + hmiError });
+        return 1;
+    }
     writeSketch(code, files);
     emit({ type: 'stage', stage: 'compile', fqbn });
     const exit = await runCli([
@@ -311,6 +342,7 @@ const server = http.createServer((req, res) => {
             packageSha: BRIDGE_CONFIG.packageSha || null,
             cli: ARDUINO_CLI,
             tokenFile: TOKEN_FILE,
+            hmiRoot: HMI_ROOT,
             busy,
         });
     }

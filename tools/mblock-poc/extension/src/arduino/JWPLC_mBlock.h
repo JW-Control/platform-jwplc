@@ -45,6 +45,7 @@ inline String text(double value)
 }
 inline String text(float value) { return text((double)value); }
 inline String text(int value) { return String(value); }
+inline String text(unsigned int value) { return String(value); } // uint32_t en ESP32
 inline String text(long value) { return String(value); }
 inline String text(unsigned long value) { return String(value); }
 inline String text(bool value) { return String(value ? "SI" : "NO"); }

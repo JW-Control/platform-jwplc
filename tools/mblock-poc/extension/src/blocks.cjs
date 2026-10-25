@@ -24,6 +24,8 @@
 // - WiFi: JWPLC_Net (JWPLC_mBlock_WiFi.h) con WiFi.h/WiFiUdp.h del core ESP32.
 // - RS485: JWPLC_RS485 (begin) y JWPLC_Line485 (líneas de texto).
 // - Ethernet: JWPLC_Ethernet (useDHCP/setStaticIP; el runtime la atiende).
+// - Pantalla HMI: JWPLC_HMI.begin + JWPLC_HmiSet/Get (JWPLC_mBlock_HMI.h) sobre el
+//   JWPLC_HMI_Generated.h del HMI Designer (jwplcHMISetup y sus variables).
 // - Modbus: JWPLC_Registers (16 registros), JWPLC_ModbusEasy sobre JWPLC_ModbusRTU
 //   (esclavo y maestro *Sync) y JWPLC_ModbusTcpEasy sobre JWPLC_ModbusTCP (servidor).
 // No se emite pinMode(): el core configura internamente I0_x/Q0_x.
@@ -34,6 +36,7 @@ const CATEGORIES = [
     { name: 'events', colors: ['#FFBF00', '#E6AC00', '#CC9900'], text: null },
     { name: 'jwplc_io', colors: ['#1E5FAF', '#1A549B', '#164887'], text: { en: 'Inputs & outputs', es: 'Entradas y salidas' } },
     { name: 'jwplc_screen', colors: ['#7E57C2', '#7048B6', '#5E3AA0'], text: { en: 'Screen', es: 'Pantalla' } },
+    { name: 'jwplc_hmi', colors: ['#5C6BC0', '#5260B0', '#45519A'], text: { en: 'HMI screen', es: 'Pantalla HMI' } },
     { name: 'jwplc_buttons', colors: ['#00A0A0', '#009090', '#008080'], text: { en: 'Buttons', es: 'Botonera' } },
     { name: 'jwplc_sound', colors: ['#CF63CF', '#C94FC9', '#BD42BD'], text: { en: 'Sound', es: 'Sonido' } },
     { name: 'jwplc_time', colors: ['#5CB1D6', '#47A8D1', '#2E8EB8'], text: { en: 'Time', es: 'Tiempo' } },
@@ -90,6 +93,11 @@ const MODBUS_RTU_SECTIONS = { include: ['"JWPLC_mBlock_ModbusRTU.h"'] };
 const MODBUS_RTU_START_SECTIONS = { include: ['"JWPLC_mBlock_ModbusRTU.h"'], loop: 'JWPLC_ModbusRTU.task();' };
 const ETHERNET_SECTIONS = { include: ['"JWPLC_mBlock_Ethernet.h"'] };
 const MODBUS_TCP_SECTIONS = { include: ['"JWPLC_mBlock_ModbusTCP.h"'] };
+// Pantalla del HMI Designer: el bridge añade su JWPLC_HMI_Generated.h.
+const HMI_SECTIONS = { include: ['"JWPLC_mBlock_HMI.h"'] };
+// Nombre de una variable del Designer escrito en un hueco de texto: mBlock lo
+// entrega entre comillas; la expresión lo deja como identificador C++.
+const HMI_VAR = "/*{{String(this.VAR).replace(/[^A-Za-z0-9_]/g, '')}}*/";
 
 const BAUD_MENU = [9600, 19200, 38400, 57600, 115200].map((b) => ({ label: String(b), value: String(b) }));
 
@@ -727,6 +735,47 @@ const BLOCKS = [
         arguments: {},
         code: 'JWPLC_ModbusTcpEasy.beginServer();',
         sections: MODBUS_TCP_SECTIONS,
+    },
+
+    // ---- Pantalla del HMI Designer --------------------------------------
+    {
+        category: 'jwplc_hmi',
+        opcode: 'jwplc_hmi_use',
+        blockType: 'command',
+        text: { en: 'use the HMI Designer screen [NAME]', es: 'usar la pantalla del HMI Designer [NAME]' },
+        arguments: { NAME: { type: 'string', defaultValue: 'MiPantalla' } },
+        code: 'JWPLC_HMI.begin(/*{NAME}*/);',
+        sections: HMI_SECTIONS,
+    },
+    {
+        category: 'jwplc_hmi',
+        opcode: 'jwplc_hmi_set',
+        blockType: 'command',
+        text: { en: 'set screen variable [VAR] to [VALUE]', es: 'poner variable de pantalla [VAR] a [VALUE]' },
+        arguments: {
+            VAR: { type: 'string', defaultValue: 'temperatura' },
+            VALUE: { type: 'string', defaultValue: '0' },
+        },
+        code: 'JWPLC_HmiSet(' + HMI_VAR + ', /*{VALUE}*/);',
+        sections: HMI_SECTIONS,
+    },
+    {
+        category: 'jwplc_hmi',
+        opcode: 'jwplc_hmi_get',
+        blockType: 'number',
+        text: { en: 'screen variable [VAR]', es: 'variable de pantalla [VAR]' },
+        arguments: { VAR: { type: 'string', defaultValue: 'consigna' } },
+        code: 'JWPLC_HmiGet(' + HMI_VAR + ')',
+        sections: HMI_SECTIONS,
+    },
+    {
+        category: 'jwplc_hmi',
+        opcode: 'jwplc_hmi_get_bool',
+        blockType: 'boolean',
+        text: { en: 'screen variable [VAR] is on?', es: '¿variable de pantalla [VAR] activa?' },
+        arguments: { VAR: { type: 'string', defaultValue: 'modoAuto' } },
+        code: '(JWPLC_HmiGet(' + HMI_VAR + ') != 0)',
+        sections: HMI_SECTIONS,
     },
 ];
 
