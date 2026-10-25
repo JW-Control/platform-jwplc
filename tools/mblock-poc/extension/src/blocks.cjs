@@ -797,6 +797,16 @@ const BLOCKS = [
 
     // ---- Pantalla del HMI Designer --------------------------------------
     {
+        // Botón de la paleta: abre el HMI Designer (protocolo jwplc-hmi://),
+        // vinculado a la pantalla de «usar la pantalla…» si existe.
+        // Su función está en runtime.js (JWPLC_BUTTONS).
+        category: 'jwplc_hmi',
+        opcode: 'jwplc_hmi_open_designer',
+        blockType: 'button',
+        text: { en: 'Open HMI Designer', es: 'Abrir el HMI Designer' },
+        arguments: {},
+    },
+    {
         // Botón de la paleta (no es un bloque de código): abre el diálogo de
         // archivos y pone la carpeta del diseño en «usar la pantalla…».
         // Su función está en runtime.js (JWPLC_BUTTONS).

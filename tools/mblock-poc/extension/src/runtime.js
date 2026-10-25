@@ -205,8 +205,70 @@ async function jwplcPickHmiDesign(button) {
     try { window.alert('Pantalla elegida: ' + folder, 'success'); } catch (_) {}
 }
 
+// ---- Botón «Abrir el HMI Designer» --------------------------------------
+// El instalador del Designer registra el protocolo jwplc-hmi:// (lo usa también
+// la extensión de Arduino IDE): jwplc-hmi://open?sketch=<carpeta> abre el
+// Designer vinculado a esa carpeta, o lo trae al frente si ya está abierto.
+// MeApi.fe.openLink es shell.openExternal de Electron.
+const JWPLC_HMI_PROTOCOL = 'jwplc-hmi://open';
+
+function jwplcIsAbsolutePath(p) {
+    return /^[A-Za-z]:[\\/]/.test(p) || /^[\\/]{2}/.test(p);
+}
+
+// Carpeta del diseño del bloque «usar la pantalla…» (el seleccionado o el
+// primero): una ruta, o un nombre buscado en las carpetas de pantallas del
+// bridge (o en %USERPROFILE%\JWPLC-HMI si el bridge no responde).
+async function jwplcCurrentDesignFolder(ws, B) {
+    let block = B.selected && B.selected.type === HMI_USE_BLOCK ? B.selected : null;
+    if (!block) block = ws.getAllBlocks().find((b) => b.type === HMI_USE_BLOCK) || null;
+    const input = block && block.getInput('NAME');
+    const target = input && input.connection && input.connection.targetBlock();
+    const value = target ? String(target.getFieldValue('TEXT') || '').trim() : '';
+    if (!value) return null;
+
+    const fe = window.MeApi.fe;
+    if (jwplcIsAbsolutePath(value)) {
+        const folder = jwplcDesignFolder(value);
+        return fe.exists(folder) ? folder : null;
+    }
+    let roots = [];
+    try {
+        const health = await (await fetch(JWPLC_BRIDGE_URL + '/health', { signal: AbortSignal.timeout(1500) })).json();
+        roots = health.hmiRoots || [];
+    } catch (_) {}
+    if (!roots.length) roots = [fe.getPath().join(await window.MeApi.sys.getPath('home'), 'JWPLC-HMI')];
+    for (const root of roots) {
+        const folder = fe.getPath().join(root, value);
+        if (fe.exists(folder)) return folder.replace(/\\/g, '/');
+    }
+    return null;
+}
+
+async function jwplcOpenHmiDesigner(button) {
+    const ctx = jwplcApp && (jwplcApp.mCtx || jwplcApp._mCtx);
+    const blocklyCtx = ctx && ctx.blocklyCtx;
+    let folder = null;
+    if (blocklyCtx) {
+        const ws = button && typeof button.getTargetWorkspace === 'function'
+            ? button.getTargetWorkspace() : blocklyCtx.workspace;
+        folder = await jwplcCurrentDesignFolder(ws, blocklyCtx.blockly);
+    }
+    window.MeApi.fe.openLink(JWPLC_HMI_PROTOCOL + (folder ? '?sketch=' + encodeURIComponent(folder) : ''));
+    try {
+        window.alert(folder
+            ? 'Abriendo el HMI Designer con la pantalla ' + folder
+            : 'Abriendo el HMI Designer (si no se abre, instálalo).', 'success');
+    } catch (_) {}
+}
+
 // Funciones de los botones de la paleta, por opcode (las asigna build-extension.cjs).
 const JWPLC_BUTTONS = {
+    jwplc_hmi_open_designer: (...args) => {
+        jwplcOpenHmiDesigner(...args).catch((e) => {
+            try { window.alert('No se pudo abrir el HMI Designer: ' + (e && e.message ? e.message : e), 'error'); } catch (_) {}
+        });
+    },
     jwplc_hmi_pick: (...args) => {
         jwplcPickHmiDesign(...args).catch((e) => {
             try { window.alert('No se pudo elegir la pantalla: ' + (e && e.message ? e.message : e), 'error'); } catch (_) {}
