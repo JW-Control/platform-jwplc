@@ -11,7 +11,7 @@ GATE8B_BRIDGE_ON_PUBLISHED_CORE=PASS  [ejecutado] fase 1 y programa A de la fase
 GATE8C_HMI_DESIGNER_INTEGRATION=PASS  [ejecutado] pantalla del Designer usada desde bloques, compila
 GATE8D_HMI_UPLOAD_AND_PHYSICAL=PASS   [verificado por el usuario] pantalla «Demo» en la JWPLC de COM4
 GATE8E_HMI_PICK_BUTTON=PASS           [verificado por el usuario] botón «Elegir pantalla…», bridge 0.5.0
-GATE8F_IDLE_USER_TRANSITIONS=PASS     [verificado por el usuario] 4 líneas en COM4; Designer solo compilado
+GATE8F_IDLE_USER_TRANSITIONS=PASS     [verificado por el usuario] 4 líneas y pantalla «Demo» en COM4
 ~~~
 
 ## Gate 8A/8B - Core publicado
@@ -254,18 +254,23 @@ LINES_KEYS     en mi pantalla ▲ suma, ▼ mantiene Q0.0, ESC llega al programa
 LINES_TIMEOUT  20 s sin tocar botones -> pantalla de entradas/salidas                                PASS
 ~~~
 
-Pendiente en placa, con la pantalla «Demo» del Designer (`idle_hmi.ino`):
+[ejecutado] `idle_hmi.ino` (pantalla «Demo», 2 páginas y MENU; «volver con
+ningún botón» antes de «usar la pantalla») subido a COM4, hash verificado. Log:
+`results/20261025_gate8f/GATE8F_UPLOAD_HMI_COM4.log`.
+
+[verificado por el usuario] Pantalla del Designer:
 
 ~~~text
-HMI_SELECTOR   en el selector NN/TT, OK entra a la página y no suma piezas
-HMI_MENU       en Ajustes, ▲ ▼ OK editan el MENU y no suman piezas
-HMI_CONTENT    en Planta, OK suma piezas; ESC vuelve al selector
+HMI_SELECTOR   en el selector NN/TT, ◀ ▶ cambian de página y OK entra, sin sumar piezas      PASS
+HMI_CONTENT    en Planta, OK suma piezas; ESC vuelve al selector                            PASS
+HMI_MENU       en Ajustes, ▲ ▼ OK editan el MENU y no suman piezas                          PASS
+HMI_BACK_NONE  ESC en el selector no va a la IDLE aunque el diseño diga ESC; el bloque
+               ESC del programa no se dispara (ESC es del sistema)                         PASS
 ~~~
 
 
 ## Pendiente
 
-- Prueba en placa del Gate 8F con la pantalla del Designer (`idle_hmi.ino`).
 - Bloque de evento «cuando el operador cambie [variable] en el MENU»
   (`JWPLC_Display.menuChanged`).
 - Botón o atajo para abrir el HMI Designer en la carpeta `JWPLC-HMI` desde mBlock.

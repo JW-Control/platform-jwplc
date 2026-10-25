@@ -1,0 +1,8 @@
+HTTP=200 ms=115004
+{"type":"stage","stage":"compile","fqbn":"jwplc:esp32:jwplcbasic"}
+{"type":"stage","stage":"upload","port":"COM4"}
+{"type":"result","ok":true,"stage":"upload","exit":0,"ms":114970}
+Verifying written data...
+Hash of data verified.
+Hard resetting via RTS pin...
+New upload port: COM4 (serial)
