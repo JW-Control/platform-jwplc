@@ -13,7 +13,7 @@ GATE8D_HMI_UPLOAD_AND_PHYSICAL=PASS   [verificado por el usuario] pantalla «Dem
 GATE8E_HMI_PICK_BUTTON=PASS           [verificado por el usuario] botón «Elegir pantalla…», bridge 0.5.0
 GATE8F_IDLE_USER_TRANSITIONS=PASS     [verificado por el usuario] 4 líneas y pantalla «Demo» en COM4
 GATE8G_MENU_CHANGED_EVENT=PASS        [verificado por el usuario] dos variables del mismo MENU en COM4
-GATE8H_OPEN_DESIGNER_BUTTON=PASS      [ejecutado] jwplc-hmi:// abre el Designer con «Demo»; botón por probar
+GATE8H_OPEN_DESIGNER_BUTTON=PASS      [verificado por el usuario] el botón abre el Designer desde mBlock
 ~~~
 
 ## Gate 8A/8B - Core publicado
@@ -345,11 +345,12 @@ Designer…». No necesita el bridge:
 [ejecutado] 2026-10-25: desde el mBlock abierto (CDP),
 `MeApi.fe.openLink('jwplc-hmi://open?sketch=C%3A%2FUsers%2Fjeykc%2FJWPLC-HMI%2FDemo')`
 abrió el Designer instalado con la ventana «Demo · JWPLC HMI Designer —
-2.1.0-alpha.14». El botón de la paleta se verifica después de reiniciar mBlock
-(carga la extensión 0.11.0).
+2.1.0-alpha.14».
+
+[verificado por el usuario] 2026-10-25: tras reiniciar mBlock (extensión 0.11.0),
+el botón «Abrir el HMI Designer» de la paleta funciona.
 
 ## Pendiente
 
-- Probar el botón «Abrir el HMI Designer» en mBlock después de reiniciarlo.
 - Para el package: una consulta pública «¿la página N tiene MENU?» evitaría la
   macro `setMenus` de `JWPLC_mBlock_HMI.h`.
