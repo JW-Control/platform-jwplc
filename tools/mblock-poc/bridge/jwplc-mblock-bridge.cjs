@@ -20,13 +20,16 @@
  *   servidor local de mBlock;
  * - el puerto de upload debe ser COMn.
  *
- * Sin dependencias: sólo Node >= 18.
+ * Sin dependencias: Node >= 16. El instalador (install/) lo ejecuta con el
+ * Electron de mBlock (ELECTRON_RUN_AS_NODE=1, Node 16.16 en mBlock 5.4.3): la
+ * máquina del aula no necesita instalar Node.
  *
  * Uso:
  *   node jwplc-mblock-bridge.cjs            (puerto 47820)
  *   set JWPLC_BRIDGE_PORT=47821 & node ...
  *   set JWPLC_ARDUINO_CLI=C:\ruta\arduino-cli.exe & node ...
  *   set JWPLC_FQBN=jwplc:esp32:jwplcbasic & node ...
+ *   set JWPLC_BRIDGE_HOME=C:\otra\carpeta & node ...   (token, sketch y build)
  *   bridge.json (install-package-from-ref.cjs): fqbn y sketchbook privado
  */
 'use strict';
@@ -38,7 +41,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { spawn, execFileSync } = require('child_process');
 
-const BRIDGE_VERSION = '0.5.0';
+const BRIDGE_VERSION = '0.6.0';
 const PORT = Number(process.env.JWPLC_BRIDGE_PORT || 47820);
 const HOST = '127.0.0.1';
 const ALLOWED_FQBN = /^jwplc[a-z0-9_]*:esp32:[a-z0-9_]+$/;
@@ -48,7 +51,8 @@ const ALLOWED_ORIGINS = new Set(['http://127.0.0.1:3003', 'http://localhost:3003
 
 // Fuera de %APPDATA%: si el bridge lo lanza una app empaquetada (MSIX), Windows
 // virtualiza las escrituras nuevas en AppData y mBlock no vería el token.
-const WORK_DIR = path.join(os.homedir(), '.jwplc', 'mblock-bridge');
+// JWPLC_BRIDGE_HOME: otra carpeta de trabajo (pruebas con un segundo bridge).
+const WORK_DIR = process.env.JWPLC_BRIDGE_HOME || path.join(os.homedir(), '.jwplc', 'mblock-bridge');
 const CONFIG_DIR = WORK_DIR;
 
 // bridge.json (opcional, lo escribe install-package-from-ref.cjs): FQBN y
@@ -79,6 +83,9 @@ function findArduinoCli() {
         process.env.JWPLC_ARDUINO_CLI,
         'C:\\Program Files\\Arduino CLI\\arduino-cli.exe',
         'C:\\Program Files\\Arduino IDE\\resources\\app\\lib\\backend\\resources\\arduino-cli.exe',
+        // Arduino IDE 2 instalado sólo para el usuario.
+        process.env.LOCALAPPDATA && path.join(process.env.LOCALAPPDATA, 'Programs', 'Arduino IDE', 'resources',
+            'app', 'lib', 'backend', 'resources', 'arduino-cli.exe'),
     ].filter(Boolean);
     for (const c of candidates) {
         if (fs.existsSync(c)) return c;
@@ -92,8 +99,9 @@ fs.mkdirSync(CONFIG_DIR, { recursive: true });
 fs.mkdirSync(SKETCH_DIR, { recursive: true });
 fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 
+// El token se escribe al abrir el puerto: una segunda copia del bridge (inicio
+// de sesión y arranque a demanda) no debe pisar el del bridge que ya escucha.
 const TOKEN = crypto.randomBytes(24).toString('hex');
-fs.writeFileSync(TOKEN_FILE, TOKEN, 'utf8');
 
 function logLine(text) {
     const line = `[${new Date().toISOString()}] ${text}`;
@@ -165,7 +173,8 @@ function arduinoUserDir() {
     try {
         const out = execFileSync(ARDUINO_CLI, ['config', 'get', 'directories.user'], { windowsHide: true, timeout: 10000 });
         const dir = out.toString().trim();
-        return dir && fs.existsSync(dir) ? dir : null;
+        // Sin carpeta Documentos, arduino-cli responde "." (relativa): no vale.
+        return dir && isAbsolutePath(dir) && fs.existsSync(dir) ? dir : null;
     } catch (_) {
         return null;
     }
@@ -393,11 +402,16 @@ const server = http.createServer((req, res) => {
 });
 
 server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+        logLine(`JWPLC_MBLOCK_BRIDGE=ALREADY_RUNNING http://${HOST}:${PORT}`);
+        process.exit(0);
+    }
     logLine('SERVER_ERROR ' + err.message);
     process.exit(1);
 });
 
 server.listen(PORT, HOST, () => {
+    fs.writeFileSync(TOKEN_FILE, TOKEN, 'utf8');
     logLine(`JWPLC_MBLOCK_BRIDGE=LISTENING http://${HOST}:${PORT} version=${BRIDGE_VERSION}`);
     logLine(`ARDUINO_CLI=${ARDUINO_CLI}`);
     logLine(`FQBN=${DEFAULT_FQBN}`);

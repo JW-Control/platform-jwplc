@@ -32,3 +32,4 @@
 
 # mBlock PoC - extensión generada por tools/mblock-poc/extension/build-extension.cjs
 /tools/mblock-poc/extension/dist/
+/tools/mblock-poc/install/dist/

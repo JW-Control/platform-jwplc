@@ -1,0 +1,24 @@
+JWPLC Basic para mBlock 5
+=========================
+
+Requisitos en la computadora:
+  1. mBlock 5 (PC, Windows).
+  2. Arduino IDE 2 con el package "JWPLC" (jwplc:esp32) instalado desde el
+     Gestor de placas. mBlock compila con él.
+
+Instalación:
+  1. Cierra mBlock.
+  2. Doble clic en Install-JWPLC-mBlock.cmd. Instala el "JWPLC mBlock Bridge",
+     el programa que compila y sube a la placa; arranca solo al iniciar sesión
+     y, si no está abierto, mBlock lo arranca al subir.
+     Al final revisa que estén Arduino IDE 2 y el package JWPLC.
+  3. Abre mBlock 5 y arrastra el archivo jwplc_basic_v*.mext a su ventana para
+     añadir los bloques de la JWPLC Basic.
+     Si no aparecen, ejecuta en una consola:
+       Install-JWPLC-mBlock.cmd -Extension
+     (con mBlock cerrado) y en mBlock añade el dispositivo "JWPLC Basic".
+
+Desinstalar el bridge:
+  Install-JWPLC-mBlock.cmd -Uninstall
+
+Archivos y registro: %USERPROFILE%\.jwplc\mblock-bridge (bridge.log).

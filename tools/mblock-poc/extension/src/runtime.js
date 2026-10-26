@@ -22,6 +22,17 @@ const jwplcCapturePortMiddleware = (app, device, code, params, log, unused, port
     return code;
 };
 
+// Protocolo que registra install/Install-JWPLC-mBlock.ps1 para arrancar el bridge.
+const JWPLC_BRIDGE_PROTOCOL = 'jwplc-bridge://start';
+
+async function jwplcBridgeHealth() {
+    try {
+        return await (await fetch(JWPLC_BRIDGE_URL + '/health', { signal: AbortSignal.timeout(1500) })).json();
+    } catch (_) {
+        return null;
+    }
+}
+
 async function jwplcReadBridgeToken() {
     const me = window.MeApi;
     if (!me || !me.fe || !me.sys) throw new Error('MeApi no disponible');
@@ -83,12 +94,20 @@ const jwplcUploadDriver = (app, device, code, log, progress, onSuccess, onError)
         const port = jwplcUploadState.port;
         if (!port) throw new Error('mBlock no informó el puerto COM. Conecta la JWPLC Basic antes de subir.');
 
-        let health;
-        try {
-            health = await (await fetch(JWPLC_BRIDGE_URL + '/health')).json();
-        } catch (e) {
+        let health = await jwplcBridgeHealth();
+        if (!health) {
+            // El instalador registra jwplc-bridge://, que arranca el bridge sin
+            // ventana (por si no arrancó al iniciar sesión o se cerró).
+            say('el bridge no responde: lo arranco (jwplc-bridge://start)');
+            try { window.MeApi.fe.openLink(JWPLC_BRIDGE_PROTOCOL); } catch (_) {}
+            for (let i = 0; i < 40 && !health; i++) {
+                await new Promise((r) => setTimeout(r, 500));
+                health = await jwplcBridgeHealth();
+            }
+        }
+        if (!health) {
             throw new Error('JWPLC mBlock Bridge no responde en ' + JWPLC_BRIDGE_URL +
-                '. Inícialo con tools/mblock-poc/bridge/start-bridge.cmd');
+                '. Instálalo con Install-JWPLC-mBlock.cmd (o inícialo con bridge/start-bridge.cmd).');
         }
         say('bridge ' + health.version + ' | ' + health.fqbn + ' | puerto ' + port);
         const token = await jwplcReadBridgeToken();
@@ -232,11 +251,8 @@ async function jwplcCurrentDesignFolder(ws, B) {
         const folder = jwplcDesignFolder(value);
         return fe.exists(folder) ? folder : null;
     }
-    let roots = [];
-    try {
-        const health = await (await fetch(JWPLC_BRIDGE_URL + '/health', { signal: AbortSignal.timeout(1500) })).json();
-        roots = health.hmiRoots || [];
-    } catch (_) {}
+    const health = await jwplcBridgeHealth();
+    let roots = (health && health.hmiRoots) || [];
     if (!roots.length) roots = [fe.getPath().join(await window.MeApi.sys.getPath('home'), 'JWPLC-HMI')];
     for (const root of roots) {
         const folder = fe.getPath().join(root, value);

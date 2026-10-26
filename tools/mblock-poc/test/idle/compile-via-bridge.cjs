@@ -1,18 +1,18 @@
 // Compila un .ino por el bridge (POST /compile) con las librerías de la extensión,
 // como el driver de mBlock; con un puerto, también lo sube (POST /upload).
-// Uso: node compile-via-bridge.cjs programa.ino [COMn]
+// Uso: node compile-via-bridge.cjs programa.ino [COMn]   (JWPLC_BRIDGE_PORT/_HOME: otro bridge)
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const ARDUINO = path.join(__dirname, '..', '..', 'extension', 'src', 'arduino');
-const token = fs.readFileSync(path.join(os.homedir(), '.jwplc', 'mblock-bridge', 'token.txt'), 'utf8').trim();
+const token = fs.readFileSync(path.join(process.env.JWPLC_BRIDGE_HOME || path.join(os.homedir(), '.jwplc', 'mblock-bridge'), 'token.txt'), 'utf8').trim();
 const files = {};
 for (const name of fs.readdirSync(ARDUINO)) files[name] = fs.readFileSync(path.join(ARDUINO, name), 'utf8');
 const code = fs.readFileSync(process.argv[2], 'utf8');
 const port = process.argv[3];
 (async () => {
     const t0 = Date.now();
-    const res = await fetch('http://127.0.0.1:47820/' + (port ? 'upload' : 'compile'), {
+    const res = await fetch('http://127.0.0.1:' + (process.env.JWPLC_BRIDGE_PORT || 47820) + '/' + (port ? 'upload' : 'compile'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-JWPLC-Token': token },
         body: JSON.stringify(port ? { code, files, port } : { code, files }),
