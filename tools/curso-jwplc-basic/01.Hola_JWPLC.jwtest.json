@@ -1,0 +1,7 @@
+{
+  "sketch": "package:libraries/JWPLC_GlobalPeripherals/examples/Curso_JWPLC_Basic/1.Primeros_pasos/01.Hola_JWPLC",
+  "until_ms": 3500,
+  "expect": {
+    "console": ["^Hola, JWPLC$", { "match": "^Segundos encendido: 0$", "count": 1 }, "^Segundos encendido: 2$"]
+  }
+}

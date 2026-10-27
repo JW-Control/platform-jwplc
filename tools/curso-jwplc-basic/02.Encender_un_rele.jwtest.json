@@ -1,0 +1,11 @@
+{
+  "sketch": "package:libraries/JWPLC_GlobalPeripherals/examples/Curso_JWPLC_Basic/1.Primeros_pasos/02.Encender_un_rele",
+  "until_ms": 4000,
+  "expect": {
+    "signals": [
+      { "at_ms": 1200, "Q0_0": 1 },
+      { "at_ms": 2200, "Q0_0": 0 },
+      { "at_ms": 3200, "Q0_0": 1 }
+    ]
+  }
+}
