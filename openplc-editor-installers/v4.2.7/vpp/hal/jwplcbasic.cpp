@@ -10,6 +10,140 @@ extern "C"
 #include "vpp_config.h"
 #include <JWPLC_ModbusRTU.h>
 
+// HMI de la pantalla integrada (Alpha14 v1, gate A15 F0).
+// OpenPLC Editor escribe jwplc_hmi.h junto a este archivo en cada compilación
+// (capacidad hmiDisplay del manifest):
+//   - JWPLC_HMI_ENABLED 0 si el proyecto no tiene hmi/JWPLC_HMI_Generated.h;
+//   - JWPLC_HMI_ENABLED 1 con el header del HMI Designer y
+//     jwplcHMIBindingsSnapshot() (copia PLC -> HMI de hmi/bindings.json).
+// Un editor sin soporte HMI no escribe jwplc_hmi.h: la placa queda sólo con la
+// IDLE, como antes. El HAL nunca dibuja en la TFT: sólo setters de JWPLC_Display.
+#if __has_include("jwplc_hmi.h")
+#include "jwplc_hmi.h"
+#endif
+#ifndef JWPLC_HMI_ENABLED
+#define JWPLC_HMI_ENABLED 0
+#endif
+
+#if JWPLC_HMI_ENABLED
+static void jwplcHMIBegin()
+{
+    jwplcHMISetup();
+    // Arranca en la IDLE; cualquier tecla entra a la HMI y ESC vuelve
+    // (por defecto la IDLE no despierta con teclas).
+    JWPLC_Display.setIdleWakeMode(JWPLC_DisplayClass::IDLE_WAKE_ANY_BUTTON);
+}
+
+// En el scan sólo se copian los enlaces (variables HMI <-> PLC). jwplcUIUpdate()
+// (setters + formateo de VALUE) lo llama la tarea del Display en cada refresco
+// de USER (USER_REFRESH_PERIODIC) con el bus TFT tomado, y no lo llama en la
+// IDLE. Llamarlo también desde el scan costaba ~167 µs por scan aun en la IDLE
+// (F0d-2, VPP alpha.31) y entraba a JWPLC_UI desde dos tareas a la vez.
+static void jwplcHMIUpdate()
+{
+    jwplcHMIBindingsSnapshot();
+}
+#endif
+
+// Diagnóstico de tiempos (Alpha14 F0d): pantalla "Pantalla HMI" del dispositivo,
+// casilla "Medir tiempos de scan" -> VPP_HMI_DIAGNOSTICS_TIMING en vpp_config.h.
+// Cada segundo publica en 8 palabras %MW (UINT, saturadas a 65535) a partir de
+// VPP_HMI_DIAGNOSTICS_TIMING_BASE_MW (por defecto %MW10):
+//   +0 HMI prom. us   +1 HMI máx. us   +2 HMI máx. us desde el arranque
+//   +3 scan prom. us  +4 scan máx. us  (updateInputBuffers -> fin de updateOutputBuffers)
+//   +5 periodo prom. us  +6 periodo máx. us (entre inicios de scan)  +7 scans en el segundo
+// "HMI" es jwplcHMIUpdate(): la copia de enlaces del scan (desde alpha.32 sin jwplcUIUpdate).
+// Se lee con el debugger (variables AT %MW10..17) o por Modbus (holding 42..49
+// con base 10). Sin la casilla no se compila nada de esto.
+#if defined(VPP_HMI_DIAGNOSTICS_TIMING) && VPP_HMI_DIAGNOSTICS_TIMING
+#define JWPLC_HMI_TIMING 1
+#ifndef VPP_HMI_DIAGNOSTICS_TIMING_BASE_MW
+#define VPP_HMI_DIAGNOSTICS_TIMING_BASE_MW 10
+#endif
+static_assert(VPP_HMI_DIAGNOSTICS_TIMING_BASE_MW >= 0 && VPP_HMI_DIAGNOSTICS_TIMING_BASE_MW + 7 < MAX_MEMORY_WORD,
+              "Diagnóstico HMI: el primer %MW de resultados debe dejar 8 palabras dentro de %MW0..%MW19");
+
+static struct
+{
+    uint32_t windowStartUs;
+    uint32_t scanStartUs;
+    uint32_t lastScanStartUs;
+    uint32_t scans;
+    uint32_t periods;
+    uint64_t hmiSumUs;
+    uint64_t scanSumUs;
+    uint64_t periodSumUs;
+    uint32_t hmiMaxUs;
+    uint32_t scanMaxUs;
+    uint32_t periodMaxUs;
+    uint32_t hmiMaxEverUs;
+} jwplcHmiTiming = {};
+
+static void jwplcHmiTimingPublish(uint8_t offset, uint64_t value)
+{
+    const uint8_t index = VPP_HMI_DIAGNOSTICS_TIMING_BASE_MW + offset;
+    if (int_memory[index] != NULL)
+        *int_memory[index] = (IEC_UINT)(value > 65535U ? 65535U : value);
+}
+
+static void jwplcHmiTimingScanStart()
+{
+    const uint32_t now = micros();
+    if (jwplcHmiTiming.lastScanStartUs != 0)
+    {
+        const uint32_t period = now - jwplcHmiTiming.lastScanStartUs;
+        jwplcHmiTiming.periodSumUs += period;
+        jwplcHmiTiming.periods++;
+        if (period > jwplcHmiTiming.periodMaxUs)
+            jwplcHmiTiming.periodMaxUs = period;
+    }
+    else
+    {
+        jwplcHmiTiming.windowStartUs = now;
+    }
+    jwplcHmiTiming.lastScanStartUs = now;
+    jwplcHmiTiming.scanStartUs = now;
+}
+
+static void jwplcHmiTimingScanEnd(uint32_t hmiUs)
+{
+    const uint32_t now = micros();
+    const uint32_t scanUs = now - jwplcHmiTiming.scanStartUs;
+    jwplcHmiTiming.scans++;
+    jwplcHmiTiming.hmiSumUs += hmiUs;
+    jwplcHmiTiming.scanSumUs += scanUs;
+    if (hmiUs > jwplcHmiTiming.hmiMaxUs)
+        jwplcHmiTiming.hmiMaxUs = hmiUs;
+    if (hmiUs > jwplcHmiTiming.hmiMaxEverUs)
+        jwplcHmiTiming.hmiMaxEverUs = hmiUs;
+    if (scanUs > jwplcHmiTiming.scanMaxUs)
+        jwplcHmiTiming.scanMaxUs = scanUs;
+
+    if ((uint32_t)(now - jwplcHmiTiming.windowStartUs) < 1000000UL)
+        return;
+
+    const uint32_t scans = jwplcHmiTiming.scans;
+    const uint32_t periods = jwplcHmiTiming.periods;
+    jwplcHmiTimingPublish(0, jwplcHmiTiming.hmiSumUs / scans);
+    jwplcHmiTimingPublish(1, jwplcHmiTiming.hmiMaxUs);
+    jwplcHmiTimingPublish(2, jwplcHmiTiming.hmiMaxEverUs);
+    jwplcHmiTimingPublish(3, jwplcHmiTiming.scanSumUs / scans);
+    jwplcHmiTimingPublish(4, jwplcHmiTiming.scanMaxUs);
+    jwplcHmiTimingPublish(5, periods ? jwplcHmiTiming.periodSumUs / periods : 0);
+    jwplcHmiTimingPublish(6, jwplcHmiTiming.periodMaxUs);
+    jwplcHmiTimingPublish(7, scans);
+
+    const uint32_t hmiMaxEverUs = jwplcHmiTiming.hmiMaxEverUs;
+    const uint32_t lastScanStartUs = jwplcHmiTiming.lastScanStartUs;
+    jwplcHmiTiming = {};
+    jwplcHmiTiming.hmiMaxEverUs = hmiMaxEverUs;
+    jwplcHmiTiming.lastScanStartUs = lastScanStartUs;
+    jwplcHmiTiming.windowStartUs = now;
+}
+#else
+#define JWPLC_HMI_TIMING 0
+#endif
+
 // El Master usa motor(ASYNC) y la API unificada read...()/write...(), que
 // llegan con el package Alpha12 (jwplc_modbus_motor.h).
 #ifndef JWPLC_MODBUS_MOTOR_H
@@ -1132,6 +1266,9 @@ void hardwareService()
 
 void hardwareInit()
 {
+#if JWPLC_HMI_ENABLED
+    jwplcHMIBegin();
+#endif
     jwplcTimingInit();
     // JWPLC Basic v2.x:
     // La inicializacion de E/S industriales ya la realiza el core jwcontrol
@@ -1266,6 +1403,9 @@ static void jwplcPublishForcedInputs()
 
 void updateInputBuffers()
 {
+#if JWPLC_HMI_TIMING
+    jwplcHmiTimingScanStart();
+#endif
     jwplcTimingOnScanStart();
     uint8_t physical = 0;
     for (int i = 0; i < NUM_DISCRETE_INPUT; i++)
@@ -1302,8 +1442,25 @@ void updateOutputBuffers()
         }
     }
 
+    uint32_t hmiUs = 0;
+#if JWPLC_HMI_ENABLED
+    // Después de escribir las salidas: el HMI ve lo mismo que sale al relé.
+#if JWPLC_HMI_TIMING
+    const uint32_t hmiStartUs = micros();
+    jwplcHMIUpdate();
+    hmiUs = micros() - hmiStartUs;
+#else
+    jwplcHMIUpdate();
+#endif
+#endif
+    (void)hmiUs;
+
     jwplcPublishForcedInputs();
 
     jwplcServiceRemoteRtu();
     jwplcTimingMaybePrint();
+
+#if JWPLC_HMI_TIMING
+    jwplcHmiTimingScanEnd(hmiUs);
+#endif
 }

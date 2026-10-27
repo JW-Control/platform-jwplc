@@ -1,0 +1,16 @@
+{
+  "sketch": "package:libraries/JWPLC_GlobalPeripherals/examples/Curso_JWPLC_Basic/2.Tiempo_y_logica/11.Maquina_de_estados",
+  "until_ms": 53000,
+  "stim": ["2000 I0_0=1", "2100 I0_0=0"],
+  "expect": {
+    "signals": [
+      { "at_ms": 1000,  "Q0_0": 0, "Q0_1": 0, "Q0_2": 1, "Q0_3": 0 },
+      { "at_ms": 10400, "Q0_2": 1 },
+      { "at_ms": 11000, "Q0_1": 1, "Q0_2": 0 },
+      { "at_ms": 14000, "Q0_0": 1, "Q0_3": 1, "Q0_1": 0 },
+      { "at_ms": 22000, "Q0_2": 1, "Q0_0": 0, "Q0_3": 0 },
+      { "at_ms": 51400, "Q0_2": 1 },
+      { "at_ms": 52000, "Q0_1": 1 }
+    ]
+  }
+}

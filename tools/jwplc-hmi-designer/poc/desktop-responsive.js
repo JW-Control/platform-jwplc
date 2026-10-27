@@ -7,6 +7,8 @@
   const WIDE_RATIO = 0.70;
   const COMPACT_RATIO = 0.38;
   const ZOOMS = [1, 2, 3, 4, 6, 8];
+  // Dentro de OpenPLC el botón del sketch muestra el proyecto (carpeta hmi/).
+  const openplc = window.JWPLCHMIHost?.mode === 'openplc';
 
   let mode = null;
   let rightView = localStorage.getItem(`${STORAGE}rightView`) || 'inspector';
@@ -41,7 +43,7 @@
     const apiName = window.JWPLCHMIProject?.linkedSketchName?.();
     if (apiName) return apiName;
     const text = $('#sketchLinkStatus')?.textContent || '';
-    const match = text.match(/^Sketch:\s*([^·]+?)(?:\s*·|$)/);
+    const match = text.match(/^(?:Sketch|OpenPLC):\s*([^·]+?)(?:\s*·|$)/);
     const name = match?.[1]?.trim();
     return name && name !== 'sin vincular' ? name : null;
   }
@@ -54,13 +56,13 @@
     const name = linkedSketchName();
     const button = $('#linkSketchButton');
     if (button) {
-      const label = name ? `Sketch: ${name}` : 'Vincular sketch…';
+      const label = name ? `${openplc ? 'OpenPLC' : 'Sketch'}: ${name}` : 'Vincular sketch…';
       setTextIfChanged(button, label);
-      button.title = name
-        ? `Sketch vinculado: ${name}. Clic para cambiar la vinculación.`
-        : 'Seleccionar la carpeta del sketch Arduino';
+      button.title = !name ? 'Seleccionar la carpeta del sketch Arduino'
+        : openplc ? `HMI del proyecto OpenPLC ${name}. Clic para abrir el menú.`
+          : `Sketch vinculado: ${name}. Clic para cambiar la vinculación.`;
     }
-    const title = name ? `${name} · JWPLC HMI Designer — 2.1.0-alpha.14` : 'JWPLC HMI Designer — 2.1.0-alpha.14';
+    const title = name ? `${name} · JWPLC HMI Designer — 2.1.0-alpha.15` : 'JWPLC HMI Designer — 2.1.0-alpha.15';
     if (document.title !== title) document.title = title;
   }
 
@@ -161,7 +163,7 @@
       button.disabled = !source || source.disabled || source.hidden;
       if (button.dataset.proxy === 'sketch') {
         const name = linkedSketchName();
-        setTextIfChanged(button, name ? `Cambiar sketch · ${name}` : 'Vincular sketch…');
+        setTextIfChanged(button, name ? `${openplc ? 'OpenPLC' : 'Cambiar sketch'} · ${name}` : 'Vincular sketch…');
       }
     });
   }
@@ -407,7 +409,8 @@
     const update = $('#updateHmiButton');
     const connect = $('#liveConnectButton');
     setTextIfChanged(generate, mode === 'compact' ? 'Generar' : 'Generar C++');
-    setTextIfChanged(update, mode === 'compact' ? 'Escribir' : 'Escribir en sketch');
+    if (openplc) setTextIfChanged(update, mode === 'compact' ? 'Actualizar' : 'Actualizar HMI');
+    else setTextIfChanged(update, mode === 'compact' ? 'Escribir' : 'Escribir en sketch');
     if (connect && !connect.classList.contains('live')) setTextIfChanged(connect, mode === 'compact' ? 'JWPLC' : 'Conectar JWPLC');
   }
 

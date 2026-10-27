@@ -1,0 +1,13 @@
+{
+  "sketch": "package:libraries/JWPLC_GlobalPeripherals/examples/Curso_JWPLC_Basic/1.Primeros_pasos/04.Variables_y_decisiones",
+  "until_ms": 4000,
+  "stim": ["1000 I0_0=1", "2000 I0_1=1", "3000 I0_0=0"],
+  "expect": {
+    "signals": [
+      { "at_ms": 900,  "Q0_0": 0, "Q0_1": 0, "Q0_2": 1, "Q0_3": 0 },
+      { "at_ms": 1500, "Q0_0": 0, "Q0_1": 1, "Q0_2": 0, "Q0_3": 1 },
+      { "at_ms": 2500, "Q0_0": 1, "Q0_1": 1, "Q0_2": 0, "Q0_3": 0 },
+      { "at_ms": 3500, "Q0_0": 0, "Q0_1": 1, "Q0_2": 1, "Q0_3": 1 }
+    ]
+  }
+}

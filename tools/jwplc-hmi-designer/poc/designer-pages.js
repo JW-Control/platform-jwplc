@@ -1949,7 +1949,7 @@
     const current = pages().find((page) => page.id === activePage());
     const cfg = getNavBarConfig();
     if (statusPage) statusPage.textContent = `Página: ${activePage()} · ${current?.name || 'Página'}`;
-    if (gate) gate.textContent = 'v2.1.0-alpha.14';
+    if (gate) gate.textContent = 'v2.1.0-alpha.15';
     if (bottomSummary) bottomSummary.textContent = cfg.enabled ? `Páginas + Barra HMI (${pages().length} págs)` : 'Páginas + navegación compacta';
   }
 

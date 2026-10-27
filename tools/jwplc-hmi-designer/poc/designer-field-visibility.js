@@ -125,12 +125,12 @@
       if (!window.JWPLCHMIPixelMaps) return;
 
       const pageGate = document.querySelector('.page-tabs .gate');
-      if (pageGate) pageGate.textContent = 'v2.1.0-alpha.14';
+      if (pageGate) pageGate.textContent = 'v2.1.0-alpha.15';
       const bottomSummary = document.querySelector('.bottom-summary');
       if (bottomSummary) bottomSummary.textContent = 'pincel, borrador y onion skin';
       const statusGate = [...document.querySelectorAll('.statusbar span')]
         .find((node) => node.textContent.trim().startsWith('Gate:'));
-      if (statusGate) statusGate.textContent = 'v2.1.0-alpha.14';
+      if (statusGate) statusGate.textContent = 'v2.1.0-alpha.15';
 
       loadInspectorState();
       loadPixelStability();

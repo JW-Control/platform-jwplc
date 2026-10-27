@@ -1,0 +1,15 @@
+{
+  "sketch": "package:libraries/JWPLC_GlobalPeripherals/examples/Curso_JWPLC_Basic/2.Tiempo_y_logica/09.Temporizadores",
+  "until_ms": 12000,
+  "stim": ["1000 I0_0=1", "2000 I0_0=0", "3000 I0_0=1", "1000 I0_1=1", "1500 I0_1=0"],
+  "expect": {
+    "signals": [
+      { "at_ms": 1900, "Q0_0": 0, "Q0_1": 1 },
+      { "at_ms": 2100, "Q0_0": 0 },
+      { "at_ms": 5900, "Q0_0": 0 },
+      { "at_ms": 6100, "Q0_0": 1 },
+      { "at_ms": 11400, "Q0_1": 1 },
+      { "at_ms": 11600, "Q0_1": 0 }
+    ]
+  }
+}

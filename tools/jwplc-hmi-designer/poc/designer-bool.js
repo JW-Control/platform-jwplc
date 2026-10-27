@@ -269,7 +269,7 @@
   function patchUI() {
     const field = selectedField();
     if (field?.type === 'BOOL') ensureBoolState(field);
-    if (gate) gate.textContent = 'v2.1.0-alpha.14';
+    if (gate) gate.textContent = 'v2.1.0-alpha.15';
     if (bottomSummary) bottomSummary.textContent = 'BOOL sobre API pública';
     patchObjectList();
     patchInspector(field);

@@ -11,6 +11,7 @@ Ruta completa y contexto: `docs/v2.1.0-alpha.15/A15_F0_OPENPLC_RUTA_KENYI_202610
 | `A15_F0_OpenPLC_Bool_Rele.jwhmi` | Proyecto del Designer: una página y un BOOL "Rele Q0.0". En OFF va blanco sobre rojo; en ON, negro sobre verde. |
 | `JWPLC_HMI_Generated.h` | Header que genera el Designer para ese proyecto (variable `bool rele_q0_0`). |
 | `hal_f0_bloque.cpp` | Bloque que se pega en `hal/jwplcbasic.cpp` del VPP: el header y el enlace `%QX0.0 → rele_q0_0`. |
+| `bindings.json` | Enlace `rele_q0_0 <- RELE` para la v1 de OpenPLC (sin pegar en el HAL), ver abajo. |
 | `check_f0_compile.sh` | Compila, sin OpenPLC, el HAL real del VPP más el bloque F0 contra el package de esta rama. |
 
 ## Cambios en el HAL (`openplc-editor-installers/v4.2.7/vpp/hal/jwplcbasic.cpp`)
@@ -63,3 +64,10 @@ tools/alpha15/regenerate_libJWPLC_TFT.sh setup     # una vez
 tools/jwplc-hmi-designer/gates/A15_F0_OpenPLC_Bool_Rele/check_f0_compile.sh
 # Sketch uses 422401 bytes · Global variables use 36612 bytes
 ```
+
+## Con OpenPLC v1 (VPP 2.1.0-alpha.30)
+
+Desde el VPP alpha.30 no hace falta pegar nada en el HAL: se copian
+`JWPLC_HMI_Generated.h` y `bindings.json` a la carpeta `hmi/` del proyecto
+OpenPLC y el editor (rama `develop/alpha14-openplc-hmi-v1`) los incluye al
+compilar. Detalle: `docs/v2.1.0-alpha.14/A14_HMI_V1_OPENPLC_20261017.md`.

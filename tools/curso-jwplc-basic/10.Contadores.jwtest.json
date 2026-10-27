@@ -1,0 +1,15 @@
+{
+  "sketch": "package:libraries/JWPLC_GlobalPeripherals/examples/Curso_JWPLC_Basic/2.Tiempo_y_logica/10.Contadores",
+  "until_ms": 3000,
+  "stim": ["1000 I0_0=1", "1050 I0_0=0", "1100 I0_0=1", "1150 I0_0=0", "1200 I0_0=1", "1250 I0_0=0", "1300 I0_0=1", "1350 I0_0=0", "1400 I0_0=1", "1450 I0_0=0", "1500 I0_0=1", "1550 I0_0=0", "1600 I0_0=1", "1650 I0_0=0", "1700 I0_0=1", "1750 I0_0=0", "1800 I0_0=1", "1850 I0_0=0", "1900 I0_0=1", "1950 I0_0=0", "2200 I0_0=1", "2250 I0_0=0", "2500 I0_1=1", "2600 I0_1=0"],
+  "expect": {
+    "console": ["^Piezas: 10$", { "match": "^Caja llena", "count": 1 }, { "match": "^RESET", "count": 1 }],
+    "console_absent": ["^Piezas: 11$"],
+    "signals": [
+      { "at_ms": 900, "Q0_0": 1, "Q0_1": 0 },
+      { "at_ms": 2100, "Q0_0": 0, "Q0_1": 1 },
+      { "at_ms": 2400, "Q0_0": 0, "Q0_1": 1 },
+      { "at_ms": 2700, "Q0_0": 1, "Q0_1": 0 }
+    ]
+  }
+}

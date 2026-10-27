@@ -83,18 +83,23 @@ jobs:
         working-directory: tools/jwplc-hmi-designer/dist
         run: |
           $v = '${{ steps.version.outputs.version }}'
-          $expected = @("JWPLC-HMI-Designer-Setup-$v-x64.exe", "JWPLC-HMI-Designer-Portable-$v-x64.exe")
-          foreach ($name in $expected) {
-            if (-not (Test-Path -LiteralPath $name -PathType Leaf)) {
-              Get-ChildItem | Format-Table Name, Length
-              throw "Falta $name"
-            }
+          # Nombres cortos para la descarga (la versión está en el título de la Release).
+          $short = [ordered]@{
+            "JWPLC-HMI-Designer-Setup-$v-x64.exe"    = 'HMI-Designer-Setup.exe'
+            "JWPLC-HMI-Designer-Portable-$v-x64.exe" = 'HMI-Designer-Portable.exe'
           }
-          $lines = foreach ($name in $expected) {
+          foreach ($built in $short.Keys) {
+            if (-not (Test-Path -LiteralPath $built -PathType Leaf)) {
+              Get-ChildItem | Format-Table Name, Length
+              throw "Falta $built"
+            }
+            Move-Item -LiteralPath $built -Destination $short[$built] -Force
+          }
+          $lines = foreach ($name in $short.Values) {
             "$((Get-FileHash -LiteralPath $name -Algorithm SHA256).Hash.ToLower())  $name"
           }
-          Set-Content -LiteralPath "JWPLC-HMI-Designer-$v-SHA256.txt" -Value $lines -Encoding ascii
-          Get-Content "JWPLC-HMI-Designer-$v-SHA256.txt"
+          Set-Content -LiteralPath 'HMI-Designer-SHA256.txt' -Value $lines -Encoding ascii
+          Get-Content 'HMI-Designer-SHA256.txt'
           Get-ChildItem *.exe | Format-Table Name, Length
 
       - name: Upload workflow artifact
@@ -102,8 +107,9 @@ jobs:
         with:
           name: jwplc-hmi-designer-${{ steps.version.outputs.version }}-windows
           path: |
-            tools/jwplc-hmi-designer/dist/*.exe
-            tools/jwplc-hmi-designer/dist/*-SHA256.txt
+            tools/jwplc-hmi-designer/dist/HMI-Designer-Setup.exe
+            tools/jwplc-hmi-designer/dist/HMI-Designer-Portable.exe
+            tools/jwplc-hmi-designer/dist/HMI-Designer-SHA256.txt
           if-no-files-found: error
 
       - name: Subir a la GitHub Release
@@ -118,9 +124,9 @@ jobs:
           gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
           if ($LASTEXITCODE -ne 0) { throw "No existe la Release $tag." }
           gh release upload $tag `
-            "JWPLC-HMI-Designer-Setup-$v-x64.exe" `
-            "JWPLC-HMI-Designer-Portable-$v-x64.exe" `
-            "JWPLC-HMI-Designer-$v-SHA256.txt" `
+            'HMI-Designer-Setup.exe' `
+            'HMI-Designer-Portable.exe' `
+            'HMI-Designer-SHA256.txt' `
             --repo $env:GITHUB_REPOSITORY --clobber
           if ($LASTEXITCODE -ne 0) { throw "gh release upload falló con código $LASTEXITCODE." }
           Write-Host "Subidos a https://github.com/$env:GITHUB_REPOSITORY/releases/tag/$tag"
