@@ -13,8 +13,20 @@ permissions:
   pull-requests: write
 
 jobs:
+  # Gate SIM_REGRESSION (JWPLC Sim, G5): compila y simula este árbol del
+  # package (paridad del core, headers y autoload; matriz de ejemplos con sus
+  # pruebas). Si falla, no se publica. Va antes de los gates físicos de taller
+  # y no los reemplaza. Para actualizar el simulador, cambiar el commit de
+  # jwplc-sim en «uses» y en «sim_ref» (los dos iguales).
+  sim-regression:
+    name: SIM_REGRESSION (JWPLC Sim)
+    uses: JW-Control/jwplc-sim/.github/workflows/sim-regression.yml@700d4757560cb7b381c10f2ce6a969a793858551
+    with:
+      sim_ref: 700d4757560cb7b381c10f2ce6a969a793858551
+
   release:
     name: Preparar y publicar package JWPLC
+    needs: sim-regression
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.prepare.outputs.version }}
