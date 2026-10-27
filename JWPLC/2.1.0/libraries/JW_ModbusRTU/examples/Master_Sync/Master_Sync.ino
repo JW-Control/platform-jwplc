@@ -11,7 +11,7 @@
 
 #include <JW_ModbusRTU.h>
 
-JW_RS485 rs485(Serial2, JWPLC_RS485_RX_PIN, JWPLC_RS485_TX_PIN);
+JW_RS485 rs485(Serial2, 16, 17);
 JW_ModbusRTU modbus(rs485);
 
 static constexpr uint8_t TARGET_SLAVE_ID = 2;

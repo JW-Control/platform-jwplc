@@ -4,19 +4,20 @@ Origen:
 
 ```txt
 JW-Control/JW-Libraries
-commit=f0e88eecb66603bfce197455e1e90d0dd04ae072
+commit=19fc1fbb24c1986af6e082bdfa2fcbdf8a80215b
 ```
 
 | Librería | Versión | Ruta origen |
 |---|---:|---|
 | `JW_RS485` | `0.1.1` | `libraries/JW_RS485` |
 | `JW_ModbusRTU` | `0.1.1` | `libraries/JW_ModbusRTU` |
+| `JW_DWIN` | `0.2.0` | `libraries/JW_DWIN` |
 
 Destino:
 
 ```txt
 JW-Control/platform-jwplc
-base=v2.1.0-alpha.15-HmiDesigner
+base=v2.1.0-alpha.15/OpenPLC-HMI/main
 sync=sync/jw-libraries-v2.1
 path=JWPLC/2.1.0/libraries
 ```
