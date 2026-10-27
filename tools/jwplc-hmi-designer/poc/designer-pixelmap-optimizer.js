@@ -367,9 +367,9 @@
     const bottomSummary = document.querySelector('.bottom-summary');
     const statusGate = [...document.querySelectorAll('.statusbar span')]
       .find((node) => node.textContent.trim().startsWith('Gate:'));
-    if (pageGate) pageGate.textContent = 'v2.1.0-alpha.14';
+    if (pageGate) pageGate.textContent = 'v2.1.0-alpha.15';
     if (bottomSummary) bottomSummary.textContent = 'PACKED_SPAN16 + fallback RGB565_RUN';
-    if (statusGate) statusGate.textContent = 'v2.1.0-alpha.14';
+    if (statusGate) statusGate.textContent = 'v2.1.0-alpha.15';
   }
 
   async function init() {

@@ -3608,7 +3608,7 @@
   function patchUI() {
     const field = selectedField();
     if (field?.type === 'BAR') ensureBarState(field);
-    if (gate) gate.textContent = 'v2.1.0-alpha.14';
+    if (gate) gate.textContent = 'v2.1.0-alpha.15';
     if (bottomSummary) bottomSummary.textContent = 'BAR: Sólida, Degradado y Circular';
     patchObjectList();
     patchInspector(field);

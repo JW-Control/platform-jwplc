@@ -8,6 +8,10 @@
  *   - el nombre C++ se deriva solo (ya no se escribe a mano);
  *   - se guarda plcBinding { var, access } en el objeto (se guarda en el .jwhmi);
  *   - en los nodos del MENU se ajusta el tipo (int32 / float / bool).
+ * Si OpenPLC avisa que cambiaron las variables del proyecto
+ * (onVariablesChanged), se vuelven a pedir. Dentro de la pestaña de OpenPLC
+ * (embedded) se informa si el diseño tiene cambios sin guardar (setDirty),
+ * para que la pestaña lo muestre como cualquier archivo del proyecto.
  * El modo Arduino y el .exe no cambian.
  *
  * Contrato: platform-jwplc docs/v2.1.0-alpha.14/A14_F3_CONTRATO_HMI_OPENPLC_20261017.md
@@ -18,8 +22,11 @@
   const host = window.JWPLCHMIHost;
   if (!host || host.mode !== 'openplc') return;
 
+  const DIRTY_POLL_MS = 600;
   const INTEGER_TYPES = new Set(['INT', 'UINT', 'WORD', 'DINT', 'UDINT', 'DWORD']);
   let variables = [];
+  const bindingBoxes = new WeakMap();
+  let variablesVersion = 0;
   let scheduled = false;
 
   const editor = () => window.JWPLCHMIEditor || null;
@@ -65,7 +72,12 @@
     if (input.id === 'barPlcVariable') return { kind: 'bar', field, object: field, wants: { hmi: 'number', rw: false } };
     if (field.type === 'BOOL') return { kind: 'field', field, object: field, wants: { hmi: 'bool', rw: false } };
     if (field.type === 'VALUE' || field.type === 'BAR') return { kind: 'field', field, object: field, wants: { hmi: 'number', rw: false } };
-    return { kind: 'field', field, object: field, wants: null, note: 'Este objeto todavía no se enlaza a variables PLC.' };
+    return {
+      kind: 'field', field, object: field, wants: null,
+      note: field.type === 'TEXT'
+        ? 'TEXT todavía no se enlaza a variables PLC: para mostrar una variable usa VALUE (números), BOOL (estados) o BAR.'
+        : 'Este objeto todavía no se enlaza a variables PLC.'
+    };
   }
 
   function compatible(variable, wants) {
@@ -77,18 +89,25 @@
   }
 
   function optionLabel(variable) {
-    const parts = [variable.name, variable.iecType, variable.address || 'sin dirección'];
+    // Sin dirección: OpenPLC la enlaza por la tabla de depuración del programa (contrato 1.2).
+    const parts = [variable.name, variable.iecType, variable.address || (variable.access ? 'variable del programa' : 'sin dirección')];
     if (variable.access === 'RW') parts.push('RW');
     return parts.join(' · ');
   }
 
   function renderOptions(select, target) {
-    const signature = `${target.kind}|${JSON.stringify(target.wants)}|${variables.length}`;
+    const signature = `${target.kind}|${JSON.stringify(target.wants)}|${variablesVersion}`;
     if (select.dataset.signature === signature) return;
     select.dataset.signature = signature;
     const ok = variables.filter((v) => compatible(v, target.wants));
     const rest = variables.filter((v) => !compatible(v, target.wants));
     const why = (v) => v.reason || (target.wants?.rw && v.access === 'R' ? 'sólo lectura' : 'tipo no compatible');
+    if (!variables.length) {
+      select.innerHTML =
+        '<option value="">— Sin enlazar —</option>' +
+        '<option disabled>No hay variables: decláralas en la tabla de variables del programa (main) o en las globales</option>';
+      return;
+    }
     select.innerHTML =
       '<option value="">— Sin enlazar —</option>' +
       ok.map((v) => `<option value="${escapeHtml(v.name)}">${escapeHtml(optionLabel(v))}</option>`).join('') +
@@ -162,14 +181,18 @@
       input.readOnly = true;
       input.title = 'En un proyecto OpenPLC el nombre C++ se genera a partir de la variable PLC.';
 
-      let box = input.closest('label')?.previousElementSibling;
-      if (!box?.classList?.contains('jwplc-plc-binding')) {
+      // El selector de cada input se recuerda (el de BAR no está dentro de un <label>).
+      let box = bindingBoxes.get(input);
+      if (!box?.isConnected) {
         box = document.createElement('div');
+        bindingBoxes.set(input, box);
         box.className = 'jwplc-plc-binding';
         box.innerHTML =
           '<label class="field-label">Variable PLC <select class="field-input jwplc-plc-select"></select></label>' +
           '<div class="insp-note jwplc-plc-note"></div>';
-        (input.closest('label') || input).before(box);
+        // Antes del <label> del input; si no tiene (BAR), antes de su fila (input + copiar).
+        const row = input.parentElement && input.parentElement.children.length > 1 ? input.parentElement : input;
+        (input.closest('label') || row).before(box);
         box.querySelector('select').addEventListener('change', (event) => {
           const current = describeTarget(input);
           if (current) bind(input, current, event.target.value);
@@ -185,7 +208,8 @@
         note.textContent = target.note;
         continue;
       }
-      select.disabled = false;
+      // Con la ventana del editor abierta, la vista de enlaces es de sólo lectura.
+      select.disabled = document.documentElement.classList.contains('jwplc-editor-open');
       renderOptions(select, target);
       const bound = target.object.plcBinding?.var || '';
       const match = variables.find((v) => v.name.toLowerCase() === bound.toLowerCase());
@@ -206,7 +230,7 @@
     requestAnimationFrame(ensure);
   }
 
-  async function init() {
+  async function loadVariables() {
     try {
       const list = await host.listVariables();
       variables = Array.isArray(list) ? list : [];
@@ -214,6 +238,25 @@
       console.error('[JWPLC HMI OpenPLC] listVariables', error);
       variables = [];
     }
+    variablesVersion += 1;
+    schedule();
+  }
+
+  // Cambios sin guardar del diseño -> pestaña de OpenPLC.
+  function watchDirty() {
+    let last = null;
+    setInterval(() => {
+      const dirty = Boolean(window.JWPLCHMISaveFlow?.isDirty?.());
+      if (dirty === last) return;
+      last = dirty;
+      host.setDirty(dirty);
+    }, DIRTY_POLL_MS);
+  }
+
+  async function init() {
+    await loadVariables();
+    host.onVariablesChanged?.(loadVariables);
+    if (typeof host.setDirty === 'function') watchDirty();
     window.addEventListener('jwplc:editor-refresh', schedule);
     new MutationObserver(schedule).observe(document.body, { childList: true, subtree: true });
     schedule();
