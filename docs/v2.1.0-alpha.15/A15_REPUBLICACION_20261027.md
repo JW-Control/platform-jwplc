@@ -21,6 +21,23 @@ Primera publicación, que será reemplazada: Release `v2.1.0-alpha.15` del 27/10
 
 La rama `v2.1.0-alpha.15/OpenPLC-HMI/main` se recreó desde `release/v2.1.x` (`803390f7`) para recibir estas features.
 
+## Hallazgo del gate de JWPLC Sim (27/10/2026)
+
+El PR #192 (`v2.1.0-alpha.15/OpenPLC-HMI/main → release/v2.1.x`) dio SIM_REGRESSION en rojo por tres causas:
+
+1. Paridad: `JW_DWIN` es una librería nueva y el registro del simulador (`sim/package-parity.json`) no la tenía.
+2. Matriz: 14 ejemplos nuevos sin prueba en el simulador (la plantilla, las 11 lecciones del curso y los dos de
+   `JW_DWIN`).
+3. Matriz: `JW_RS485/Status` falló. El snapshot de JW Libraries (#178) devolvió los ejemplos y READMEs de
+   `JW_RS485` y `JW_ModbusRTU` a su versión anterior a alpha.14: pines 16/17 escritos a mano en lugar de
+   `JWPLC_RS485_RX_PIN`/`JWPLC_RS485_TX_PIN` (#148) y, en `Status`, un segundo bus en GPIO25/26/27 (TFT DC,
+   zumbador y EN_IO), que alpha.14 había retirado (#142).
+
+Arreglo: las causas 1 y 2 se resuelven en `jwplc-sim` (registro y 14 pruebas nuevas) y se fija su commit nuevo en
+los workflows. La causa 3 se resuelve en el package restaurando esos 9 archivos a su versión de alpha.14 (rama
+`v2.1.0-alpha.15/OpenPLC-HMI/feature/rs485-ejemplos-alpha14`). El repositorio `JW-Control/JW-Libraries` necesita
+el mismo cambio para que el próximo snapshot no lo vuelva a revertir.
+
 ## Procedimiento
 
 1. Fusionar en `v2.1.0-alpha.15/OpenPLC-HMI/main`: #178, #190 y esta feature (notas y este documento).

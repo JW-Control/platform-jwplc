@@ -55,8 +55,10 @@ formas**.
   `delay()` en pestañas fijas A…K, alarmas enclavadas, horómetro en FRAM, HMI generado o IDLE, Modbus RTU/TCP
   opcionales, y `LEEME.md` + `docs/` con referencia rápida, mapa de E/S y puesta en marcha para trabajar sin internet.
 - **JW Libraries** (snapshot de `JW-Control/JW-Libraries` `19fc1fb`): `JW_DWIN` 0.2.0, nueva, para pantallas DWIN
-  DGUS por RS-485 (Modbus RTU) o por el USB de la tarjeta en modo Simular; `JW_RS485` y `JW_ModbusRTU` 0.1.1
-  con ajustes en sus ejemplos. Detalle en `docs/jw-libraries-snapshot.md`.
+  DGUS por RS-485 (Modbus RTU) o por el USB de la tarjeta en modo Simular. `JW_RS485` y `JW_ModbusRTU` siguen en
+  0.1.1 con los ejemplos de alpha.14: el snapshot traía versiones anteriores (pines 16/17 a mano y, en `Status`, un
+  segundo bus en GPIO25/26/27, que son TFT DC, zumbador y EN_IO) y JWPLC Sim lo detectó. Detalle en
+  `docs/jw-libraries-snapshot.md`.
 - **Gate SIM_REGRESSION de JWPLC Sim:** la publicación del package corre antes el simulador (paridad del core,
   headers, autoload y ejemplos con sus pruebas); si falla, no se publica.
 

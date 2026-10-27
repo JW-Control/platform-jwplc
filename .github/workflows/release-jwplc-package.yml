@@ -20,9 +20,9 @@ jobs:
   # jwplc-sim en «uses» y en «sim_ref» (los dos iguales).
   sim-regression:
     name: SIM_REGRESSION (JWPLC Sim)
-    uses: JW-Control/jwplc-sim/.github/workflows/sim-regression.yml@700d4757560cb7b381c10f2ce6a969a793858551
+    uses: JW-Control/jwplc-sim/.github/workflows/sim-regression.yml@19a1a40d576563da8297dd93243db6a9bd5f1206
     with:
-      sim_ref: 700d4757560cb7b381c10f2ce6a969a793858551
+      sim_ref: 19a1a40d576563da8297dd93243db6a9bd5f1206
 
   release:
     name: Preparar y publicar package JWPLC
