@@ -67,13 +67,13 @@ jobs:
             "docs/v2.1.0-alpha.14/releases/$tag.md" > notes.md
           echo '' >> notes.md
           echo '```text' >> notes.md
-          cat "dist/JWPLC-HMI-Designer-${VERSION}-SHA256.txt" >> notes.md
+          cat "dist/HMI-Designer-SHA256.txt" >> notes.md
           echo '```' >> notes.md
           ls -l dist
           gh release create "$tag" --verify-tag --prerelease \
             --title "JWPLC HMI Designer ${VERSION} (prueba)" \
             --notes-file notes.md \
-            "dist/JWPLC-HMI-Designer-Setup-${VERSION}-x64.exe" \
-            "dist/JWPLC-HMI-Designer-Portable-${VERSION}-x64.exe" \
-            "dist/JWPLC-HMI-Designer-${VERSION}-SHA256.txt"
+            "dist/HMI-Designer-Setup.exe" \
+            "dist/HMI-Designer-Portable.exe" \
+            "dist/HMI-Designer-SHA256.txt"
           echo "Publicada: https://github.com/${GITHUB_REPOSITORY}/releases/tag/${tag}"
