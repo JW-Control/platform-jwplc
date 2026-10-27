@@ -1,0 +1,79 @@
+name: HMI Designer pre-release
+
+# Pre-release de prueba del Designer, separada de la Release oficial del package.
+# Se dispara al subir un tag hmi-designer-v<versión> (p. ej. hmi-designer-v2.1.0-alpha.15), creado a mano:
+# GITHUB_TOKEN no puede crear tags sobre commits que traen workflows nuevos. La versión del tag debe
+# coincidir con tools/jwplc-hmi-designer/electron/package.json. Notas:
+# docs/v2.1.0-alpha.14/releases/<tag>.md (marcadores __VERSION__, __TAG__ y __SHA__).
+
+on:
+  push:
+    tags:
+      - "hmi-designer-v*"
+
+permissions:
+  contents: write
+
+jobs:
+  version:
+    name: Validar versión del tag
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: v
+        shell: bash
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          version="${tag#hmi-designer-v}"
+          pkg="$(node -p "require('./tools/jwplc-hmi-designer/electron/package.json').version")"
+          if [ "$version" != "$pkg" ]; then
+            echo "::error::El tag $tag no coincide con electron/package.json ($pkg)."
+            exit 1
+          fi
+          if [ ! -f "docs/v2.1.0-alpha.14/releases/$tag.md" ]; then
+            echo "::error::Faltan las notas docs/v2.1.0-alpha.14/releases/$tag.md."
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: Compilar
+    needs: version
+    uses: ./.github/workflows/hmi-designer-windows.yml
+    with:
+      version: ${{ needs.version.outputs.version }}
+      upload: false
+
+  release:
+    name: Publicar pre-release
+    needs: [version, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: jwplc-hmi-designer-${{ needs.version.outputs.version }}-windows
+          path: dist
+      - name: Crear la pre-release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          sed -e "s/__VERSION__/${VERSION}/g" -e "s/__TAG__/${tag}/g" -e "s/__SHA__/${GITHUB_SHA}/g" \
+            "docs/v2.1.0-alpha.14/releases/$tag.md" > notes.md
+          echo '' >> notes.md
+          echo '```text' >> notes.md
+          cat "dist/HMI-Designer-SHA256.txt" >> notes.md
+          echo '```' >> notes.md
+          ls -l dist
+          gh release create "$tag" --verify-tag --prerelease \
+            --title "JWPLC HMI Designer ${VERSION} (prueba)" \
+            --notes-file notes.md \
+            "dist/HMI-Designer-Setup.exe" \
+            "dist/HMI-Designer-Portable.exe" \
+            "dist/HMI-Designer-SHA256.txt"
+          echo "Publicada: https://github.com/${GITHUB_REPOSITORY}/releases/tag/${tag}"
