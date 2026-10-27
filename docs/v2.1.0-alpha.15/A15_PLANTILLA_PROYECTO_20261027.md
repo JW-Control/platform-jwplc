@@ -2,7 +2,7 @@
 
 ```text
 A15_PLANTILLA_PROYECTO_HOST=PASS
-A15_PLANTILLA_PROYECTO_ESP32_COMPILE=PENDING
+A15_PLANTILLA_PROYECTO_ESP32_COMPILE=PASS
 A15_PLANTILLA_PROYECTO_FISICO=PENDING
 ```
 
@@ -45,9 +45,9 @@ docs/REFERENCIA_RAPIDA_JWPLC.md  docs/MAPA_IO.md  docs/PUESTA_EN_MARCHA.md  docs
   alarma enclavada hasta ESC, horómetro y guardado/lectura en FRAM. PASS. La simulación detectó y se
   corrigió un falso `EMG` al encender (el antirrebote arrancaba en 0); `Antirrebote` toma la primera lectura.
 - `[visto]` Cada llamada usada existe en `JWPLC/2.1.0/libraries/*/src/*.h` o `cores/jwcontrol/jwplc_peripherals.h`.
-- `[no verificado]` Compilación ESP32 real: este entorno no alcanza `downloads.arduino.cc`.
-  Pendiente: `tools/alpha15/regenerate_libJWPLC_TFT.sh compile JWPLC/2.1.0/libraries/JWPLC_GlobalPeripherals/examples/00.Plantilla_Proyecto_JWPLC`
-  en la PC del equipo (activar también RTU y TCP una vez).
+- `[ejecutado]` Compilación ESP32 real (27/10/2026, `tools/alpha15/regenerate_libJWPLC_TFT.sh compile`,
+  `jwplc_local:esp32:jwplcbasic`, sobre `v2.1.0-alpha.15/OpenPLC-HMI/main` + esta rama + el curso), sin advertencias:
+  por defecto 450 884 B; con `USAR_MODBUS_RTU 1`, `USAR_MODBUS_TCP 1` y `USAR_SERIAL_DIAGNOSTICO 0` 469 852 B.
 - `[no verificado]` Si «Guardar como…» del Arduino IDE copia `LEEME.md` y `docs/`. El `LEEME.md` indica
   copiarlos a mano si no aparecen.
 - `[no verificado]` Prueba física: cargar en una placa, ver el resumen por Serial, RUN/ERR en la IDLE,
