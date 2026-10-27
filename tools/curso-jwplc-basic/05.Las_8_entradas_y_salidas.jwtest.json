@@ -1,0 +1,9 @@
+{
+  "sketch": "package:libraries/JWPLC_GlobalPeripherals/examples/Curso_JWPLC_Basic/1.Primeros_pasos/05.Las_8_entradas_y_salidas",
+  "until_ms": 3000,
+  "stim": ["1000 I0_3=1", "1000 I0_6=1"],
+  "expect": {
+    "console": [{ "match": "^Entradas: 0 0 0 1 0 0 1 0 ?$", "after_ms": 1000 }],
+    "signals": [{ "at_ms": 2000, "DO": "0b01001000" }]
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "sketch": "package:libraries/JWPLC_GlobalPeripherals/examples/Curso_JWPLC_Basic/1.Primeros_pasos/03.Leer_una_entrada",
+  "until_ms": 3000,
+  "stim": ["1000 I0_0=1", "2000 I0_0=0"],
+  "expect": {
+    "console": [{ "match": "^I0.0 inactiva$", "before_ms": 1000 }, { "match": "^I0.0 activa$", "after_ms": 1000, "before_ms": 2300 }],
+    "signals": [
+      { "at_ms": 900, "Q0_0": 0 },
+      { "at_ms": 1500, "Q0_0": 1 },
+      { "at_ms": 2500, "Q0_0": 0 }
+    ]
+  }
+}

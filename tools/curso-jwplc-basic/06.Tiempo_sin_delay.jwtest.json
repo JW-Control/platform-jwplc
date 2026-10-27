@@ -1,0 +1,14 @@
+{
+  "sketch": "package:libraries/JWPLC_GlobalPeripherals/examples/Curso_JWPLC_Basic/2.Tiempo_y_logica/06.Tiempo_sin_delay",
+  "until_ms": 3000,
+  "stim": ["1100 I0_0=1", "1400 I0_0=0"],
+  "expect": {
+    "signals": [
+      { "at_ms": 1000, "Q0_0": 1, "Q0_1": 0 },
+      { "at_ms": 1120, "Q0_1": 1 },
+      { "at_ms": 1420, "Q0_1": 0 },
+      { "at_ms": 1500, "Q0_0": 0 },
+      { "at_ms": 2000, "Q0_0": 1 }
+    ]
+  }
+}
