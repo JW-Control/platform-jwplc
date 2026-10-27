@@ -49,18 +49,19 @@ ni tomarlos como referencia para el HMI Designer.
 ## 2. Trabajo activo
 
 ```text
-ACTIVE_ALPHA=v2.1.0-alpha.15 (DEV_CLOSED 2026-10-19; se publica como 2.1.0-alpha.14)
-ACTIVE_BRANCH=v2.1.0-alpha.14/HmiDesigner/main (rama de la alpha; antes v2.1.0-alpha.14/feature/hmi-designer; v2.1.0-alpha.15-HmiDesigner ya está fusionada en ella y se retira)
-CIERRE=docs/v2.1.0-alpha.15/A15_CIERRE_Y_TRANSFERENCIA_20261019.md (integración con Alpha13 y publicación)
-INTEGRATION_BRANCH=v2.1.0-alpha.14/HmiDesigner/main (desde release/v2.1.x con Alpha13 cerrada; PR #157 borrador, sustituye a #141)
-HANDOFF=docs/v2.1.0-alpha.15/JWPLC_NEW_CHAT_START_ALPHA14_20261023.md (estado, fases pendientes y límites; leer primero)
-PARENT_BRANCH=v2.0.1-alpha.15-(HmiDesigner)   (rama anterior de André; congelada, NO modificar)
-PARENT_LAST_MERGED=af797d79 (2026-10-16, fusionado en la rama activa el 2026-10-17)
-ALPHA12_MERGED=4e869985 (Kenyi, VPP 2.1.0-alpha.29; fusionado el 2026-10-18)
-OPENPLC_F0=docs/v2.1.0-alpha.15/A15_F0_OPENPLC_RUTA_KENYI_20261018.md
-EQUIPO=André y agentes: ramas v2.1.0-alpha.14/HmiDesigner/feature/<tema> desde la principal (§5)
-SCOPE=JWPLC HMI Designer (editor + codegen + soporte firmware JWPLC_Display/JWPLC_TFT)
-DOCS=docs/v2.1.0-alpha.15/
+ACTIVE_ALPHA=v2.1.0-alpha.15 OpenPLC + HMI (etiqueta de trabajo ALPHA14 de Kenyi; se publica como 2.1.0-alpha.15)
+ACTIVE_BRANCH=v2.1.0-alpha.15/OpenPLC-HMI/main (desde release/v2.1.x con 2.1.0-alpha.14 publicada, 24/10/2026)
+ACTIVE_BRANCH_EDITOR=v2.1.0-alpha.15/OpenPLC-HMI/main en JW-Control/openplc-editor (mismo nombre, misma alpha)
+APERTURA=docs/v2.1.0-alpha.14/A14_APERTURA_RAMA_ALPHA15_OPENPLC_HMI_20261024.md (qué se fusionó, conflictos, ramas a retirar)
+STATUS=docs/v2.1.0-alpha.14/ALPHA14_OPENPLC_STATUS.md
+HANDOFF=docs/v2.1.0-alpha.14/JWPLC_NEW_CHAT_START_ALPHA14_OPENPLC_20261024.md (estado, fases pendientes y límites; leer primero)
+CONTRATO=docs/v2.1.0-alpha.14/A14_F3_CONTRATO_HMI_OPENPLC_20261017.md (jwplc-hmi-host/1; 1.1 pendiente)
+VPP_VIGENTE=2.1.0-alpha.32 (openplc-editor-installers/v4.2.7/vpp/)
+EDITOR_VIGENTE=4.2.8-jwplc.3 (último pre-release publicado del fork)
+ALPHA14_PUBLICADA=release/v2.1.x @ f3f47ae (HMI Designer de André, PR #157; ALPHA15 de trabajo cerrada)
+EQUIPO=Kenyi, André y agentes: ramas v2.1.0-alpha.15/OpenPLC-HMI/feature/<tema> desde la principal (§5)
+SCOPE=HMI Designer dentro de OpenPLC (anfitrión, puente, VPP) sin romper el flujo Arduino del Designer
+DOCS=docs/v2.1.0-alpha.14/ (etiqueta de trabajo de la línea OpenPLC; los documentos de la línea HMI siguen en docs/v2.1.0-alpha.15/)
 ```
 
 Objetivo: un único HMI Designer, tipo Lopaka pero exclusivo para la TFT ST7789
@@ -73,8 +74,8 @@ del JWPLC Basic, que:
 - incorpore un tipo MENU (árbol de menús/submenús para ver y configurar
   variables) integrado con la botonera.
 
-Detalle y gates: `docs/v2.1.0-alpha.15/ALPHA15_PLAN.md`.
-Estado vivo: `docs/v2.1.0-alpha.15/ALPHA15_STATUS.md`.
+Detalle y gates de la línea HMI (publicada en 2.1.0-alpha.14): `docs/v2.1.0-alpha.15/ALPHA15_PLAN.md`.
+Estado de la línea HMI: `docs/v2.1.0-alpha.15/ALPHA15_STATUS.md`. Estado vivo de la alpha activa: `STATUS` del bloque de arriba.
 Auditoría de partida: `docs/v2.1.0-alpha.15/A15_0_HMI_DESIGNER_AUDIT_20261016.md`.
 Integración OpenPLC: `docs/v2.1.0-alpha.15/A15_OPENPLC_INTEGRATION_DECISION_20261016.md`.
 
@@ -91,11 +92,13 @@ Numeración por orden de publicación; ramas y carpetas conservan su etiqueta de
 Repos relacionados:
 
 ```text
-JW-Control/openplc-editor  rama develop/alpha12-backplane-closure
+JW-Control/openplc-editor  rama v2.1.0-alpha.15/OpenPLC-HMI/main
   docs/jwplc/JWPLC_HMI_PLAN_INDUSTRIAL.md   plan HMI rev.2 (base adoptada)
   resources/sources/arduino/arduino_runtime_glue.h  superficie real del runtime (STruC++)
-JW-Control/platform-jwplc  rama v2.1.0-alpha.12/feature/openplc-engineering-closure
+  src/main/modules/hmi-designer/            anfitrión del Designer (ventana, servidor, puente JWPLCHMINative)
+JW-Control/platform-jwplc  rama v2.1.0-alpha.15/OpenPLC-HMI/main
   openplc-editor-installers/v4.2.7/vpp/     VPP (manifest, HAL jwplcbasic.cpp, screens)
+  tools/jwplc-hmi-designer/poc/designer-openplc-host.js  modo OpenPLC del Designer
 ```
 
 ---
@@ -115,7 +118,7 @@ JW-Control/platform-jwplc  rama v2.1.0-alpha.12/feature/openplc-engineering-clos
    Nunca publicar header y `.a` desalineados. **Durante el alpha**, la librería
    que va a cambiar se pone en modo fuente (se retira sólo `precompiled=full`)
    y su `.a` se regenera una vez antes del cierre, seguido del benchmark de
-   compilación en la PC del jefe. Hoy (integración 2.1.0-alpha.14): `JWPLC_Display`
+   compilación en la PC del jefe. Hoy (2.1.0-alpha.14 publicada, punto de partida de 2.1.0-alpha.15): `JWPLC_Display`
    y `JWPLC_TFT` (su `.a` incluye TFT_eSPI) precompiladas; sólo `JWPLC_ModbusRTU` en modo fuente.
 5. **El Display no consume los latches de la botonera de la aplicación**
    (Alpha8). Si un widget de menú necesita teclas, debe declararlo
@@ -149,7 +152,7 @@ JW-Control/platform-jwplc  rama v2.1.0-alpha.12/feature/openplc-engineering-clos
 - Al terminar una sesión de trabajo: actualizar `ALPHA<N>_STATUS.md` y, si el
   trabajo queda a medias, crear/actualizar el `JWPLC_NEW_CHAT_START_*`.
 - Cada documento nuevo entra por la rama de la feature que lo produce (§5), nunca directo en `…/main`. Al
-  citar ramas o PR en un `.md`, usar el nombre completo (`v2.1.0-alpha.14/HmiDesigner/feature/<tema>`, PR #N);
+  citar ramas o PR en un `.md`, usar el nombre completo (`v2.1.0-alpha.15/OpenPLC-HMI/feature/<tema>`, PR #N);
   si una rama se renombra o borra, dejar su último SHA anotado en `docs/<alpha>/`.
 
 ---
@@ -161,17 +164,17 @@ JW-Control/platform-jwplc  rama v2.1.0-alpha.12/feature/openplc-engineering-clos
 
   ```text
   release/v2.1.x                                       publicación (fusionar aquí publica la Release)
-  └── v2.1.0-alpha.14/HmiDesigner/main                 rama principal de la alpha (PR borrador hacia release, #157)
-      ├── v2.1.0-alpha.14/HmiDesigner/feature/designer-installer        ─┐
-      ├── v2.1.0-alpha.14/HmiDesigner/feature/prueba-fisica-combinada   ─┤ PR → …/main → revisión → merge → se borra
-      └── v2.1.0-alpha.14/HmiDesigner/feature/<tema>                    ─┘
+  └── v2.1.0-alpha.15/OpenPLC-HMI/main                 rama principal de la alpha activa (PR hacia release al cierre)
+      ├── v2.1.0-alpha.15/OpenPLC-HMI/feature/apertura-rama-principal  ─┐
+      ├── v2.1.0-alpha.15/OpenPLC-HMI/feature/<tema>                   ─┤ PR → …/main → revisión → merge → se borra
+      └── v2.1.0-alpha.15/OpenPLC-HMI/feature/<tema>                   ─┘
   ```
 
   Formato: `v2.1.0-alpha.N/<Línea>/main` y `v2.1.0-alpha.N/<Línea>/feature/<tema>` (tema en minúsculas con
-  guiones). La principal se llama `…/main` porque git no admite a la vez una rama `v2.1.0-alpha.14/HmiDesigner` y
-  otra `v2.1.0-alpha.14/HmiDesigner/feature/…`. Nunca sufijos aleatorios (`claude/project-thread-xxxx`): si la
-  herramienta asigna uno, trabajar igual en una rama con este formato. La línea de Kenyi sigue como
-  `v2.1.0-alpha.14-OpenPLC-HMI` (no se renombra mientras trabaja en ella).
+  guiones). La principal se llama `…/main` porque git no admite a la vez una rama `v2.1.0-alpha.15/OpenPLC-HMI` y
+  otra `v2.1.0-alpha.15/OpenPLC-HMI/feature/…`. Nunca sufijos aleatorios (`claude/project-thread-xxxx`): si la
+  herramienta asigna uno, trabajar igual en una rama con este formato. En openplc-editor la alpha usa el
+  mismo nombre (`v2.1.0-alpha.15/OpenPLC-HMI/main` y sus `feature/<tema>`).
 - **Flujo de una feature** (obligatorio, en este orden):
   1. `git pull origin <alpha>/<Línea>/main` y crear `<alpha>/<Línea>/feature/<tema>` desde ella.
   2. Commits sólo de ese tema; push; PR **hacia `…/main`** (nunca hacia `release/v2.1.x`, `main` del repo ni
@@ -184,9 +187,10 @@ JW-Control/platform-jwplc  rama v2.1.0-alpha.12/feature/openplc-engineering-clos
   6. Cierre de la alpha: todas las features fusionadas → la feature de cierre (README de versión,
      `PRE_RELEASE.md`) es la última → `…/main` → PR hacia `release/v2.1.x`, que sólo se fusiona con autorización
      explícita (publica la Release). Después se borran `…/main` y sus restos.
-- Ramas remotas permitidas hoy (24/10/2026): `main`, `release/v2.1.x`, `v2.1.0-alpha.14/HmiDesigner/main`,
-  `v2.1.0-alpha.14/HmiDesigner/feature/<tema>` (una por PR abierto) y `v2.1.0-alpha.14-OpenPLC-HMI`. Cualquier
-  otra se revisa (¿está contenida en `…/main`?), se anota con su SHA en `docs/<alpha>/` y se borra.
+- Ramas remotas permitidas hoy (24/10/2026): `main`, `release/v2.1.x`, `v2.1.0-alpha.15/OpenPLC-HMI/main` y
+  `v2.1.0-alpha.15/OpenPLC-HMI/feature/<tema>` (una por PR abierto). Cualquier otra se revisa (¿está contenida en
+  `…/main`?), se anota con su SHA en `docs/<alpha>/` y se borra. Pendientes de borrar (contenidas en la nueva
+  `…/main`, SHA en el documento de apertura): `v2.1.0-alpha.14/HmiDesigner/main` y `v2.1.0-alpha.14-OpenPLC-HMI`.
   En GitHub Desktop, «origin/…» sólo indica una rama remota no descargada en la PC; no es parte del nombre.
 - Mensajes de commit descriptivos (`feat(hmi-designer): ...`, `fix(jwplc-tft): ...`,
   `docs(alpha15): ...`). Prohibido `.`, `,`, `patch`.
