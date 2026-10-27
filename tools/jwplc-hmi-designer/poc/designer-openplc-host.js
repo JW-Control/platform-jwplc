@@ -8,6 +8,10 @@
  *   - el nombre C++ se deriva solo (ya no se escribe a mano);
  *   - se guarda plcBinding { var, access } en el objeto (se guarda en el .jwhmi);
  *   - en los nodos del MENU se ajusta el tipo (int32 / float / bool).
+ * Si OpenPLC avisa que cambiaron las variables del proyecto
+ * (onVariablesChanged), se vuelven a pedir. Dentro de la pestaña de OpenPLC
+ * (embedded) se informa si el diseño tiene cambios sin guardar (setDirty),
+ * para que la pestaña lo muestre como cualquier archivo del proyecto.
  * El modo Arduino y el .exe no cambian.
  *
  * Contrato: platform-jwplc docs/v2.1.0-alpha.14/A14_F3_CONTRATO_HMI_OPENPLC_20261017.md
@@ -18,8 +22,10 @@
   const host = window.JWPLCHMIHost;
   if (!host || host.mode !== 'openplc') return;
 
+  const DIRTY_POLL_MS = 600;
   const INTEGER_TYPES = new Set(['INT', 'UINT', 'WORD', 'DINT', 'UDINT', 'DWORD']);
   let variables = [];
+  let variablesVersion = 0;
   let scheduled = false;
 
   const editor = () => window.JWPLCHMIEditor || null;
@@ -89,12 +95,18 @@
   }
 
   function renderOptions(select, target) {
-    const signature = `${target.kind}|${JSON.stringify(target.wants)}|${variables.length}`;
+    const signature = `${target.kind}|${JSON.stringify(target.wants)}|${variablesVersion}`;
     if (select.dataset.signature === signature) return;
     select.dataset.signature = signature;
     const ok = variables.filter((v) => compatible(v, target.wants));
     const rest = variables.filter((v) => !compatible(v, target.wants));
     const why = (v) => v.reason || (target.wants?.rw && v.access === 'R' ? 'sólo lectura' : 'tipo no compatible');
+    if (!variables.length) {
+      select.innerHTML =
+        '<option value="">— Sin enlazar —</option>' +
+        '<option disabled>No hay variables: decláralas en la tabla de variables del programa (main) o en las globales</option>';
+      return;
+    }
     select.innerHTML =
       '<option value="">— Sin enlazar —</option>' +
       ok.map((v) => `<option value="${escapeHtml(v.name)}">${escapeHtml(optionLabel(v))}</option>`).join('') +
@@ -212,7 +224,7 @@
     requestAnimationFrame(ensure);
   }
 
-  async function init() {
+  async function loadVariables() {
     try {
       const list = await host.listVariables();
       variables = Array.isArray(list) ? list : [];
@@ -220,6 +232,25 @@
       console.error('[JWPLC HMI OpenPLC] listVariables', error);
       variables = [];
     }
+    variablesVersion += 1;
+    schedule();
+  }
+
+  // Cambios sin guardar del diseño -> pestaña de OpenPLC.
+  function watchDirty() {
+    let last = null;
+    setInterval(() => {
+      const dirty = Boolean(window.JWPLCHMISaveFlow?.isDirty?.());
+      if (dirty === last) return;
+      last = dirty;
+      host.setDirty(dirty);
+    }, DIRTY_POLL_MS);
+  }
+
+  async function init() {
+    await loadVariables();
+    host.onVariablesChanged?.(loadVariables);
+    if (typeof host.setDirty === 'function') watchDirty();
     window.addEventListener('jwplc:editor-refresh', schedule);
     new MutationObserver(schedule).observe(document.body, { childList: true, subtree: true });
     schedule();

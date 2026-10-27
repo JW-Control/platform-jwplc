@@ -237,3 +237,28 @@ Verificación:
 - `[ejecutado]` compilación ESP32 del HAL del VPP + `jwplc_hmi.h` con los 7 enlaces del gate F0c sin dirección
   (índices resueltos, tabla de depuración simulada): PASS, 448 525 B.
 - `[no verificado]` en la app y en la placa con un programa Ladder real (guía `A14_F3_1_…` paso 4).
+
+## 9. Versión 1.3: el Designer en una pestaña de OpenPLC (27/10/2026)
+
+Pedido del propietario: ver el HMI integrado en OpenPLC, no en una ventana aparte. Desde 1.3 el Designer se abre
+como una pestaña más del editor («HMI Designer», en el árbol del proyecto bajo las pantallas de la placa, y con el
+botón «Abrir HMI Designer» de *Configuration*).
+
+| Tema | Regla |
+|---|---|
+| Dónde corre | Un `<webview>` en la pestaña. El proceso principal sólo deja adjuntar la página del Designer servida en 127.0.0.1 y le impone el preload y la sesión `persist:jwplc-hmi-designer` (`will-attach-webview`) |
+| Cambiar de pestaña | La pestaña queda montada mientras está abierta: el diseño y el historial de deshacer no se pierden |
+| Cambios sin guardar | `JWPLCHMIHost.setDirty(bool)`: el Designer los informa y la pestaña se marca como cualquier archivo del proyecto |
+| Guardar | Ctrl+S en la pestaña, «Guardar proyecto» y el guardado automático antes de compilar escriben el header y `JWPLC_HMI.jwhmi` en `hmi/`; después el Designer cuenta el diseño como guardado (`JWPLCHMISaveFlow.markSaved()`) |
+| Cerrar la pestaña | Con cambios pregunta el modal de OpenPLC (Guardar / No guardar / Cancelar). Ya no hay guarda de cierre propia: `registerCloseGuard` / `confirmClose` no se exponen |
+| Cerrar OpenPLC | Se guarda el diseño sin preguntar, como antes (`hmiDesignerHost.flush()`, máximo 3 s) |
+| Variables | `JWPLCHMIHost.onVariablesChanged(cb)`: al editar las variables del proyecto, OpenPLC avisa y el Designer vuelve a pedir `listVariables()` sin reabrir. Sin variables, «Variable PLC» explica dónde declararlas |
+| Detección | `JWPLCHMIHost.embedded === true` en la pestaña |
+
+Verificación:
+
+- `[ejecutado]` platform-jwplc: `tests/openplc-host-smoke.cjs` (marca de cambios, guardado desde OpenPLC,
+  variables en vivo y lista vacía).
+- `[ejecutado]` openplc-editor: `tsc`, `eslint`, tests de `tabs/utils`, del adaptador de dispositivo y de
+  `hmi-designer-save`.
+- `[no verificado]` en la app instalada (pestaña, guardado, puerto serie del Live Preview dentro de la pestaña).

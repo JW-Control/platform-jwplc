@@ -87,6 +87,9 @@ window.JWPLCValueFormat   designer-value-format   formato de VALUE (número, mil
   `designer-native-project.js`, `designer-project-integration-fix.js` y `desktop-responsive.js` miran
   `JWPLCHMIHost.mode`: «OpenPLC: <proyecto> ▾», «Actualizar HMI», sin guía `JWPLC_HMI_LEEME.md`, «Nuevo» no
   desvincula. Un texto nuevo del botón del sketch va en los cuatro con la misma regla (si no, parpadea).
+- Desde 1.3 (27/10/2026) OpenPLC muestra el Designer en una pestaña (`<webview>`, `JWPLCHMIHost.embedded`): sin guarda
+  de cierre propia; `designer-openplc-host.js` informa los cambios sin guardar (`setDirty`) y vuelve a pedir las
+  variables con `onVariablesChanged`. Contrato §9.
 - Test: `tests/openplc-host-smoke.cjs` (simula el preload de OpenPLC).
 
 ## Live Bridge: flasheo en un clic (André, 2026-10-20)
@@ -184,9 +187,9 @@ Estado de adopción por tipo: ver `ALPHA15_STATUS.md` (§Inspector).
   emite TEXT/VALUE; BOOL/BAR salen como `JWPLC_UITextField` provisional que reemplazan sus capas.
 - Tras tocar el codegen: `node tests/codegen-golden.cjs` (salida byte a byte) y
   `node tests/codegen-smoke.cjs`. Un cambio intencional: `--update` y revisar el diff.
-- Tras tocar JS/CSS: subir el `?v=` del archivo tocado (hoy 1793801300; `designer-codegen` y `designer-sketch-guide` 1793801800; `designer-icons-core` 1793801900; `ux-foundation` y `designer-icons` 1793802000; `designer-native-project`, `designer-project-integration-fix` y `designer-sketch-menu` 1793802100; `designer-openplc-host` 1793802200; `app`, `designer-bar`, `designer-bool`, `designer-field-visibility`, `designer-pages`, `designer-pixelmap-optimizer` y `desktop-responsive` 1793802300) en
+- Tras tocar JS/CSS: subir el `?v=` del archivo tocado (hoy 1793801300; `designer-codegen` y `designer-sketch-guide` 1793801800; `designer-icons-core` 1793801900; `ux-foundation` y `designer-icons` 1793802000; `designer-native-project`, `designer-project-integration-fix` y `designer-sketch-menu` 1793802100; `designer-openplc-host` 1793802400; `app`, `designer-bar`, `designer-bool`, `designer-field-visibility`, `designer-pages`, `designer-pixelmap-optimizer` y `desktop-responsive` 1793802300) en
   `index.html`/`desktop.html`/`ux-foundation.js`/`designer-field-visibility.js` y `CACHE_NAME` en
-  `service-worker.js` (hoy `jwplc-hmi-designer-a16-v52`).
+  `service-worker.js` (hoy `jwplc-hmi-designer-a16-v53`).
 - Versión visible: `2.1.0-alpha.15` (título, `.brand-badge`, `.gate` de la barra de estado, panel «Estado»,
   `electron/package.json`). El comentario `// API pública JWPLC_UI · Alpha11 A11-4` del header generado es un
   marcador interno de las capas del codegen: no cambiarlo.

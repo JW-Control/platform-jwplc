@@ -81,24 +81,27 @@ function openplcMock(seed) {
     // El anfitrión ignora el nombre: siempre hmi/JWPLC_HMI.jwhmi.
     writeProject: async (fileName, text) => { calls.push(`project:${fileName}`); files['JWPLC_HMI.jwhmi'] = text; return { ok: true, fileName: 'JWPLC_HMI.jwhmi' }; },
     openSketchFolder: async () => { calls.push('open-folder'); return { ok: true }; },
-    registerCloseGuard: (onCloseRequested) => { calls.push('close-guard'); window.__openplc.requestClose = onCloseRequested; },
-    confirmClose: () => calls.push('close-confirmed'),
     registerSerialPortPicker: () => calls.push('serial-picker'),
     chooseSerialPort: () => calls.push('serial-chosen')
   };
-  window.JWPLCHMIHost = {
-    version: 1,
-    mode: 'openplc',
-    getContext: async () => ({ projectName: 'HMIProbe', device: 'JWPLC BASIC [2.0.0]', display: { width: 320, height: 170 } }),
-    listVariables: async () => [
+  window.__openplc.variables = [
       { name: 'RELE', scope: 'global', iecType: 'BOOL', address: '%QX0.0', hmiTypes: ['bool'], access: 'R' },
       { name: 'CONTADOR', scope: 'global', iecType: 'INT', address: '%MW0', hmiTypes: ['float', 'int32_t'], access: 'RW' },
       { name: 'LIMITE', scope: 'global', iecType: 'INT', address: '%MW1', hmiTypes: ['float', 'int32_t'], access: 'RW' },
       // Sin dirección (contrato 1.2): OpenPLC la enlaza por la tabla de depuración del programa.
       { name: 'CUENTA', scope: 'program', pou: 'main', iecType: 'INT', address: null, hmiTypes: ['float', 'int32_t'], access: 'RW' },
       { name: 'TIEMPO', scope: 'program', pou: 'main', iecType: 'TIME', address: null, hmiTypes: [], access: null, reason: 'TIME sin dirección todavía no se enlaza' }
-    ],
-    loadProject: async () => (files['JWPLC_HMI.jwhmi'] ? JSON.parse(files['JWPLC_HMI.jwhmi']) : null)
+  ];
+  window.JWPLCHMIHost = {
+    version: 1,
+    mode: 'openplc',
+    embedded: true,
+    getContext: async () => ({ projectName: 'HMIProbe', device: 'JWPLC BASIC [2.0.0]', display: { width: 320, height: 170 } }),
+    listVariables: async () => window.__openplc.variables.slice(),
+    loadProject: async () => (files['JWPLC_HMI.jwhmi'] ? JSON.parse(files['JWPLC_HMI.jwhmi']) : null),
+    // OpenPLC avisa cuando cambian las variables del proyecto (pestaña abierta).
+    onVariablesChanged: (callback) => { window.__openplc.variablesChanged = callback; },
+    setDirty: (dirty) => calls.push(`dirty:${dirty}`)
   };
 }
 
@@ -153,7 +156,7 @@ async function main() {
     check(first.link === 'OpenPLC: HMIProbe' && /^OpenPLC: HMIProbe · hmi\//.test(first.status), 'botón y barra de estado nombran el proyecto OpenPLC');
     check(first.update === 'Actualizar HMI' && !first.updateDisabled, '«Actualizar HMI» habilitado');
     const registered = await a.page.evaluate(() => window.__openplc.calls.slice());
-    check(registered.includes('close-guard') && registered.includes('serial-picker'), `registra la guarda de cierre y el selector de puertos (${registered.join(',')})`);
+    check(registered.includes('serial-picker') && !registered.includes('close-guard'), `registra el selector de puertos, sin guarda de cierre: es una pestaña (${registered.join(',')})`);
 
     await a.page.click('#linkSketchButton');
     await a.page.waitForSelector('.sketch-menu');
@@ -218,15 +221,32 @@ async function main() {
     check(afterNew.link === 'OpenPLC: HMIProbe' && !afterNew.updateDisabled && (await fieldCount()) === initial,
       `«Nuevo» vacía el diseño y sigue en el proyecto OpenPLC (${JSON.stringify(afterNew)})`);
 
-    console.log('CERRAR LA VENTANA');
+    console.log('CAMBIOS SIN GUARDAR EN LA PESTAÑA');
+    const lastDirty = () => a.page.evaluate(() => window.__openplc.calls.filter((c) => c.startsWith('dirty:')).slice(-1)[0]);
+    check(await lastDirty() === 'dirty:false', `tras «Nuevo» la pestaña queda sin cambios (${await lastDirty()})`);
     await a.page.evaluate(() => window.JWPLCHMIEditor.addTextField());
-    await a.page.waitForTimeout(800);
-    dialogs.length = 0;
-    answers.push('discard');
-    await a.page.evaluate(() => window.__openplc.requestClose());
-    await a.page.waitForTimeout(800);
-    const closed = await a.page.evaluate(() => window.__openplc.calls.slice(-1)[0]);
-    check(dialogs.length === 1 && /cerrar/.test(dialogs[0]) && closed === 'close-confirmed', `con cambios pregunta antes de cerrar y luego confirma (${JSON.stringify(dialogs)} → ${closed})`);
+    await a.page.waitForTimeout(1500);
+    check(await lastDirty() === 'dirty:true', `un cambio marca la pestaña de OpenPLC (${await lastDirty()})`);
+    // Guardar desde OpenPLC: el anfitrión escribe hmi/ y llama a markSaved().
+    await a.page.evaluate(() => window.JWPLCHMISaveFlow.markSaved());
+    await a.page.waitForTimeout(1000);
+    check(await lastDirty() === 'dirty:false', `guardado desde OpenPLC la pestaña queda limpia (${await lastDirty()})`);
+
+    console.log('VARIABLES EN VIVO');
+    await a.page.evaluate(() => window.JWPLCHMIEditor.addValueField());
+    await a.page.waitForTimeout(300);
+    await a.page.click('#fieldInspectorV2 [data-insp-main="data"]');
+    await a.page.evaluate(() => {
+      window.__openplc.variables.push({ name: 'NIVEL', scope: 'program', pou: 'main', iecType: 'REAL', address: null, hmiTypes: ['float', 'int32_t'], access: 'RW' });
+      window.__openplc.variablesChanged();
+    });
+    await a.page.waitForTimeout(600);
+    const liveOptions = await a.page.$$eval(`${select} option`, (els) => els.map((o) => o.value));
+    check(liveOptions.includes('NIVEL'), `una variable nueva del proyecto aparece sin reabrir (${liveOptions.join(',')})`);
+    await a.page.evaluate(() => { window.__openplc.variables.length = 0; window.__openplc.variablesChanged(); });
+    await a.page.waitForTimeout(600);
+    const emptyOptions = await a.page.$$eval(`${select} option`, (els) => els.map((o) => o.textContent));
+    check(emptyOptions.length === 2 && /No hay variables: decláralas/.test(emptyOptions[1]), `sin variables explica dónde declararlas («${emptyOptions[1]}»)`);
     check(a.errors.length === 0, `sin errores JS (${a.errors.join(' | ') || 'ninguno'})`);
     saved = { [HEADER]: written.files[HEADER], [PROJECT]: written.files[PROJECT] };
     await a.page.close();
@@ -241,11 +261,6 @@ async function main() {
     await b.page.click('#updateHmiButton');
     await b.page.waitForTimeout(1500);
     check(dialogs.length === 0, `el HMI abierto del proyecto se reescribe sin preguntar (${JSON.stringify(dialogs)})`);
-    // Sin cambios: cierra sin preguntar.
-    await b.page.waitForTimeout(800);
-    await b.page.evaluate(() => window.__openplc.requestClose());
-    await b.page.waitForTimeout(500);
-    check(dialogs.length === 0 && (await b.page.evaluate(() => window.__openplc.calls.slice(-1)[0])) === 'close-confirmed', 'sin cambios cierra sin preguntar');
     check(b.errors.length === 0, `sin errores JS (${b.errors.join(' | ') || 'ninguno'})`);
   } finally {
     await browser.close();
