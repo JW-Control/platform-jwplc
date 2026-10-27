@@ -1,5 +1,14 @@
 # Ejemplos JWPLC_GlobalPeripherals
 
+Para empezar un proyecto real, usar la plantilla estándar:
+
+```text
+00.Plantilla_Proyecto_JWPLC   pestañas fijas A…K + LEEME.md + docs/ (ayuda sin internet)
+```
+
+Ver su `LEEME.md`: Archivo → Guardar como… con el nombre del proyecto y llenar `A_Config.h`,
+`docs/MAPA_IO.md` y `B_Tags.h`.
+
 Serie recomendada para taller JWPLC Basic:
 
 ```text

@@ -18,11 +18,18 @@
   // designer-project.js). Los clics se toman en fase de captura en document:
   // otros módulos reemplazan los botones (cloneNode) y así no importa cuál
   // quedó en el DOM.
+  //
+  // Dentro de OpenPLC (window.JWPLCHMIHost.mode === 'openplc') el «sketch»
+  // vinculado es la carpeta hmi/ del proyecto: el botón es «Actualizar HMI»,
+  // no hay guía JWPLC_HMI_LEEME.md (no hay .ino) y el menú sólo ofrece
+  // recargar el HMI guardado y abrir la carpeta.
 
   if (window.JWPLCHMISketchMenu) return;
 
   const HEADER_NAME = 'JWPLC_HMI_Generated.h';
   const native = window.JWPLCHMINative?.isNative ? window.JWPLCHMINative : null;
+  const openplc = window.JWPLCHMIHost?.mode === 'openplc';
+  const target = (info) => (openplc ? `el proyecto OpenPLC «${info.name}»` : `el sketch «${info.name}»`);
 
   const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
   // Regla de nombres del Arduino IDE 2 (la misma que valida electron/main.js).
@@ -226,7 +233,7 @@
   // bloquea la escritura del header: si falla, sólo se avisa.
   async function writeGuide(info, header) {
     const guide = window.JWPLCSketchGuide;
-    if (!guide) return '';
+    if (!guide || openplc) return '';
     try {
       const text = guide.build({ sketchName: info.name, projectFile: info.projectFile, header });
       const status = await backend.writeGuide(text);
@@ -262,7 +269,7 @@
 
       const replaced = [info.headerExists && HEADER_NAME, info.projectExists && info.projectFile].filter(Boolean);
       if (replaced.length && !ownSketches.has(sketchKey(info)) &&
-          !await window.JWPLCDialog.confirm(`Se reemplazará en el sketch «${info.name}»:\n\n${replaced.map((n) => `• ${n}`).join('\n')}\n\n¿Continuar?`, { okLabel: 'Reemplazar' })) {
+          !await window.JWPLCDialog.confirm(`Se reemplazará en ${target(info)}:\n\n${replaced.map((n) => `• ${n}`).join('\n')}\n\n¿Continuar?`, { okLabel: 'Reemplazar' })) {
         return false;
       }
 
@@ -304,7 +311,17 @@
     menu = document.createElement('div');
     menu.className = 'sketch-menu';
     menu.setAttribute('role', 'menu');
-    menu.innerHTML = !info ? `
+    menu.innerHTML = openplc && info ? `
+      <div class="sketch-menu-head">
+        <strong>OpenPLC · ${escape(info.name)}</strong>
+        ${info.path ? `<small title="${escape(info.path)}">${escape(info.path)}</small>` : ''}
+        <div class="sketch-menu-files">
+          <span class="${info.headerExists ? 'is-on' : ''}">${info.headerExists ? '✓' : '—'} ${HEADER_NAME}</span>
+          <span class="${info.projectExists ? 'is-on' : ''}">${info.projectExists ? '✓' : '—'} ${escape(info.projectFile)}</span>
+        </div>
+      </div>
+      ${menuItem('open-project', '⟲', 'Recargar HMI guardado', info.projectExists ? `hmi/${escape(info.projectFile)}` : 'Todavía no hay .jwhmi: usa «Actualizar HMI»', !info.projectExists)}
+      ${menuItem('open-folder', '🗀', 'Abrir carpeta hmi/', 'Explorador de archivos')}` : !info ? `
       ${menuItem('change', '🗀', 'Elegir sketch existente…', 'Una carpeta con un .ino')}
       ${menuItem('create', '+', 'Crear sketch nuevo…', 'Carpeta y .ino base con las variables del HMI', !backend.canCreate)}` : `
       <div class="sketch-menu-head">
@@ -335,7 +352,7 @@
       closeMenu();
       try {
         if (action === 'open-project') {
-          if (await window.JWPLCDialog.confirm(`¿Abrir el HMI guardado en «${info?.name}»? El diseño que está en pantalla se reemplaza.`, { okLabel: 'Abrir HMI' })) await openSketchProject(info);
+          if (await window.JWPLCDialog.confirm(`¿Abrir el HMI guardado en ${target(info)}? El diseño que está en pantalla se reemplaza.`, { okLabel: 'Abrir HMI' })) await openSketchProject(info);
         } else if (action === 'open-ino') {
           const result = await backend.openIno();
           if (!result?.ok) throw new Error(result?.error || 'No se pudo abrir el .ino.');
@@ -358,6 +375,10 @@
 
   function refreshButtons(info) {
     const link = document.getElementById('linkSketchButton');
+    if (openplc && info) {
+      refreshButtonsOpenplc(info, link);
+      return;
+    }
     if (link) {
       const label = info ? `Sketch: ${info.name}` : 'Vincular sketch…';
       // En modo compacto desktop-responsive.js acorta el texto: sólo se corrige
@@ -379,6 +400,30 @@
       update.disabled = !info;
       update.title = `Escribir ${HEADER_NAME} y el proyecto .jwhmi en la carpeta del sketch${info ? ` «${info.name}»` : ''}`;
       if (!/Escribir/.test(update.textContent)) update.textContent = 'Escribir en sketch';
+    }
+  }
+
+  // OpenPLC: designer-native-project.js, designer-project-integration-fix.js y
+  // desktop-responsive.js también escriben estos botones, con los mismos textos.
+  function refreshButtonsOpenplc(info, link) {
+    if (link) {
+      if (!link.textContent.startsWith('OpenPLC')) link.textContent = `OpenPLC: ${info.name}`;
+      link.classList.add('linked', 'sketch-menu-button');
+      link.setAttribute('aria-haspopup', 'menu');
+      link.title = `HMI del proyecto OpenPLC${info.path ? `: ${info.path}` : ''} · clic para abrir el menú`;
+    }
+    const status = document.getElementById('sketchLinkStatus');
+    if (status) {
+      status.textContent = `OpenPLC: ${info.name} · hmi/${HEADER_NAME}`;
+      status.classList.add('linked');
+      status.classList.remove('warning');
+    }
+    const update = document.getElementById('updateHmiButton');
+    if (update) {
+      update.disabled = false;
+      update.title = `Escribir ${HEADER_NAME} y ${info.projectFile} en la carpeta hmi/ del proyecto OpenPLC «${info.name}»`;
+      // En modo compacto desktop-responsive.js lo acorta a «Actualizar».
+      if (!/^Actualizar/.test(update.textContent)) update.textContent = 'Actualizar HMI';
     }
   }
 
@@ -409,9 +454,10 @@
   }, 300);
   window.addEventListener('jwplc:header-written', async () => refreshButtons(await backend.info().catch(() => null)));
   window.addEventListener('jwplc:sketch-linked', async () => refreshButtons(await backend.info().catch(() => null)));
-  window.addEventListener('jwplc:sketch-unlinked', () => {
-    refreshButtons(null);
+  window.addEventListener('jwplc:sketch-unlinked', async () => {
     closeMenu();
+    // En OpenPLC «Nuevo» no desvincula: la carpeta hmi/ sigue siendo el destino.
+    refreshButtons(openplc ? await backend.info().catch(() => null) : null);
   });
 
   window.JWPLCHMISketchMenu = {

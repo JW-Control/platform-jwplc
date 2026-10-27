@@ -1,0 +1,22 @@
+{
+  "sketch": "package:libraries/JWPLC_GlobalPeripherals/examples/Curso_JWPLC_Basic/2.Tiempo_y_logica/08.Marcha_y_parada",
+  "until_ms": 3500,
+  "stim": [
+    "1000 I0_0=1", "1100 I0_0=0",
+    "1300 I0_1=1", "1300 I0_2=1", "1400 I0_0=1", "1500 I0_0=0",
+    "2000 I0_1=0", "2200 I0_1=1",
+    "2400 I0_0=1", "2500 I0_0=0",
+    "3000 I0_2=0"
+  ],
+  "expect": {
+    "console": [{ "match": "^Motor en marcha$", "count": 2 }, { "match": "^Motor detenido$", "count": 2 }],
+    "signals": [
+      { "at_ms": 1200, "Q0_0": 0, "Q0_1": 1 },
+      { "at_ms": 1700, "Q0_0": 1, "Q0_1": 0 },
+      { "at_ms": 2100, "Q0_0": 0 },
+      { "at_ms": 2300, "Q0_0": 0 },
+      { "at_ms": 2700, "Q0_0": 1 },
+      { "at_ms": 3100, "Q0_0": 0, "Q0_1": 1 }
+    ]
+  }
+}
