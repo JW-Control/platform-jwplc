@@ -3,8 +3,8 @@
 **Canal:** PreRelease de desarrollo (índice dev). No sustituye a `v2.0.0` estable.
 **Origen:** línea de trabajo OpenPLC + HMI (etiqueta de trabajo «ALPHA14», documentación en
 `docs/v2.1.0-alpha.14/`), rama `v2.1.0-alpha.15/OpenPLC-HMI/main` en platform-jwplc y en openplc-editor.
-Se publica sobre la 2.1.0-alpha.14. El core del package (`JWPLC/2.1.0`) no cambia: ninguna librería es distinta
-de la 2.1.0-alpha.14.
+Se publica sobre la 2.1.0-alpha.14. Ninguna librería del package (`JWPLC/2.1.0`) cambia: sólo se agregan dos
+ejemplos nuevos de `JWPLC_GlobalPeripherals` (el Curso JWPLC Basic y la plantilla estándar de proyecto).
 
 ## Descargas
 
@@ -41,6 +41,13 @@ formas**.
 - VPP 2.1.0-alpha.15 firmado con la clave `jwcontrol-2026` y verificado con el verificador del editor.
 - HMI Designer 2.1.0-alpha.15: versión visible, modo OpenPLC (contrato `jwplc-hmi-host` 1.1–1.4) y arreglo del
   selector «Variable PLC» que se duplicaba en el inspector del BAR.
+- **Curso JWPLC Basic** (ejemplos `JWPLC_GlobalPeripherals/Curso_JWPLC_Basic`): unidad 1 «Primeros pasos»
+  (lecciones 01–05, incluida la lectura/escritura de las 8 E/S en bloque) y unidad 2 «Tiempo y lógica» (06–11:
+  tiempo sin `delay()`, flancos, marcha y parada, temporizadores, contadores y máquina de estados). Cada lección
+  tiene su prueba de JWPLC Sim en `tools/curso-jwplc-basic/`.
+- **Plantilla estándar de proyecto** (`JWPLC_GlobalPeripherals/00.Plantilla_Proyecto_JWPLC`): ciclo tipo PLC sin
+  `delay()` en pestañas fijas A…K, alarmas enclavadas, horómetro en FRAM, HMI generado o IDLE, Modbus RTU/TCP
+  opcionales, y `LEEME.md` + `docs/` con referencia rápida, mapa de E/S y puesta en marcha para trabajar sin internet.
 
 ## Instalación
 
@@ -58,6 +65,9 @@ formas**.
   + pestaña (14/14) y de reabrir la ventana.
 - `[ejecutado]` compilación ESP32 del HAL del VPP con enlaces sin dirección; CI del instalador del editor y del
   Designer en verde.
+- `[ejecutado]` compilación ESP32 real (`jwplc_local:esp32:jwplcbasic`) de las 11 lecciones del curso y de la
+  plantilla (por defecto y con Modbus RTU + TCP), sin advertencias.
+- `[no verificado]` curso y plantilla en la placa.
 - `[ejecutado]` en la app instalada y en un JWPLC Basic por el propietario (27/10/2026): proyecto Ladder con
   variables enlazadas en la pestaña, compilar, subir y ver la TFT.
 
@@ -72,7 +82,7 @@ formas**.
 
 | Componente | Versión | Commit |
 |---|---|---|
-| Package `jwplc:esp32` | 2.1.0-alpha.15 (core = 2.1.0-alpha.14) | `release/v2.1.x` al publicar |
+| Package `jwplc:esp32` | 2.1.0-alpha.15 (librerías = 2.1.0-alpha.14 + ejemplos del curso y la plantilla) | `release/v2.1.x` al publicar |
 | HMI Designer | 2.1.0-alpha.15 | platform-jwplc `fbb61e6` |
 | VPP JWPLC Basic | 2.1.0-alpha.15 (firma `3b46176`) | platform-jwplc `a8458dc` |
 | OpenPLC Editor – JWPLC Edition | 4.2.8-jwplc.7 | openplc-editor `9a88922` (tag `jwplc-editor-v4.2.8-jwplc.7`) |

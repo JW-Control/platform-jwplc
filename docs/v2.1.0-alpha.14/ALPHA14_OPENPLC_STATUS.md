@@ -26,7 +26,7 @@ CIERRE=IN_PROGRESS (feature/cierre-alpha15 -> …/main -> PR a release/v2.1.x co
 
 | Componente | Versión | Commit |
 |---|---|---|
-| Package `jwplc:esp32` | 2.1.0-alpha.15 (core igual a 2.1.0-alpha.14) | platform-jwplc `…/main` |
+| Package `jwplc:esp32` | 2.1.0-alpha.15 (librerías iguales a 2.1.0-alpha.14; + curso y plantilla como ejemplos) | platform-jwplc `…/main` |
 | HMI Designer | 2.1.0-alpha.15 | platform-jwplc `fbb61e6` (fijado en `PLATFORM_DESIGNER_SHA` del editor) |
 | VPP JWPLC Basic | 2.1.0-alpha.15 | platform-jwplc `a8458dc` (fijado en `PLATFORM_VPP_SHA`) |
 | OpenPLC Editor – JWPLC Edition | 4.2.8-jwplc.7 | openplc-editor `9a88922` |
@@ -45,6 +45,9 @@ Los dos SHAs fijados son alcanzables desde `…/main` (entraron con merge commit
 | 27/10 | platform-jwplc | PR #177 `feature/vpp-version-alpha15` @ `a8458dc` | `2adce24` |
 | 27/10 | platform-jwplc | PR #179 `feature/readme-descargas` @ `e96106a` | `cb5eebc` |
 | 27/10 | platform-jwplc | PR #180 `feature/flujo-de-trabajo` @ `bb5a17f` (conflicto en `CLAUDE.md`: queda la versión sin estado) | `919f346` |
+| 27/10 | platform-jwplc | PR #181 `feature/cierre-alpha15` @ `858bb32` | `7fc9771` |
+| 27/10 | platform-jwplc | PR #183 `feature/curso-jwplc-basic` @ `64d0937` (curso, unidades 1 y 2) | `9f7a055` |
+| 27/10 | platform-jwplc | PR #184 `feature/plantilla-proyecto` @ `94659ed` (plantilla de proyecto) | `e7bb3f9` |
 | 27/10 | openplc-editor | PR #7 `feature/designer-alpha14-en-openplc` @ `9a88922` | `da89ca9d3` |
 | 27/10 | openplc-editor | PR #8 `feature/flujo-de-trabajo` @ `41ca36daa` | `8fb704a66` |
 
@@ -61,6 +64,10 @@ Todas están contenidas en `…/main` de su repo. Se borran con OK del propietar
 | platform-jwplc | `v2.1.0-alpha.15/OpenPLC-HMI/feature/vpp-version-alpha15` | `a8458dc` |
 | platform-jwplc | `v2.1.0-alpha.15/OpenPLC-HMI/feature/readme-descargas` | `e96106a` |
 | platform-jwplc | `v2.1.0-alpha.15/OpenPLC-HMI/feature/flujo-de-trabajo` | `bb5a17f` |
+| platform-jwplc | `v2.1.0-alpha.15/OpenPLC-HMI/feature/cierre-alpha15` | `858bb32` |
+| platform-jwplc | `v2.1.0-alpha.15/OpenPLC-HMI/feature/curso-jwplc-basic` | `64d0937` |
+| platform-jwplc | `v2.1.0-alpha.15/OpenPLC-HMI/feature/plantilla-proyecto` | `94659ed` |
+| platform-jwplc | `v2.1.0-alpha.15/OpenPLC-HMI/feature/cierre-curso-plantilla` | (esta feature) |
 | platform-jwplc | `v2.1.0-alpha.14-OpenPLC-HMI` (Kenyi) | `20ef597` |
 | platform-jwplc | `v2.1.0-alpha.14/HmiDesigner/main` | `7e7a141` |
 | openplc-editor | `v2.1.0-alpha.15/OpenPLC-HMI/feature/designer-alpha14-en-openplc` | `9a88922b8` |

@@ -131,8 +131,14 @@ pantalla sin escribir código. Las descargas están [al inicio](#descargas--v210
 - **Variables en vivo.** Lo que declares o cambies en el programa aparece en «Variable PLC» sin reabrir nada.
 - **Instaladores listos para descargar:** OpenPLC Editor – JWPLC Edition (con el Designer adentro), el paquete de
   placas firmado (VPP 2.1.0-alpha.15) y el HMI Designer para Arduino IDE.
+- **Curso JWPLC Basic** en *Archivo → Ejemplos → JWPLC_GlobalPeripherals → Curso_JWPLC_Basic*: unidades 1
+  («Primeros pasos») y 2 («Tiempo y lógica»), 11 lecciones de hola mundo a máquina de estados.
+- **Plantilla estándar de proyecto** en *Ejemplos → JWPLC_GlobalPeripherals → 00.Plantilla_Proyecto_JWPLC*:
+  pestañas fijas (configuración, tags, entradas, lógica, alarmas, salidas, HMI, comunicaciones, persistencia,
+  diagnóstico) y la ayuda dentro del proyecto para trabajar sin internet.
 
-El core del package es el mismo que en 2.1.0-alpha.14 (no cambia ninguna librería).
+Las librerías del package no cambian respecto de 2.1.0-alpha.14: sólo se agregan el curso y la plantilla como
+ejemplos.
 
 ## Novedades de v2.1.0-alpha.14
 
