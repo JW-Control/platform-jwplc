@@ -5,11 +5,13 @@
  * Designer (desktop.html?host=openplc&view=enlaces): vista previa, pestañas de
  * páginas, árbol de objetos y, en el inspector, sólo «Datos» para elegir la
  * «Variable PLC» de cada objeto. El diseño se edita en la ventana completa
- * («Editar diseño…» → JWPLCHMIHost.openEditor()).
+ * («Abrir HMI Designer para diseñar» → JWPLCHMIHost.openEditor()).
  *
  * Aquí no se dibuja, no se mueven ni borran objetos y no se crean páginas:
  *   - se ocultan las herramientas de dibujo, «Nuevo/Abrir/Guardar», «Actualizar
  *     HMI», Live, las pestañas Diseño/Técnico y el panel de código;
+ *   - el botón de arriba abre la ventana completa (también tras cerrarla) o la
+ *     trae al frente si sigue abierta;
  *   - un clic en el lienzo sólo selecciona; arrastrar, doble clic y las teclas
  *     de edición no hacen nada;
  *   - mientras la ventana completa está abierta (onEditorWindow) la vista queda
@@ -86,9 +88,22 @@
     bar.className = 'jwplc-bindings-bar';
     bar.innerHTML =
       '<span class="jwplc-bindings-chip">Vista de enlaces · elige la variable PLC de cada objeto</span>' +
-      '<button type="button" class="jwplc-bindings-edit" id="jwplcEditDesignButton">Editar diseño…</button>';
+      '<button type="button" class="jwplc-bindings-edit" id="jwplcEditDesignButton"></button>';
     anchor.appendChild(bar);
     bar.querySelector('button').addEventListener('click', () => host.openEditor?.());
+    syncEditButton();
+  }
+
+  // Abre la ventana del Designer (también después de cerrarla) o la trae al frente.
+  function syncEditButton() {
+    const button = document.getElementById('jwplcEditDesignButton');
+    if (!button) return;
+    const open = document.documentElement.classList.contains('jwplc-editor-open');
+    const text = open ? 'Ir a la ventana del HMI Designer' : 'Abrir HMI Designer para diseñar';
+    if (button.textContent !== text) button.textContent = text;
+    button.title = open
+      ? 'El diseño está abierto en su ventana: tráela al frente.'
+      : 'Abre el HMI Designer completo en su ventana para dibujar la pantalla.';
   }
 
   function ensureLockNote() {
@@ -211,6 +226,7 @@
   function setEditorOpen(open) {
     document.documentElement.classList.toggle('jwplc-editor-open', Boolean(open));
     document.querySelectorAll('.jwplc-plc-select').forEach((select) => { select.disabled = Boolean(open); });
+    syncEditButton();
   }
   host.onEditorWindow?.(setEditorOpen);
 

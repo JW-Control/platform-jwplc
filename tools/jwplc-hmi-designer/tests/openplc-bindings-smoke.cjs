@@ -3,7 +3,7 @@
 // desktop.html?host=openplc&view=enlaces). Simula el preload de openplc-editor y verifica: sin
 // herramientas de dibujo ni «Nuevo/Abrir/Actualizar HMI», inspector sólo con «Datos», arrastrar,
 // doble clic y Supr no cambian el diseño, un clic en el lienzo selecciona, el MENU sólo muestra la
-// variable del nodo, «Editar diseño…» llama a openEditor y con la ventana abierta la vista queda en
+// variable del nodo, el botón «Abrir HMI Designer para diseñar» llama a openEditor y con la ventana abierta la vista queda en
 // sólo lectura.
 //
 // Uso: node tools/jwplc-hmi-designer/tests/openplc-bindings-smoke.cjs [carpeta-salida]
@@ -126,7 +126,7 @@ async function main() {
     });
     check(!hidden.toolbar && !hidden.nuevo && !hidden.abrir && !hidden.actualizar && !hidden.live && !hidden.codigo && !hidden.addPage,
       `sin herramientas de dibujo, Nuevo/Abrir/Actualizar, Live, código ni «+» de páginas (${JSON.stringify(hidden)})`);
-    check(hidden.edit && hidden.objetos && hidden.preview, 'con «Editar diseño…», vista previa y árbol de objetos');
+    check(hidden.edit && hidden.objetos && hidden.preview, 'con el botón para abrir la ventana, vista previa y árbol de objetos');
     await page.evaluate(() => window.JWPLCHMIEditor.setSelectedFieldKeys([]));
     await page.waitForTimeout(500);
     const hint = await page.evaluate(() => { const h = document.getElementById('jwplcBindingsEmpty'); return h && !h.hidden && h.offsetParent ? h.textContent : ''; });
@@ -186,17 +186,26 @@ async function main() {
     await page.screenshot({ path: path.join(OUT, 'enlaces_menu.png') });
 
     console.log('VENTANA DEL EDITOR');
+    const label = await page.textContent('#jwplcEditDesignButton');
+    check(/Abrir HMI Designer/.test(label), `con la ventana cerrada el botón dice «${label}»`);
     await page.click('#jwplcEditDesignButton');
     await page.evaluate(() => window.__openplc.editorWindow(true));
     await page.waitForTimeout(500);
     const locked = await page.evaluate(() => ({
       calls: window.__openplc.calls.slice(),
       note: Boolean(document.querySelector('.jwplc-bindings-lock')?.offsetParent),
-      disabled: [...document.querySelectorAll('.jwplc-plc-select')].every((s) => s.disabled)
+      disabled: [...document.querySelectorAll('.jwplc-plc-select')].every((s) => s.disabled),
+      button: document.getElementById('jwplcEditDesignButton').textContent
     }));
-    check(locked.calls.includes('open-editor'), '«Editar diseño…» abre la ventana del Designer');
+    check(locked.calls.includes('open-editor') && /Ir a la ventana/.test(locked.button), 'el botón abre la ventana del Designer (y con ella abierta pasa a «Ir a la ventana…»)');
     check(locked.note && locked.disabled, `con la ventana abierta: aviso y selectores en sólo lectura (${JSON.stringify({ note: locked.note, disabled: locked.disabled })})`);
     await page.screenshot({ path: path.join(OUT, 'enlaces_bloqueada.png') });
+    // Cerrada la ventana, el botón vuelve a abrirla.
+    await page.evaluate(() => window.__openplc.editorWindow(false));
+    await page.waitForTimeout(300);
+    await page.click('#jwplcEditDesignButton');
+    const reopen = await page.evaluate(() => ({ calls: window.__openplc.calls.filter((c) => c === 'open-editor').length, label: document.getElementById('jwplcEditDesignButton').textContent }));
+    check(reopen.calls === 2 && /Abrir HMI Designer/.test(reopen.label), `cerrada la ventana, el botón la vuelve a abrir (${JSON.stringify(reopen)})`);
     check(errors.length === 0, `sin errores JS (${errors.join(' | ') || 'ninguno'})`);
   } finally {
     await browser.close();
