@@ -28,8 +28,8 @@
 // Un contacto mecánico "rebota": al cerrarse se abre y se cierra varias veces
 // en pocos milisegundos. Si el programa lo leyera en cada vuelta, contaría una
 // pulsación como varias. Por eso se lee solo cada 20 ms: el rebote ya pasó.
-const unsigned long ANTIRREBOTE_MS = 20;
-unsigned long ultimaLectura = 0;
+const uint32_t ANTIRREBOTE_MS = 20;
+uint32_t ultimaLectura = 0;
 
 // Lectura de la vuelta anterior. Empieza en false: pulsador suelto.
 bool antes = false;

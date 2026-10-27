@@ -32,10 +32,10 @@
 
 // Cada cuánto cambia la intermitencia, en milisegundos. "const" indica que
 // es un valor fijo: el programa no lo puede modificar por error.
-const unsigned long INTERVALO_MS = 500;
+const uint32_t INTERVALO_MS = 500;
 
 // Momento (en milisegundos) del último cambio de la intermitencia.
-unsigned long ultimoCambio = 0;
+uint32_t ultimoCambio = 0;
 
 // Estado actual de la luz intermitente.
 bool luzEncendida = false;
@@ -47,7 +47,7 @@ void setup()
 void loop()
 {
     // millis() devuelve los milisegundos que pasaron desde el arranque.
-    unsigned long ahora = millis();
+    uint32_t ahora = millis();
 
     // Tarea 1: la intermitencia. "ahora - ultimoCambio" es el tiempo que pasó
     // desde el último cambio. Esta resta sigue funcionando bien incluso

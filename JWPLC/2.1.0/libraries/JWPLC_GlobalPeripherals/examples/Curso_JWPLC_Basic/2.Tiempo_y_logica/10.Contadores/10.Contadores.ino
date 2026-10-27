@@ -31,11 +31,11 @@
   - Cuenta también las cajas llenas y muéstralas en el Monitor Serie.
 */
 
-const unsigned int PIEZAS_POR_CAJA = 10;
-const unsigned long ANTIRREBOTE_MS = 20;
+const uint16_t PIEZAS_POR_CAJA = 10;
+const uint32_t ANTIRREBOTE_MS = 20;
 
-unsigned int piezas = 0;
-unsigned long ultimaLectura = 0;
+uint16_t piezas = 0;
+uint32_t ultimaLectura = 0;
 bool sensorAntes = false;
 bool resetAntes = false;
 

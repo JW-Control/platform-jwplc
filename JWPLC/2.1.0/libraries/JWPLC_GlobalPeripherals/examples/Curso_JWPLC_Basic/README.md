@@ -32,7 +32,7 @@ Placa: **JWPLC Basic** (Herramientas → Placa → JW Control ESP32 Boards).
 | | 02.Encender_un_rele | `digitalWrite()`, `HIGH`/`LOW` y `delay()` |
 | | 03.Leer_una_entrada | `digitalRead()` y el cableado de un pulsador o sensor |
 | | 04.Variables_y_decisiones | `bool`, `if`/`else` y la lógica Y, O, NO |
-| | 05.Las_8_entradas_y_salidas | listas (arreglos) y el bucle `for` |
+| | 05.Las_8_entradas_y_salidas | listas, bytes y bits: `digitalReadBlock()`, `digitalWriteBlock()` y el bucle `for` |
 | **2. El tiempo y la lógica** | 06.Tiempo_sin_delay | `millis()`: esperar sin detener el programa |
 | | 07.Flancos_un_pulsador | detectar el instante de la pulsación (telerruptor) |
 | | 08.Marcha_y_parada | enclavamiento con pulsador de marcha y de parada |

@@ -37,8 +37,9 @@ void setup()
 void loop()
 {
     // digitalRead() devuelve HIGH si la entrada recibe 24 V, o LOW si no.
-    // El resultado se guarda en una variable para usarlo dos veces.
-    int estado = digitalRead(I0_0);
+    // El resultado se guarda en una variable para usarlo dos veces. uint8_t
+    // es un número entero de 8 bits (de 0 a 255): HIGH vale 1 y LOW vale 0.
+    uint8_t estado = digitalRead(I0_0);
 
     // La salida copia a la entrada: entrada activa -> relé cerrado.
     digitalWrite(Q0_0, estado);

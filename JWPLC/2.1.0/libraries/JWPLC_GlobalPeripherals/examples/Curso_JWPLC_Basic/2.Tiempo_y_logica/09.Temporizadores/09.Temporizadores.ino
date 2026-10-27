@@ -37,7 +37,7 @@
 // el momento en que empezó a contar y si su salida está activa.
 struct Temporizador
 {
-    unsigned long inicio;
+    uint32_t inicio;
     bool salida;
 };
 
@@ -48,7 +48,7 @@ Temporizador luzPasillo = {0, false};
 // Retardo a la conexión (TON).
 // El & delante de "t" hace que la función trabaje sobre el temporizador
 // original y no sobre una copia: así recuerda su estado entre vueltas.
-bool retardoConexion(Temporizador &t, bool entrada, unsigned long tiempoMs)
+bool retardoConexion(Temporizador &t, bool entrada, uint32_t tiempoMs)
 {
     if (!entrada)
     {
@@ -64,7 +64,7 @@ bool retardoConexion(Temporizador &t, bool entrada, unsigned long tiempoMs)
 }
 
 // Retardo a la desconexión (TOF).
-bool retardoDesconexion(Temporizador &t, bool entrada, unsigned long tiempoMs)
+bool retardoDesconexion(Temporizador &t, bool entrada, uint32_t tiempoMs)
 {
     if (entrada)
     {

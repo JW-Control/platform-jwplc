@@ -21,9 +21,10 @@
   - Haz que el número suba cada medio segundo (500 milisegundos).
 */
 
-// Una variable guarda un dato que puede cambiar. "unsigned long" es un número
-// entero grande y sin signo (nunca negativo): sirve para contar mucho tiempo.
-unsigned long segundos = 0;
+// Una variable guarda un dato que puede cambiar. Su tipo dice qué guarda:
+// uint32_t es un número entero sin signo (nunca negativo) de 32 bits, de 0 a
+// 4 294 967 295. Sirve para contar mucho tiempo.
+uint32_t segundos = 0;
 
 // setup() se ejecuta UNA sola vez, justo después de encender o reiniciar el
 // equipo. Aquí se prepara todo lo que el programa necesita.

@@ -42,14 +42,14 @@ enum Estado
     ROJO
 };
 
-const unsigned long VERDE_MINIMO_MS = 10000;
-const unsigned long VERDE_MAXIMO_MS = 30000;
-const unsigned long AMARILLO_MS = 3000;
-const unsigned long ROJO_MS = 8000;
+const uint32_t VERDE_MINIMO_MS = 10000;
+const uint32_t VERDE_MAXIMO_MS = 30000;
+const uint32_t AMARILLO_MS = 3000;
+const uint32_t ROJO_MS = 8000;
 
 Estado estado = VERDE;
-unsigned long inicioEstado = 0;  // Momento en que se entró al estado actual.
-bool peatonEsperando = false;    // Recuerda el pedido del botón.
+uint32_t inicioEstado = 0;     // Momento en que se entró al estado actual.
+bool peatonEsperando = false;  // Recuerda el pedido del botón.
 
 // Cambia de estado y anota el momento, para medir cuánto lleva en él.
 void cambiarA(Estado nuevo, const char *nombre)
@@ -68,7 +68,7 @@ void setup()
 
 void loop()
 {
-    unsigned long enEstado = millis() - inicioEstado;
+    uint32_t enEstado = millis() - inicioEstado;
 
     // El pedido del peatón se guarda aunque el botón se suelte enseguida.
     if (digitalRead(I0_0) == HIGH)
