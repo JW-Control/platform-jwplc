@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// El Designer dentro de OpenPLC (contrato jwplc-hmi-host/1, puente 1.1). Simula la ventana que abre
+// El Designer dentro de OpenPLC (contrato jwplc-hmi-host/1, puente 1.4). Simula la ventana que abre
 // openplc-editor (src/main/modules/hmi-designer/index.ts + preload/hmi-designer-preload.ts): el
 // «sketch» vinculado es la carpeta hmi/ del proyecto, en memoria. Verifica textos «OpenPLC: …» y
 // «Actualizar HMI» estables, menú sin acciones de Arduino, «Actualizar HMI» y «Guardar» escriben
@@ -81,6 +81,8 @@ function openplcMock(seed) {
     // El anfitrión ignora el nombre: siempre hmi/JWPLC_HMI.jwhmi.
     writeProject: async (fileName, text) => { calls.push(`project:${fileName}`); files['JWPLC_HMI.jwhmi'] = text; return { ok: true, fileName: 'JWPLC_HMI.jwhmi' }; },
     openSketchFolder: async () => { calls.push('open-folder'); return { ok: true }; },
+    registerCloseGuard: (onCloseRequested) => { calls.push('close-guard'); window.__openplc.requestClose = onCloseRequested; },
+    confirmClose: () => calls.push('close-confirmed'),
     registerSerialPortPicker: () => calls.push('serial-picker'),
     chooseSerialPort: () => calls.push('serial-chosen')
   };
@@ -95,7 +97,6 @@ function openplcMock(seed) {
   window.JWPLCHMIHost = {
     version: 1,
     mode: 'openplc',
-    embedded: true,
     getContext: async () => ({ projectName: 'HMIProbe', device: 'JWPLC BASIC [2.0.0]', display: { width: 320, height: 170 } }),
     listVariables: async () => window.__openplc.variables.slice(),
     loadProject: async () => (files['JWPLC_HMI.jwhmi'] ? JSON.parse(files['JWPLC_HMI.jwhmi']) : null),
@@ -156,7 +157,7 @@ async function main() {
     check(first.link === 'OpenPLC: HMIProbe' && /^OpenPLC: HMIProbe · hmi\//.test(first.status), 'botón y barra de estado nombran el proyecto OpenPLC');
     check(first.update === 'Actualizar HMI' && !first.updateDisabled, '«Actualizar HMI» habilitado');
     const registered = await a.page.evaluate(() => window.__openplc.calls.slice());
-    check(registered.includes('serial-picker') && !registered.includes('close-guard'), `registra el selector de puertos, sin guarda de cierre: es una pestaña (${registered.join(',')})`);
+    check(registered.includes('serial-picker') && registered.includes('close-guard'), `registra el selector de puertos y la guarda de cierre de la ventana (${registered.join(',')})`);
 
     await a.page.click('#linkSketchButton');
     await a.page.waitForSelector('.sketch-menu');

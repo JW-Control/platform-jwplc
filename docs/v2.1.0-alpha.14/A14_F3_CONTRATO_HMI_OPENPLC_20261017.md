@@ -262,3 +262,25 @@ Verificación:
 - `[ejecutado]` openplc-editor: `tsc`, `eslint`, tests de `tabs/utils`, del adaptador de dispositivo y de
   `hmi-designer-save`.
 - `[no verificado]` en la app instalada (pestaña, guardado, puerto serie del Live Preview dentro de la pestaña).
+
+## 10. Versión 1.4: ventana completa + vista de enlaces en la pestaña (27/10/2026)
+
+Tras probar la 1.3, el propietario pidió volver a la ventana aparte para diseñar y dejar en OpenPLC sólo una versión
+recortada. Reemplaza la 1.3 en lo que dice de la pestaña.
+
+| Tema | Regla |
+|---|---|
+| Árbol | Una sola entrada **HMI Designer** bajo Device. La pantalla del VPP del HMI (secciones `hmi_*`, hoy el diagnóstico «Medir tiempos de scan») ya no sale en el árbol: se muestra en «Pantalla HMI» de *Configuration* y se guarda con Configuration (`isHmiVendorScreen`) |
+| Clic en el árbol / «Abrir HMI Designer» | Abre el Designer **completo en su ventana** y, en OpenPLC, la pestaña «HMI Designer» con la **vista de enlaces** |
+| Vista de enlaces | `desktop.html?host=openplc&view=enlaces` (`designer-openplc-bindings.js`): vista previa, pestañas de páginas, árbol de objetos e inspector sólo con «Variable PLC» (en MENU, la variable del nodo). Sin dibujo, sin mover ni borrar, sin «Nuevo/Abrir/Actualizar HMI», sin Live ni panel de código. Botón «Editar diseño…» = `JWPLCHMIHost.openEditor()` |
+| Ventana abierta | La vista queda en sólo lectura (`onEditorWindow(true)`) y el anfitrión rechaza sus escrituras en `hmi/`. Cada vez que la ventana guarda, y al cerrarla, la vista se recarga |
+| Guardar | Ctrl+S / Guardar proyecto / antes de compilar: guarda la ventana si está abierta, si no la vista. La marca «sin guardar» de la pestaña es la de cualquiera de las dos |
+| Cerrar | La ventana pregunta si hay cambios (`registerCloseGuard` vuelve a exponerse); al cerrar OpenPLC se guarda sin preguntar |
+
+Verificación:
+
+- `[ejecutado]` platform-jwplc: `tests/openplc-bindings-smoke.cjs` (11 PASS) y `tests/openplc-host-smoke.cjs`.
+- `[ejecutado]` openplc-editor: prueba con Electron real (xvfb) de ventana + pestaña: vista recortada, ventana completa,
+  sólo lectura, escritura rechazada, guardar desde OpenPLC, recarga de la vista, enlazar en la pestaña, variables en
+  vivo y guardado al salir (14/14); `tsc`, `eslint`, tests (777) en verde.
+- `[no verificado]` en la app instalada y en la placa.

@@ -25,6 +25,7 @@
   const DIRTY_POLL_MS = 600;
   const INTEGER_TYPES = new Set(['INT', 'UINT', 'WORD', 'DINT', 'UDINT', 'DWORD']);
   let variables = [];
+  const bindingBoxes = new WeakMap();
   let variablesVersion = 0;
   let scheduled = false;
 
@@ -180,14 +181,18 @@
       input.readOnly = true;
       input.title = 'En un proyecto OpenPLC el nombre C++ se genera a partir de la variable PLC.';
 
-      let box = input.closest('label')?.previousElementSibling;
-      if (!box?.classList?.contains('jwplc-plc-binding')) {
+      // El selector de cada input se recuerda (el de BAR no está dentro de un <label>).
+      let box = bindingBoxes.get(input);
+      if (!box?.isConnected) {
         box = document.createElement('div');
+        bindingBoxes.set(input, box);
         box.className = 'jwplc-plc-binding';
         box.innerHTML =
           '<label class="field-label">Variable PLC <select class="field-input jwplc-plc-select"></select></label>' +
           '<div class="insp-note jwplc-plc-note"></div>';
-        (input.closest('label') || input).before(box);
+        // Antes del <label> del input; si no tiene (BAR), antes de su fila (input + copiar).
+        const row = input.parentElement && input.parentElement.children.length > 1 ? input.parentElement : input;
+        (input.closest('label') || row).before(box);
         box.querySelector('select').addEventListener('change', (event) => {
           const current = describeTarget(input);
           if (current) bind(input, current, event.target.value);
@@ -203,7 +208,8 @@
         note.textContent = target.note;
         continue;
       }
-      select.disabled = false;
+      // Con la ventana del editor abierta, la vista de enlaces es de sólo lectura.
+      select.disabled = document.documentElement.classList.contains('jwplc-editor-open');
       renderOptions(select, target);
       const bound = target.object.plcBinding?.var || '';
       const match = variables.find((v) => v.name.toLowerCase() === bound.toLowerCase());
