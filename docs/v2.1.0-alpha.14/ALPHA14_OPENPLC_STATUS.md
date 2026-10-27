@@ -17,7 +17,7 @@ F3_PUENTE_1_1=PASS [ejecutado]
 F3_VARIABLES_SIN_DIRECCION_1_2=PASS [ejecutado]
 F3_VENTANA_Y_VISTA_DE_ENLACES_1_4=PASS [ejecutado] (Electron real 14/14 + tests del Designer)
 VPP_2_1_0_ALPHA_15=PASS (firma jwcontrol-2026 3b46176, verificada con el verificador del editor)
-INSTALADOR_EDITOR=4.2.8-jwplc.7 publicado (tag jwplc-editor-v4.2.8-jwplc.7 @ 9a88922)
+INSTALADOR_EDITOR=4.2.8-jwplc.8 (= jwplc.7 con nombres de descarga cortos; tag jwplc-editor-v4.2.8-jwplc.8 @ 4a61c0b)
 F3_CADENA_COMPLETA_EN_APP_Y_PLACA=PASS_PHYSICAL (propietario, 27/10/2026)
 CIERRE=IN_PROGRESS (feature/cierre-alpha15 -> …/main -> PR a release/v2.1.x con autorización)
 ```
@@ -29,7 +29,7 @@ CIERRE=IN_PROGRESS (feature/cierre-alpha15 -> …/main -> PR a release/v2.1.x co
 | Package `jwplc:esp32` | 2.1.0-alpha.15 (librerías iguales a 2.1.0-alpha.14; + curso y plantilla como ejemplos) | platform-jwplc `…/main` |
 | HMI Designer | 2.1.0-alpha.15 | platform-jwplc `fbb61e6` (fijado en `PLATFORM_DESIGNER_SHA` del editor) |
 | VPP JWPLC Basic | 2.1.0-alpha.15 | platform-jwplc `a8458dc` (fijado en `PLATFORM_VPP_SHA`) |
-| OpenPLC Editor – JWPLC Edition | 4.2.8-jwplc.7 | openplc-editor `9a88922` |
+| OpenPLC Editor – JWPLC Edition | 4.2.8-jwplc.8 | openplc-editor `4a61c0b` |
 
 Los dos SHAs fijados son alcanzables desde `…/main` (entraron con merge commits).
 
@@ -50,6 +50,7 @@ Los dos SHAs fijados son alcanzables desde `…/main` (entraron con merge commit
 | 27/10 | platform-jwplc | PR #184 `feature/plantilla-proyecto` @ `94659ed` (plantilla de proyecto) | `e7bb3f9` |
 | 27/10 | openplc-editor | PR #7 `feature/designer-alpha14-en-openplc` @ `9a88922` | `da89ca9d3` |
 | 27/10 | openplc-editor | PR #8 `feature/flujo-de-trabajo` @ `41ca36daa` | `8fb704a66` |
+| 27/10 | openplc-editor | PR #9 `feature/nombres-cortos` (4.2.8-jwplc.8) | `4a61c0b66` |
 
 PR #178 (`sync/jw-libraries-v2.1`, snapshot de JW-Libraries con JW_DWIN) queda fuera de esta alpha.
 
@@ -67,7 +68,9 @@ Todas están contenidas en `…/main` de su repo. Se borran con OK del propietar
 | platform-jwplc | `v2.1.0-alpha.15/OpenPLC-HMI/feature/cierre-alpha15` | `858bb32` |
 | platform-jwplc | `v2.1.0-alpha.15/OpenPLC-HMI/feature/curso-jwplc-basic` | `64d0937` |
 | platform-jwplc | `v2.1.0-alpha.15/OpenPLC-HMI/feature/plantilla-proyecto` | `94659ed` |
-| platform-jwplc | `v2.1.0-alpha.15/OpenPLC-HMI/feature/cierre-curso-plantilla` | (esta feature) |
+| platform-jwplc | `v2.1.0-alpha.15/OpenPLC-HMI/feature/cierre-curso-plantilla` | `2e180b4` |
+| platform-jwplc | `v2.1.0-alpha.15/OpenPLC-HMI/feature/nombres-cortos` | (esta feature) |
+| openplc-editor | `v2.1.0-alpha.15/OpenPLC-HMI/feature/nombres-cortos` | `4a61c0b66` (merge) |
 | platform-jwplc | `v2.1.0-alpha.14-OpenPLC-HMI` (Kenyi) | `20ef597` |
 | platform-jwplc | `v2.1.0-alpha.14/HmiDesigner/main` | `7e7a141` |
 | openplc-editor | `v2.1.0-alpha.15/OpenPLC-HMI/feature/designer-alpha14-en-openplc` | `9a88922b8` |

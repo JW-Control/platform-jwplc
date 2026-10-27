@@ -10,9 +10,9 @@ ejemplos nuevos de `JWPLC_GlobalPeripherals` (el Curso JWPLC Basic y la plantill
 
 | Qué | Dónde |
 |---|---|
-| **OpenPLC Editor – JWPLC Edition 4.2.8-jwplc.7** (Windows x64, con el HMI Designer adentro) | [Instalador](https://github.com/JW-Control/openplc-editor/releases/download/jwplc-editor-v4.2.8-jwplc.7/OpenPLC.Editor.-.JWPLC.Edition_4.2.8-jwplc.7.exe) · [notas y SHA-256](https://github.com/JW-Control/openplc-editor/releases/tag/jwplc-editor-v4.2.8-jwplc.7) |
-| **Paquete de placas JWPLC Basic (VPP) 2.1.0-alpha.15**, firmado (`jwcontrol-2026`) | [VPP](https://github.com/JW-Control/openplc-editor/releases/download/jwplc-editor-v4.2.8-jwplc.7/jwplc-basic-openplc-2.1.0-alpha.15.jwcontrol-signed.vpp) |
-| **JWPLC HMI Designer 2.1.0-alpha.15** para Arduino IDE (Setup y portable) | adjuntos a esta Release |
+| **OpenPLC Editor – JWPLC Edition 4.2.8-jwplc.8** (Windows x64, con el HMI Designer adentro) | [`OpenPLC-Editor.exe`](https://github.com/JW-Control/openplc-editor/releases/download/jwplc-editor-v4.2.8-jwplc.8/OpenPLC-Editor.exe) · [notas y SHA-256](https://github.com/JW-Control/openplc-editor/releases/tag/jwplc-editor-v4.2.8-jwplc.8) |
+| **Paquete de placas JWPLC Basic (VPP) 2.1.0-alpha.15**, firmado (`jwcontrol-2026`) | [`JWPLC-Basic.vpp`](https://github.com/JW-Control/openplc-editor/releases/download/jwplc-editor-v4.2.8-jwplc.8/JWPLC-Basic.vpp) |
+| **JWPLC HMI Designer 2.1.0-alpha.15** para Arduino IDE | adjuntos a esta Release: `HMI-Designer-Setup.exe`, `HMI-Designer-Portable.exe` y `HMI-Designer-SHA256.txt` |
 | **Package Arduino** `jwplc:esp32@2.1.0-alpha.15` | índice dev (ver README) |
 
 Los instaladores no tienen firma de código: si Windows SmartScreen avisa, **Más información → Ejecutar de todas
@@ -52,8 +52,8 @@ formas**.
 ## Instalación
 
 1. Package: en Arduino IDE agregar el índice dev e instalar **JW Control ESP32 Boards 2.1.0-alpha.15** (ver README).
-2. OpenPLC Editor: ejecutar el instalador 4.2.8-jwplc.7 (actualiza una JWPLC Edition anterior).
-3. En el editor, importar el VPP 2.1.0-alpha.15 y elegir la placa **JWPLC BASIC [2.0.0]**.
+2. OpenPLC Editor: ejecutar `OpenPLC-Editor.exe` (4.2.8-jwplc.8; actualiza una JWPLC Edition anterior).
+3. En el editor, importar `JWPLC-Basic.vpp` (2.1.0-alpha.15) y elegir la placa **JWPLC BASIC [2.0.0]**.
 4. En el proyecto, **Device › HMI Designer**.
 
 ## Verificación
@@ -85,4 +85,4 @@ formas**.
 | Package `jwplc:esp32` | 2.1.0-alpha.15 (librerías = 2.1.0-alpha.14 + ejemplos del curso y la plantilla) | `release/v2.1.x` al publicar |
 | HMI Designer | 2.1.0-alpha.15 | platform-jwplc `fbb61e6` |
 | VPP JWPLC Basic | 2.1.0-alpha.15 (firma `3b46176`) | platform-jwplc `a8458dc` |
-| OpenPLC Editor – JWPLC Edition | 4.2.8-jwplc.7 | openplc-editor `9a88922` (tag `jwplc-editor-v4.2.8-jwplc.7`) |
+| OpenPLC Editor – JWPLC Edition | 4.2.8-jwplc.8 (programa = 4.2.8-jwplc.7, nombres cortos) | openplc-editor `4a61c0b` (tag `jwplc-editor-v4.2.8-jwplc.8`) |
