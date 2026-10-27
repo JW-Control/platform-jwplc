@@ -1,6 +1,6 @@
 # JWPLC Platform for Arduino IDE
 
-<!-- JWPLC_RELEASE_VERSION: 2.1.0-alpha.14 -->
+<!-- JWPLC_RELEASE_VERSION: 2.1.0-alpha.15 -->
 
 Package oficial de **JW Control** para programar el **JWPLC Basic** desde
 Arduino IDE y Arduino CLI.
@@ -11,7 +11,7 @@ sketch. Tu programa se ocupa solo de la lógica de la máquina.
 
 ---
 
-## Descargas · nuevo en v2.1.0-alpha.15: OpenPLC + HMI
+## Descargas · v2.1.0-alpha.15: OpenPLC + HMI
 
 Programa el JWPLC Basic en **Ladder** desde OpenPLC Editor y diséñale la pantalla con el **HMI Designer**, que
 viene incluido: lo abres desde el proyecto y, en el mismo editor, enlazas cada objeto de la pantalla a una variable
@@ -23,13 +23,13 @@ del programa, sin escribir código.
 | **Paquete de placas JWPLC Basic (VPP) 2.1.0-alpha.15** | [⬇ VPP firmado](https://github.com/JW-Control/openplc-editor/releases/download/jwplc-editor-v4.2.8-jwplc.7/jwplc-basic-openplc-2.1.0-alpha.15.jwcontrol-signed.vpp) | Se importa en OpenPLC Editor: placa JWPLC BASIC y su Pantalla HMI |
 | **JWPLC HMI Designer 2.1.0-alpha.15** | [⬇ Instalador](https://github.com/JW-Control/platform-jwplc/releases/download/hmi-designer-v2.1.0-alpha.15/JWPLC-HMI-Designer-Setup-2.1.0-alpha.15-x64.exe) · [⬇ Portable](https://github.com/JW-Control/platform-jwplc/releases/download/hmi-designer-v2.1.0-alpha.15/JWPLC-HMI-Designer-Portable-2.1.0-alpha.15-x64.exe) | Solo para usarlo con sketches de Arduino IDE (en OpenPLC ya viene incluido) |
 
-Requisitos: Windows 10/11 de 64 bits y el package **JWPLC 2.1.0-alpha.14** o superior instalado (ver
+Requisitos: Windows 10/11 de 64 bits y el package **JWPLC 2.1.0-alpha.15** (o 2.1.0-alpha.14) instalado (ver
 [Instalación](#instalación)). Los instaladores no tienen firma de código: si Windows SmartScreen avisa, pulsa
 **Más información → Ejecutar de todas formas**. Pasos completos y sumas SHA-256 en las notas de cada descarga:
 [OpenPLC Editor](https://github.com/JW-Control/openplc-editor/releases/tag/jwplc-editor-v4.2.8-jwplc.7) ·
 [HMI Designer](https://github.com/JW-Control/platform-jwplc/releases/tag/hmi-designer-v2.1.0-alpha.15).
 
-> Versiones de prueba de la alpha 15: pendientes de validación en placa.
+> Probado en un JWPLC Basic: Ladder con variables enlazadas a la pantalla, compilar, subir y ver la TFT.
 
 ---
 
@@ -38,7 +38,7 @@ Requisitos: Windows 10/11 de 64 bits y el package **JWPLC 2.1.0-alpha.14** o sup
 | Canal | Versión | Para quién |
 |---|---|---|
 | Estable | `v2.0.0` | Proyectos en producción |
-| Desarrollo (PreRelease) | `v2.1.0-alpha.14` | Probar las novedades de la línea 2.1 |
+| Desarrollo (PreRelease) | `v2.1.0-alpha.15` | Probar las novedades de la línea 2.1 |
 
 La versión de desarrollo se publica como PreRelease en GitHub y se instala
 desde un índice propio, separado del estable.
@@ -76,7 +76,7 @@ Con Arduino CLI:
 arduino-cli config add board_manager.additional_urls \
   https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/JWPLC/package_jwplc_index_dev.json
 arduino-cli core update-index
-arduino-cli core install jwplc:esp32@2.1.0-alpha.14
+arduino-cli core install jwplc:esp32@2.1.0-alpha.15
 ```
 
 No instales a mano librerías con los mismos nombres que trae el package: el
@@ -115,6 +115,24 @@ excepción es Modbus TCP, que es opcional y se agrega con
 `#include <JWPLC_ModbusTCP.h>`.
 
 ---
+
+## Novedades de v2.1.0-alpha.15
+
+Alpha 15 une el JWPLC Basic con **OpenPLC Editor** y el **HMI Designer**: programas en Ladder y le diseñas la
+pantalla sin escribir código. Las descargas están [al inicio](#descargas--v210-alpha15-openplc--hmi).
+
+- **HMI Designer dentro de OpenPLC.** En el árbol del proyecto, bajo Device, la entrada **HMI Designer** abre el
+  Designer completo en su ventana para dibujar la pantalla. De vuelta en OpenPLC, la pestaña «HMI Designer» muestra
+  la vista previa, las páginas y el árbol de objetos para **enlazar cada objeto a una variable del programa**.
+- **Variables del Ladder sin dirección.** Las variables que declaras en el `main` (BOOL, enteros hasta 32 bits y
+  REAL) se enlazan aunque no tengan `%IX`/`%QX`; la pantalla las lee y las escribe.
+- **Todo se guarda con el proyecto.** La pantalla vive en la carpeta `hmi/` del proyecto; Ctrl+S, «Guardar
+  proyecto» y el guardado antes de compilar la incluyen.
+- **Variables en vivo.** Lo que declares o cambies en el programa aparece en «Variable PLC» sin reabrir nada.
+- **Instaladores listos para descargar:** OpenPLC Editor – JWPLC Edition (con el Designer adentro), el paquete de
+  placas firmado (VPP 2.1.0-alpha.15) y el HMI Designer para Arduino IDE.
+
+El core del package es el mismo que en 2.1.0-alpha.14 (no cambia ninguna librería).
 
 ## Novedades de v2.1.0-alpha.14
 
@@ -270,7 +288,9 @@ Aplicación para Windows que permite diseñar las pantallas del JWPLC de forma
 visual: textos, valores, indicadores, barras, menús, figuras e imágenes, en una
 o varias páginas. Escribe en la carpeta del sketch el archivo
 `JWPLC_HMI_Generated.h` y una guía para usarlo, se abre desde el Arduino IDE y
-ofrece vista previa en vivo conectada al equipo.
+ofrece vista previa en vivo conectada al equipo. Desde 2.1.0-alpha.15 también
+viene dentro de OpenPLC Editor – JWPLC Edition, enlazado a las variables del
+programa.
 
 Instalación y uso: [tools/jwplc-hmi-designer](tools/jwplc-hmi-designer/README.md).
 
@@ -280,6 +300,7 @@ Instalación y uso: [tools/jwplc-hmi-designer](tools/jwplc-hmi-designer/README.m
 
 | Versión | Tema principal |
 |---|---|
+| [`v2.1.0-alpha.15`](https://github.com/JW-Control/platform-jwplc/releases/tag/v2.1.0-alpha.15) | OpenPLC Editor + HMI Designer: Ladder con pantalla enlazada a sus variables |
 | [`v2.1.0-alpha.14`](https://github.com/JW-Control/platform-jwplc/releases/tag/v2.1.0-alpha.14) | HMI Designer renovado, menús en pantalla, formatos industriales y buzzer |
 | [`v2.1.0-alpha.13`](https://github.com/JW-Control/platform-jwplc/releases/tag/v2.1.0-alpha.13) | Robustez de Ethernet, Modbus TCP y bus compartido; compilación más rápida |
 | [`v2.1.0-alpha.12`](https://github.com/JW-Control/platform-jwplc/releases/tag/v2.1.0-alpha.12) | Modbus TCP, motor asíncrono de Modbus RTU y nuevo backend de pantalla |
@@ -296,5 +317,8 @@ Las notas completas de cada versión están en su página de Release y en
 ## Para desarrolladores del package
 
 El estado técnico, la evidencia de pruebas y las decisiones de cada alpha
-viven en `docs/`. La 2.1.0-alpha.14 se desarrolló como línea Alpha 15:
-empieza por [ALPHA15_STATUS.md](docs/v2.1.0-alpha.15/ALPHA15_STATUS.md).
+viven en `docs/`. La 2.1.0-alpha.15 (OpenPLC + HMI) se desarrolló como línea de
+trabajo Alpha 14: empieza por
+[ALPHA14_OPENPLC_STATUS.md](docs/v2.1.0-alpha.14/ALPHA14_OPENPLC_STATUS.md). La
+2.1.0-alpha.14 se desarrolló como línea Alpha 15:
+[ALPHA15_STATUS.md](docs/v2.1.0-alpha.15/ALPHA15_STATUS.md).
