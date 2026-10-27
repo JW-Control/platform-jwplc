@@ -13,20 +13,20 @@ sketch. Tu programa se ocupa solo de la lógica de la máquina.
 
 ## Descargas · nuevo en v2.1.0-alpha.15: OpenPLC + HMI
 
-Programa el JWPLC Basic en **Ladder** desde OpenPLC Editor y diséñale la pantalla con el **HMI Designer**,
-que se abre como una pestaña más del editor: las variables del programa se enlazan a la pantalla sin escribir
-código.
+Programa el JWPLC Basic en **Ladder** desde OpenPLC Editor y diséñale la pantalla con el **HMI Designer**, que
+viene incluido: lo abres desde el proyecto y, en el mismo editor, enlazas cada objeto de la pantalla a una variable
+del programa, sin escribir código.
 
 | Descarga | Archivo | Para qué |
 |---|---|---|
-| **OpenPLC Editor – JWPLC Edition 4.2.8-jwplc.5** | [⬇ Instalador Windows x64](https://github.com/JW-Control/openplc-editor/releases/download/jwplc-editor-v4.2.8-jwplc.5/OpenPLC.Editor.-.JWPLC.Edition_4.2.8-jwplc.5.exe) | Editor OpenPLC con el HMI Designer adentro |
-| **Paquete de placas JWPLC Basic (VPP) 2.1.0-alpha.15** | [⬇ VPP firmado](https://github.com/JW-Control/openplc-editor/releases/download/jwplc-editor-v4.2.8-jwplc.5/jwplc-basic-openplc-2.1.0-alpha.15.jwcontrol-signed.vpp) | Se importa en OpenPLC Editor: placa JWPLC BASIC y su Pantalla HMI |
+| **OpenPLC Editor – JWPLC Edition 4.2.8-jwplc.6** | [⬇ Instalador Windows x64](https://github.com/JW-Control/openplc-editor/releases/download/jwplc-editor-v4.2.8-jwplc.6/OpenPLC.Editor.-.JWPLC.Edition_4.2.8-jwplc.6.exe) | Editor OpenPLC con el HMI Designer adentro |
+| **Paquete de placas JWPLC Basic (VPP) 2.1.0-alpha.15** | [⬇ VPP firmado](https://github.com/JW-Control/openplc-editor/releases/download/jwplc-editor-v4.2.8-jwplc.6/jwplc-basic-openplc-2.1.0-alpha.15.jwcontrol-signed.vpp) | Se importa en OpenPLC Editor: placa JWPLC BASIC y su Pantalla HMI |
 | **JWPLC HMI Designer 2.1.0-alpha.15** | [⬇ Instalador](https://github.com/JW-Control/platform-jwplc/releases/download/hmi-designer-v2.1.0-alpha.15/JWPLC-HMI-Designer-Setup-2.1.0-alpha.15-x64.exe) · [⬇ Portable](https://github.com/JW-Control/platform-jwplc/releases/download/hmi-designer-v2.1.0-alpha.15/JWPLC-HMI-Designer-Portable-2.1.0-alpha.15-x64.exe) | Solo para usarlo con sketches de Arduino IDE (en OpenPLC ya viene incluido) |
 
 Requisitos: Windows 10/11 de 64 bits y el package **JWPLC 2.1.0-alpha.14** o superior instalado (ver
 [Instalación](#instalación)). Los instaladores no tienen firma de código: si Windows SmartScreen avisa, pulsa
 **Más información → Ejecutar de todas formas**. Pasos completos y sumas SHA-256 en las notas de cada descarga:
-[OpenPLC Editor](https://github.com/JW-Control/openplc-editor/releases/tag/jwplc-editor-v4.2.8-jwplc.5) ·
+[OpenPLC Editor](https://github.com/JW-Control/openplc-editor/releases/tag/jwplc-editor-v4.2.8-jwplc.6) ·
 [HMI Designer](https://github.com/JW-Control/platform-jwplc/releases/tag/hmi-designer-v2.1.0-alpha.15).
 
 > Versiones de prueba de la alpha 15: pendientes de validación en placa.
