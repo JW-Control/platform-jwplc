@@ -36,7 +36,7 @@ New-Item -ItemType Directory -Force -Path $distRoot | Out-Null
 Copy-Item -LiteralPath $sourceIcon -Destination $electronIcon -Force
 
 Write-Host '================================================' -ForegroundColor DarkCyan
-Write-Host ' JWPLC HMI Designer - Build Electron 2.1.0-alpha.14' -ForegroundColor Cyan
+Write-Host ' JWPLC HMI Designer - Build Electron 2.1.0-alpha.15' -ForegroundColor Cyan
 Write-Host '================================================' -ForegroundColor DarkCyan
 Write-Host ''
 Write-Host "Icono nativo: $sourceIcon"
