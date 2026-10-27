@@ -153,3 +153,11 @@ jobs:
           path: ci-artifacts/
           if-no-files-found: warn
           retention-days: 14
+
+  # Mismo gate que en la release (SIM_REGRESSION de JWPLC Sim), sobre el
+  # árbol del PR: avisa de una regresión simulada antes de llegar a publicar.
+  sim-regression:
+    name: SIM_REGRESSION (JWPLC Sim)
+    uses: JW-Control/jwplc-sim/.github/workflows/sim-regression.yml@19a1a40d576563da8297dd93243db6a9bd5f1206
+    with:
+      sim_ref: 19a1a40d576563da8297dd93243db6a9bd5f1206

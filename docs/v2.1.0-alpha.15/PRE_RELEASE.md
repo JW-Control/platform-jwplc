@@ -3,8 +3,14 @@
 **Canal:** PreRelease de desarrollo (índice dev). No sustituye a `v2.0.0` estable.
 **Origen:** línea de trabajo OpenPLC + HMI (etiqueta de trabajo «ALPHA14», documentación en
 `docs/v2.1.0-alpha.14/`), rama `v2.1.0-alpha.15/OpenPLC-HMI/main` en platform-jwplc y en openplc-editor.
-Se publica sobre la 2.1.0-alpha.14. Ninguna librería del package (`JWPLC/2.1.0`) cambia: sólo se agregan dos
-ejemplos nuevos de `JWPLC_GlobalPeripherals` (el Curso JWPLC Basic y la plantilla estándar de proyecto).
+Se publica sobre la 2.1.0-alpha.14. Se agregan dos ejemplos nuevos de `JWPLC_GlobalPeripherals` (el Curso JWPLC
+Basic y la plantilla estándar de proyecto) y el snapshot de JW Libraries (`JW_DWIN` 0.2.0 nueva, `JW_RS485` y
+`JW_ModbusRTU` 0.1.1); las librerías `JWPLC_*` no cambian.
+
+> **Republicada el 27/10/2026** para incluir el snapshot de JW Libraries y el gate de JWPLC Sim. Si el Arduino IDE
+> ya había descargado la primera versión y avisa de un error de checksum al instalar, borrar
+> `jwplc-esp32-2.1.0-alpha.15.zip` de la carpeta `staging/packages` del Arduino IDE (en Windows,
+> `%LOCALAPPDATA%\Arduino15\staging\packages`) y volver a instalar.
 
 ## Descargas
 
@@ -48,6 +54,13 @@ formas**.
 - **Plantilla estándar de proyecto** (`JWPLC_GlobalPeripherals/00.Plantilla_Proyecto_JWPLC`): ciclo tipo PLC sin
   `delay()` en pestañas fijas A…K, alarmas enclavadas, horómetro en FRAM, HMI generado o IDLE, Modbus RTU/TCP
   opcionales, y `LEEME.md` + `docs/` con referencia rápida, mapa de E/S y puesta en marcha para trabajar sin internet.
+- **JW Libraries** (snapshot de `JW-Control/JW-Libraries` `19fc1fb`): `JW_DWIN` 0.2.0, nueva, para pantallas DWIN
+  DGUS por RS-485 (Modbus RTU) o por el USB de la tarjeta en modo Simular. `JW_RS485` y `JW_ModbusRTU` siguen en
+  0.1.1 con los ejemplos de alpha.14: el snapshot traía versiones anteriores (pines 16/17 a mano y, en `Status`, un
+  segundo bus en GPIO25/26/27, que son TFT DC, zumbador y EN_IO) y JWPLC Sim lo detectó. Detalle en
+  `docs/jw-libraries-snapshot.md`.
+- **Gate SIM_REGRESSION de JWPLC Sim:** la publicación del package corre antes el simulador (paridad del core,
+  headers, autoload y ejemplos con sus pruebas); si falla, no se publica.
 
 ## Instalación
 
@@ -82,7 +95,7 @@ formas**.
 
 | Componente | Versión | Commit |
 |---|---|---|
-| Package `jwplc:esp32` | 2.1.0-alpha.15 (librerías = 2.1.0-alpha.14 + ejemplos del curso y la plantilla) | `release/v2.1.x` al publicar |
+| Package `jwplc:esp32` | 2.1.0-alpha.15 (librerías `JWPLC_*` = 2.1.0-alpha.14 + ejemplos del curso y la plantilla + snapshot JW Libraries) | `release/v2.1.x` al republicar |
 | HMI Designer | 2.1.0-alpha.15 | platform-jwplc `fbb61e6` |
 | VPP JWPLC Basic | 2.1.0-alpha.15 (firma `3b46176`) | platform-jwplc `a8458dc` |
 | OpenPLC Editor – JWPLC Edition | 4.2.8-jwplc.8 (programa = 4.2.8-jwplc.7, nombres cortos) | openplc-editor `4a61c0b` (tag `jwplc-editor-v4.2.8-jwplc.8`) |
