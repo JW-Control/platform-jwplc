@@ -5,15 +5,20 @@ Leer antes: `CLAUDE.md` de este repo (§5 autoría), este documento, el contrato
 `A14_F3_CONTRATO_HMI_OPENPLC_20261017.md` y el informe `A14_HMI_V1_OPENPLC_20261017.md`.
 
 ```text
-LINEA=v2.1.0-alpha.14-OpenPLC-HMI (platform-jwplc) + develop/alpha14-openplc-hmi-v1 (openplc-editor)
+LINEA=v2.1.0-alpha.15/OpenPLC-HMI/main en los dos repos (desde 24/10; antes v2.1.0-alpha.14-OpenPLC-HMI + develop/alpha14-openplc-hmi-v1)
 PUBLICA_COMO=2.1.0-alpha.15 (después de 2.1.0-alpha.14 = HMI Designer de André)
 VPP_VIGENTE=2.1.0-alpha.32 (OpenPlc/jwplc-basic-openplc-2.1.0-alpha.32.jwcontrol-signed.vpp)
 F0_BOOL=PASS · F0b_VALORES=PASS · F0c_ESCRITURA=PASS · F0d_COSTO_HMI=PASS (alpha.32)
 F0d_JITTER_TFT=ABIERTO (package) · F3_DESIGNER_EN_OPENPLC=IMPLEMENTADO, cadena completa sin probar
 PUSH=al día en los dos repos (24/10)
+APERTURA=A14_APERTURA_RAMA_ALPHA15_OPENPLC_HMI_20261024.md (merges, conflictos, ramas a retirar) · STATUS=ALPHA14_OPENPLC_STATUS.md
 ```
 
 ## 1. Ramas y commits
+
+> **24/10:** las dos ramas de la tabla ya están en `v2.1.0-alpha.15/OpenPLC-HMI/main` (cada repo), junto con
+> 2.1.0-alpha.14 publicada (platform-jwplc) y el pre-release 4.2.8-jwplc.3 (openplc-editor). Se trabaja desde ahí con
+> features `v2.1.0-alpha.15/OpenPLC-HMI/feature/<tema>`; la tabla queda como historia.
 
 | Repo · rama | Commits de esta línea (más nuevo arriba) |
 |---|---|
@@ -73,7 +78,11 @@ Detalle: gates `tools/jwplc-hmi-designer/gates/A14_F0b_*`, `A14_F0c_*`, `A14_F0d
 
 ## 3. Lo que falta, en orden
 
-1. **Autorización del jefe para traer `v2.1.0-alpha.14/feature/hmi-designer` a esta línea.**
+1. **HECHO (24/10):** el HMI Designer de 2.1.0-alpha.14 está en `v2.1.0-alpha.15/OpenPLC-HMI/main`, con los dos
+   conflictos resueltos como se indica abajo y la verificación en Chromium en PASS (ver documento de apertura).
+   Texto original:
+
+   **Autorización del jefe para traer `v2.1.0-alpha.14/feature/hmi-designer` a esta línea.**
    El merge simulado (`git merge-tree`) da sólo 2 conflictos:
    - `.gitattributes`: conservar las dos líneas nuevas;
    - `tools/jwplc-hmi-designer/poc/desktop.html`: tomar la lista de scripts de
