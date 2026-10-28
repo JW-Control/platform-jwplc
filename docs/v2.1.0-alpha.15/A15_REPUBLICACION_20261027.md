@@ -1,8 +1,8 @@
 # A15 · Republicación de 2.1.0-alpha.15 (27/10/2026)
 
 ```text
-A15_REPUBLICACION_PREPARADA=IN_PROGRESS
-A15_REPUBLICACION_PUBLICADA=PENDING   (requiere OK explícito del propietario)
+A15_REPUBLICACION_PREPARADA=PASS
+A15_REPUBLICACION_PUBLICADA=PASS     (27/10/2026, OK del propietario; release/v2.1.x @ cbeced0d)
 ```
 
 ## Por qué
@@ -69,4 +69,32 @@ ya tenga instalada la primera versión no recibe `JW_DWIN` hasta desinstalar y v
 
 ## Resultado
 
-Pendiente.
+- #192 (`v2.1.0-alpha.15/OpenPLC-HMI/main → release/v2.1.x`) fusionado con merge commit: `cbeced0d`.
+  `auto-release-jwplc-on-readme.yml` corrió y no publicó (README sin cambio de versión).
+- La Release y el tag `v2.1.0-alpha.15` los borró el propietario a mano (la sesión en la nube no puede).
+- `release-jwplc-package.yml` (corrida 40599208706): SIM_REGRESSION PASS, publicación PASS y `.exe` del HMI
+  Designer PASS. Release `v2.1.0-alpha.15` sobre `cbeced0d`, pre-release.
+- Zip nuevo `jwplc-esp32-2.1.0-alpha.15.zip`: SHA-256
+  `2fafabf0b16402ecd4c0b44500e33dbe71c3ea5d4d7b5335ca08386d9f61d55b`, 25 213 982 bytes.
+- PR de índices #194 fusionado en `main` con merge commit (`f9ce8c19`): solo cambian el checksum y el tamaño de la
+  entrada 2.1.0-alpha.15 en `package_jwplc_index_dev.json`.
+
+### Incidente: Release de la alpha.14 borrada por error
+
+Al borrar la Release de la alpha.15 también se borró la de la alpha.14 (el tag `v2.1.0-alpha.14` @ `f3f47aee` no
+se tocó). Se recreó a mano el 27/10/2026 sobre el mismo tag con los archivos originales, descargados de los
+artefactos de la corrida que la publicó (40123199627, 24/10/2026): `jwplc-esp32-2.1.0-alpha.14.zip` con SHA-256
+`588f7f77a365358f77c635469ae00100758c333a215330a81abc9227c802347b` y 25 142 970 bytes, igual al índice, y los
+tres archivos del HMI Designer 2.1.0-alpha.14. El índice no cambió.
+
+### Ramas a borrar (último SHA)
+
+| Rama | SHA | Motivo |
+|---|---|---|
+| `v2.1.0-alpha.15/OpenPLC-HMI/main` | `e0348f18` | Línea cerrada, contenida en `release/v2.1.x` |
+| `v2.1.0-alpha.15/OpenPLC-HMI/feature/gate-simulador` | `e1c56337` | #190 fusionado |
+| `v2.1.0-alpha.15/OpenPLC-HMI/feature/republicacion` | `67f23a00` | #191 fusionado |
+| `v2.1.0-alpha.15/OpenPLC-HMI/feature/rs485-ejemplos-alpha14` | `55aef639` | #193 fusionado |
+| `sync/jw-libraries-v2.1` | `3c56854d` | #178 fusionado |
+| `claude/jwplc-basic-simulator-8dgcen` | `b8906d83` | Su commit de workflows entró por #190 |
+| `ci/release-index-v2.1.0-alpha.15` | `b942a684` | #194 fusionado |
