@@ -114,7 +114,7 @@ existentes) e incluya MENU integrado con la botonera.
   mensajes de avance, comentarios de código y mensajes de commit. Los nombres de API, símbolos y
   salidas de herramientas se citan tal cual.
 - Carpeta por alpha: `docs/v2.1.0-alpha.N/`, con `N` = número de publicación
-  reservado en `RAMAS_Y_TAGS.md` (propuesta 27/10, pendiente de aprobación).
+  reservado en `RAMAS_Y_TAGS.md` (aprobado por el propietario el 27/10).
 - Archivos fijos por alpha: `ALPHA<N>_PLAN.md` y `ALPHA<N>_STATUS.md`
   (plantilla `knowledge/global/templates/LIVING_STATUS_TEMPLATE.md`).
 - Gates: `A<N>_<id>_<TEMA>_<YYYYMMDD>.md` (ej. `A15_1_CODEGEN_COMPILE_20261020.md`).
