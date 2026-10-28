@@ -164,6 +164,10 @@ existentes) e incluya MENU integrado con la botonera.
   6. Cierre de la alpha: todas las features fusionadas → la feature de cierre (README de versión,
      `PRE_RELEASE.md`) es la última → `…/main` → PR hacia `release/v2.1.x`, que sólo se fusiona con autorización
      explícita (publica la Release). Después se borran `…/main` y sus restos.
+- **`main` = `release/v2.1.x` (regla del propietario, 27/10/2026).** Mientras dure 2.1.x las dos ramas quedan en el
+  mismo commit: `release/v2.1.x → main` se fusiona siempre con *merge commit* (nunca squash) y, tras cada merge en
+  `main` (sincronización o PR de índices), se avanza `release/v2.1.x` por fast-forward a `main`. Detalle en
+  `docs/v2.1.0-alpha.15/A15_REPUBLICACION_20261027.md`.
 - Ramas remotas permitidas: `main`, `release/v2.1.x`, la `…/main` de cada línea activa y una
   `…/feature/<tema>` por PR abierto (lista vigente en `RAMAS_Y_TAGS.md`). Cualquier otra se revisa
   (¿está contenida en `…/main`?), se anota con su SHA en `docs/<alpha>/` y se borra.
