@@ -94,6 +94,11 @@ struct JWPLC_UIEventLogColors
 struct JWPLC_UIEventLog
 {
     uint8_t page;
+    int16_t x;
+    int16_t y;
+    int16_t width;
+    int16_t height;
+    bool frame;
     uint8_t ramCapacity;
     bool enableFram;
     bool enableSd;

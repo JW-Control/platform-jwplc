@@ -224,23 +224,20 @@ El estado `k` de la variable muestra la imagen `k` (bool: 0 = false, 1 = true). 
 
 | `iconId` | Nombre | Tamaños (px) | Estados (0..N-1) |
 |---|---|---|---|
-| `motores/motor` | Motor | 24, 32, 48, 64 | Parado · En marcha · Falla |
+| `motores/motor` | Motor trifásico | 24, 32, 48, 64 | Parado · En marcha · Falla |
+| `motores/motorreductor` | Motorreductor | 24, 32, 48, 64 | Parado · En marcha · Falla |
 | `motores/motor_dos_sentidos` | Motor dos sentidos | 24, 32, 48 | Parado · Adelante · Atrás |
 | `bombas/bomba` | Bomba | 24, 32, 48, 64 | Parado · En marcha · Falla |
 | `bombas/ventilador` | Ventilador | 24, 32, 48, 64 | Parado · En marcha · Falla |
 | `bombas/compresor` | Compresor | 24, 32, 48 | Parado · En marcha · Falla |
-| `pilotos/piloto` | Piloto (4 estados) | 24, 32, 48 | Apagado · Verde · Amarillo · Rojo |
-| `pilotos/piloto_verde` | Piloto verde (bool) | 24, 32, 48 | Apagado · Encendido |
-| `pilotos/piloto_rojo` | Piloto rojo (bool) | 24, 32, 48 | Apagado · Encendido |
-| `pilotos/piloto_amarillo` | Piloto amarillo (bool) | 24, 32, 48 | Apagado · Encendido |
-| `pilotos/piloto_azul` | Piloto azul (bool) | 24, 32, 48 | Apagado · Encendido |
-| `pilotos/piloto_cuadrado` | Piloto cuadrado verde | 24, 32, 48 | Apagado · Encendido |
-| `pilotos/piloto_cuadrado_rojo` | Piloto cuadrado rojo | 24, 32, 48 | Apagado · Encendido |
-| `pilotos/piloto_bisel` | Piloto industrial biselado | 24, 32, 48 | Apagado · Encendido |
-| `pilotos/baliza` | Torre de señalización | 24, 32, 48 | Apagada · Verde · Amarilla · Roja |
+| `pilotos/piloto` | Piloto luminoso | 24, 32, 48 | Apagado · Encendido |
+| `pilotos/piloto_cuadrado` | Piloto cuadrado | 24, 32, 48 | Apagado · Encendido |
+| `pilotos/baliza` | Torre de señalización | 24, 32, 48 | Apagada · Verde · Ámbar · Ámbar+Verde · Rojo · Rojo+Verde · Rojo+Ámbar · Rojo+Ámbar+Verde · Azul · Azul+Verde · Azul+Ámbar · Azul+Ámbar+Verde · Azul+Rojo · Azul+Rojo+Verde · Azul+Rojo+Ámbar · Azul+Rojo+Ámbar+Verde |
 | `valvulas/valvula` | Válvula | 24, 32, 48, 64 | Cerrada · Abierta · Falla |
 | `valvulas/valvula_motorizada` | Válvula motorizada | 24, 32, 48 | Cerrada · Abierta · Falla |
 | `valvulas/valvula_solenoide` | Electroválvula | 24, 32, 48 | Cerrada · Abierta · Falla |
+| `equipos/piston` | Pistón neumático | 24, 32, 48, 64 | Retraído · En movimiento · Extendido · Falla |
+| `equipos/piston_vertical` | Pistón vertical | 24, 32, 48, 64 | Retraído · En movimiento · Extendido · Falla |
 | `equipos/tanque` | Tanque (nivel) | 24, 32, 48, 64 | Vacío · Bajo · Medio · Lleno |
 | `equipos/silo` | Silo / tolva | 24, 32, 48, 64 | Vacío · Con material · Falla |
 | `equipos/resistencia` | Resistencia / calefactor | 24, 32, 48 | Apagada · Encendida |
@@ -317,6 +314,7 @@ Historial y registro de eventos (Alpha16). 10 filas de altura fija con registro 
 | `y` **(obligatoria)** | entero 0..169 |  | Esquina superior izquierda, Y (px). |
 | `width` | entero 40..320 | `320` | Ancho (px). |
 | `height` | entero 30..170 | `170` | Alto (px). |
+| `frame` | bool | `true` | Marco exterior alrededor del historial. |
 | `ramCapacity` | entero 16..128 | `64` | Capacidad del buffer en RAM. |
 | `enableFram` | bool | `true` | Persistencia de los últimos 16 eventos en FRAM ante corte de luz. |
 | `enableSd` | bool | `true` | Exportación no bloqueante a microSD. |

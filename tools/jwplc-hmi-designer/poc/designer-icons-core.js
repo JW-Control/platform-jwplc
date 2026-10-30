@@ -10,7 +10,7 @@
   'use strict';
 
   const MAX_SIZE = 64;
-  const MAX_STATES = 8;
+  const MAX_STATES = 16;
 
   function base64ToBytes(b64) {
     if (typeof Buffer !== 'undefined') return new Uint8Array(Buffer.from(b64, 'base64'));

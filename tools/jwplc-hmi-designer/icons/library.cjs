@@ -34,23 +34,79 @@ const CATEGORIES = [
 const ICONS = [
   // ------------------------------------------------------------- Motores
   {
-    id: 'motores/motor', name: 'Motor', category: 'motores', sizes: [24, 32, 48, 64],
+    id: 'motores/motor', name: 'Motor trifásico', category: 'motores', sizes: [24, 32, 48, 64],
     states: [
-      { name: 'Parado', colors: { O: C.light, S: C.gray, T: C.black, R: C.dark } },
-      { name: 'En marcha', intervalMs: 120, frameCount: 4, colors: { O: C.light, S: C.green, T: C.black, R: C.greenHi } },
-      { name: 'Falla', colors: { O: C.light, S: C.red, T: C.black, R: C.redHi } }
+      { name: 'Parado', colors: { O: C.darker, S: C.gray, F: C.light, T: C.dark, C: C.darker, W: C.white, K: C.black } },
+      { name: 'En marcha', intervalMs: 120, frameCount: 4, colors: { O: C.darker, S: C.green, F: C.greenHi, T: C.dark, C: C.darker, W: C.white, K: C.black } },
+      { name: 'Falla', colors: { O: C.darker, S: C.red, F: C.redHi, T: C.dark, C: C.darker, W: C.white, K: C.black } }
     ],
     draw(g, st, f = 0) {
-      g.disc('O', 'S', 50, 50, 46);
-      g.polyline('T', [[29, 70], [29, 31], [50, 56], [71, 31], [71, 70]], Math.max(g.px(2), 9));
-      if (st === 1) {
-        const deg = f * 45;
-        const pts = [[50, 8], [50, 16]];
-        [deg, deg + 90, deg + 180, deg + 270].forEach((d) => {
-          const [[x1, y1], [x2, y2]] = g.rotate(pts, 50, 50, d);
-          g.line('R', x1, y1, x2, y2, Math.max(g.px(2), 7));
-        });
-      }
+      // Patas de montaje inferiores (B3)
+      g.box('O', 'T', 20, 78, 16, 12, 1);
+      g.box('O', 'T', 56, 78, 16, 12, 1);
+      g.circle('K', 28, 84, 2);
+      g.circle('K', 64, 84, 2);
+
+      // Carcasa cilíndrica del estator con aletas
+      g.box('O', 'S', 22, 32, 50, 46, 2);
+      [42, 52, 62, 72].forEach((y) => g.line('F', 23, y, 71, y, Math.max(g.px(1), 3)));
+
+      // Caja de bornes superior
+      g.box('O', 'T', 34, 16, 26, 16, 2);
+      g.line('F', 36, 24, 58, 24, Math.max(g.px(1), 2));
+
+      // Tapa trasera y ventilador (izquierda)
+      g.box('O', 'C', 8, 34, 14, 42, 3);
+      const fanOffset = (st === 1 ? f * 45 : 0);
+      const fanBlade = [[15, 55], [11, 46], [19, 44]];
+      [0, 90, 180, 270].forEach((deg) => g.poly('F', g.rotate(fanBlade, 15, 55, deg + fanOffset)));
+      g.circle('K', 15, 55, 3);
+
+      // Tapa delantera (derecha)
+      g.rect('O', 72, 36, 6, 38, 1);
+
+      // Eje de transmisión frontal
+      g.box('O', 'W', 78, 48, 16, 14, 1);
+      const keyY = (st === 1) ? [49, 53, 58, 53][f % 4] : 51;
+      const keyCol = (st === 1 && f % 2 === 1) ? 'F' : 'K';
+      g.line(keyCol, 80, keyY, 92, keyY, Math.max(g.px(1), 3));
+    }
+  },
+  {
+    id: 'motores/motorreductor', name: 'Motorreductor', category: 'motores', sizes: [24, 32, 48, 64],
+    states: [
+      { name: 'Parado', colors: { O: C.darker, S: C.gray, F: C.light, T: C.dark, G: C.darker, W: C.white, K: C.black } },
+      { name: 'En marcha', intervalMs: 130, frameCount: 4, colors: { O: C.darker, S: C.green, F: C.greenHi, T: C.dark, G: C.darker, W: C.white, K: C.black } },
+      { name: 'Falla', colors: { O: C.darker, S: C.red, F: C.redHi, T: C.dark, G: C.darker, W: C.white, K: C.black } }
+    ],
+    draw(g, st, f = 0) {
+      // Motor a la izquierda
+      g.box('O', 'S', 12, 34, 34, 42, 2);
+      [42, 50, 58, 66].forEach((y) => g.line('F', 13, y, 45, y, Math.max(g.px(1), 2)));
+      g.box('O', 'T', 20, 20, 20, 14, 2);
+      g.box('O', 'T', 4, 36, 8, 38, 2);
+
+      // Ventilador motor
+      const fanOffset = (st === 1 ? f * 45 : 0);
+      const fanBlade = [[8, 55], [5, 48], [11, 46]];
+      [0, 120, 240].forEach((deg) => g.poly('F', g.rotate(fanBlade, 8, 55, deg + fanOffset)));
+      g.box('O', 'T', 10, 76, 14, 10, 1);
+
+      // Caja reductora robusta a la derecha
+      g.box('O', 'G', 46, 26, 36, 52, 4);
+      g.line('F', 48, 36, 80, 36, Math.max(g.px(1), 2));
+      g.box('O', 'T', 68, 78, 14, 10, 1);
+
+      // Visor de nivel de aceite
+      g.circle('W', 54, 66, 4);
+      g.circle('K', 54, 66, 2);
+
+      // Eje macizo de salida
+      g.disc('O', 'W', 70, 48, 12);
+      const slowDeg = (st === 1 ? f * 90 : 0);
+      const keyPts = g.rotate([[70, 48], [70, 38]], 70, 48, slowDeg);
+      g.line('K', keyPts[0][0], keyPts[0][1], keyPts[1][0], keyPts[1][1], Math.max(g.px(1), 3));
+      g.circle('K', 70, 48, 4);
     }
   },
   {
@@ -124,124 +180,68 @@ const ICONS = [
   },
   // ------------------------------------------------------------- Pilotos y señales
   {
-    id: 'pilotos/piloto', name: 'Piloto (4 estados)', category: 'pilotos', sizes: [24, 32, 48],
-    states: [
-      { name: 'Apagado', colors: { O: C.light, B: C.darker, S: C.dark, H: C.mid } },
-      { name: 'Verde', colors: { O: C.light, B: C.darker, S: C.green, H: C.greenHi } },
-      { name: 'Amarillo', colors: { O: C.light, B: C.darker, S: C.yellow, H: C.yellowHi } },
-      { name: 'Rojo', colors: { O: C.light, B: C.darker, S: C.red, H: C.redHi } }
-    ],
-    draw(g) {
-      g.disc('O', 'B', 50, 50, 47);
-      g.circle('S', 50, 50, 34);
-      g.circle('H', 38, 38, 9);
-    }
-  },
-  {
-    id: 'pilotos/piloto_verde', name: 'Piloto verde (bool)', category: 'pilotos', sizes: [24, 32, 48],
-    states: [
-      { name: 'Apagado', colors: { O: C.light, B: C.darker, S: C.dark, H: C.mid } },
-      { name: 'Encendido', colors: { O: C.light, B: C.darker, S: C.green, H: C.greenHi } }
-    ],
-    draw(g) {
-      g.disc('O', 'B', 50, 50, 47);
-      g.circle('S', 50, 50, 34);
-      g.circle('H', 38, 38, 9);
-    }
-  },
-  {
-    id: 'pilotos/piloto_rojo', name: 'Piloto rojo (bool)', category: 'pilotos', sizes: [24, 32, 48],
-    states: [
-      { name: 'Apagado', colors: { O: C.light, B: C.darker, S: C.dark, H: C.mid } },
-      { name: 'Encendido', colors: { O: C.light, B: C.darker, S: C.red, H: C.redHi } }
-    ],
-    draw(g) {
-      g.disc('O', 'B', 50, 50, 47);
-      g.circle('S', 50, 50, 34);
-      g.circle('H', 38, 38, 9);
-    }
-  },
-  {
-    id: 'pilotos/piloto_amarillo', name: 'Piloto amarillo (bool)', category: 'pilotos', sizes: [24, 32, 48],
-    states: [
-      { name: 'Apagado', colors: { O: C.light, B: C.darker, S: C.dark, H: C.mid } },
-      { name: 'Encendido', colors: { O: C.light, B: C.darker, S: C.yellow, H: C.yellowHi } }
-    ],
-    draw(g) {
-      g.disc('O', 'B', 50, 50, 47);
-      g.circle('S', 50, 50, 34);
-      g.circle('H', 38, 38, 9);
-    }
-  },
-  {
-    id: 'pilotos/piloto_azul', name: 'Piloto azul (bool)', category: 'pilotos', sizes: [24, 32, 48],
-    states: [
-      { name: 'Apagado', colors: { O: C.light, B: C.darker, S: C.dark, H: C.mid } },
-      { name: 'Encendido', colors: { O: C.light, B: C.darker, S: C.cyan, H: C.cyanHi } }
-    ],
-    draw(g) {
-      g.disc('O', 'B', 50, 50, 47);
-      g.circle('S', 50, 50, 34);
-      g.circle('H', 38, 38, 9);
-    }
-  },
-  {
-    id: 'pilotos/piloto_cuadrado', name: 'Piloto cuadrado verde', category: 'pilotos', sizes: [24, 32, 48],
-    states: [
-      { name: 'Apagado', colors: { O: C.light, B: C.darker, S: C.dark, H: C.mid } },
-      { name: 'Encendido', colors: { O: C.light, B: C.darker, S: C.green, H: C.greenHi } }
-    ],
-    draw(g) {
-      g.box('O', 'B', 6, 6, 88, 88, 8);
-      g.box('O', 'S', 20, 20, 60, 60, 4);
-      g.rect('H', 24, 24, 18, 18, 2);
-    }
-  },
-  {
-    id: 'pilotos/piloto_cuadrado_rojo', name: 'Piloto cuadrado rojo', category: 'pilotos', sizes: [24, 32, 48],
-    states: [
-      { name: 'Apagado', colors: { O: C.light, B: C.darker, S: C.dark, H: C.mid } },
-      { name: 'Encendido', colors: { O: C.light, B: C.darker, S: C.red, H: C.redHi } }
-    ],
-    draw(g) {
-      g.box('O', 'B', 6, 6, 88, 88, 8);
-      g.box('O', 'S', 20, 20, 60, 60, 4);
-      g.rect('H', 24, 24, 18, 18, 2);
-    }
-  },
-  {
-    id: 'pilotos/piloto_bisel', name: 'Piloto industrial biselado', category: 'pilotos', sizes: [24, 32, 48],
+    id: 'pilotos/piloto', name: 'Piloto luminoso', category: 'pilotos', sizes: [24, 32, 48],
     states: [
       { name: 'Apagado', colors: { W: C.white, M: C.light, D: C.dark, S: C.darker, L: C.dark, H: C.mid } },
       { name: 'Encendido', colors: { W: C.white, M: C.light, D: C.dark, S: C.darker, L: C.green, H: C.greenHi } }
     ],
     draw(g) {
-      // Bisel cromado exterior con reflejo
       g.circle('M', 50, 50, 48);
       g.arc('W', 50, 50, 48, Math.max(g.px(2), 8), 210, 330);
       g.arc('D', 50, 50, 48, Math.max(g.px(2), 8), 30, 150);
-      // Aro negro interno
       g.circle('S', 50, 50, 36);
-      // Lente esférica central
       g.circle('L', 50, 50, 30);
       g.circle('H', 40, 40, 8);
     }
   },
   {
-    id: 'pilotos/baliza', name: 'Torre de señalización', category: 'pilotos', sizes: [24, 32, 48],
+    id: 'pilotos/piloto_cuadrado', name: 'Piloto cuadrado', category: 'pilotos', sizes: [24, 32, 48],
     states: [
-      { name: 'Apagada', colors: { O: C.light, R: C.redDim, Y: C.yellowDim, G: C.greenDim, B: C.dark } },
-      { name: 'Verde', colors: { O: C.light, R: C.redDim, Y: C.yellowDim, G: C.green, B: C.dark } },
-      { name: 'Amarilla', colors: { O: C.light, R: C.redDim, Y: C.yellow, G: C.greenDim, B: C.dark } },
-      { name: 'Roja', colors: { O: C.light, R: C.red, Y: C.yellowDim, G: C.greenDim, B: C.dark } }
+      { name: 'Apagado', colors: { O: C.light, B: C.darker, S: C.dark, H: C.mid } },
+      { name: 'Encendido', colors: { O: C.light, B: C.darker, S: C.green, H: C.greenHi } }
     ],
     draw(g) {
-      g.rect('O', 28, 2, 44, 78, 10);
-      g.rect('R', 28 + g.o, 2 + g.o, 44 - 2 * g.o, 25 - g.o, Math.max(0, 10 - g.o));
-      g.rect('Y', 28 + g.o, 28, 44 - 2 * g.o, 24);
-      g.rect('G', 28 + g.o, 53, 44 - 2 * g.o, 27 - g.o);
-      g.rect('B', 36, 80, 28, 10);
-      g.rect('O', 24, 90, 52, 9);
+      g.box('O', 'B', 6, 6, 88, 88, 8);
+      g.box('O', 'S', 20, 20, 60, 60, 4);
+      g.rect('H', 24, 24, 18, 18, 2);
+    }
+  },
+  {
+    id: 'pilotos/baliza', name: 'Torre de señalización', category: 'pilotos', sizes: [24, 32, 48],
+    states: [
+      { name: 'Apagada', colors: { O: C.light, M: C.darker, B: C.blueDim, R: C.redDim, Y: C.yellowDim, G: C.greenDim } },
+      { name: 'Verde', colors: { O: C.light, M: C.darker, B: C.blueDim, R: C.redDim, Y: C.yellowDim, G: C.green } },
+      { name: 'Ámbar', colors: { O: C.light, M: C.darker, B: C.blueDim, R: C.redDim, Y: C.amber, G: C.greenDim } },
+      { name: 'Ámbar+Verde', colors: { O: C.light, M: C.darker, B: C.blueDim, R: C.redDim, Y: C.amber, G: C.green } },
+      { name: 'Rojo', colors: { O: C.light, M: C.darker, B: C.blueDim, R: C.red, Y: C.yellowDim, G: C.greenDim } },
+      { name: 'Rojo+Verde', colors: { O: C.light, M: C.darker, B: C.blueDim, R: C.red, Y: C.yellowDim, G: C.green } },
+      { name: 'Rojo+Ámbar', colors: { O: C.light, M: C.darker, B: C.blueDim, R: C.red, Y: C.amber, G: C.greenDim } },
+      { name: 'Rojo+Ámbar+Verde', colors: { O: C.light, M: C.darker, B: C.blueDim, R: C.red, Y: C.amber, G: C.green } },
+      { name: 'Azul', colors: { O: C.light, M: C.darker, B: C.cyan, R: C.redDim, Y: C.yellowDim, G: C.greenDim } },
+      { name: 'Azul+Verde', colors: { O: C.light, M: C.darker, B: C.cyan, R: C.redDim, Y: C.yellowDim, G: C.green } },
+      { name: 'Azul+Ámbar', colors: { O: C.light, M: C.darker, B: C.cyan, R: C.redDim, Y: C.amber, G: C.greenDim } },
+      { name: 'Azul+Ámbar+Verde', colors: { O: C.light, M: C.darker, B: C.cyan, R: C.redDim, Y: C.amber, G: C.green } },
+      { name: 'Azul+Rojo', colors: { O: C.light, M: C.darker, B: C.cyan, R: C.red, Y: C.yellowDim, G: C.greenDim } },
+      { name: 'Azul+Rojo+Verde', colors: { O: C.light, M: C.darker, B: C.cyan, R: C.red, Y: C.yellowDim, G: C.green } },
+      { name: 'Azul+Rojo+Ámbar', colors: { O: C.light, M: C.darker, B: C.cyan, R: C.red, Y: C.amber, G: C.greenDim } },
+      { name: 'Azul+Rojo+Ámbar+Verde', colors: { O: C.light, M: C.darker, B: C.cyan, R: C.red, Y: C.amber, G: C.green } }
+    ],
+    draw(g) {
+      // Base y mástil inferior
+      g.rect('M', 45, 80, 10, 14);
+      g.rect('O', 32, 94, 36, 6, 2);
+      // Módulos apilados (Piso 4: Azul, Piso 3: Rojo, Piso 2: Ámbar, Piso 1: Verde)
+      g.rect('B', 34, 10, 32, 16, 2);
+      g.rect('R', 34, 28, 32, 16, 2);
+      g.rect('Y', 34, 46, 32, 16, 2);
+      g.rect('G', 34, 64, 32, 16, 2);
+      // Tapa superior
+      g.rect('O', 30, 6, 40, 5, 2);
+      // Anillos divisores
+      g.rect('O', 32, 26, 36, 3);
+      g.rect('O', 32, 44, 36, 3);
+      g.rect('O', 32, 62, 36, 3);
+      g.rect('O', 32, 80, 36, 3);
     }
   },
   // ------------------------------------------------------------- Válvulas
@@ -294,6 +294,54 @@ const ICONS = [
     }
   },
   // ------------------------------------------------------------- Tanques y equipos
+  {
+    id: 'equipos/piston', name: 'Pistón neumático', category: 'equipos', sizes: [24, 32, 48, 64],
+    states: [
+      { name: 'Retraído', colors: { O: C.darker, S: C.gray, C: C.light, R: C.white, K: C.black } },
+      { name: 'En movimiento', intervalMs: 110, frameCount: 4, colors: { O: C.darker, S: C.green, C: C.light, R: C.white, K: C.black } },
+      { name: 'Extendido', colors: { O: C.darker, S: C.green, C: C.light, R: C.white, K: C.black } },
+      { name: 'Falla', colors: { O: C.darker, S: C.red, C: C.light, R: C.white, K: C.black } }
+    ],
+    draw(g, st, f = 0) {
+      g.box('O', 'S', 8, 32, 46, 36, 2);
+      g.line('C', 10, 42, 52, 42, Math.max(g.px(1), 2));
+      g.line('C', 10, 58, 52, 58, Math.max(g.px(1), 2));
+      g.box('O', 'C', 4, 28, 8, 44, 1);
+      g.rect('K', 5, 22, 6, 6);
+      g.box('O', 'C', 54, 28, 8, 44, 1);
+      g.rect('K', 55, 22, 6, 6);
+
+      const ext = (st === 0) ? 4 : (st === 2) ? 32 : (st === 3) ? 16 : (8 + f * 8);
+      g.box('O', 'R', 62, 44, ext, 12, 1);
+      const forkX = 62 + ext;
+      g.box('O', 'C', forkX, 40, 8, 20, 2);
+      g.circle('K', forkX + 4, 50, 3);
+    }
+  },
+  {
+    id: 'equipos/piston_vertical', name: 'Pistón vertical', category: 'equipos', sizes: [24, 32, 48, 64],
+    states: [
+      { name: 'Retraído', colors: { O: C.darker, S: C.gray, C: C.light, R: C.white, K: C.black } },
+      { name: 'En movimiento', intervalMs: 110, frameCount: 4, colors: { O: C.darker, S: C.green, C: C.light, R: C.white, K: C.black } },
+      { name: 'Extendido', colors: { O: C.darker, S: C.green, C: C.light, R: C.white, K: C.black } },
+      { name: 'Falla', colors: { O: C.darker, S: C.red, C: C.light, R: C.white, K: C.black } }
+    ],
+    draw(g, st, f = 0) {
+      g.box('O', 'C', 28, 88, 44, 8, 1);
+      g.rect('K', 72, 89, 6, 6);
+      g.box('O', 'S', 32, 46, 36, 42, 2);
+      g.line('C', 42, 48, 42, 86, Math.max(g.px(1), 2));
+      g.line('C', 58, 48, 58, 86, Math.max(g.px(1), 2));
+      g.box('O', 'C', 28, 38, 44, 8, 1);
+      g.rect('K', 72, 39, 6, 6);
+
+      const ext = (st === 0) ? 4 : (st === 2) ? 30 : (st === 3) ? 15 : (6 + f * 8);
+      g.box('O', 'R', 44, 38 - ext, 12, ext, 1);
+      const forkY = 38 - ext - 8;
+      g.box('O', 'C', 40, forkY, 20, 8, 2);
+      g.circle('K', 50, forkY + 4, 3);
+    }
+  },
   {
     id: 'equipos/tanque', name: 'Tanque (nivel)', category: 'equipos', sizes: [24, 32, 48, 64],
     states: [

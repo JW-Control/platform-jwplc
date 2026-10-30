@@ -39,6 +39,16 @@ namespace
     // FRAM
     static uint8_t g_framHeadSlot = 0;
 
+    uint8_t visibleRowsCount()
+    {
+        const int16_t h = g_config.height > 0 ? g_config.height : 170;
+        const int16_t border = g_config.frame ? 1 : 0;
+        const int16_t availH = h - 2 * border - HEADER_HEIGHT - FOOTER_HEIGHT;
+        if (availH <= 0) return 1;
+        const int16_t rows = availH / ROW_HEIGHT;
+        return rows > 0 ? (uint8_t)rows : 1;
+    }
+
     const char *severityName(uint8_t sev)
     {
         switch (sev)
@@ -440,14 +450,15 @@ namespace JWPLCUIEventLog
         }
 
         // Navegación en la lista
+        const uint8_t visRows = visibleRowsCount();
         if (JWPLC_Buttons.pressed(BTN_DOWN))
         {
             if (g_selectedIndex + 1 < (int16_t)g_count)
             {
                 g_selectedIndex++;
-                if (g_selectedIndex >= g_scrollOffset + VISIBLE_ROWS)
+                if (g_selectedIndex >= g_scrollOffset + visRows)
                 {
-                    g_scrollOffset = g_selectedIndex - VISIBLE_ROWS + 1;
+                    g_scrollOffset = g_selectedIndex - visRows + 1;
                 }
                 g_dirty = true;
                 JWPLCUI::requestRefresh();
@@ -487,11 +498,21 @@ namespace JWPLCUIEventLog
         }
 
         const JWPLC_UIEventLogColors &c = g_config.colors;
+        const int16_t x0 = g_config.width > 0 ? g_config.x : 0;
+        const int16_t y0 = g_config.height > 0 ? g_config.y : 0;
+        const int16_t w = g_config.width > 0 ? g_config.width : 320;
+        const int16_t h = g_config.height > 0 ? g_config.height : 170;
+        const int16_t border = g_config.frame ? 1 : 0;
+        const uint8_t visRows = visibleRowsCount();
 
         if (g_inDetail)
         {
-            // Ventana modal de detalle centrado (280x130 en x=20, y=20)
-            const int16_t bx = 20, by = 20, bw = 280, bh = 130;
+            // Ventana modal de detalle centrado
+            int16_t bw = (w >= 280) ? 280 : (w > 16 ? (w - 8) : w);
+            int16_t bh = (h >= 130) ? 130 : (h > 16 ? (h - 8) : h);
+            int16_t bx = x0 + (w - bw) / 2;
+            int16_t by = y0 + (h - bh) / 2;
+
             tft.fillRect(bx, by, bw, bh, 0x10A2); // Fondo oscuro
             tft.drawRect(bx, by, bw, bh, 0xFFFF); // Borde blanco
             tft.fillRect(bx + 1, by + 1, bw - 2, 16, c.headerBackground);
@@ -543,75 +564,106 @@ namespace JWPLCUIEventLog
             return;
         }
 
-        // Pantalla completa de 10 filas
+        // Marco exterior opcional
+        if (g_config.frame)
+        {
+            tft.drawRect(x0, y0, w, h, c.headerBackground);
+        }
+
         // Encabezado
-        tft.fillRect(0, 0, 320, HEADER_HEIGHT, c.headerBackground);
+        tft.fillRect(x0 + border, y0 + border, w - 2 * border, HEADER_HEIGHT, c.headerBackground);
         tft.setTextSize(1);
         tft.setTextColor(c.headerText, c.headerBackground);
-        tft.setCursor(6, 4);
-        tft.print("HISTORIAL DE EVENTOS");
+        tft.setCursor(x0 + border + 6, y0 + border + 4);
+        tft.print(w >= 220 ? "HISTORIAL DE EVENTOS" : "HISTORIAL");
 
         // Contador e indicador de SD
-        char countBuf[16];
-        snprintf(countBuf, sizeof(countBuf), "%02d/%02d", (int)(g_count > 0 ? (g_selectedIndex + 1) : 0), (int)g_count);
-        tft.setCursor(205, 4);
-        tft.print(countBuf);
-
-        const bool sdOk = JWPLC_SD.isReady();
-        tft.setTextColor(sdOk ? 0x07E0 : 0x632C, c.headerBackground);
-        tft.setCursor(265, 4);
-        tft.print(sdOk ? "SD:OK" : "SD:--");
-
-        // 10 Filas
-        for (uint8_t r = 0; r < VISIBLE_ROWS; ++r)
+        if (w >= 180)
         {
-            const int16_t y = HEADER_HEIGHT + (r * ROW_HEIGHT);
+            char countBuf[16];
+            snprintf(countBuf, sizeof(countBuf), "%02d/%02d", (int)(g_count > 0 ? (g_selectedIndex + 1) : 0), (int)g_count);
+            tft.setCursor(x0 + border + w - (w >= 240 ? 110 : 70), y0 + border + 4);
+            tft.print(countBuf);
+        }
+
+        if (w >= 240)
+        {
+            const bool sdOk = JWPLC_SD.isReady();
+            tft.setTextColor(sdOk ? 0x07E0 : 0x632C, c.headerBackground);
+            tft.setCursor(x0 + border + w - 50, y0 + border + 4);
+            tft.print(sdOk ? "SD:OK" : "SD:--");
+        }
+
+        // Filas visibles
+        for (uint8_t r = 0; r < visRows; ++r)
+        {
+            const int16_t y = y0 + border + HEADER_HEIGHT + (r * ROW_HEIGHT);
             const size_t recIdx = (size_t)(g_scrollOffset + r);
             const bool isSelected = (recIdx == (size_t)g_selectedIndex) && (g_count > 0);
 
             const uint16_t rowBg = isSelected ? c.selectBackground : ((r % 2 == 0) ? c.rowBackground : c.rowBackgroundAlt);
             const uint16_t rowFg = isSelected ? c.selectText : c.rowText;
 
-            tft.fillRect(0, y, 320, ROW_HEIGHT, rowBg);
+            tft.fillRect(x0 + border, y, w - 2 * border, ROW_HEIGHT, rowBg);
 
             JWPLC_UIEventRecord rec;
             if (getRecord(recIdx, rec))
             {
                 // Barra lateral de severidad (ancho 3px)
-                tft.fillRect(0, y, 3, ROW_HEIGHT, severityColor(rec.severity));
+                tft.fillRect(x0 + border, y, 3, ROW_HEIGHT, severityColor(rec.severity));
 
                 // Hora
                 char timeBuf[16];
                 formatTime(rec.timestamp, timeBuf, sizeof(timeBuf));
                 tft.setTextColor(rowFg, rowBg);
-                tft.setCursor(6, y + 3);
+                tft.setCursor(x0 + border + 6, y + 3);
                 tft.print(timeBuf);
 
-                // Código
-                char codeBuf[10];
-                snprintf(codeBuf, sizeof(codeBuf), "#%03u", rec.code);
-                tft.setCursor(65, y + 3);
-                tft.print(codeBuf);
+                if (w >= 120)
+                {
+                    // Código
+                    char codeBuf[10];
+                    snprintf(codeBuf, sizeof(codeBuf), "#%03u", rec.code);
+                    tft.setCursor(x0 + border + 60, y + 3);
+                    tft.print(codeBuf);
+                }
 
-                // Estado de transición
-                tft.setCursor(105, y + 3);
-                tft.print(transitionName(rec.transition));
+                if (w >= 165)
+                {
+                    // Estado de transición
+                    tft.setCursor(x0 + border + 98, y + 3);
+                    tft.print(transitionName(rec.transition));
+                }
 
-                // Descripción
-                const JWPLC_UIEventDescriptor *desc = findDescriptor(rec.code);
-                const char *label = (desc != nullptr && desc->label != nullptr) ? desc->label : "---";
-                tft.setCursor(145, y + 3);
-                char truncDesc[28];
-                snprintf(truncDesc, sizeof(truncDesc), "%.24s", label);
-                tft.print(truncDesc);
+                if (w >= 210)
+                {
+                    // Descripción
+                    const JWPLC_UIEventDescriptor *desc = findDescriptor(rec.code);
+                    const char *label = (desc != nullptr && desc->label != nullptr) ? desc->label : "---";
+                    tft.setCursor(x0 + border + 138, y + 3);
+                    char truncDesc[32];
+                    int maxChars = (w - 145) / 6;
+                    if (maxChars > 26) maxChars = 26;
+                    if (maxChars < 1) maxChars = 1;
+                    snprintf(truncDesc, sizeof(truncDesc), "%.*s", maxChars, label);
+                    tft.print(truncDesc);
+                }
             }
         }
 
         // Pie de página con ayuda de teclas
-        tft.fillRect(0, 157, 320, FOOTER_HEIGHT, 0x10A2);
+        const int16_t footerY = y0 + h - border - FOOTER_HEIGHT;
+        tft.fillRect(x0 + border, footerY, w - 2 * border, FOOTER_HEIGHT, 0x10A2);
         tft.setTextColor(0xFFFF, 0x10A2);
-        tft.setCursor(12, 160);
-        tft.print("[OK] Detalle     [\x1E\x1F] Desplazar     [ESC] Salir");
+        tft.setCursor(x0 + border + 8, footerY + 3);
+        if (w >= 260)
+        {
+            tft.print("[OK] Detalle     [\x1E\x1F] Desplazar     [ESC] Salir");
+        }
+        else
+        {
+            tft.print("[OK] [\x1E\x1F] [ESC]");
+        }
     }
 }
 

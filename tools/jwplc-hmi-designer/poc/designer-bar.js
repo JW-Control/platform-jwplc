@@ -2169,9 +2169,14 @@
   function triggerCoreRender(commit = false) {
     const field = selectedField();
     if (!isBar(field)) return;
-    fieldX.value = String(field.x);
-    fieldY.value = String(field.y);
-    fieldX.dispatchEvent(new Event(commit ? 'change' : 'input', { bubbles: true }));
+    if (fieldX) fieldX.value = String(field.x);
+    if (fieldY) fieldY.value = String(field.y);
+    const ed = editor();
+    if (ed) {
+      ed.render?.();
+      if (commit) ed.commitHistory?.();
+    }
+    if (fieldX) fieldX.dispatchEvent(new Event(commit ? 'change' : 'input', { bubbles: true }));
   }
 
   // --- Pestañas y Navegación ---
@@ -3108,11 +3113,10 @@
     if (fieldUnit) fieldUnit.value = field.barUnit || '';
 
     // Título del inspector
+    const isCirc = (field.barPreset === 'CIRCULAR');
     if (fieldInspectorTitle) {
       fieldInspectorTitle.textContent = isCirc ? `Inspector — Indicador Circular ${serialFor(field)}` : `Inspector — Indicador de Barra ${serialFor(field)}`;
     }
-
-    const isCirc = (field.barPreset === 'CIRCULAR');
 
     // Botones de Selector de Tipo (Barra vs Circular)
     document.querySelectorAll('.bar-preset-btn').forEach((btn) => {
@@ -3490,6 +3494,24 @@
   // vacía (un solo color), label = etiqueta y unidad, frame = marco.
   const BAR_COLOR_PROP = { frame: 'frameColor', label: 'labelColor', value: 'valueColor', track: 'trackColor' };
   const BAR_COLOR_DEFAULT = { frame: 0xFFFF, label: 0xFFFF, value: 0x07FF, track: 0x0000 };
+  const getBarName = (field, key) => {
+    const isCirc = (field?.barPreset === 'CIRCULAR');
+    if (key === 'value') return isCirc ? 'Arco' : 'Barra';
+    if (key === 'track') return 'Fondo y pista';
+    if (key === 'label') return 'Etiqueta y unidad';
+    if (key === 'frame') return 'Marco';
+    return 'Color';
+  };
+
+  const getBarLetter = (field, key) => {
+    const isCirc = (field?.barPreset === 'CIRCULAR');
+    if (key === 'value') return isCirc ? 'A' : 'B';
+    if (key === 'track') return 'F';
+    if (key === 'label') return 'T';
+    if (key === 'frame') return 'M';
+    return '?';
+  };
+
   const BAR_LETTER = { frame: 'M', label: 'T', value: 'B', track: 'F' };
   const BAR_NAME = { frame: 'Marco', label: 'Etiqueta y unidad', value: 'Barra', track: 'Fondo y pista' };
   let barActiveKey = 'value';
@@ -3503,7 +3525,7 @@
 
   function buildBarMini(field) {
     const rows = barMiniRows(field);
-    const signature = rows.join(',');
+    const signature = `${field.barPreset},${rows.join(',')}`;
     if (barMiniCard.dataset.signature === signature) return;
     barMiniCard.dataset.signature = signature;
     barMiniCard.innerHTML = `
@@ -3512,8 +3534,8 @@
         <div class="menu-case-body field-case-body zone-host" data-bar-case-body>
           <canvas class="menu-case-canvas field-case-canvas" data-bar-case></canvas>
           <div class="menu-case-legend">${rows.map((k) => `
-            <div class="menu-legend-row" data-bar-legend="${k}"><span class="menu-legend-label">${BAR_NAME[k]}</span>` +
-              `<button type="button" class="menu-swatch" data-bar-swatch="${k}" title="${BAR_NAME[k]}"><span>${BAR_LETTER[k]}</span></button></div>`).join('')}
+            <div class="menu-legend-row" data-bar-legend="${k}"><span class="menu-legend-label">${getBarName(field, k)}</span>` +
+              `<button type="button" class="menu-swatch" data-bar-swatch="${k}" title="${getBarName(field, k)}"><span>${getBarLetter(field, k)}</span></button></div>`).join('')}
           </div>
         </div>
       </div>
@@ -3526,6 +3548,7 @@
 
   // Zonas en píxeles lógicos del mini-modelo (campo en 0,0).
   function barMiniZones(preview, g) {
+    const isCirc = (preview.barPreset === 'CIRCULAR');
     const w = Math.ceil(g.fieldW);
     const h = Math.ceil(g.fieldH);
     const inset = preview.frame ? 1 : 0;
@@ -3537,11 +3560,17 @@
       const uy = g.unitY !== undefined ? g.unitY : g.valueY + Math.round((g.valueH - (g.unitBounds.height || 7)) / 2);
       label.push({ x: ux, y: uy, w: g.unitBounds.width, h: g.unitBounds.height });
     }
-    const fillW = Math.round(normalizedFor(preview) * g.valueW);
+    let valueZone;
+    if (isCirc) {
+      valueZone = [{ x: g.valueX, y: g.valueY, w: g.valueW, h: g.valueH }];
+    } else {
+      const fillW = Math.round(normalizedFor(preview) * g.valueW);
+      valueZone = [{ x: g.valueX, y: g.valueY, w: fillW > 0 ? fillW : g.valueW, h: g.valueH }];
+    }
     return {
       frame: [{ x: 0, y: 0, w, h }],
       label: label.length ? label : [{ x: g.valueX, y: g.valueY, w: g.valueW, h: g.valueH }],
-      value: [{ x: g.valueX, y: g.valueY, w: fillW > 0 ? fillW : g.valueW, h: g.valueH }],
+      value: valueZone,
       track: [{ x: inset, y: inset, w: w - 2 * inset, h: h - 2 * inset, inset: true }]
     };
   }
@@ -3590,7 +3619,7 @@
         sw.classList.toggle('active', key === barActiveKey);
       });
     });
-    barColorEditor?.set(barColorOf(field, barActiveKey), BAR_NAME[barActiveKey]);
+    barColorEditor?.set(barColorOf(field, barActiveKey), getBarName(field, barActiveKey));
     // Sólo con la pestaña a la vista (el indicador necesita geometría real).
     if (barMiniCard.offsetParent) drawBarMini(field);
   }
@@ -3599,7 +3628,10 @@
     const field = selectedField();
     if (!isBar(field)) return;
     field[BAR_COLOR_PROP[key]] = value565 & 0xFFFF;
-    if (key === 'track') field.backgroundColor = value565 & 0xFFFF; // un solo color en firmware
+    if (key === 'track') {
+      field.backgroundColor = value565 & 0xFFFF; // un solo color en firmware
+      field.circleTrackColor = value565 & 0xFFFF;
+    }
     triggerCoreRender(commit);
   }
 

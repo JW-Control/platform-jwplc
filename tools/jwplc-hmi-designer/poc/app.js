@@ -2494,7 +2494,7 @@
 
   function computeFieldGeometry(field) {
     if (!field) return null;
-    if (field.type === 'NAV_BAR' || field.type === 'MENU') {
+    if (field.type === 'NAV_BAR' || field.type === 'MENU' || field.type === 'EVENT_LOG') {
       const b = getFieldBounds(field);
       return {
         pad: 0,
@@ -2911,8 +2911,8 @@
   }
 
   function buildContractText() {
-    const validFields = hmiFields.filter(f => !['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON', 'RAW_TEXT', 'NAV_BAR', 'MENU'].includes(f.type));
-    const hasStaticObjects = hmiFields.some(f => ['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON', 'RAW_TEXT', 'NAV_BAR', 'MENU'].includes(f.type));
+    const validFields = hmiFields.filter(f => !['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON', 'RAW_TEXT', 'NAV_BAR', 'MENU', 'EVENT_LOG'].includes(f.type));
+    const hasStaticObjects = hmiFields.some(f => ['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON', 'RAW_TEXT', 'NAV_BAR', 'MENU', 'EVENT_LOG'].includes(f.type));
     if (validFields.length === 0 && !hasStaticObjects) return '// Sin campos HMI. Agrega TEXT, VALUE, BOOL o BAR para comenzar.';
     if (validFields.length === 0) {
       // Sólo gráfica estática: sin HMI_FIELDS (un arreglo vacío no es C++ válido).
@@ -4178,7 +4178,7 @@
       button.classList.toggle('active', button.dataset.tool === selectedTool);
     });
 
-    const isVarTool = ['valueField', 'boolField', 'barField', 'navBarField', 'menuField'].includes(selectedTool);
+    const isVarTool = ['valueField', 'boolField', 'barField', 'navBarField', 'menuField', 'eventLogField'].includes(selectedTool);
     const varToolBtn = document.getElementById('variableToolBtn');
     if (varToolBtn) {
       varToolBtn.classList.toggle('active', isVarTool);
@@ -4205,6 +4205,7 @@
     const isShape = Boolean(field && SHAPE_TYPES.includes(field.type));
     const isNavBar = selectedTool === 'navBarField' || field?.type === 'NAV_BAR';
     const isMenu = field?.type === 'MENU';
+    const isEventLog = field?.type === 'EVENT_LOG';
     const isIcon = field?.type === 'ICON';
     const iconSection = document.getElementById('iconInspectorSection');
     if (iconSection) {
@@ -4215,6 +4216,14 @@
     if (menuSection) {
       menuSection.hidden = !isMenu;
       menuSection.style.display = isMenu ? '' : 'none';
+    }
+    const eventLogSection = document.getElementById('eventLogInspectorSection');
+    if (eventLogSection) {
+      eventLogSection.hidden = !isEventLog;
+      eventLogSection.style.display = isEventLog ? '' : 'none';
+      if (isEventLog && window.JWPLCHMIEventLog?.syncInspector) {
+        window.JWPLCHMIEventLog.syncInspector();
+      }
     }
     const navBarSection = document.getElementById('navBarInspectorSection');
     if (navBarSection) {
@@ -4240,7 +4249,7 @@
         syncRawTextInspector();
       }
     }
-    const showField = Boolean(field && fieldTools.includes(selectedTool) && field.type !== 'RAW_TEXT' && !isShape && field.type !== 'NAV_BAR' && !isMenu);
+    const showField = Boolean(field && fieldTools.includes(selectedTool) && field.type !== 'RAW_TEXT' && !isShape && field.type !== 'NAV_BAR' && !isMenu && !isEventLog && !isIcon);
     if (fieldSection) {
       fieldSection.hidden = !showField;
       fieldSection.style.display = showField ? '' : 'none';
@@ -6760,11 +6769,11 @@
           f.y = Math.round(newMinY + origRelY1 * scaleY);
           f.x2 = Math.round(newMinX + origRelX2 * scaleX);
           f.y2 = Math.round(newMinY + origRelY2 * scaleY);
-        } else if (f.type === 'MENU') {
+        } else if (f.type === 'MENU' || f.type === 'EVENT_LOG') {
           f.x = Math.round(newMinX + (orig.x - initMinX) * scaleX);
           f.y = Math.round(newMinY + (orig.y - initMinY) * scaleY);
-          f.width = clamp(Math.round((Number(orig.width) || 1) * scaleX), 20, WIDTH);
-          f.height = clamp(Math.round((Number(orig.height) || 1) * scaleY), 8, HEIGHT);
+          f.width = clamp(Math.round((Number(orig.width) || 1) * scaleX), 40, WIDTH);
+          f.height = clamp(Math.round((Number(orig.height) || 1) * scaleY), 28, HEIGHT);
         } else if (f.type === 'BAR') {
           f.barAutoWidth = false;
           const origW = Number(orig.barWidth) || 110;

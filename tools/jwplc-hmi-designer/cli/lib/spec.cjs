@@ -207,6 +207,7 @@ const TYPES = {
       ...POS,
       width: int(40, SCREEN.width, 'Ancho (px).', { default: 320 }),
       height: int(30, SCREEN.height, 'Alto (px).', { default: 170 }),
+      frame: bool('Marco exterior alrededor del historial.', { default: true }),
       ramCapacity: int(16, 128, 'Capacidad del buffer en RAM.', { default: 64 }),
       enableFram: bool('Persistencia de los últimos 16 eventos en FRAM ante corte de luz.', { default: true }),
       enableSd: bool('Exportación no bloqueante a microSD.', { default: true }),

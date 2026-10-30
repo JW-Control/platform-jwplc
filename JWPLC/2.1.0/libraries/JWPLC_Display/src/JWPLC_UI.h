@@ -295,7 +295,7 @@ JWPLC_UIBoolText JWPLC_UIBoolPilot(
 #define JWPLC_UI_HAS_ICON 1
 
 static constexpr uint8_t JWPLC_UI_ICON_MAX_SIZE = 64;
-static constexpr uint8_t JWPLC_UI_ICON_MAX_STATES = 8;
+static constexpr uint8_t JWPLC_UI_ICON_MAX_STATES = 16;
 static constexpr uint8_t JWPLC_UI_ICON_NO_TRANSPARENT = 0xFF;
 
 struct JWPLC_UIIconFrame

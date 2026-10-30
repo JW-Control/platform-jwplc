@@ -58,8 +58,8 @@ check(catalog.icons.some((i) => i.sizes[64]), 'hay iconos de 64 px');
 const bomba = catalog.icons.find((i) => i.id === 'bombas/bomba');
 const bombaCpp = core.assetBlock({ id: bomba.id, name: bomba.name, stateNames: bomba.stateNames, entry: bomba.sizes[32] });
 check(bombaCpp.includes('JWPLC_UIIconFrame') && bombaCpp.includes('ST1_FRAMES'), 'codegen C++ genera tablas de fotogramas para iconos animados');
-const twoStatePilots = ['piloto_verde', 'piloto_rojo', 'piloto_amarillo', 'piloto_azul', 'piloto_cuadrado', 'piloto_cuadrado_rojo', 'piloto_bisel'];
-check(twoStatePilots.every((p) => catalog.icons.find((i) => i.id === 'pilotos/' + p)?.stateNames?.length === 2), 'todos los pilotos de 2 estados tienen exactamente 2 estados para variables bool');
+const twoStatePilots = ['piloto', 'piloto_cuadrado'];
+check(twoStatePilots.every((p) => catalog.icons.find((i) => i.id === 'pilotos/' + p)?.stateNames?.length === 2), 'los pilotos estándar tienen 2 estados base para variables bool');
 
 console.log(failures ? `\n${failures} verificación(es) fallaron.` : '\nTodas las verificaciones pasaron.');
 process.exit(failures ? 1 : 0);

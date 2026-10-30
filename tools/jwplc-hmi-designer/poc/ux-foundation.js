@@ -269,7 +269,7 @@
 
   loadScript('./designer-color-editor.js?v=1793801300', () => {
   loadScript('./designer-bool.js?v=1793802300', () => {
-    loadScript('./designer-bar.js?v=1793802700', () => {
+    loadScript('./designer-bar.js?v=1793802800', () => {
       loadScript('./designer-zone-indicator.js?v=1793801300', () => {
         loadScript('./designer-field-inspector.js?v=1793801300', () => {
           loadScript('./designer-menu.js?v=1793801700');

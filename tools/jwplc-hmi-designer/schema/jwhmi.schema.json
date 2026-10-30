@@ -1853,6 +1853,11 @@
                 "maximum": 170,
                 "default": 170
               },
+              "frame": {
+                "description": "Marco exterior alrededor del historial.",
+                "type": "boolean",
+                "default": true
+              },
               "ramCapacity": {
                 "description": "Capacidad del buffer en RAM.",
                 "type": "integer",
