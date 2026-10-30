@@ -11,6 +11,7 @@
   const FOOTER_HEIGHT = 13;
 
   const DEFAULT_COLORS = Object.freeze({
+    frame: 0xFFFF,
     headerBackground: 0x2124,
     headerText: 0xFFFF,
     rowBackground: 0x0000,
@@ -118,6 +119,7 @@
     if (typeof field.enableSd !== 'boolean') field.enableSd = true;
     if (typeof field.sdFileName !== 'string' || !field.sdFileName) field.sdFileName = '/EVENTOS.CSV';
     if (!field.colors || typeof field.colors !== 'object') field.colors = { ...DEFAULT_COLORS };
+    if (field.colors.frame === undefined) field.colors.frame = 0xFFFF;
     if (!Array.isArray(field.descriptors)) field.descriptors = JSON.parse(JSON.stringify(DEFAULT_DESCRIPTORS));
     return field;
   }
@@ -139,9 +141,9 @@
     const h = clamp(Number(field.height) || 140, 30, SCREEN_H);
     const { border, rows: visibleRows } = layout(field);
 
-    // Marco exterior
+    // Marco exterior visible (blanco o color configurado)
     if (field.frame && painter.drawRect) {
-      painter.drawRect(x0, y0, w, h, c.headerBackground);
+      painter.drawRect(x0, y0, w, h, (c.frame !== undefined ? c.frame : 0xFFFF));
     }
 
     // Encabezado
@@ -258,16 +260,17 @@ static const JWPLC_UIEventLog HMI_EVENT_LOG = {
     /* descriptors */ HMI_EVENT_DESCRIPTORS,
     /* descriptorCount */ ${descList.length},
     /* colors */ {
-        0x${c.headerBackground.toString(16).toUpperCase()},
-        0x${c.headerText.toString(16).toUpperCase()},
-        0x${c.rowBackground.toString(16).toUpperCase()},
-        0x${c.rowBackgroundAlt.toString(16).toUpperCase()},
-        0x${c.rowText.toString(16).toUpperCase()},
-        0x${c.selectBackground.toString(16).toUpperCase()},
-        0x${c.selectText.toString(16).toUpperCase()},
-        0x${c.sevInfo.toString(16).toUpperCase()},
-        0x${c.sevWarn.toString(16).toUpperCase()},
-        0x${c.sevCrit.toString(16).toUpperCase()}
+        0x${(c.headerBackground !== undefined ? c.headerBackground : 0x2124).toString(16).toUpperCase()},
+        0x${(c.headerText !== undefined ? c.headerText : 0xFFFF).toString(16).toUpperCase()},
+        0x${(c.rowBackground !== undefined ? c.rowBackground : 0x0000).toString(16).toUpperCase()},
+        0x${(c.rowBackgroundAlt !== undefined ? c.rowBackgroundAlt : 0x10A2).toString(16).toUpperCase()},
+        0x${(c.rowText !== undefined ? c.rowText : 0xC618).toString(16).toUpperCase()},
+        0x${(c.selectBackground !== undefined ? c.selectBackground : 0x03FF).toString(16).toUpperCase()},
+        0x${(c.selectText !== undefined ? c.selectText : 0xFFFF).toString(16).toUpperCase()},
+        0x${(c.sevInfo !== undefined ? c.sevInfo : 0x07E0).toString(16).toUpperCase()},
+        0x${(c.sevWarn !== undefined ? c.sevWarn : 0xFD20).toString(16).toUpperCase()},
+        0x${(c.sevCrit !== undefined ? c.sevCrit : 0xF800).toString(16).toUpperCase()},
+        0x${((c.frame !== undefined ? c.frame : 0xFFFF) & 0xFFFF).toString(16).toUpperCase()}
     }
 };
 #endif`;
@@ -389,7 +392,7 @@ static const JWPLC_UIEventLog HMI_EVENT_LOG = {
               </label>
             </div>
             <div class="bar-card">
-              <div class="bar-card-section-title">Marco</div>
+              <div class="bar-card-section-title">Marco exterior</div>
               <div class="bar-visual-grid-2">
                 <button type="button" class="bar-visual-btn" data-evt-set="frame" data-value="0"><span>Sin marco</span></button>
                 <button type="button" class="bar-visual-btn" data-evt-set="frame" data-value="1"><span>Con marco</span></button>
@@ -405,57 +408,107 @@ static const JWPLC_UIEventLog HMI_EVENT_LOG = {
             </div>
           </div>
 
-          <!-- PANEL: Apariencia (Colores) -->
+          <!-- PANEL: Apariencia (Colores compactos optimizados) -->
           <div class="insp-panel" data-evt-panel="design:appearance" hidden>
             <div class="bar-card">
-              <div class="bar-card-section-title">Encabezado</div>
-              <div class="insp-two">
-                <label class="field-label">Fondo
-                  <input type="color" class="field-input" data-evt-color="headerBackground" />
-                </label>
-                <label class="field-label">Texto
-                  <input type="color" class="field-input" data-evt-color="headerText" />
-                </label>
+              <div class="bar-card-section-title">Marco y Encabezado</div>
+              <div class="evt-color-table">
+                <div class="evt-color-row">
+                  <span class="evt-color-name">Marco exterior</span>
+                  <label class="evt-color-ctrl">
+                    <span class="insp-hex" data-evt-hex="frame">#FFFFFF</span>
+                    <input type="color" data-evt-color="frame" />
+                  </label>
+                </div>
+                <div class="evt-color-row">
+                  <span class="evt-color-name">Fondo de cabecera</span>
+                  <label class="evt-color-ctrl">
+                    <span class="insp-hex" data-evt-hex="headerBackground">#212521</span>
+                    <input type="color" data-evt-color="headerBackground" />
+                  </label>
+                </div>
+                <div class="evt-color-row">
+                  <span class="evt-color-name">Texto de cabecera</span>
+                  <label class="evt-color-ctrl">
+                    <span class="insp-hex" data-evt-hex="headerText">#FFFFFF</span>
+                    <input type="color" data-evt-color="headerText" />
+                  </label>
+                </div>
               </div>
             </div>
+
             <div class="bar-card">
-              <div class="bar-card-section-title">Filas de eventos</div>
-              <div class="insp-two">
-                <label class="field-label">Fondo A
-                  <input type="color" class="field-input" data-evt-color="rowBackground" />
-                </label>
-                <label class="field-label">Fondo B
-                  <input type="color" class="field-input" data-evt-color="rowBackgroundAlt" />
-                </label>
+              <div class="bar-card-section-title">Filas de Eventos</div>
+              <div class="evt-color-table">
+                <div class="evt-color-row">
+                  <span class="evt-color-name">Fondo fila A</span>
+                  <label class="evt-color-ctrl">
+                    <span class="insp-hex" data-evt-hex="rowBackground">#000000</span>
+                    <input type="color" data-evt-color="rowBackground" />
+                  </label>
+                </div>
+                <div class="evt-color-row">
+                  <span class="evt-color-name">Fondo fila B (alterna)</span>
+                  <label class="evt-color-ctrl">
+                    <span class="insp-hex" data-evt-hex="rowBackgroundAlt">#101410</span>
+                    <input type="color" data-evt-color="rowBackgroundAlt" />
+                  </label>
+                </div>
+                <div class="evt-color-row">
+                  <span class="evt-color-name">Texto de fila</span>
+                  <label class="evt-color-ctrl">
+                    <span class="insp-hex" data-evt-hex="rowText">#C6C3C6</span>
+                    <input type="color" data-evt-color="rowText" />
+                  </label>
+                </div>
               </div>
-              <label class="field-label" style="margin-top:6px;">Texto de fila
-                <input type="color" class="field-input" data-evt-color="rowText" />
-              </label>
             </div>
+
             <div class="bar-card">
-              <div class="bar-card-section-title">Fila seleccionada (cursor)</div>
-              <div class="insp-two">
-                <label class="field-label">Fondo
-                  <input type="color" class="field-input" data-evt-color="selectBackground" />
-                </label>
-                <label class="field-label">Texto
-                  <input type="color" class="field-input" data-evt-color="selectText" />
-                </label>
+              <div class="bar-card-section-title">Fila Seleccionada (Cursor)</div>
+              <div class="evt-color-table">
+                <div class="evt-color-row">
+                  <span class="evt-color-name">Fondo de selección</span>
+                  <label class="evt-color-ctrl">
+                    <span class="insp-hex" data-evt-hex="selectBackground">#007CFF</span>
+                    <input type="color" data-evt-color="selectBackground" />
+                  </label>
+                </div>
+                <div class="evt-color-row">
+                  <span class="evt-color-name">Texto de selección</span>
+                  <label class="evt-color-ctrl">
+                    <span class="insp-hex" data-evt-hex="selectText">#FFFFFF</span>
+                    <input type="color" data-evt-color="selectText" />
+                  </label>
+                </div>
               </div>
             </div>
+
             <div class="bar-card">
               <div class="bar-card-section-title">Barras de Severidad</div>
-              <div class="insp-two">
-                <label class="field-label">INFO
-                  <input type="color" class="field-input" data-evt-color="sevInfo" />
-                </label>
-                <label class="field-label">AVISO
-                  <input type="color" class="field-input" data-evt-color="sevWarn" />
-                </label>
+              <div class="evt-color-table">
+                <div class="evt-color-row">
+                  <span class="evt-color-name">INFO (Informativo)</span>
+                  <label class="evt-color-ctrl">
+                    <span class="insp-hex" data-evt-hex="sevInfo">#00FC00</span>
+                    <input type="color" data-evt-color="sevInfo" />
+                  </label>
+                </div>
+                <div class="evt-color-row">
+                  <span class="evt-color-name">AVISO (Advertencia)</span>
+                  <label class="evt-color-ctrl">
+                    <span class="insp-hex" data-evt-hex="sevWarn">#FFA400</span>
+                    <input type="color" data-evt-color="sevWarn" />
+                  </label>
+                </div>
+                <div class="evt-color-row">
+                  <span class="evt-color-name">CRÍTICA (Alarma)</span>
+                  <label class="evt-color-ctrl">
+                    <span class="insp-hex" data-evt-hex="sevCrit">#F80000</span>
+                    <input type="color" data-evt-color="sevCrit" />
+                  </label>
+                </div>
               </div>
-              <label class="field-label" style="margin-top:6px;">CRÍTICA
-                <input type="color" class="field-input" data-evt-color="sevCrit" />
-              </label>
             </div>
           </div>
 
@@ -650,8 +703,11 @@ static const JWPLC_UIEventLog HMI_EVENT_LOG = {
       if (t.matches('[data-evt-prop]')) applyPropInput(t, false);
       if (t.matches('[data-evt-color]')) {
         const colKey = t.dataset.evtColor;
+        const hex = t.value;
+        const hexLabel = section.querySelector(`[data-evt-hex="${colKey}"]`);
+        if (hexLabel) hexLabel.textContent = hex.toUpperCase();
         mutate((f) => {
-          f.colors[colKey] = hexToRgb565(t.value);
+          f.colors[colKey] = hexToRgb565(hex);
         }, false);
       }
     });
@@ -661,8 +717,11 @@ static const JWPLC_UIEventLog HMI_EVENT_LOG = {
       if (t.matches('[data-evt-prop]')) applyPropInput(t, true);
       if (t.matches('[data-evt-color]')) {
         const colKey = t.dataset.evtColor;
+        const hex = t.value;
+        const hexLabel = section.querySelector(`[data-evt-hex="${colKey}"]`);
+        if (hexLabel) hexLabel.textContent = hex.toUpperCase();
         mutate((f) => {
-          f.colors[colKey] = hexToRgb565(t.value);
+          f.colors[colKey] = hexToRgb565(hex);
         }, true);
       }
     });
@@ -744,12 +803,15 @@ size_t total = JWPLC_Display.eventCount();
       ).join('');
     }
 
-    // Colores
+    // Colores y Hex badges compactos
     const c = field.colors || DEFAULT_COLORS;
     section.querySelectorAll('[data-evt-color]').forEach((input) => {
       const key = input.dataset.evtColor;
       if (c[key] !== undefined) {
-        input.value = rgb565ToHex(c[key]);
+        const hex = rgb565ToHex(c[key]);
+        input.value = hex;
+        const hexLabel = section.querySelector(`[data-evt-hex="${key}"]`);
+        if (hexLabel) hexLabel.textContent = hex.toUpperCase();
       }
     });
 

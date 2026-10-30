@@ -89,6 +89,7 @@ struct JWPLC_UIEventLogColors
     uint16_t sevInfo;
     uint16_t sevWarn;
     uint16_t sevCrit;
+    uint16_t frame;
 };
 
 struct JWPLC_UIEventLog

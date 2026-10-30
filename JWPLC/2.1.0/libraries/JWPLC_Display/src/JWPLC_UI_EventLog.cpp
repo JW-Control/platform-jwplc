@@ -567,7 +567,7 @@ namespace JWPLCUIEventLog
         // Marco exterior opcional
         if (g_config.frame)
         {
-            tft.drawRect(x0, y0, w, h, c.headerBackground);
+            tft.drawRect(x0, y0, w, h, c.frame > 0 ? c.frame : 0xFFFF);
         }
 
         // Encabezado
