@@ -2629,7 +2629,7 @@
       if (!entry) return g;
       // Sin fondo: lo transparente en todos los estados no se pinta; lo que es
       // transparente sólo en algunos toma el fondo del campo.
-      const img = window.JWPLCIconsCore.decode(entry, field.iconState);
+      const img = window.JWPLCIconsCore.decode(entry, field.iconState, field._animFrame || 0);
       const mask = field.transparentBackground ? window.JWPLCIconsCore.alwaysTransparentMask(entry) : null;
       const iconBg = mask ? (Number(field.backgroundColor) & 0xFFFF) : textBg;
       for (let y = 0; y < img.height; y += 1) {
@@ -3335,6 +3335,65 @@
         pageCount: hmiPages.length
       }
     }));
+  }
+
+  function redrawCanvasOnly() {
+    rebuildLogicalImage();
+    displayCtx.imageSmoothingEnabled = false;
+    displayCtx.clearRect(0, 0, displayCanvas.width, displayCanvas.height);
+    displayCtx.drawImage(logicalCanvas, 0, 0, WIDTH, HEIGHT, 0, 0, WIDTH * zoom, HEIGHT * zoom);
+
+    const visiblePageBars = fieldsForPage(activePage)
+      .filter((field) => field.type === 'BAR' && !field.hidden)
+      .sort((a, b) => ensureLayerOrder(b) - ensureLayerOrder(a));
+    const stampHigherLayersOverBar = (ctx, barField, scale) => {
+      const barOrder = ensureLayerOrder(barField);
+      const b = getFieldBounds(barField);
+      const x0 = Math.max(0, Math.floor(b.minX ?? b.x ?? 0));
+      const y0 = Math.max(0, Math.floor(b.minY ?? b.y ?? 0));
+      const x1 = Math.min(WIDTH, Math.ceil((b.maxX ?? (x0 + (b.width || 0))) + 1));
+      const y1 = Math.min(HEIGHT, Math.ceil((b.maxY ?? (y0 + (b.height || 0))) + 1));
+      for (let py = y0; py < y1; py++) {
+        let spanStart = -1;
+        for (let px = x0; px <= x1; px++) {
+          const idx = py * WIDTH + px;
+          const covered = px < x1 && topFieldOrder[idx] < barOrder && !topFieldIsBar[idx];
+          if (covered && spanStart < 0) {
+            spanStart = px;
+          } else if (!covered && spanStart >= 0) {
+            const spanW = px - spanStart;
+            ctx.drawImage(logicalCanvas, spanStart, py, spanW, 1, spanStart * scale, py * scale, spanW * scale, scale);
+            spanStart = -1;
+          }
+        }
+      }
+    };
+    if (window.JWPLCHMIBar?.drawBarField) {
+      for (let i = 0; i < visiblePageBars.length; i++) {
+        window.JWPLCHMIBar.drawBarField(displayCtx, visiblePageBars[i], zoom);
+        stampHigherLayersOverBar(displayCtx, visiblePageBars[i], zoom);
+      }
+    }
+
+    drawGrid();
+
+    if (previewCtx) {
+      previewCtx.imageSmoothingEnabled = false;
+      previewCtx.clearRect(0, 0, WIDTH, HEIGHT);
+      previewCtx.drawImage(logicalCanvas, 0, 0);
+      if (window.JWPLCHMIBar?.drawBarField) {
+        for (let i = 0; i < visiblePageBars.length; i++) {
+          window.JWPLCHMIBar.drawBarField(previewCtx, visiblePageBars[i], 1);
+          stampHigherLayersOverBar(previewCtx, visiblePageBars[i], 1);
+        }
+      }
+    }
+
+    if (!window.JWPLCHMIEditor?.integratedBarLayers && window.JWPLCHMIBar?.drawBars) {
+      window.JWPLCHMIBar.drawBars(displayCtx, zoom, previewCtx);
+    }
+
+    drawSelectionAndGuides();
   }
 
   function pointFromPointer(event) {
@@ -7917,6 +7976,8 @@
     moveSelectedFieldToPage,
     commitHistory,
     render,
+    redrawCanvasOnly,
+    renderCanvasOnly: redrawCanvasOnly,
     fitCanvas,
     fitSelection,
     applyZoom,

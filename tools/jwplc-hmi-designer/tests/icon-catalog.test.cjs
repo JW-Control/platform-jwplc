@@ -39,6 +39,15 @@ for (const icon of catalog.icons) {
       if (s.palette.length !== 16 || s.palette.some((c) => !(Number.isInteger(c) && c >= 0 && c <= 0xFFFF))) problems.push(`${where}: paleta del estado ${i}`);
       const d = core.decode(entry, i);
       if (d.pixels.length !== entry.width * entry.height || d.pixels.every((p) => p < 0)) problems.push(`${where}: estado ${i} vacío`);
+      if (s.frameCount > 1) {
+        if (!Array.isArray(s.frames) || s.frames.length !== s.frameCount) problems.push(`${where}: estado ${i} animado sin frames válidos`);
+        if (!s.intervalMs || s.intervalMs < 20 || s.intervalMs > 5000) problems.push(`${where}: estado ${i} intervalMs inválido`);
+        (s.frames || []).forEach((f, fIdx) => {
+          if (!(f.image >= 0 && f.image < entry.images.length)) problems.push(`${where}: estado ${i} frame ${fIdx} imagen inexistente`);
+          const fd = core.decode(entry, i, fIdx);
+          if (fd.pixels.length !== entry.width * entry.height || fd.pixels.every((p) => p < 0)) problems.push(`${where}: estado ${i} frame ${fIdx} vacío`);
+        });
+      }
     });
     if (core.paletteLength(entry) > 16) problems.push(`${where}: más de 16 colores`);
   }
@@ -46,6 +55,11 @@ for (const icon of catalog.icons) {
 check(problems.length === 0, `${catalog.icons.length} iconos caben en el firmware${problems.length ? `\n      ${problems.join('\n      ')}` : ''}`);
 check(catalog.categories.every((c) => catalog.icons.some((i) => i.category === c.id)), `${catalog.categories.length} categorías, todas con iconos`);
 check(catalog.icons.some((i) => i.sizes[64]), 'hay iconos de 64 px');
+const bomba = catalog.icons.find((i) => i.id === 'bombas/bomba');
+const bombaCpp = core.assetBlock({ id: bomba.id, name: bomba.name, stateNames: bomba.stateNames, entry: bomba.sizes[32] });
+check(bombaCpp.includes('JWPLC_UIIconFrame') && bombaCpp.includes('ST1_FRAMES'), 'codegen C++ genera tablas de fotogramas para iconos animados');
+const twoStatePilots = ['piloto_verde', 'piloto_rojo', 'piloto_amarillo', 'piloto_azul', 'piloto_cuadrado', 'piloto_cuadrado_rojo', 'piloto_bisel'];
+check(twoStatePilots.every((p) => catalog.icons.find((i) => i.id === 'pilotos/' + p)?.stateNames?.length === 2), 'todos los pilotos de 2 estados tienen exactamente 2 estados para variables bool');
 
 console.log(failures ? `\n${failures} verificación(es) fallaron.` : '\nTodas las verificaciones pasaron.');
 process.exit(failures ? 1 : 0);

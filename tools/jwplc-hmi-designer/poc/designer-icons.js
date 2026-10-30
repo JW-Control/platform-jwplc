@@ -75,7 +75,7 @@
       const entry = entryFor(f);
       const info = iconInfo(f.iconId);
       if (!entry || !info) return;
-      out[`${f.iconId}@${entry.width}`] = { name: info.name, category: info.category, stateNames: info.stateNames, entry };
+      out[`${f.iconId}@${entry.width}`] = { id: f.iconId, name: info.name, category: info.category, stateNames: info.stateNames, entry };
     });
     return Object.keys(out).length ? out : undefined;
   }
@@ -98,9 +98,9 @@
   // Miniaturas
   // ---------------------------------------------------------------------------
 
-  function drawThumb(canvas, entry, state, background = 0x0000) {
+  function drawThumb(canvas, entry, state, background = 0x0000, frame = 0) {
     if (!entry) return;
-    const img = core.decode(entry, state);
+    const img = core.decode(entry, state, frame);
     canvas.width = img.width;
     canvas.height = img.height;
     const ctx = canvas.getContext('2d');
@@ -135,8 +135,10 @@
     .icons-block .icons-size { display: flex; gap: 3px; }
     .icons-block .icons-size .insp-chip { font-size: 10px; padding: 2px 5px; }
     .icons-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); gap: 4px; align-content: start; overflow-y: auto; overscroll-behavior: contain; padding-right: 2px; }
-    .icon-tile { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 5px 2px 3px; border: 1px solid rgba(255,255,255,.08); border-radius: 6px; background: #05080b; color: inherit; cursor: grab; font: inherit; }
+    .icon-anim-badge { display: inline-block; font-size: 8px; line-height: 1; padding: 1.5px 3.5px; border-radius: 3px; background: rgba(82,201,255,.2); color: #52c9ff; font-weight: 700; margin-left: 3px; vertical-align: middle; }
+    .icon-tile { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 5px 2px 3px; border: 1px solid rgba(255,255,255,.08); border-radius: 6px; background: #05080b; color: inherit; cursor: grab; font: inherit; }
     .icon-tile:hover { border-color: rgba(82,201,255,.6); }
+    .icon-tile .icon-tile-anim { position: absolute; top: 2px; right: 3px; font-size: 7.5px; line-height: 1; color: #52c9ff; opacity: .85; }
     .icon-tile canvas { width: 32px; height: 32px; image-rendering: pixelated; }
     .icon-tile span { font-size: 9.5px; line-height: 1.15; text-align: center; opacity: .8; max-width: 100%; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
     .icons-empty { font-size: 11px; opacity: .7; padding: 6px 2px; }
@@ -187,7 +189,7 @@
           <div class="icons-size" data-icons-size title="Tamaño del icono nuevo"></div>
         </div>
         <div class="icons-grid" data-icons-grid></div>
-        <div class="insp-note" style="font-size:10.5px;opacity:.75">Clic o arrastrar al lienzo. Cada icono cambia de imagen según su variable (sin animación).</div>
+        <div class="insp-note" style="font-size:10.5px;opacity:.75">Clic o arrastrar al lienzo. Los iconos cambian de imagen según su variable y animan en marcha.</div>
       </div>
     </div>`;
   const block = container.querySelector('#iconDropdownMenu');
@@ -259,15 +261,39 @@
       return !lib.category || icon.category === lib.category;
     });
     const grid = block.querySelector('[data-icons-grid]');
-    grid.innerHTML = list.length ? list.map((icon) =>
-      `<button type="button" class="icon-tile" draggable="true" data-icon-id="${icon.id}" title="${escapeHtml(icon.name)} · ${escapeHtml(icon.stateNames.join(' / '))} · ${core.sizesOf(icon).join('/')} px">
-        <canvas data-icon-thumb="${icon.id}"></canvas><span>${escapeHtml(icon.name)}</span>
-      </button>`).join('') : '<div class="icons-empty">Sin resultados.</div>';
-    grid.querySelectorAll('[data-icon-thumb]').forEach((canvas) => {
-      const icon = core.findIcon(catalog, canvas.dataset.iconThumb);
+    grid.innerHTML = list.length ? list.map((icon) => {
       const entry = icon.sizes[core.resolveSize(icon, 32)];
-      // Miniatura en el estado «activo» (el 1): verde, encendido, abierto…
+      const isAnim = entry?.states?.some((s) => s.frameCount > 1);
+      return `<button type="button" class="icon-tile" draggable="true" data-icon-id="${icon.id}" title="${escapeHtml(icon.name)} · ${escapeHtml(icon.stateNames.join(' / '))}${isAnim ? ' · animación en marcha' : ''} · ${core.sizesOf(icon).join('/')} px">
+        <canvas data-icon-thumb="${icon.id}"></canvas><span>${escapeHtml(icon.name)}</span>
+        ${isAnim ? '<span class="icon-tile-anim" title="Animado en marcha">▶</span>' : ''}
+      </button>`;
+    }).join('') : '<div class="icons-empty">Sin resultados.</div>';
+    grid.querySelectorAll('.icon-tile').forEach((tile) => {
+      const icon = core.findIcon(catalog, tile.dataset.iconId);
+      if (!icon) return;
+      const entry = icon.sizes[core.resolveSize(icon, 32)];
+      const canvas = tile.querySelector('canvas');
       drawThumb(canvas, entry, 1);
+      const st = entry?.states?.[1];
+      if (st && st.frameCount > 1) {
+        let hoverTimer = null;
+        let frame = 0;
+        tile.addEventListener('mouseenter', () => {
+          if (hoverTimer) clearInterval(hoverTimer);
+          frame = 0;
+          hoverTimer = setInterval(() => {
+            frame = (frame + 1) % st.frameCount;
+            drawThumb(canvas, entry, 1, 0x0000, frame);
+          }, st.frameIntervalMs || 120);
+        });
+        tile.addEventListener('mouseleave', () => {
+          if (hoverTimer) clearInterval(hoverTimer);
+          hoverTimer = null;
+          frame = 0;
+          drawThumb(canvas, entry, 1, 0x0000, 0);
+        });
+      }
     });
   }
 
@@ -519,12 +545,13 @@
     });
     const set = (name, text) => section.querySelectorAll(`[data-icon-readout="${name}"]`).forEach((el) => { el.textContent = text; });
     set('name', info?.name || field.iconId || '—');
-    set('category', `${catalog.categories.find((c) => c.id === info?.category)?.name || ''} · ${names.length} estados${core.findIcon(catalog, field.iconId) ? '' : ' · copia del proyecto'}`);
+    const hasAnim = entry?.states?.some((s) => s.frameCount > 1);
+    set('category', `${catalog.categories.find((c) => c.id === info?.category)?.name || ''} · ${names.length} estados${hasAnim ? ' · animado' : ''}${core.findIcon(catalog, field.iconId) ? '' : ' · copia del proyecto'}`);
     set('flash', entry ? `${core.flashBytes(entry)} B` : '—');
     set('fields', `${(editor()?.getAllFields?.() || []).filter((f) => !['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON', 'RAW_TEXT', 'NAV_BAR', 'MENU'].includes(f.type)).length}/32`);
     const g = editor()?.getFieldBounds?.(field);
     set('box', g ? `${g.width} × ${g.height} px` : '—');
-    drawThumb(section.querySelector('[data-icon-current]'), entry, field.iconState, num(field.backgroundColor));
+    drawThumb(section.querySelector('[data-icon-current]'), entry, field.iconState, num(field.backgroundColor), field._animFrame || 0);
 
     section.querySelector('[data-icon-sizes]').innerHTML = sizesFor(field.iconId).map((s) =>
       `<button type="button" class="insp-chip${s === Number(field.iconSize) ? ' active' : ''}" data-icon-size="${s}">${s} px</button>`).join('');
@@ -538,12 +565,20 @@
       b.classList.toggle('active', value);
     });
 
+    const curState = core.clampState(entry, field.iconState);
     const states = section.querySelector('[data-icon-states]');
-    states.innerHTML = names.map((n, i) =>
-      `<button type="button" class="bar-visual-btn icon-state${i === core.clampState(entry, field.iconState) ? ' active' : ''}" data-icon-state="${i}">
-        <canvas data-icon-state-thumb="${i}"></canvas><span>${escapeHtml(n)}</span><small>${field.iconVarType === 'uint8' ? i : (i === 0 ? 'false' : i === 1 ? 'true' : `${i} (no alcanza)`)}</small>
-      </button>`).join('');
-    states.querySelectorAll('[data-icon-state-thumb]').forEach((c) => drawThumb(c, entry, Number(c.dataset.iconStateThumb), num(field.backgroundColor)));
+    states.innerHTML = names.map((n, i) => {
+      const st = entry?.states?.[i];
+      const isAnim = st && st.frameCount > 1;
+      const badge = isAnim ? `<span class="icon-anim-badge" title="${st.frameCount} cuadros · ${st.frameIntervalMs || 100} ms">▶ ${st.frameCount}f</span>` : '';
+      return `<button type="button" class="bar-visual-btn icon-state${i === curState ? ' active' : ''}" data-icon-state="${i}">
+        <canvas data-icon-state-thumb="${i}"></canvas><span>${escapeHtml(n)}${badge}</span><small>${field.iconVarType === 'uint8' ? i : (i === 0 ? 'false' : i === 1 ? 'true' : `${i} (no alcanza)`)}</small>
+      </button>`;
+    }).join('');
+    states.querySelectorAll('[data-icon-state-thumb]').forEach((c) => {
+      const idx = Number(c.dataset.iconStateThumb);
+      drawThumb(c, entry, idx, num(field.backgroundColor), idx === curState ? (field._animFrame || 0) : 0);
+    });
 
     section.querySelector('[data-icon-map]').innerHTML = names.map((n, i) =>
       `<tr><td><code>${field.iconVarType === 'uint8' ? i : (i === 0 ? 'false' : i === 1 ? 'true' : '—')}</code></td><td><canvas data-icon-map-thumb="${i}"></canvas></td><td>${escapeHtml(n)}</td></tr>`).join('');
@@ -590,7 +625,7 @@
     const size = t.closest('[data-icon-size]');
     if (size) { mutate((f) => { f.iconSize = Number(size.dataset.iconSize); }); return; }
     const state = t.closest('[data-icon-state]');
-    if (state) { mutate((f) => { f.iconState = Number(state.dataset.iconState); }); return; }
+    if (state) { mutate((f) => { f.iconState = Number(state.dataset.iconState); f._animFrame = 0; f._lastAnimTick = 0; }); return; }
     const color = t.closest('[data-icon-color]');
     if (color) { activeColorKey = color.dataset.iconColor; sync(); return; }
     const page = t.closest('[data-icon-page]');
@@ -610,7 +645,7 @@
         if (!icon) return;
         f.iconId = icon.id;
         f.iconSize = core.resolveSize(icon, f.iconSize);
-        f.iconState = Math.min(num(f.iconState), icon.stateNames.length - 1);
+        f.iconState = Math.min(num(f.iconState), icon.stateNames.length - 1); f._animFrame = 0; f._lastAnimTick = 0;
         if (icon.stateNames.length > 2) f.iconVarType = 'uint8';
       } else f[prop] = t.value;
     }, commit);
@@ -619,6 +654,59 @@
   section.addEventListener('change', (e) => applyInput(e.target, true));
 
   window.addEventListener('jwplc:editor-refresh', sync);
+
+
+  // ---------------------------------------------------------------------------
+  // Bucle de animación en vivo de iconos multi-cuadro (Alpha16)
+  // ---------------------------------------------------------------------------
+  function updateAnimationLoop() {
+    const ed = editor();
+    if (!ed) return;
+    const page = ed.getActivePage?.() ?? 0;
+    const fields = ed.getFieldsForPage?.(page) || [];
+    let hasAnimated = false;
+    const now = performance.now();
+
+    for (const f of fields) {
+      if (f.type !== 'ICON' || f.hidden) continue;
+      const entry = entryFor(f);
+      if (!entry) continue;
+      const stateIndex = core.clampState(entry, f.iconState);
+      const st = entry.states[stateIndex];
+      if (st && st.frameCount > 1) {
+        hasAnimated = true;
+        const interval = st.frameIntervalMs || 120;
+        if (!f._lastAnimTick) f._lastAnimTick = now;
+        if (now - f._lastAnimTick >= interval) {
+          f._animFrame = ((f._animFrame || 0) + 1) % st.frameCount;
+          f._lastAnimTick = now;
+        }
+      } else if (f._animFrame) {
+        f._animFrame = 0;
+      }
+    }
+
+    if (hasAnimated) {
+      if (ed.redrawCanvasOnly) ed.redrawCanvasOnly();
+      else ed.render?.();
+
+      const sel = selectedIcon();
+      if (sel) {
+        const selEntry = entryFor(sel);
+        const selState = core.clampState(selEntry, sel.iconState);
+        const selSt = selEntry?.states?.[selState];
+        if (selSt && selSt.frameCount > 1) {
+          const curr = section.querySelector('[data-icon-current]');
+          if (curr) drawThumb(curr, selEntry, sel.iconState, num(sel.backgroundColor), sel._animFrame || 0);
+          const stThumb = section.querySelector(`[data-icon-state-thumb="${selState}"]`);
+          if (stThumb) drawThumb(stThumb, selEntry, selState, num(sel.backgroundColor), sel._animFrame || 0);
+        }
+      }
+    }
+  }
+
+  const animTimer = setInterval(updateAnimationLoop, 40);
+  window.addEventListener('beforeunload', () => clearInterval(animTimer));
 
   window.JWPLCHMIIcons = {
     catalog,
