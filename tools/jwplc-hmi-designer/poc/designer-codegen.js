@@ -445,6 +445,55 @@ static void jwplcHMIDrawMicroText(JWPLC_TFTClass &tft, int16_t x, int16_t y, con
     return pts;
   }
 
+  function insetPolygon(pts, s) {
+    if (!Array.isArray(pts) || pts.length < 3 || s <= 0) return pts ? [...pts] : null;
+    const n = pts.length;
+    let cx = 0, cy = 0;
+    for (const p of pts) { cx += p.x; cy += p.y; }
+    cx /= n; cy /= n;
+
+    const lines = [];
+    for (let i = 0; i < n; i++) {
+      const p1 = pts[i];
+      const p2 = pts[(i + 1) % n];
+      const dx = p2.x - p1.x;
+      const dy = p2.y - p1.y;
+      const len = Math.hypot(dx, dy);
+      if (len < 1e-4) return null;
+      const ux = dx / len;
+      const uy = dy / len;
+      let nx = -uy, ny = ux;
+      const midX = (p1.x + p2.x) / 2, midY = (p1.y + p2.y) / 2;
+      if (nx * (cx - midX) + ny * (cy - midY) < 0) {
+        nx = -nx; ny = -ny;
+      }
+      lines.push({ p: { x: p1.x + s * nx, y: p1.y + s * ny }, u: { x: ux, y: uy } });
+    }
+
+    const out = [];
+    for (let i = 0; i < n; i++) {
+      const prev = lines[(i - 1 + n) % n];
+      const curr = lines[i];
+      const det = prev.u.x * (-curr.u.y) - prev.u.y * (-curr.u.x);
+      if (Math.abs(det) < 1e-5) {
+        out.push({ x: curr.p.x, y: curr.p.y });
+        continue;
+      }
+      const dx = curr.p.x - prev.p.x;
+      const dy = curr.p.y - prev.p.y;
+      const t = (dx * (-curr.u.y) - dy * (-curr.u.x)) / det;
+      const pt = {
+        x: Math.round(prev.p.x + t * prev.u.x),
+        y: Math.round(prev.p.y + t * prev.u.y)
+      };
+      if ((pt.x - cx) * (pts[i].x - cx) + (pt.y - cy) * (pts[i].y - cy) < -1e-3) {
+        return null;
+      }
+      out.push(pt);
+    }
+    return out;
+  }
+
   // Devuelve { lines: string[], helpers: Set<string> } para un objeto estático.
   // Las líneas usan una referencia local `tft` (JWPLC_TFTClass &).
   function staticDrawCode(field) {
@@ -532,10 +581,15 @@ static void jwplcHMIDrawMicroText(JWPLC_TFTClass &tft, int16_t x, int16_t y, con
         }
       }
       if (borderOn) {
-        for (let i = 0; i < pts.length; i++) {
-          const p1 = pts[i];
-          const p2 = pts[(i + 1) % pts.length];
-          lines.push(`tft.drawLine(${p1.x}, ${p1.y}, ${p2.x}, ${p2.y}, ${c});`);
+        const strokeSize = Math.max(1, Math.trunc(Number(field.size) || 1));
+        for (let s = 0; s < strokeSize; s++) {
+          const layerPts = s === 0 ? pts : insetPolygon(pts, s);
+          if (!layerPts) break;
+          for (let i = 0; i < layerPts.length; i++) {
+            const p1 = layerPts[i];
+            const p2 = layerPts[(i + 1) % layerPts.length];
+            lines.push(`tft.drawLine(${p1.x}, ${p1.y}, ${p2.x}, ${p2.y}, ${c});`);
+          }
         }
       }
       return { lines, helpers };
