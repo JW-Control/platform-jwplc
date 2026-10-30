@@ -18,7 +18,7 @@ const { execFileSync } = require('child_process');
 
 const ROOT = path.resolve(__dirname, '..');
 const POC = path.join(ROOT, 'poc');
-const INO = path.join(ROOT, 'gates', 'A11_LivePreview_WebSerial', 'JWPLC_HMI_Live_Bridge', 'JWPLC_HMI_Live_Bridge.ino');
+const INO = path.join(ROOT, 'firmware', 'JWPLC_HMI_Live_Bridge', 'JWPLC_HMI_Live_Bridge.ino');
 const WORK = fs.mkdtempSync(path.join(os.tmpdir(), 'jwplc-live-sim-'));
 const W = 320;
 const H = 170;

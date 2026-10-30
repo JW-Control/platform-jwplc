@@ -3,7 +3,7 @@
 # Alpha15 - Regenera el Live Bridge que instala el flasheador del HMI Designer,
 # en el formato de exportación del package JWPLC («Exportar binario compilado»):
 #
-#   tools/jwplc-hmi-designer/gates/A11_LivePreview_WebSerial/JWPLC_HMI_Live_Bridge/*.ino
+#   tools/jwplc-hmi-designer/firmware/JWPLC_HMI_Live_Bridge/*.ino
 #     -> arduino-cli compile (jwplc_local:esp32:jwplcbasic, el package de este repo)
 #     -> poc/firmware/jwplc.esp32.jwplcbasic/
 #          JWPLC_HMI_Live_Bridge.ino.bootloader.bin · .partitions.bin · .bin · boot_app0.bin
@@ -25,7 +25,7 @@ set -euo pipefail
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 WORK="${JWPLC_BUILD_DIR:-$HOME/jwplc-build}"
 FQBN="jwplc_local:esp32:jwplcbasic"
-SKETCH="$REPO/tools/jwplc-hmi-designer/gates/A11_LivePreview_WebSerial/JWPLC_HMI_Live_Bridge"
+SKETCH="$REPO/tools/jwplc-hmi-designer/firmware/JWPLC_HMI_Live_Bridge"
 FW_DIR="$REPO/tools/jwplc-hmi-designer/poc/firmware/jwplc.esp32.jwplcbasic"
 NAME="JWPLC_HMI_Live_Bridge.ino"
 

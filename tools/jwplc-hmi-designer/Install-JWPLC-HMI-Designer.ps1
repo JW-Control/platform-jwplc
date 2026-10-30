@@ -12,31 +12,18 @@
 $ErrorActionPreference = 'Stop'
 
 $sourcePoc = Join-Path $PSScriptRoot 'poc'
-$sourceStart = Join-Path $PSScriptRoot 'Start-JWPLC-HMI-Designer.ps1'
-$sourceServer = Join-Path $PSScriptRoot 'JWPLC-HMI-Server.ps1'
-$sourceCmd = Join-Path $PSScriptRoot 'JWPLC-HMI-Designer.cmd'
-$sourceBuildExe = Join-Path $PSScriptRoot 'Build-JWPLC-HMI-Designer-Exe.ps1'
-$sourceLauncherCs = Join-Path $PSScriptRoot 'JWPLC-HMI-Designer-Launcher.cs'
 $sourceElectronExe = Join-Path $PSScriptRoot 'dist\JWPLC-HMI-Designer-Electron.exe'
 $sourceIcon = Join-Path $PSScriptRoot 'assets\JWPLC-HMI-Designer.ico'
 $arduinoInstaller = Join-Path $PSScriptRoot 'Install-ArduinoIDE-Launcher.ps1'
 
-# Alpha11: la instalación normal incluye la extensión de Arduino IDE 2.
-# -NoArduinoIDEExtension queda únicamente como opt-out técnico. El switch
-# histórico -InstallArduinoIDELauncher se conserva por compatibilidad y fuerza
-# explícitamente la instalación si algún script antiguo todavía lo utiliza.
+# La instalación normal incluye la extensión de Arduino IDE 2.
 $installArduinoIDEExtension = -not $NoArduinoIDEExtension
 if ($InstallArduinoIDELauncher) {
     $installArduinoIDEExtension = $true
 }
 
 $requiredFiles = @(
-    $sourcePoc,
-    $sourceStart,
-    $sourceServer,
-    $sourceCmd,
-    $sourceBuildExe,
-    $sourceLauncherCs
+    $sourcePoc
 )
 if ($installArduinoIDEExtension) {
     $requiredFiles += $arduinoInstaller
@@ -50,9 +37,6 @@ foreach ($required in $requiredFiles) {
 
 $InstallRoot = [IO.Path]::GetFullPath($InstallRoot)
 $installPoc = Join-Path $InstallRoot 'poc'
-$installStart = Join-Path $InstallRoot 'Start-JWPLC-HMI-Designer.ps1'
-$installServer = Join-Path $InstallRoot 'JWPLC-HMI-Server.ps1'
-$installCmd = Join-Path $InstallRoot 'JWPLC-HMI-Designer.cmd'
 $installExe = Join-Path $InstallRoot 'JWPLC-HMI-Designer.exe'
 $installIcon = Join-Path $InstallRoot 'JWPLC-HMI-Designer.ico'
 $installWebIcon = Join-Path $installPoc 'JWPLC-HMI-Designer.ico'
@@ -137,9 +121,6 @@ if (Test-Path -LiteralPath $installPoc) {
     Remove-Item -LiteralPath $installPoc -Recurse -Force
 }
 Copy-Item -LiteralPath $sourcePoc -Destination $installPoc -Recurse -Force
-Copy-Item -LiteralPath $sourceStart -Destination $installStart -Force
-Copy-Item -LiteralPath $sourceServer -Destination $installServer -Force
-Copy-Item -LiteralPath $sourceCmd -Destination $installCmd -Force
 
 $buildIcon = ''
 if (Test-Path -LiteralPath $sourceIcon -PathType Leaf) {
@@ -149,27 +130,13 @@ if (Test-Path -LiteralPath $sourceIcon -PathType Leaf) {
     Write-Host "Icono: $sourceIcon" -ForegroundColor DarkGray
 }
 
-$installMode = 'CHROMIUM_FALLBACK'
 if (Test-Path -LiteralPath $sourceElectronExe -PathType Leaf) {
     Write-Host 'Instalando ejecutable nativo Electron...' -ForegroundColor Cyan
     Copy-Item -LiteralPath $sourceElectronExe -Destination $installExe -Force
     $installMode = 'ELECTRON_NATIVE'
 }
-elseif ($RequireElectron) {
-    throw "No se encontró la app de escritorio compilada ($sourceElectronExe). Ejecuta Generar-e-Instalar-App-Escritorio.cmd."
-}
 else {
-    Write-Host 'Ejecutable Electron no encontrado; usando launcher Chromium de compatibilidad.' -ForegroundColor Yellow
-    Write-Host 'Para el modo nativo ejecuta primero:' -ForegroundColor Yellow
-    Write-Host '  .\tools\jwplc-hmi-designer\Build-JWPLC-HMI-Designer-Electron.ps1' -ForegroundColor Yellow
-    Write-Host ''
-    Write-Host 'Generando ejecutable de entrada...' -ForegroundColor Cyan
-    if ([string]::IsNullOrWhiteSpace($buildIcon)) {
-        & $sourceBuildExe -OutputPath $installExe | Out-Null
-    }
-    else {
-        & $sourceBuildExe -OutputPath $installExe -IconPath $buildIcon | Out-Null
-    }
+    throw "No se encontró la app de escritorio compilada ($sourceElectronExe). Ejecuta Generar-e-Instalar-App-Escritorio.cmd."
 }
 
 if (-not (Test-Path -LiteralPath $installExe -PathType Leaf)) {
