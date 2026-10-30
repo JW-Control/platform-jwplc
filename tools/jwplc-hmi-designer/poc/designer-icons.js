@@ -470,22 +470,28 @@
             <span class="bar-visual-group-title insp-gap">Pisos (prueba en vivo y color)</span>
             <div data-baliza-tiers-list></div>
           </div>
-          <!-- Velocidad de animación (solo para iconos animados) -->
+          <!-- Velocidad de animación (slider de 4 niveles con animación y FPS) -->
           <div class="bar-card" data-icon-anim-card hidden>
             <div class="bar-card-section-title">Velocidad de animación</div>
-            <div class="insp-note">Ajusta el tiempo de cada fotograma (menor tiempo = más rápido).</div>
-            <div class="insp-chip-row insp-gap" data-anim-presets-group>
-              <button type="button" class="insp-chip" data-anim-preset="250">250 ms · Muy lento</button>
-              <button type="button" class="insp-chip" data-anim-preset="180">180 ms · Lento</button>
-              <button type="button" class="insp-chip" data-anim-preset="120">120 ms · Normal</button>
-              <button type="button" class="insp-chip" data-anim-preset="80">80 ms · Rápido</button>
-              <button type="button" class="insp-chip" data-anim-preset="50">50 ms · Muy rápido</button>
-            </div>
-            <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
-              <label class="field-label" style="margin:0;flex:1">Ms por cuadro
-                <input class="field-input" data-icon-anim-input type="number" min="30" max="1000" step="10" placeholder="120" />
-              </label>
-              <button type="button" class="insp-chip" data-anim-preset="reset" style="margin-top:16px">Original</button>
+            <div class="anim-speed-wrap" style="margin-top:8px">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span class="anim-speed-indicator" style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:4px;background:rgba(82,201,255,.12);border:1px solid rgba(82,201,255,.3)">
+                    <svg class="anim-spinner-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#52c9ff" stroke-width="2.5" stroke-linecap="round">
+                      <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+                    </svg>
+                  </span>
+                  <strong data-anim-speed-label style="font-size:13px;color:#52c9ff">Rápido</strong>
+                </div>
+                <span class="badge" data-anim-fps-badge style="font-size:11px;font-weight:700;background:rgba(255,255,255,.08);padding:2px 8px;border-radius:10px">12 FPS</span>
+              </div>
+              <input type="range" class="field-range anim-speed-slider" data-icon-anim-slider min="1" max="4" step="1" value="3" style="width:100%;margin:6px 0 4px;cursor:pointer" />
+              <div style="display:flex;justify-content:space-between;font-size:10px;opacity:.7;padding:0 2px">
+                <span>Muy lento</span>
+                <span>Lento</span>
+                <span>Rápido</span>
+                <span>Muy rápido</span>
+              </div>
             </div>
           </div>
 
@@ -535,29 +541,17 @@
         <div class="insp-panel" data-icon-panel="design:appearance" hidden>
           <div class="menu-case">
             <div class="bar-card-section-title">Vista</div>
-            <div class="menu-case-body field-case-body zone-host" data-icon-case-body="single">
+            <div class="menu-case-body field-case-body zone-host is-below" data-icon-case-body="single">
               <canvas class="menu-case-canvas field-case-canvas" data-icon-case="single"></canvas>
               <div class="menu-case-legend" data-icon-case-legend></div>
             </div>
           </div>
           <div class="menu-palette">
             <div class="insp-note">Clic en una fila (texto o cuadro) para editar ese color: el contorno y el ▶ marcan lo que cambia en la vista.</div>
-            <div class="color-editing-header" style="display:flex;align-items:center;justify-content:space-between;margin:10px 0 6px">
-              <span style="font-weight:600;font-size:12px">Editando <strong data-icon-editing-name>Etiqueta</strong> <small style="opacity:.7" data-icon-editing-desc>· texto</small></span>
-              <span class="color-current-swatch" data-icon-editing-swatch style="display:inline-block;width:36px;height:16px;border-radius:3px;border:1px solid rgba(255,255,255,.3)"></span>
-            </div>
             <div data-icon-color-editor></div>
-            <div class="bar-card insp-gap" data-icon-body-presets style="margin-top:10px">
-              <div class="bar-card-section-title">Tonos industriales para el cuerpo / equipo</div>
-              <div class="color-presets-row" style="margin-top:4px">
-                <button type="button" class="color-preset-pill" data-body-color-preset="#0066cc">Azul eléctrico</button>
-                <button type="button" class="color-preset-pill" data-body-color-preset="#005544">Verde petróleo</button>
-                <button type="button" class="color-preset-pill" data-body-color-preset="#505860">Gris fundición</button>
-                <button type="button" class="color-preset-pill" data-body-color-preset="#ff6600">Naranja</button>
-                <button type="button" class="color-preset-pill" data-body-color-preset="#ffcc00">Amarillo</button>
-                <button type="button" class="color-preset-pill" data-body-color-preset="#cc1100">Rojo máquina</button>
-                <button type="button" class="insp-chip" data-body-color-preset="reset" style="margin-left:auto">Restablecer original</button>
-              </div>
+            <div class="bar-card insp-gap" data-icon-presets-card style="margin-top:10px">
+              <div class="bar-card-section-title" data-icon-presets-title>Paleta rápida</div>
+              <div class="color-presets-row" data-icon-presets-row style="margin-top:4px;flex-wrap:wrap;gap:6px"></div>
             </div>
           </div>
         </div>
@@ -691,35 +685,56 @@
       `// jwplcUIUpdate() (generado) llama:\n${core.iconSetter(id, variable, field)}`;
   }
 
+    const SPEED_CONFIG = {
+    1: { label: 'Muy lento', fps: '4 FPS', ms: 250, spinDur: '2.0s' },
+    2: { label: 'Lento', fps: '7 FPS', ms: 140, spinDur: '1.2s' },
+    3: { label: 'Rápido', fps: '12 FPS', ms: 80, spinDur: '0.6s' },
+    4: { label: 'Muy rápido', fps: '20 FPS', ms: 50, spinDur: '0.25s' }
+  };
+
   let cachedZones = null;
 
   function drawAppearance() {
     const field = selectedIcon();
-    if (!field || tabs.main !== 'design' || tabs.sub !== 'appearance') return;
+    if (!field) return;
     const canvas = section.querySelector('[data-icon-case="single"]');
     if (!canvas) return;
     const body = canvas.parentElement;
+
+    const isPilot = field.iconId === 'pilotos/piloto';
+    const isBaliza = field.iconId === 'pilotos/baliza';
+
     const preview = { ...field, x: 0, y: 0 };
+    if (isBaliza) {
+      const tCount = Math.max(1, Math.min(4, Number(field.tierCount || 4)));
+      preview.iconState = (1 << tCount) - 1; // Encender todos los pisos configurados para que los colores se vean en la vista
+    } else if (isPilot) {
+      if (activeColorKey.startsWith('pilotState:')) {
+        preview.iconState = Number(activeColorKey.split(':')[1]);
+      } else {
+        preview.iconState = 1;
+      }
+    } else {
+      preview.iconState = Number(field.iconState || 1);
+    }
+
     const out = editor()?.renderFieldPreview?.(preview);
     if (!out?.g) return;
 
     const w = Math.max(1, Math.min(out.width, Math.ceil(out.g.fieldW)));
     const h = Math.max(1, Math.min(out.height, Math.ceil(out.g.fieldH)));
-    const legend = body.querySelector('.menu-case-legend');
-    const gutter = (window.JWPLCZoneIndicator?.CHANNEL ?? 12) + 14;
-    const bodyW = body.clientWidth || 300;
-    const fit = (avail) => Math.max(0, Math.min(3, Math.floor(avail / w)));
-    const rightScale = fit(bodyW - (legend?.offsetWidth || 110) - gutter);
-    const belowScale = fit(bodyW - gutter);
-    const below = rightScale < 2 && belowScale > rightScale;
-    body.classList.toggle('is-below', below);
-    body.dataset.placement = below ? 'below' : 'right';
-    const scale = Math.max(1, below ? belowScale : rightScale);
+
+    body.classList.add('is-below');
+    body.dataset.placement = 'below';
+
+    const scale = 2;
     if (canvas.width !== w * scale) canvas.width = w * scale;
     if (canvas.height !== h * scale) canvas.height = h * scale;
     canvas.dataset.logicalW = String(w);
     canvas.dataset.logicalH = String(h);
-    canvas.style.width = `${Math.min(w * scale, bodyW - gutter)}px`;
+    canvas.style.width = `${w * scale}px`;
+    canvas.style.height = `${h * scale}px`;
+
     const ctx = canvas.getContext('2d');
     const img = ctx.createImageData(canvas.width, canvas.height);
     for (let y = 0; y < canvas.height; y++) {
@@ -750,11 +765,16 @@
       bodyColor: { rects: [iconRect] },
       backgroundColor: background
     };
-    if (activeColorKey.startsWith('pilotState:')) {
-      cachedZones[activeColorKey] = { rects: [iconRect] };
+    if (isBaliza) {
+      const tCount = Math.max(1, Math.min(4, Number(field.tierCount || 4)));
+      for (let t = 0; t < tCount; t += 1) {
+        cachedZones[`balizaTier:${t}`] = { rects: [iconRect] };
+      }
     }
-    if (activeColorKey.startsWith('balizaTier:')) {
-      cachedZones[activeColorKey] = { rects: [iconRect] };
+    if (isPilot) {
+      for (let idx = 0; idx < 8; idx += 1) {
+        cachedZones[`pilotState:${idx}`] = { rects: [iconRect] };
+      }
     }
 
     drawAppearanceArrows();
@@ -837,15 +857,15 @@
       b.classList.toggle('active', value);
     });
 
-    // Baliza vs otros: ocultar "Estado actual" en baliza porque tiene sus toggles en vivo abajo
+    // Ocultar "Estado actual" tanto en Baliza como en Piloto (ambos tienen su control interactivo de estados en Forma)
     const quickTitle = section.querySelector('[data-icon-quick-states-title]');
     const quickStates = section.querySelector('[data-icon-quick-states]');
     const statesCard = section.querySelector('[data-icon-states-card]');
-    if (quickTitle) quickTitle.hidden = isBaliza;
-    if (quickStates) quickStates.hidden = isBaliza;
+    if (quickTitle) quickTitle.hidden = isBaliza || isPilot;
+    if (quickStates) quickStates.hidden = isBaliza || isPilot;
     if (statesCard) statesCard.hidden = isBaliza;
 
-    if (!isBaliza && quickStates) {
+    if (!isBaliza && !isPilot && quickStates) {
       quickStates.innerHTML = names.map((n, i) => {
         const st = entry?.states?.[i];
         const isAnim = (st?.frameCount > 1) || (st?.frames?.length > 1);
@@ -893,7 +913,7 @@
       warn.textContent = `Con bool sólo se ven «${names[0]}» y «${names[1]}». Usa uint8_t para los ${names.length} estados.`;
     }
 
-    // --- Piloto ---
+    // --- Piloto en panel Forma ---
     const pilotCard = section.querySelector('[data-icon-pilot-card]');
     if (pilotCard) {
       pilotCard.hidden = !isPilot;
@@ -926,7 +946,7 @@
       }
     }
 
-    // --- Baliza ---
+    // --- Baliza en panel Forma ---
     const balizaCard = section.querySelector('[data-icon-baliza-card]');
     if (balizaCard) {
       balizaCard.hidden = !isBaliza;
@@ -997,38 +1017,62 @@
       }
     }
 
-    // --- Velocidad de animación ---
+    // --- Velocidad de animación (slider de 4 niveles) ---
     const animCard = section.querySelector('[data-icon-anim-card]');
     if (animCard) {
       animCard.hidden = !hasAnim;
       if (hasAnim) {
-        const curInterval = Number(field.animIntervalMs) || 120;
-        animCard.querySelectorAll('[data-anim-preset]').forEach((b) => {
-          const v = b.dataset.animPreset;
-          if (v === 'reset') b.classList.toggle('active', !field.animIntervalMs);
-          else b.classList.toggle('active', Number(v) === curInterval && Boolean(field.animIntervalMs));
-        });
-        const animInput = animCard.querySelector('[data-icon-anim-input]');
-        if (animInput && document.activeElement !== animInput) {
-          animInput.value = field.animIntervalMs || '';
-        }
+        const curMs = Number(field.animIntervalMs) || 80;
+        let lvl = 3;
+        if (curMs >= 200) lvl = 1;
+        else if (curMs >= 110) lvl = 2;
+        else if (curMs >= 65) lvl = 3;
+        else lvl = 4;
+        const cfg = SPEED_CONFIG[lvl];
+        const slider = animCard.querySelector('[data-icon-anim-slider]');
+        if (slider && document.activeElement !== slider) slider.value = String(lvl);
+        const lbl = animCard.querySelector('[data-anim-speed-label]');
+        if (lbl) lbl.textContent = cfg.label;
+        const badge = animCard.querySelector('[data-anim-fps-badge]');
+        if (badge) badge.textContent = cfg.fps;
+        const spinner = animCard.querySelector('.anim-spinner-icon');
+        if (spinner) spinner.style.setProperty('--anim-spin-duration', cfg.spinDur);
       }
     }
 
-    // --- Apariencia (Estilo Imagen 2 con Vista interactiva, leyenda y recuadro A1) ---
-    const legendRows = [
-      { key: 'labelColor', label: 'Etiqueta', letter: 'T', name: 'Etiqueta', desc: 'texto', color: num(field.labelColor) & 0xFFFF }
-    ];
-    if (isPilot) {
-      const pColor = core.to565(field.stateColors?.[curState] !== undefined ? field.stateColors[curState] : 0x07E0);
-      legendRows.push({
-        key: `pilotState:${curState}`,
-        label: `Piloto (Estado ${curState})`,
-        letter: 'C',
-        name: `Piloto (${names[curState] || `Estado ${curState}`})`,
-        desc: 'luz del estado actual',
-        color: pColor
-      });
+    // --- Apariencia (Estilo Imagen 2 con Vista interactiva, pisos/estados y leyenda) ---
+    const legendRows = [];
+
+    if (isBaliza) {
+      const tierCount = Math.max(1, Math.min(4, Number(field.tierCount || 4)));
+      const tierLabels = ['Piso 1 (Verde)', 'Piso 2 (Ámbar)', 'Piso 3 (Rojo)', 'Piso 4 (Azul)'];
+      const defaultTierColors = [0x07E0, 0xFDE0, 0xF800, 0x041F];
+      if (!Array.isArray(field.tierColors)) field.tierColors = [0x07E0, 0xFDE0, 0xF800, 0x041F];
+      for (let t = tierCount - 1; t >= 0; t -= 1) {
+        const cVal = core.to565(field.tierColors[t] !== undefined ? field.tierColors[t] : defaultTierColors[t]);
+        legendRows.push({
+          key: `balizaTier:${t}`,
+          label: tierLabels[t],
+          letter: String(t + 1),
+          name: tierLabels[t],
+          desc: 'color del piso',
+          color: cVal
+        });
+      }
+    } else if (isPilot) {
+      if (!Array.isArray(field.stateColors)) field.stateColors = [0x4208, 0x07E0];
+      for (let idx = 0; idx < effectiveCount; idx += 1) {
+        const cVal = core.to565(field.stateColors[idx] !== undefined ? field.stateColors[idx] : (idx === 0 ? 0x4208 : 0x07E0));
+        const stName = names[idx] || `Estado ${idx}`;
+        legendRows.push({
+          key: `pilotState:${idx}`,
+          label: stName,
+          letter: String(idx),
+          name: `Estado ${idx} (${stName})`,
+          desc: idx === 0 ? 'color apagado' : 'color encendido',
+          color: cVal
+        });
+      }
     } else {
       const bColor = field.bodyColor !== undefined ? (core.to565(field.bodyColor) || 0) : 0x5555;
       legendRows.push({
@@ -1040,6 +1084,9 @@
         color: bColor
       });
     }
+
+    // Elementos de campo
+    legendRows.push({ key: 'labelColor', label: 'Etiqueta', letter: 'T', name: 'Etiqueta', desc: 'texto', color: num(field.labelColor) & 0xFFFF });
     legendRows.push({ key: 'backgroundColor', label: 'Fondo', letter: 'F', name: 'Fondo', desc: 'interior del campo', color: num(field.backgroundColor) & 0xFFFF });
     if (field.frame) {
       legendRows.push({ key: 'frameColor', label: 'Marco', letter: 'M', name: 'Marco', desc: 'borde exterior', color: num(field.frameColor) & 0xFFFF });
@@ -1064,13 +1111,36 @@
       }).join('');
     }
 
+    // Paleta rápida debajo del editor según el tipo de objeto
+    const presetsCard = section.querySelector('[data-icon-presets-card]');
+    const presetsTitle = section.querySelector('[data-icon-presets-title]');
+    const presetsRow = section.querySelector('[data-icon-presets-row]');
+    if (presetsCard && presetsRow) {
+      if (isBaliza || isPilot) {
+        if (presetsTitle) presetsTitle.textContent = 'Paleta rápida para pilotos y señalización';
+        presetsRow.innerHTML = `
+          <button type="button" class="color-preset-pill" data-apply-color="0x07E0">Verde</button>
+          <button type="button" class="color-preset-pill" data-apply-color="0xF800">Rojo</button>
+          <button type="button" class="color-preset-pill" data-apply-color="0xFDE0">Ámbar</button>
+          <button type="button" class="color-preset-pill" data-apply-color="0x041F">Azul</button>
+          <button type="button" class="color-preset-pill" data-apply-color="0xFFFF">Blanco</button>
+          <button type="button" class="color-preset-pill" data-apply-color="0x4208">Apagado (Gris)</button>
+        `;
+      } else {
+        if (presetsTitle) presetsTitle.textContent = 'Tonos industriales para el cuerpo / equipo';
+        presetsRow.innerHTML = `
+          <button type="button" class="color-preset-pill" data-body-color-preset="#0066cc">Azul eléctrico</button>
+          <button type="button" class="color-preset-pill" data-body-color-preset="#005544">Verde petróleo</button>
+          <button type="button" class="color-preset-pill" data-body-color-preset="#505860">Gris fundición</button>
+          <button type="button" class="color-preset-pill" data-body-color-preset="#ff6600">Naranja</button>
+          <button type="button" class="color-preset-pill" data-body-color-preset="#ffcc00">Amarillo</button>
+          <button type="button" class="color-preset-pill" data-body-color-preset="#cc1100">Rojo máquina</button>
+          <button type="button" class="insp-chip" data-body-color-preset="reset" style="margin-left:auto">Restablecer original</button>
+        `;
+      }
+    }
+
     const activeRow = legendRows.find((r) => r.key === activeColorKey) || legendRows[0];
-    const nameEl = section.querySelector('[data-icon-editing-name]');
-    const descEl = section.querySelector('[data-icon-editing-desc]');
-    const swatchEl = section.querySelector('[data-icon-editing-swatch]');
-    if (nameEl) nameEl.textContent = activeRow.name;
-    if (descEl) descEl.textContent = `· ${activeRow.desc}`;
-    if (swatchEl) swatchEl.style.background = css565(activeRow.color);
     colorEditor?.set(activeRow.color, activeRow.name);
 
     drawAppearance();
@@ -1088,7 +1158,7 @@
     const main = t.closest('[data-icon-main]');
     if (main) { tabs.main = main.dataset.iconMain; applyTabs(); return; }
     const sub = t.closest('[data-icon-sub]');
-    if (sub) { tabs.sub = sub.dataset.iconSub; applyTabs(); return; }
+    if (sub) { tabs.sub = sub.dataset.iconSub; applyTabs(); sync(); return; }
     const action = t.closest('[data-icon-action]')?.dataset.iconAction;
     if (action === 'duplicate') { editor()?.duplicateSelectedField?.(); return; }
     if (action === 'delete') { editor()?.deleteSelectedField?.(); return; }
@@ -1270,9 +1340,16 @@
       }, commit);
       return;
     }
-    if (t.matches('[data-icon-anim-input]')) {
-      const val = Math.max(30, Math.min(1000, Number(t.value) || 120));
-      mutate((f) => { f.animIntervalMs = val; }, commit);
+    if (t.matches('[data-icon-anim-slider]')) {
+      const lvl = Math.max(1, Math.min(4, Number(t.value) || 3));
+      const cfg = SPEED_CONFIG[lvl];
+      mutate((f) => { f.animIntervalMs = cfg.ms; }, commit);
+      const lbl = section.querySelector('[data-anim-speed-label]');
+      if (lbl) lbl.textContent = cfg.label;
+      const badge = section.querySelector('[data-anim-fps-badge]');
+      if (badge) badge.textContent = cfg.fps;
+      const spinner = section.querySelector('.anim-spinner-icon');
+      if (spinner) spinner.style.setProperty('--anim-spin-duration', cfg.spinDur);
       return;
     }
     if (t.matches('[data-tier-prop="variable"]')) {

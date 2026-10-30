@@ -2895,3 +2895,13 @@ label.insp-needs-fw { opacity: 0.45; cursor: not-allowed; }
 .evt-color-ctrl input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
 .evt-color-ctrl input[type="color"]::-webkit-color-swatch { border: none; border-radius: 2px; }
 .evt-color-ctrl input[type="color"]::-moz-color-swatch { border: none; border-radius: 2px; }
+
+/* Animaciones de iconos (Alpha16) */
+@keyframes iconSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.anim-spinner-icon {
+  animation: iconSpin var(--anim-spin-duration, 0.6s) linear infinite;
+  transform-origin: center;
+}
