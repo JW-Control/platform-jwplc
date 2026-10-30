@@ -69,13 +69,26 @@
     return [...sizes].sort((a, b) => a - b);
   }
 
+  function symbolForField(field) {
+    if (!field) return '';
+    const entry = entryFor(field);
+    const base = core.symbolFor(field.iconId, entry ? entry.width : (Number(field.iconSize) || 32));
+    const hasCustom = Boolean(field.bodyColor || field.stateColors || field.tierColors || field.tierCount || field.customColors);
+    if (!hasCustom) return base;
+    const cleanId = String(field.id || field.variable || 'CUSTOM').replace(/[^A-Za-z0-9]+/g, '_').toUpperCase();
+    return `${base}_${cleanId}`;
+  }
+
   function assetsFor(fields) {
     const out = {};
     (fields || []).filter((f) => f.type === 'ICON').forEach((f) => {
       const entry = entryFor(f);
       const info = iconInfo(f.iconId);
       if (!entry || !info) return;
-      out[`${f.iconId}@${entry.width}`] = { id: f.iconId, name: info.name, category: info.category, stateNames: info.stateNames, entry };
+      const symbol = symbolForField(f);
+      const key = `${f.iconId}@${entry.width}:${symbol}`;
+      const override = (f.bodyColor || f.stateColors || f.tierColors || f.tierCount || f.customColors) ? f : null;
+      out[key] = { id: f.iconId, name: info.name, category: info.category, stateNames: f.stateNames || info.stateNames, entry, symbol, override };
     });
     return Object.keys(out).length ? out : undefined;
   }
@@ -98,9 +111,9 @@
   // Miniaturas
   // ---------------------------------------------------------------------------
 
-  function drawThumb(canvas, entry, state, background = 0x0000, frame = 0) {
-    if (!entry) return;
-    const img = core.decode(entry, state, frame);
+  function drawThumb(canvas, entry, state, background = 0x0000, frame = 0, field = null) {
+    if (!canvas || !entry) return;
+    const img = core.decode(entry, state, frame, field);
     canvas.width = img.width;
     canvas.height = img.height;
     const ctx = canvas.getContext('2d');
@@ -153,6 +166,21 @@
     #iconInspectorSection .icon-map { width: 100%; border-collapse: collapse; font-size: 11.5px; }
     #iconInspectorSection .icon-map td { padding: 3px 4px; border-bottom: 1px solid rgba(255,255,255,.06); }
     #iconInspectorSection .icon-map canvas { width: 16px; height: 16px; image-rendering: pixelated; vertical-align: middle; }
+    .pilot-states-control { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+    .pilot-states-btn { width: 28px; height: 28px; border-radius: 4px; border: 1px solid rgba(255,255,255,.2); background: #1a2530; color: #fff; font-weight: bold; cursor: pointer; }
+    .pilot-states-btn:hover { background: #26384a; }
+    .baliza-tier-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 6px; background: rgba(255,255,255,.03); border-radius: 4px; margin-bottom: 4px; border: 1px solid rgba(255,255,255,.06); }
+    .baliza-tier-info { display: flex; align-items: center; gap: 6px; font-size: 11.5px; }
+    .baliza-tier-info i { display: inline-block; width: 12px; height: 12px; border-radius: 2px; }
+    .baliza-tier-toggle { padding: 2px 8px; font-size: 11px; border-radius: 3px; cursor: pointer; border: 1px solid rgba(255,255,255,.15); background: #131c24; color: #bbb; }
+    .baliza-tier-toggle.active { background: #007acc; color: #fff; border-color: #38a5ff; font-weight: 700; }
+    .color-swatch-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 4px; border: 1px solid rgba(255,255,255,.15); background: #121820; font-size: 11px; cursor: pointer; color: #fff; }
+    .color-swatch-chip i { width: 12px; height: 12px; border-radius: 2px; border: 1px solid rgba(255,255,255,.3); }
+    .color-swatch-chip.active { border-color: #52c9ff; background: rgba(82,201,255,.15); }
+    .color-presets-row { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
+    .color-preset-pill { font-size: 10px; padding: 2px 6px; border-radius: 3px; border: 1px solid rgba(255,255,255,.12); background: #18222c; color: #ccc; cursor: pointer; }
+    .color-preset-pill:hover { background: #22303e; border-color: rgba(255,255,255,.3); color: #fff; }
+    .jwplc-tier-var-row { margin-bottom: 6px; }
     #iconInspectorSection .icon-warn { color: #ffcf5a; font-size: 11px; }
     #iconInspectorSection pre { white-space: pre-wrap; font-size: 11px; }
   `;
@@ -389,6 +417,49 @@
               <select class="field-input" data-icon-prop="iconId"></select>
             </label>
           </div>
+          <!-- Configuración del Piloto Modular (solo si es piloto) -->
+          <div class="bar-card" data-icon-pilot-card hidden>
+            <div class="bar-card-section-title">Configuración del Piloto</div>
+            <span class="bar-visual-group-title">Modo</span>
+            <div class="bar-visual-grid-2">
+              <button type="button" class="bar-visual-btn" data-pilot-mode="bool"><strong>ON / OFF</strong><span>Variable bool (2 estados)</span></button>
+              <button type="button" class="bar-visual-btn" data-pilot-mode="uint8"><strong>Multi-estado</strong><span>Variable uint8_t</span></button>
+            </div>
+            <div data-pilot-states-section class="insp-gap" hidden>
+              <span class="bar-visual-group-title">Cantidad de estados</span>
+              <div class="pilot-states-control">
+                <button type="button" class="pilot-states-btn" data-pilot-states-delta="-1" title="Menos estados">−</button>
+                <strong data-pilot-states-count style="font-size:14px;min-width:24px;text-align:center">2</strong>
+                <button type="button" class="pilot-states-btn" data-pilot-states-delta="1" title="Más estados">+</button>
+                <small style="opacity:.7;margin-left:8px">estados disponibles (2 a 8)</small>
+              </div>
+            </div>
+            <span class="bar-visual-group-title insp-gap">Color de cada estado <small style="opacity:.7">· clic para editar color</small></span>
+            <div class="insp-chip-row" data-pilot-state-chips></div>
+            <div class="color-presets-row insp-gap">
+              <span style="font-size:10px;opacity:.7;line-height:20px">Paletas rápidas:</span>
+              <button type="button" class="color-preset-pill" data-apply-color="0x07E0">Verde</button>
+              <button type="button" class="color-preset-pill" data-apply-color="0xF800">Rojo</button>
+              <button type="button" class="color-preset-pill" data-apply-color="0xFDE0">Ámbar</button>
+              <button type="button" class="color-preset-pill" data-apply-color="0x041F">Azul</button>
+              <button type="button" class="color-preset-pill" data-apply-color="0xFFFF">Blanco</button>
+              <button type="button" class="color-preset-pill" data-apply-color="0x4208">Apagado</button>
+            </div>
+          </div>
+
+          <!-- Configuración de la Torre de Señalización (Baliza) -->
+          <div class="bar-card" data-icon-baliza-card hidden>
+            <div class="bar-card-section-title">Torre de Señalización (Baliza)</div>
+            <span class="bar-visual-group-title">Cantidad de pisos</span>
+            <div class="insp-chip-row" data-baliza-tier-count-group>
+              <button type="button" class="insp-chip" data-baliza-tier-count="1">1 Piso</button>
+              <button type="button" class="insp-chip" data-baliza-tier-count="2">2 Pisos</button>
+              <button type="button" class="insp-chip" data-baliza-tier-count="3">3 Pisos</button>
+              <button type="button" class="insp-chip active" data-baliza-tier-count="4">4 Pisos</button>
+            </div>
+            <span class="bar-visual-group-title insp-gap">Pisos (prueba en vivo y color)</span>
+            <div data-baliza-tiers-list></div>
+          </div>
           <div class="bar-card">
             <div class="bar-card-section-title">Tamaño</div>
             <div class="insp-chip-row" data-icon-sizes></div>
@@ -433,6 +504,26 @@
         </div>
 
         <div class="insp-panel" data-icon-panel="design:appearance" hidden>
+          <div class="bar-card" data-icon-body-card>
+            <div class="bar-card-section-title">Color del equipo / cuerpo</div>
+            <div class="insp-note">Personaliza el tono principal de la carcasa, cuerpo o estructura del icono.</div>
+            <div style="display:flex;align-items:center;gap:10px;margin-top:6px">
+              <button type="button" class="color-swatch-chip" data-body-color-activate>
+                <i data-body-color-swatch style="background:#555"></i>
+                <span data-body-color-label>Color actual</span>
+              </button>
+              <button type="button" class="insp-chip" data-body-color-preset="reset">Restablecer original</button>
+            </div>
+            <div class="color-presets-row insp-gap">
+              <span style="font-size:10px;opacity:.7;line-height:20px">Tonos industriales:</span>
+              <button type="button" class="color-preset-pill" data-body-color-preset="#0066cc">Azul eléctrico</button>
+              <button type="button" class="color-preset-pill" data-body-color-preset="#005544">Verde petróleo</button>
+              <button type="button" class="color-preset-pill" data-body-color-preset="#505860">Gris fundición</button>
+              <button type="button" class="color-preset-pill" data-body-color-preset="#ff6600">Naranja</button>
+              <button type="button" class="color-preset-pill" data-body-color-preset="#ffcc00">Amarillo</button>
+              <button type="button" class="color-preset-pill" data-body-color-preset="#cc1100">Rojo máquina</button>
+            </div>
+          </div>
           <div class="bar-card">
             <div class="bar-card-section-title">Color que se edita</div>
             <div class="icon-color-row" data-icon-color-keys></div>
@@ -458,7 +549,19 @@
         </div>
 
         <div class="insp-panel" data-icon-panel="data" hidden>
-          <div class="bar-card">
+          <!-- Baliza control mode -->
+          <div class="bar-card" data-icon-baliza-data hidden>
+            <div class="bar-card-section-title">Modo de control de la Torre</div>
+            <div class="bar-visual-grid-2">
+              <button type="button" class="bar-visual-btn" data-baliza-mode="bitmask"><strong>Máscara de bits</strong><span>uint8_t (0..15)</span></button>
+              <button type="button" class="bar-visual-btn" data-baliza-mode="independent"><strong>Pisos independientes</strong><span>Variables bool por piso</span></button>
+            </div>
+            <div data-baliza-tier-vars-container class="insp-gap" hidden>
+              <span class="bar-visual-group-title">Variables por piso (OpenPLC / C++)</span>
+              <div data-baliza-tier-vars-list></div>
+            </div>
+          </div>
+          <div class="bar-card" data-icon-standard-data>
             <label class="field-label">Variable C++<input class="field-input code-input" data-icon-prop="variable" type="text" maxlength="32" /></label>
             <span class="bar-visual-group-title insp-gap">Tipo</span>
             <div class="bar-visual-grid-2">
@@ -495,10 +598,28 @@
   let activeColorKey = 'labelColor';
   const COLOR_KEYS = [['labelColor', 'Etiqueta'], ['backgroundColor', 'Fondo'], ['frameColor', 'Marco']];
 
+  function handleColorEdit(v, commit) {
+    mutate((f) => {
+      if (activeColorKey === 'bodyColor') {
+        f.bodyColor = v;
+      } else if (activeColorKey.startsWith('pilotState:')) {
+        const idx = Number(activeColorKey.split(':')[1]);
+        if (!Array.isArray(f.stateColors)) f.stateColors = [0x4208, 0x07E0];
+        f.stateColors[idx] = v;
+      } else if (activeColorKey.startsWith('balizaTier:')) {
+        const idx = Number(activeColorKey.split(':')[1]);
+        if (!Array.isArray(f.tierColors)) f.tierColors = [0x07E0, 0xFDE0, 0xF800, 0x041F];
+        f.tierColors[idx] = v;
+      } else {
+        f[activeColorKey] = v;
+      }
+    }, commit);
+  }
+
   const colorEditor = window.JWPLCColorEditor?.create?.({
     paletteAttr: 'data-icon-palette',
-    onInput: (v) => mutate((f) => { f[activeColorKey] = v; }, false),
-    onCommit: (v) => mutate((f) => { f[activeColorKey] = v; }, true)
+    onInput: (v) => handleColorEdit(v, false),
+    onCommit: (v) => handleColorEdit(v, true)
   });
   if (colorEditor) section.querySelector('[data-icon-color-editor]').appendChild(colorEditor.el);
 
@@ -526,13 +647,13 @@
   function contractText(field) {
     const id = sanitizeSymbol(field.id, 'FIELD_ICON');
     const variable = sanitizeSymbol(field.variable, 'icono');
-    const names = iconInfo(field.iconId)?.stateNames || [];
+    const names = field.stateNames || iconInfo(field.iconId)?.stateNames || [];
     const legend = field.iconVarType === 'uint8'
       ? names.map((n, i) => `//   ${i} = ${n}`).join('\n')
       : `//   false = ${names[0] || 'estado 0'}\n//   true  = ${names[1] || 'estado 1'}`;
     return `// JWPLC_HMI_Generated.h declara:\n${core.iconDeclaration(field, variable, names)}\n\n` +
-      `// En el loop() o la lógica del PLC:\n${variable} = ...;\n${legend}\n\n` +
-      `// jwplcUIUpdate() (generado) llama:\n${core.iconSetter(id, variable)}`;
+      `// En el loop() o la lógica del PLC:\n${field.balizaMode === 'independent' ? '// Actualizar las variables booleanas de cada piso' : `${variable} = ...;\n${legend}`}\n\n` +
+      `// jwplcUIUpdate() (generado) llama:\n${core.iconSetter(id, variable, field)}`;
   }
 
   function sync() {
@@ -541,7 +662,7 @@
     applyTabs();
     const info = iconInfo(field.iconId);
     const entry = entryFor(field);
-    const names = info?.stateNames || [];
+    const names = field.stateNames || info?.stateNames || [];
     section.querySelectorAll('[data-icon-prop]').forEach((input) => {
       if (document.activeElement !== input) input.value = field[input.dataset.iconProp] ?? '';
     });
@@ -553,7 +674,7 @@
     set('fields', `${(editor()?.getAllFields?.() || []).filter((f) => !['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON', 'RAW_TEXT', 'NAV_BAR', 'MENU'].includes(f.type)).length}/32`);
     const g = editor()?.getFieldBounds?.(field);
     set('box', g ? `${g.width} × ${g.height} px` : '—');
-    drawThumb(section.querySelector('[data-icon-current]'), entry, field.iconState, num(field.backgroundColor), field._animFrame || 0);
+    drawThumb(section.querySelector('[data-icon-current]'), entry, field.iconState, num(field.backgroundColor), field._animFrame || 0, field);
 
     section.querySelector('[data-icon-sizes]').innerHTML = sizesFor(field.iconId).map((s) =>
       `<button type="button" class="insp-chip${s === Number(field.iconSize) ? ' active' : ''}" data-icon-size="${s}">${s} px</button>`).join('');
@@ -581,7 +702,7 @@
       }).join('');
       quickStates.querySelectorAll('[data-icon-quick-state-thumb]').forEach((c) => {
         const idx = Number(c.dataset.iconQuickStateThumb);
-        drawThumb(c, entry, idx, num(field.backgroundColor), idx === curState ? (field._animFrame || 0) : 0);
+        drawThumb(c, entry, idx, num(field.backgroundColor), idx === curState ? (field._animFrame || 0) : 0, field);
       });
     }
 
@@ -596,20 +717,157 @@
     }).join('');
     states.querySelectorAll('[data-icon-state-thumb]').forEach((c) => {
       const idx = Number(c.dataset.iconStateThumb);
-      drawThumb(c, entry, idx, num(field.backgroundColor), idx === curState ? (field._animFrame || 0) : 0);
+      drawThumb(c, entry, idx, num(field.backgroundColor), idx === curState ? (field._animFrame || 0) : 0, field);
     });
 
     section.querySelector('[data-icon-map]').innerHTML = names.map((n, i) =>
       `<tr><td><code>${field.iconVarType === 'uint8' ? i : (i === 0 ? 'false' : i === 1 ? 'true' : '—')}</code></td><td><canvas data-icon-map-thumb="${i}"></canvas></td><td>${escapeHtml(n)}</td></tr>`).join('');
-    section.querySelectorAll('[data-icon-map-thumb]').forEach((c) => drawThumb(c, entry, Number(c.dataset.iconMapThumb), num(field.backgroundColor)));
+    section.querySelectorAll('[data-icon-map-thumb]').forEach((c) => drawThumb(c, entry, Number(c.dataset.iconMapThumb), num(field.backgroundColor), 0, field));
     const warn = section.querySelector('[data-icon-warn]');
     warn.hidden = !(field.iconVarType !== 'uint8' && names.length > 2);
     warn.textContent = `Con bool sólo se ven «${names[0]}» y «${names[1]}». Usa uint8_t para los ${names.length} estados.`;
 
+    // --- Piloto ---
+    const isPilot = field.iconId === 'pilotos/piloto' || field.iconId === 'pilotos/piloto_cuadrado';
+    const pilotCard = section.querySelector('[data-icon-pilot-card]');
+    if (pilotCard) {
+      pilotCard.hidden = !isPilot;
+      if (isPilot) {
+        if (!Array.isArray(field.stateColors)) {
+          field.stateColors = [0x4208, 0x07E0];
+        }
+        const isUint = field.iconVarType === 'uint8';
+        pilotCard.querySelectorAll('[data-pilot-mode]').forEach((b) => {
+          b.classList.toggle('active', (b.dataset.pilotMode === 'uint8') === isUint);
+        });
+        const statesSec = pilotCard.querySelector('[data-pilot-states-section]');
+        if (statesSec) statesSec.hidden = !isUint;
+        const countEl = pilotCard.querySelector('[data-pilot-states-count]');
+        const numStates = isUint ? Math.max(2, Math.min(8, field.stateColors.length)) : 2;
+        if (countEl) countEl.textContent = numStates;
+
+        const pilotChips = pilotCard.querySelector('[data-pilot-state-chips]');
+        if (pilotChips) {
+          pilotChips.innerHTML = Array.from({ length: numStates }, (_, idx) => {
+            const cVal = core.to565(field.stateColors[idx] !== undefined ? field.stateColors[idx] : (idx === 0 ? 0x4208 : 0x07E0));
+            const isActive = activeColorKey === `pilotState:${idx}`;
+            const label = idx === 0 ? 'Estado 0 (OFF)' : idx === 1 ? 'Estado 1 (ON)' : `Estado ${idx}`;
+            return `<button type="button" class="insp-chip${isActive ? ' active' : ''}" data-pilot-state-idx="${idx}">
+              <i style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${css565(cVal)};margin-right:4px;vertical-align:-1px;border:1px solid rgba(255,255,255,.3)"></i>
+              ${label}
+            </button>`;
+          }).join('');
+        }
+      }
+    }
+
+    // --- Baliza ---
+    const isBaliza = field.iconId === 'pilotos/baliza';
+    const balizaCard = section.querySelector('[data-icon-baliza-card]');
+    if (balizaCard) {
+      balizaCard.hidden = !isBaliza;
+      if (isBaliza) {
+        const tierCount = Math.max(1, Math.min(4, Number(field.tierCount || 4)));
+        field.tierCount = tierCount;
+        if (!Array.isArray(field.tierColors)) field.tierColors = [0x07E0, 0xFDE0, 0xF800, 0x041F];
+        balizaCard.querySelectorAll('[data-baliza-tier-count]').forEach((b) => {
+          b.classList.toggle('active', Number(b.dataset.balizaTierCount) === tierCount);
+        });
+
+        const tierLabels = ['Verde', 'Ámbar', 'Rojo', 'Azul'];
+        const listEl = balizaCard.querySelector('[data-baliza-tiers-list]');
+        if (listEl) {
+          let listHtml = '';
+          for (let t = tierCount - 1; t >= 0; t -= 1) {
+            const cVal = core.to565(field.tierColors[t] !== undefined ? field.tierColors[t] : 0xFFFF);
+            const isTierOn = Boolean((Number(field.iconState || 0) >> t) & 1);
+            const isColorActive = activeColorKey === `balizaTier:${t}`;
+            listHtml += `<div class="baliza-tier-row">
+              <div class="baliza-tier-info">
+                <i style="background:${css565(cVal)}"></i>
+                <strong>Piso ${t + 1} (${tierLabels[t]})</strong>
+              </div>
+              <div style="display:flex;align-items:center;gap:6px">
+                <button type="button" class="baliza-tier-toggle${isTierOn ? ' active' : ''}" data-baliza-toggle-tier="${t}">${isTierOn ? 'ENCENDIDO' : 'APAGADO'}</button>
+                <button type="button" class="insp-chip${isColorActive ? ' active' : ''}" data-baliza-tier-color-idx="${t}">Color</button>
+              </div>
+            </div>`;
+          }
+          listEl.innerHTML = listHtml;
+        }
+      }
+    }
+
+    // --- Baliza en panel Datos ---
+    const balizaData = section.querySelector('[data-icon-baliza-data]');
+    const stdData = section.querySelector('[data-icon-standard-data]');
+    if (balizaData) {
+      balizaData.hidden = !isBaliza;
+      if (stdData) stdData.hidden = isBaliza && field.balizaMode === 'independent';
+      if (isBaliza) {
+        const isIndep = field.balizaMode === 'independent';
+        balizaData.querySelectorAll('[data-baliza-mode]').forEach((b) => {
+          b.classList.toggle('active', (b.dataset.balizaMode === 'independent') === isIndep);
+        });
+        const tierVarsCont = balizaData.querySelector('[data-baliza-tier-vars-container]');
+        if (tierVarsCont) {
+          tierVarsCont.hidden = !isIndep;
+          if (isIndep) {
+            const tierCount = Math.max(1, Math.min(4, Number(field.tierCount || 4)));
+            const tierLabels = ['Piso 1 (Verde)', 'Piso 2 (Ámbar)', 'Piso 3 (Rojo)', 'Piso 4 (Azul)'];
+            if (!Array.isArray(field.tierVariables)) field.tierVariables = [];
+            const tierList = balizaData.querySelector('[data-baliza-tier-vars-list]');
+            if (tierList) {
+              tierList.innerHTML = Array.from({ length: tierCount }, (_, t) => {
+                const varName = field.tierVariables[t] || `${field.variable || 'torre'}_p${t + 1}`;
+                field.tierVariables[t] = varName;
+                return `<div class="jwplc-tier-var-row">
+                  <label class="field-label">${tierLabels[t]}
+                    <input class="field-input code-input" data-tier-prop="variable" data-tier-index="${t}" value="${escapeHtml(varName)}" maxlength="32" />
+                  </label>
+                </div>`;
+              }).join('');
+            }
+          }
+        }
+      }
+    }
+
+    // --- Color de Cuerpo / Equipo en Apariencia ---
+    const bodySwatch = section.querySelector('[data-body-color-swatch]');
+    const bodyLabel = section.querySelector('[data-body-color-label]');
+    const bodyActivate = section.querySelector('[data-body-color-activate]');
+    if (bodySwatch && bodyLabel) {
+      if (field.bodyColor !== undefined && field.bodyColor !== null) {
+        const cVal = core.to565(field.bodyColor);
+        bodySwatch.style.background = css565(cVal);
+        bodyLabel.textContent = hex565(cVal);
+        if (bodyActivate) bodyActivate.classList.toggle('active', activeColorKey === 'bodyColor');
+      } else {
+        bodySwatch.style.background = '#666';
+        bodyLabel.textContent = 'Original del catálogo';
+        if (bodyActivate) bodyActivate.classList.toggle('active', activeColorKey === 'bodyColor');
+      }
+    }
+
     section.querySelector('[data-icon-color-keys]').innerHTML = COLOR_KEYS.filter(([key]) => key !== 'frameColor' || field.frame).map(([key, text]) =>
       `<button type="button" class="insp-chip${key === activeColorKey ? ' active' : ''}" data-icon-color="${key}"><i style="background:${css565(num(field[key]) & 0xFFFF)}"></i>${text}</button>`).join('');
     if (activeColorKey === 'frameColor' && !field.frame) activeColorKey = 'labelColor';
-    colorEditor?.set(num(field[activeColorKey]) & 0xFFFF, COLOR_KEYS.find(([k]) => k === activeColorKey)[1]);
+
+    if (activeColorKey === 'bodyColor') {
+      const c = field.bodyColor !== undefined ? (core.to565(field.bodyColor) || 0) : 0x0000;
+      colorEditor?.set(c, 'Cuerpo / Equipo');
+    } else if (activeColorKey.startsWith('pilotState:')) {
+      const idx = Number(activeColorKey.split(':')[1]);
+      const c = core.to565(field.stateColors?.[idx] !== undefined ? field.stateColors[idx] : 0x07E0);
+      colorEditor?.set(c, `Estado ${idx} (Piloto)`);
+    } else if (activeColorKey.startsWith('balizaTier:')) {
+      const idx = Number(activeColorKey.split(':')[1]);
+      const c = core.to565(field.tierColors?.[idx] !== undefined ? field.tierColors[idx] : 0x07E0);
+      colorEditor?.set(c, `Piso ${idx + 1} (Baliza)`);
+    } else {
+      colorEditor?.set(num(field[activeColorKey]) & 0xFFFF, COLOR_KEYS.find(([k]) => k === activeColorKey)?.[1] || activeColorKey);
+    }
 
     const pages = editor()?.getPages?.() || [];
     section.querySelector('[data-icon-pages]').innerHTML = pages.map((p) =>
@@ -647,11 +905,130 @@
     if (state) { mutate((f) => { f.iconState = Number(state.dataset.iconState); f._animFrame = 0; f._lastAnimTick = 0; }); return; }
     const color = t.closest('[data-icon-color]');
     if (color) { activeColorKey = color.dataset.iconColor; sync(); return; }
+
+    // Piloto mode
+    const pilotModeBtn = t.closest('[data-pilot-mode]');
+    if (pilotModeBtn) {
+      const mode = pilotModeBtn.dataset.pilotMode;
+      mutate((f) => {
+        f.iconVarType = mode;
+        if (mode === 'bool') f.stateCount = 2;
+        else f.stateCount = Math.max(2, f.stateColors?.length || 2);
+      });
+      sync();
+      return;
+    }
+
+    // Piloto states delta
+    const pilotDeltaBtn = t.closest('[data-pilot-states-delta]');
+    if (pilotDeltaBtn) {
+      const delta = Number(pilotDeltaBtn.dataset.pilotStatesDelta);
+      mutate((f) => {
+        if (!Array.isArray(f.stateColors)) f.stateColors = [0x4208, 0x07E0];
+        const cur = f.stateColors.length;
+        const next = Math.max(2, Math.min(8, cur + delta));
+        if (next > cur) {
+          const defaultPaletteColors = [0x4208, 0x07E0, 0xF800, 0xFDE0, 0x041F, 0xFFFF, 0x07FF, 0x8010];
+          for (let i = cur; i < next; i += 1) f.stateColors.push(defaultPaletteColors[i] || 0x07E0);
+        } else if (next < cur) {
+          f.stateColors.splice(next);
+        }
+        f.stateCount = next;
+        if (f.iconState >= next) f.iconState = next - 1;
+      });
+      sync();
+      return;
+    }
+
+    // Piloto state chip (select active state for color editing)
+    const pilotStateChip = t.closest('[data-pilot-state-idx]');
+    if (pilotStateChip) {
+      activeColorKey = `pilotState:${pilotStateChip.dataset.pilotStateIdx}`;
+      sync();
+      return;
+    }
+
+    // Baliza tier count
+    const balizaTierCountBtn = t.closest('[data-baliza-tier-count]');
+    if (balizaTierCountBtn) {
+      const count = Number(balizaTierCountBtn.dataset.balizaTierCount);
+      mutate((f) => { f.tierCount = count; });
+      sync();
+      return;
+    }
+
+    // Baliza toggle tier (ON/OFF in live preview)
+    const balizaToggleBtn = t.closest('[data-baliza-toggle-tier]');
+    if (balizaToggleBtn) {
+      const tierIdx = Number(balizaToggleBtn.dataset.balizaToggleTier);
+      mutate((f) => {
+        const cur = Number(f.iconState || 0);
+        f.iconState = (cur ^ (1 << tierIdx)) & 0x0F;
+      });
+      sync();
+      return;
+    }
+
+    // Baliza tier color chip
+    const balizaTierColorBtn = t.closest('[data-baliza-tier-color-idx]');
+    if (balizaTierColorBtn) {
+      activeColorKey = `balizaTier:${balizaTierColorBtn.dataset.balizaTierColorIdx}`;
+      sync();
+      return;
+    }
+
+    // Baliza mode (bitmask vs independent)
+    const balizaModeBtn = t.closest('[data-baliza-mode]');
+    if (balizaModeBtn) {
+      const mode = balizaModeBtn.dataset.balizaMode;
+      mutate((f) => { f.balizaMode = mode; });
+      sync();
+      return;
+    }
+
+    // Quick palette apply color
+    const applyColorBtn = t.closest('[data-apply-color]');
+    if (applyColorBtn) {
+      const val = applyColorBtn.dataset.applyColor;
+      handleColorEdit(val, true);
+      sync();
+      return;
+    }
+
+    // Body color activate chip
+    const bodyColorAct = t.closest('[data-body-color-activate]');
+    if (bodyColorAct) {
+      activeColorKey = 'bodyColor';
+      sync();
+      return;
+    }
+
+    // Body color preset
+    const bodyPresetBtn = t.closest('[data-body-color-preset]');
+    if (bodyPresetBtn) {
+      const preset = bodyPresetBtn.dataset.bodyColorPreset;
+      mutate((f) => {
+        if (preset === 'reset') delete f.bodyColor;
+        else f.bodyColor = preset;
+      });
+      activeColorKey = 'bodyColor';
+      sync();
+      return;
+    }
+
     const page = t.closest('[data-icon-page]');
     if (page) { editor()?.moveSelectedFieldToPage?.(Number(page.dataset.iconPage)); }
   });
 
   function applyInput(t, commit) {
+    if (t.matches('[data-tier-prop="variable"]')) {
+      const tierIdx = Number(t.dataset.tierIndex) || 0;
+      mutate((f) => {
+        if (!Array.isArray(f.tierVariables)) f.tierVariables = [];
+        f.tierVariables[tierIdx] = sanitizeSymbol(t.value, `torre_p${tierIdx + 1}`);
+      }, commit);
+      return;
+    }
     if (!t.matches('[data-icon-prop]')) return;
     const prop = t.dataset.iconProp;
     mutate((f) => {
@@ -741,6 +1118,7 @@
     assetsFor,
     loadAssets,
     addIcon,
+    symbolForField,
     sync
   };
 })();

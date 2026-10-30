@@ -2630,7 +2630,7 @@
       if (!entry) return g;
       // Sin fondo: lo transparente en todos los estados no se pinta; lo que es
       // transparente sólo en algunos toma el fondo del campo.
-      const img = window.JWPLCIconsCore.decode(entry, field.iconState, field._animFrame || 0);
+      const img = window.JWPLCIconsCore.decode(entry, field.iconState, field._animFrame || 0, field);
       const mask = field.transparentBackground ? window.JWPLCIconsCore.alwaysTransparentMask(entry) : null;
       const iconBg = mask ? (Number(field.backgroundColor) & 0xFFFF) : textBg;
       for (let y = 0; y < img.height; y += 1) {
@@ -2875,7 +2875,7 @@
     const core = window.JWPLCHMICodegenCore;
     if (field.type === 'ICON') {
       const entry = iconEntry(field);
-      const symbol = window.JWPLCIconsCore.symbolFor(field.iconId, entry ? entry.width : field.iconSize);
+      const symbol = window.JWPLCHMIIcons?.symbolForField?.(field) || window.JWPLCIconsCore.symbolFor(field.iconId, entry ? entry.width : field.iconSize);
       return window.JWPLCIconsCore.iconFieldBlock(field, id, symbol, core.cppString);
     }
     return field.type === 'VALUE' ? core.valueFieldBlock(field, id) : core.textFieldBlock(field, id);
@@ -2890,11 +2890,14 @@
     fields.filter((field) => field.type === 'ICON').forEach((field) => {
       const entry = iconEntry(field);
       if (!entry) return;
-      const key = `${field.iconId}@${entry.width}`;
+      const customSymbol = window.JWPLCHMIIcons?.symbolForField?.(field);
+      const symbol = customSymbol || core.symbolFor(field.iconId, entry.width);
+      const key = `${field.iconId}@${entry.width}:${symbol}`;
       if (seen.has(key)) return;
       seen.add(key);
       const icon = window.JWPLCHMIIcons?.iconInfo?.(field.iconId) || core.findIcon(window.JWPLCIconCatalog, field.iconId);
-      assets.push({ id: field.iconId, name: icon?.name, stateNames: icon?.stateNames, entry });
+      const override = (field.bodyColor || field.stateColors || field.tierColors || field.tierCount || field.customColors) ? field : null;
+      assets.push({ id: field.iconId, name: icon?.name, stateNames: field.stateNames || icon?.stateNames, entry, symbol, override });
     });
     return core.assetsSection(assets);
   }
@@ -2905,7 +2908,7 @@
     if (window.JWPLCHMICodegenCore?.isClockField?.(field)) return `// ${id}: fecha/hora del RTC (la actualiza el firmware)`;
     if (field.type === 'VALUE') return `// JWPLC_Display.setValue(${id}, ${variable});`;
     if (field.type === 'BOOL') return `// JWPLC_Display.setBool(${id}, ${variable});`;
-    if (field.type === 'ICON') return `// ${window.JWPLCIconsCore.iconSetter(id, variable)}`;
+    if (field.type === 'ICON') return `// ${window.JWPLCIconsCore.iconSetter(id, variable, field)}`;
     if (field.type === 'BAR') return `// JWPLC_Display.setBar(${id}, ${variable});`;
     return `// JWPLC_Display.setText(${id}, ${variable});`;
   }

@@ -31,12 +31,12 @@
 - Modify: `tools/jwplc-hmi-designer/icons/build-catalog.cjs`
 - Test: `tools/jwplc-hmi-designer/tests/icon-catalog.test.cjs`
 
-- [ ] 1.1 Retirar de `library.cjs` las variantes duplicadas de pilotos (`piloto_verde`, `piloto_rojo`, `piloto_amarillo`, `piloto_azul`, `piloto_cuadrado`, `piloto_cuadrado_rojo`, `piloto_bisel`).
-- [ ] 1.2 Unificar la definición de `pilotos/piloto`:
+- [x] 1.1 Retirar de `library.cjs` las variantes duplicadas de pilotos (`piloto_verde`, `piloto_rojo`, `piloto_amarillo`, `piloto_azul`, `piloto_cuadrado`, `piloto_cuadrado_rojo`, `piloto_bisel`).
+- [x] 1.2 Unificar la definición de `pilotos/piloto`:
   - Definir roles de color: `R` (borde/aro exterior metálico), `G` (reflejo de bisel), `B` (cuerpo de luz encendida/apagada), `L` (núcleo brillante de iluminación).
   - Diseñar 2 estados base (`0 = Apagado`, `1 = Encendido`) con soporte para extenderse a N estados.
-- [ ] 1.3 Recompilar catálogo con `node tools/jwplc-hmi-designer/icons/build-catalog.cjs` y verificar que no haya referencias rotas.
-- [ ] 1.4 Ejecutar `node tools/jwplc-hmi-designer/tests/icon-catalog.test.cjs` y confirmar PASS.
+- [x] 1.3 Recompilar catálogo con `node tools/jwplc-hmi-designer/icons/build-catalog.cjs` y verificar que no haya referencias rotas.
+- [x] 1.4 Ejecutar `node tools/jwplc-hmi-designer/tests/icon-catalog.test.cjs` y confirmar PASS.
 
 ---
 
@@ -46,17 +46,17 @@
 - Modify: `tools/jwplc-hmi-designer/icons/build-catalog.cjs`
 - Test: `tools/jwplc-hmi-designer/tests/icon-catalog.test.cjs`
 
-- [ ] 2.1 Rediseñar `motores/motor` desde cero:
+- [x] 2.1 Rediseñar `motores/motor` desde cero:
   - Carcasa cilíndrica de fundición con aletas horizontales.
   - Bornera de conexiones superior bien delimitada.
   - Patas de anclaje sólidas.
   - Tapa de ventilador trasera con rejilla y 4 fotogramas de aspas en rotación a 120 ms.
   - Eje frontal con chavetero.
-- [ ] 2.2 Diseñar el nuevo componente `motores/motorreductor`:
+- [x] 2.2 Diseñar el nuevo componente `motores/motorreductor`:
   - Carcasa de motor eléctrico acoplada a caja de reducción de engranajes con nervaduras y tapón de aceite.
   - Eje de salida perpendicular de gran calibre con chaveta giratoria en 4 fotogramas a 130 ms.
-- [ ] 2.3 Recompilar catálogo y verificar en los 4 tamaños (24, 32, 48, 64 px).
-- [ ] 2.4 Ejecutar `node tools/jwplc-hmi-designer/tests/icon-catalog.test.cjs`.
+- [x] 2.3 Recompilar catálogo y verificar en los 4 tamaños (24, 32, 48, 64 px).
+- [x] 2.4 Ejecutar `node tools/jwplc-hmi-designer/tests/icon-catalog.test.cjs`.
 
 ---
 
@@ -65,16 +65,16 @@
 - Modify: `tools/jwplc-hmi-designer/icons/library.cjs`
 - Test: `tools/jwplc-hmi-designer/tests/icon-catalog.test.cjs`
 
-- [ ] 3.1 Diseñar `equipos/piston` (horizontal):
+- [x] 3.1 Diseñar `equipos/piston` (horizontal):
   - Camisa neumática de perfil con tirantes y culatas de aluminio.
   - Vástago de acero cromado con rosca y horquilla.
   - Estado 0: Retraído.
   - Estado 1: En movimiento (animación multi-cuadro de 4 fotogramas a 100 ms con avance del vástago).
   - Estado 2: Extendido.
   - Estado 3: Alarma/Falla (cilindro en rojo).
-- [ ] 3.2 Diseñar `equipos/piston_vertical` con orientación vertical correspondiente.
-- [ ] 3.3 Recompilar catálogo con `node tools/jwplc-hmi-designer/icons/build-catalog.cjs`.
-- [ ] 3.4 Verificar decodificación de cuadros y dimensiones en `tests/icon-catalog.test.cjs`.
+- [x] 3.2 Diseñar `equipos/piston_vertical` con orientación vertical correspondiente.
+- [x] 3.3 Recompilar catálogo con `node tools/jwplc-hmi-designer/icons/build-catalog.cjs`.
+- [x] 3.4 Verificar decodificación de cuadros y dimensiones en `tests/icon-catalog.test.cjs`.
 
 ---
 
@@ -83,12 +83,12 @@
 - Modify: `tools/jwplc-hmi-designer/icons/library.cjs`
 - Test: `tools/jwplc-hmi-designer/tests/icon-catalog.test.cjs`
 
-- [ ] 4.1 Diseñar la silueta de baliza modular:
+- [x] 4.1 Diseñar la silueta de baliza modular:
   - Base y mástil de sujeción inferior.
   - 4 niveles de lentes prismáticas apiladas (Piso 1: Verde, Piso 2: Ámbar, Piso 3: Rojo, Piso 4: Azul).
   - Tapa de remate superior.
-- [ ] 4.2 Generar las imágenes y estados para permitir encender cualquier combinación de pisos (máscara de bits 0..15).
-- [ ] 4.3 Recompilar catálogo y verificar integridad.
+- [x] 4.2 Generar las imágenes y estados para permitir encender cualquier combinación de pisos (máscara de bits 0..15).
+- [x] 4.3 Recompilar catálogo y verificar integridad.
 
 ---
 
@@ -97,9 +97,9 @@
 - Modify: `tools/jwplc-hmi-designer/poc/designer-icons-core.js`
 - Test: `tools/jwplc-hmi-designer/tests/icon-catalog.test.cjs`
 
-- [ ] 5.1 En `decode(entry, state, frame)`:
+- [x] 5.1 En `decode(entry, state, frame)`:
   - Permitir que si el campo o la entrada define `customPalette` o `stateColors[state]`, se aplique sobre la paleta base del estado.
-- [ ] 5.2 En `assetBlock(asset)`:
+- [x] 5.2 En `assetBlock(asset)`:
   - Emitir la paleta personalizada en C++ (`sym_PAL`) cuando el campo tenga colores sobreescritos, preservando compatibilidad exacta con `JWPLC_UI.h`.
 
 ---
@@ -109,12 +109,12 @@
 - Modify: `tools/jwplc-hmi-designer/poc/designer-icons.js`
 - Modify: `tools/jwplc-hmi-designer/poc/app.js`
 
-- [ ] 6.1 En el Inspector de `pilotos/piloto`:
+- [x] 6.1 En el Inspector de `pilotos/piloto`:
   - Selector de modo: `bool` (ON/OFF de 2 estados) vs `uint8_t` (2 a 8 estados).
   - Configuración de color interactiva por estado (con el selector RGB565 existente).
-- [ ] 6.2 En el Inspector de cualquier icono (*Diseño > Apariencia*):
+- [x] 6.2 En el Inspector de cualquier icono (*Diseño > Apariencia*):
   - Añadir selector interactivo para "Color del equipo / cuerpo", permitiendo personalizar el tono principal de la carcasa.
-- [ ] 6.3 En el Inspector de la Torre de señalización:
+- [x] 6.3 En el Inspector de la Torre de señalización:
   - Selector de 1 a 4 pisos.
   - Selector de color de cada piso.
   - Selector de modo: Máscara (`uint8_t`) vs Pisos independientes (`bool`).
@@ -125,8 +125,8 @@
 **Files:**
 - Modify: `tools/jwplc-hmi-designer/poc/designer-openplc-host.js`
 
-- [ ] 7.1 Detectar en `findVariableInputs()` y `describeTarget()` las variables independientes de cada piso de la baliza.
-- [ ] 7.2 Permitir que el selector de "Variable PLC" se asocie a cada piso (`piso1`, `piso2`, `piso3`, `piso4`) con su correspondiente `plcBinding`.
+- [x] 7.1 Detectar en `findVariableInputs()` y `describeTarget()` las variables independientes de cada piso de la baliza.
+- [x] 7.2 Permitir que el selector de "Variable PLC" se asocie a cada piso (`piso1`, `piso2`, `piso3`, `piso4`) con su correspondiente `plcBinding`.
 
 ---
 
@@ -136,7 +136,7 @@
 - Test: `tools/jwplc-hmi-designer/tests/codegen-core.test.cjs`
 - Test: `tools/jwplc-hmi-designer/cli/jwhmi.cjs validate --fast`
 
-- [ ] 8.1 Ejecutar `node tools/jwplc-hmi-designer/icons/build-catalog.cjs --check`.
-- [ ] 8.2 Ejecutar `node tools/jwplc-hmi-designer/tests/icon-catalog.test.cjs`.
-- [ ] 8.3 Ejecutar `node tools/jwplc-hmi-designer/tests/codegen-core.test.cjs`.
-- [ ] 8.4 Validar todos los proyectos de prueba con `jwhmi.cjs validate --fast`.
+- [x] 8.1 Ejecutar `node tools/jwplc-hmi-designer/icons/build-catalog.cjs --check`.
+- [x] 8.2 Ejecutar `node tools/jwplc-hmi-designer/tests/icon-catalog.test.cjs`.
+- [x] 8.3 Ejecutar `node tools/jwplc-hmi-designer/tests/codegen-core.test.cjs`.
+- [x] 8.4 Validar todos los proyectos de prueba con `jwhmi.cjs validate --fast`.

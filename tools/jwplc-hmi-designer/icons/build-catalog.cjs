@@ -83,7 +83,7 @@ function buildSize(icon, size) {
     return result;
   });
 
-  return { width: size, height: size, transparent: 0, images, states };
+  return { width: size, height: size, transparent: 0, images, states, roles: roleOrder };
 }
 
 function buildCatalog() {
