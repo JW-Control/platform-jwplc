@@ -76,6 +76,7 @@ function buildSize(icon, size) {
     const primary = encodedFrames[0];
     const result = { image: primary.image, palette: primary.palette };
     if (encodedFrames.length > 1) {
+      result.frameCount = encodedFrames.length;
       result.intervalMs = stDef.intervalMs || 150;
       result.frames = encodedFrames;
     }

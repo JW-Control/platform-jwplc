@@ -5494,7 +5494,9 @@
     field.iconId = iconId;
     field.iconSize = core.resolveSize(icon, size || 32);
     field.iconVarType = icon.stateNames.length > 2 ? 'uint8' : 'bool';
-    field.iconState = 0;
+    const initEntry = core?.entryFor?.(window.JWPLCIconCatalog, iconId, field.iconSize);
+    const hasAnimSt1 = (initEntry?.states?.[1]?.frameCount > 1) || (initEntry?.states?.[1]?.frames?.length > 1);
+    field.iconState = hasAnimSt1 ? 1 : 0;
     field.transparentBackground = false;
     field.label = '';
     field.preview = '';

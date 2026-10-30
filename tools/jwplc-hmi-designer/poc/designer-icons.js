@@ -383,6 +383,8 @@
                 <div class="insp-note" data-icon-readout="category"></div>
               </div>
             </div>
+            <div class="bar-card-section-title insp-gap" style="margin-top:6px">Estado actual <small style="opacity:.7">· clic para probar</small></div>
+            <div class="insp-chip-row" data-icon-quick-states></div>
             <label class="field-label insp-gap">Icono
               <select class="field-input" data-icon-prop="iconId"></select>
             </label>
@@ -566,6 +568,23 @@
     });
 
     const curState = core.clampState(entry, field.iconState);
+    const quickStates = section.querySelector('[data-icon-quick-states]');
+    if (quickStates) {
+      quickStates.innerHTML = names.map((n, i) => {
+        const st = entry?.states?.[i];
+        const isAnim = (st?.frameCount > 1) || (st?.frames?.length > 1);
+        const badge = isAnim ? `<span class="icon-anim-badge" title="Animado">▶</span>` : '';
+        return `<button type="button" class="insp-chip${i === curState ? ' active' : ''}" data-icon-state="${i}">
+          <canvas data-icon-quick-state-thumb="${i}" style="width:14px;height:14px;vertical-align:-2px;margin-right:4px;image-rendering:pixelated;"></canvas>
+          ${escapeHtml(n)}${badge}
+        </button>`;
+      }).join('');
+      quickStates.querySelectorAll('[data-icon-quick-state-thumb]').forEach((c) => {
+        const idx = Number(c.dataset.iconQuickStateThumb);
+        drawThumb(c, entry, idx, num(field.backgroundColor), idx === curState ? (field._animFrame || 0) : 0);
+      });
+    }
+
     const states = section.querySelector('[data-icon-states]');
     states.innerHTML = names.map((n, i) => {
       const st = entry?.states?.[i];
@@ -664,7 +683,7 @@
     if (!ed) return;
     const page = ed.getActivePage?.() ?? 0;
     const fields = ed.getFieldsForPage?.(page) || [];
-    let hasAnimated = false;
+    let needsRedraw = false;
     const now = performance.now();
 
     for (const f of fields) {
@@ -673,20 +692,22 @@
       if (!entry) continue;
       const stateIndex = core.clampState(entry, f.iconState);
       const st = entry.states[stateIndex];
-      if (st && st.frameCount > 1) {
-        hasAnimated = true;
-        const interval = st.frameIntervalMs || 120;
+      const count = st?.frameCount || (Array.isArray(st?.frames) ? st.frames.length : 1);
+      if (count > 1) {
+        const interval = st.frameIntervalMs || st.intervalMs || 120;
         if (!f._lastAnimTick) f._lastAnimTick = now;
         if (now - f._lastAnimTick >= interval) {
-          f._animFrame = ((f._animFrame || 0) + 1) % st.frameCount;
+          f._animFrame = ((f._animFrame || 0) + 1) % count;
           f._lastAnimTick = now;
+          needsRedraw = true;
         }
       } else if (f._animFrame) {
         f._animFrame = 0;
+        needsRedraw = true;
       }
     }
 
-    if (hasAnimated) {
+    if (needsRedraw) {
       if (ed.redrawCanvasOnly) ed.redrawCanvasOnly();
       else ed.render?.();
 
@@ -695,11 +716,14 @@
         const selEntry = entryFor(sel);
         const selState = core.clampState(selEntry, sel.iconState);
         const selSt = selEntry?.states?.[selState];
-        if (selSt && selSt.frameCount > 1) {
+        const selCount = selSt?.frameCount || (Array.isArray(selSt?.frames) ? selSt.frames.length : 1);
+        if (selCount > 1) {
           const curr = section.querySelector('[data-icon-current]');
           if (curr) drawThumb(curr, selEntry, sel.iconState, num(sel.backgroundColor), sel._animFrame || 0);
           const stThumb = section.querySelector(`[data-icon-state-thumb="${selState}"]`);
           if (stThumb) drawThumb(stThumb, selEntry, selState, num(sel.backgroundColor), sel._animFrame || 0);
+          const qThumb = section.querySelector(`[data-icon-quick-state-thumb="${selState}"]`);
+          if (qThumb) drawThumb(qThumb, selEntry, selState, num(sel.backgroundColor), sel._animFrame || 0);
         }
       }
     }
