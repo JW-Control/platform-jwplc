@@ -148,12 +148,48 @@
     const label = (field.showLabel && field.barLabel) ? `"${cppString(field.barLabel)}"` : 'nullptr';
     const unit = textOrNull(field.barUnit);
     const isCircular = field.barPreset === 'CIRCULAR';
+
+    if (isCircular) {
+      const radius = Math.max(10, Math.trunc(Number(field.circleRadius) || 26));
+      const diameter = radius * 2;
+      const sweep = Number(field.circleSweep) || 360;
+      const thick = Math.max(2, Math.min(radius - 2, Math.trunc(Number(field.circleThickness) || 5)));
+      const startQuad = field.circleStartAngle === 'RIGHT' ? 1 : (field.circleStartAngle === 'BOTTOM' ? 2 : (field.circleStartAngle === 'LEFT' ? 3 : 0));
+      const cw = (field.circleDirection !== 'CCW');
+      const seg = (field.circleStyle === 'SEGMENTED');
+      const centerMode = field.circleCenterMode === 'PERCENT' ? 1 : (field.circleCenterMode === 'VALUE' ? 2 : 0);
+      const centerTextSize = Number(field.circleTextSize) || 1;
+      const centerTextColor = hex565(field.circleTextColor || 0xFFFF);
+      const trackColor = hex565(Number.isFinite(Number(field.circleTrackColor)) ? Number(field.circleTrackColor) : (Number.isFinite(Number(field.trackColor)) ? Number(field.trackColor) : 0x0000));
+      const styleHeader = `    // Medidor Circular (${sweep}°) - Estilo: ${field.circleStyle || 'CONTINUOUS'} - Inicio: ${field.circleStartAngle || 'TOP'} (${cw ? 'CW' : 'CCW'})\n`;
+      const rect = `JWPLC_UIRect(${field.x}, ${field.y}, ${diameter}, ${diameter})`;
+
+      return `${styleHeader}` +
+        `    JWPLC_UICircularField(\n` +
+        `        ${id},\n` +
+        `        ${rect},\n` +
+        `        JWPLC_UIText(${label}, ${unit}),\n` +
+        `        JWPLC_UIRange(${cppFloat(field.barMin)}, ${cppFloat(field.barMax)}),\n` +
+        `        JWPLC_UICircularStyle(\n` +
+        `            ${sweep},\n` +
+        `            ${thick},\n` +
+        `            ${centerMode},\n` +
+        `            ${field.labelSize || 1},\n` +
+        `            ${cppBool(field.frame)},\n` +
+        `            ${trackColor},\n` +
+        `            ${startQuad},\n` +
+        `            ${cppBool(cw)},\n` +
+        `            ${cppBool(seg)},\n` +
+        `            ${centerTextSize},\n` +
+        `            ${centerTextColor}),\n` +
+        `        ${field.page || 0},\n` +
+        `        ${colorsBlock(field.labelColor, field.valueColor, field.circleTrackColor || field.trackColor || field.backgroundColor, field.frameColor)})`;
+    }
+
     const isGrad = (field.barFillMode === 'GRADIENT' || field.barPreset === 'GRADIENT');
     const borderColor = Number.isFinite(Number(field.barBorderColor)) ? Number(field.barBorderColor) : 0xFFFF;
     const borderComment = field.barBorderEnabled ? `, Borde: ${hex565(borderColor)} (${field.barBorderWidth || 1}px)` : '';
-    const unsupportedNote = isCircular
-      ? '    // AVISO: medidor circular requiere firmware (Alpha13); se genera barra lineal.\n'
-      : (isGrad ? '    // AVISO: degradado requiere firmware (Alpha13); se genera color sólido.\n' : '');
+    const unsupportedNote = isGrad ? '    // AVISO: degradado requiere firmware (Alpha13); se genera color sólido.\n' : '';
     const styleHeader = `${unsupportedNote}    // Barra Sólida (${field.barOrientation || 'HORIZONTAL'}) - Estilo: ${field.barStyle || 'SOLID'}, Radio: ${field.barCornerRadius || 0}${borderComment}\n`;
     const width = Math.max(20, Math.min(SCREEN_W, Math.trunc(Number(field.barWidth) || 110)));
     const height = field.barOrientation === 'VERTICAL' ? Math.max(10, Math.trunc(Number(field.barHeight) || 60)) : 'JWPLC_UI_AUTO';

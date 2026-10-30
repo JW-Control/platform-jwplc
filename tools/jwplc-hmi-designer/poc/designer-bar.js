@@ -105,7 +105,7 @@
                 <span class="bar-preset-name">Barra</span>
                 <span class="bar-preset-desc">Nivel clásico</span>
               </button>
-              <button type="button" class="bar-preset-btn insp-needs-fw" data-bar-preset="CIRCULAR" disabled title="Requiere firmware: JWPLC_UI todavía no dibuja medidores circulares">
+              <button type="button" class="bar-preset-btn" data-bar-preset="CIRCULAR" title="Medidor circular (360°, 270°, 240°, 180°)">
                 <span class="bar-preset-icon">
                   <svg width="22" height="22" viewBox="0 0 22 22" fill="none" style="display:block;margin:0 auto 4px;">
                     <circle cx="11" cy="11" r="8" stroke="#253a48" stroke-width="2.5" />
@@ -113,7 +113,7 @@
                   </svg>
                 </span>
                 <span class="bar-preset-name">Circular</span>
-                <span class="bar-preset-desc">Requiere firmware</span>
+                <span class="bar-preset-desc">Medidor de carga</span>
               </button>
             </div>
           </div>
@@ -1107,6 +1107,21 @@
   // para que el lienzo sea igual a la TFT; las variantes quedan deshabilitadas
   // en la UI hasta que Alpha13 las implemente.
   function applyFirmwareCaps(field) {
+    if (field.barPreset === 'CIRCULAR') {
+      field.barFillMode = 'SOLID';
+      field.barOrientation = 'HORIZONTAL';
+      field.barStyle = 'SOLID';
+      field.barCornerRadius = 0;
+      field.barBorderEnabled = false;
+      field.linearPctPos = 'NONE';
+      if (!Number.isFinite(Number(field.circleRadius)) || field.circleRadius < 10) field.circleRadius = 26;
+      if (!Number.isFinite(Number(field.circleThickness)) || field.circleThickness < 2) field.circleThickness = 5;
+      if (!Number.isFinite(Number(field.circleSweep))) field.circleSweep = 360;
+      if (typeof field.circleDirection !== 'string') field.circleDirection = 'CW';
+      if (typeof field.circleStartAngle !== 'string') field.circleStartAngle = 'TOP';
+      if (typeof field.circleStyle !== 'string') field.circleStyle = 'CONTINUOUS';
+      return;
+    }
     field.barPreset = 'LINEAR';
     field.barFillMode = 'SOLID';
     field.barOrientation = 'HORIZONTAL';
@@ -3027,9 +3042,9 @@
   barButton.disabled = false;
   barButton.classList.add('tool');
   barButton.dataset.tool = 'barField';
-  barButton.title = 'Agregar / seleccionar barra de nivel y medidor';
+  barButton.title = 'Agregar / seleccionar indicador de nivel (Barra o Circular)';
   const barDescription = barButton.querySelector('span:last-child');
-  if (barDescription) barDescription.textContent = 'Barra de nivel';
+  if (barDescription) barDescription.textContent = 'Indicador de nivel';
   barButton.addEventListener('click', (event) => {
     event.preventDefault();
     event.stopImmediatePropagation();
@@ -3094,7 +3109,7 @@
 
     // Título del inspector
     if (fieldInspectorTitle) {
-      fieldInspectorTitle.textContent = `Inspector — BAR ${serialFor(field)}`;
+      fieldInspectorTitle.textContent = isCirc ? `Inspector — Indicador Circular ${serialFor(field)}` : `Inspector — Indicador de Barra ${serialFor(field)}`;
     }
 
     const isCirc = (field.barPreset === 'CIRCULAR');
@@ -3609,7 +3624,7 @@
     const field = selectedField();
     if (field?.type === 'BAR') ensureBarState(field);
     if (gate) gate.textContent = 'v2.1.0-alpha.15';
-    if (bottomSummary) bottomSummary.textContent = 'BAR: Sólida, Degradado y Circular';
+    if (bottomSummary) bottomSummary.textContent = 'Indicadores de nivel: Barra y Circular';
     patchObjectList();
     patchInspector(field);
     if (field?.type === 'BAR') syncBarMini(field);

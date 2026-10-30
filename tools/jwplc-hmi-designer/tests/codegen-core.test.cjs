@@ -80,6 +80,34 @@ check(core.variableDeclaration({ type: 'TEXT', capacity: 12 }, 'msg') === 'char 
 check(core.setterCall({ type: 'BAR' }, 'F', 'v') === 'JWPLC_Display.setBar(F, v);', 'setter de BAR');
 const bar = core.barFieldBlock({ ...COLORS, type: 'BAR', x: 1, y: 2, barWidth: 500, barMin: 0, barMax: 10, labelSize: 1, frame: true, layout: 'INLINE', page: 3, showLabel: false, barUnit: '', trackColor: 0x18C3 }, 'B');
 check(/JWPLC_UIRect\(1, 2, 320, JWPLC_UI_AUTO\)/.test(bar) && /JWPLC_UIText\(nullptr, nullptr\)/.test(bar) && /0x18C3/.test(bar), 'BAR: ancho acotado a 320, sin etiqueta, pista como fondo');
+const circular = core.barFieldBlock({
+  ...COLORS,
+  type: 'BAR',
+  barPreset: 'CIRCULAR',
+  x: 10,
+  y: 20,
+  circleRadius: 30,
+  circleSweep: 270,
+  circleThickness: 6,
+  circleStartAngle: 'TOP',
+  circleDirection: 'CW',
+  circleStyle: 'CONTINUOUS',
+  circleCenterMode: 'PERCENT',
+  circleTextSize: 1,
+  circleTextColor: 0xFFFF,
+  circleTrackColor: 0x2104,
+  barMin: 0,
+  barMax: 100,
+  barLabel: 'Tanque',
+  barUnit: '%',
+  showLabel: true,
+  page: 1,
+  frame: false
+}, 'C');
+check(/JWPLC_UICircularField\(/.test(circular) &&
+  /JWPLC_UIRect\(10, 20, 60, 60\)/.test(circular) &&
+  /JWPLC_UICircularStyle\(\s*270,\s*6,\s*1/.test(circular),
+  'CIRCULAR: genera JWPLC_UICircularField con JWPLC_UICircularStyle');
 
 console.log('MENU (sin DOM)');
 const menuApi = loadMenuModule();

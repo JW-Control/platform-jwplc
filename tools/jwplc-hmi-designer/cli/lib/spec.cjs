@@ -116,7 +116,7 @@ const TYPES = {
   },
   BAR: {
     group: 'campo',
-    desc: 'Barra de nivel horizontal (JWPLC_UIBarField). Declara `float`. El firmware dibuja sólo la barra lineal sólida.',
+    desc: 'Indicador de nivel: Barra lineal o Medidor circular (JWPLC_UIBarField / JWPLC_UICircularField). Declara `float`.',
     props: {
       ...FIELD,
       layout: { ...FIELD.layout, default: 'STACKED' },

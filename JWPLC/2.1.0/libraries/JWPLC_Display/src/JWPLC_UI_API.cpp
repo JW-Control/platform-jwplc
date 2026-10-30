@@ -332,6 +332,28 @@ JWPLC_UIField JWPLC_UIBarField(
         range);
 }
 
+JWPLC_UIField JWPLC_UICircularField(
+    uint8_t id,
+    JWPLC_UIRect rect,
+    JWPLC_UIText text,
+    JWPLC_UIRange range,
+    JWPLC_UICircularStyle circularStyle,
+    uint8_t page,
+    JWPLC_UIColors colors)
+{
+    JWPLC_UIField field(
+        JWPLC_UIFieldMeta(id, page, JWPLC_UI_FIELD_CIRCULAR),
+        rect,
+        text,
+        JWPLC_UIStyle(circularStyle.labelTextSize, 1, circularStyle.frame, JWPLC_UI_LAYOUT_STACKED),
+        colors,
+        JWPLC_UIValueFormat(),
+        JWPLC_UIBoolText(),
+        range);
+    field.circularStyle = circularStyle;
+    return field;
+}
+
 JWPLC_UIField JWPLC_UIValueField(
     uint8_t id,
     int16_t x,
@@ -399,6 +421,25 @@ JWPLC_UIField JWPLC_UIBarField(
         JWPLC_UIText(label),
         range,
         JWPLC_UIBarStyle(),
+        page);
+}
+
+JWPLC_UIField JWPLC_UICircularField(
+    uint8_t id,
+    int16_t x,
+    int16_t y,
+    int16_t diameter,
+    const char *label,
+    JWPLC_UIRange range,
+    uint16_t sweep,
+    uint8_t page)
+{
+    return JWPLC_UICircularField(
+        id,
+        JWPLC_UIRect(x, y, diameter, diameter),
+        JWPLC_UIText(label),
+        range,
+        JWPLC_UICircularStyle(sweep),
         page);
 }
 

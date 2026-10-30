@@ -158,7 +158,7 @@ Estado ON/OFF. Declara `bool`. Muestra un texto por estado o un piloto (círculo
 
 ### `BAR`
 
-Barra de nivel horizontal (JWPLC_UIBarField). Declara `float`. El firmware dibuja sólo la barra lineal sólida.
+Indicador de nivel: Barra lineal o Medidor circular (JWPLC_UIBarField / JWPLC_UICircularField). Declara `float`.
 
 | Propiedad | Tipo / valores | Por defecto | Descripción |
 |---|---|---|---|
