@@ -32,9 +32,13 @@
   }
 
   // Píxeles RGB565 del estado; -1 = transparente (toma el fondo del campo).
-  function decode(entry, state) {
+  // frame: índice de fotograma para estados animados (por defecto 0).
+  function decode(entry, state, frame = 0) {
     const st = entry.states[clampState(entry, state)];
-    const bytes = base64ToBytes(entry.images[st.image]);
+    const frameObj = (st && Array.isArray(st.frames) && st.frames.length > 0)
+      ? st.frames[Math.max(0, Math.min(Math.trunc(Number(frame) || 0), st.frames.length - 1))]
+      : st;
+    const bytes = base64ToBytes(entry.images[frameObj.image]);
     const w = entry.width;
     const h = entry.height;
     const s = stride(w);
@@ -43,27 +47,30 @@
       for (let x = 0; x < w; x += 1) {
         const b = bytes[y * s + (x >> 1)];
         const index = (x & 1) ? (b & 0x0F) : (b >> 4);
-        pixels[y * w + x] = index === entry.transparent ? -1 : st.palette[index];
+        pixels[y * w + x] = index === entry.transparent ? -1 : frameObj.palette[index];
       }
     }
     return { width: w, height: h, pixels };
   }
 
   // ICON sin fondo (JWPLC_UI.cpp:iconAlwaysTransparent): 1 donde el píxel es
-  // transparente en todos los estados; ahí no se pinta nada.
+  // transparente en todos los estados y cuadros; ahí no se pinta nada.
   function alwaysTransparentMask(entry) {
     const w = entry.width;
     const h = entry.height;
     const s = stride(w);
     const mask = new Uint8Array(w * h).fill(1);
     entry.states.forEach((st) => {
-      const bytes = base64ToBytes(entry.images[st.image]);
-      for (let i = 0; i < w * h; i += 1) {
-        if (!mask[i]) continue;
-        const x = i % w;
-        const b = bytes[Math.floor(i / w) * s + (x >> 1)];
-        if (((x & 1) ? (b & 0x0F) : (b >> 4)) !== entry.transparent) mask[i] = 0;
-      }
+      const allFrames = (st && Array.isArray(st.frames) && st.frames.length > 0) ? st.frames : [st];
+      allFrames.forEach((frameObj) => {
+        const bytes = base64ToBytes(entry.images[frameObj.image]);
+        for (let i = 0; i < w * h; i += 1) {
+          if (!mask[i]) continue;
+          const x = i % w;
+          const b = bytes[Math.floor(i / w) * s + (x >> 1)];
+          if (((x & 1) ? (b & 0x0F) : (b >> 4)) !== entry.transparent) mask[i] = 0;
+        }
+      });
     });
     return mask;
   }
@@ -98,11 +105,15 @@
     return max + 1;
   }
 
-  // Bytes en flash de un icono: imágenes únicas + paleta por estado + descriptores.
+  // Bytes en flash de un icono: imágenes únicas + paleta por estado + descriptores y sub-frames.
   function flashBytes(entry) {
     if (!entry) return 0;
+    let extraFrames = 0;
+    entry.states.forEach((st) => {
+      if (st.frames && st.frames.length > 1) extraFrames += st.frames.length * 8;
+    });
     return entry.images.length * stride(entry.width) * entry.height +
-      entry.states.length * (2 * paletteLength(entry) + 8) + 12;
+      entry.states.length * (2 * paletteLength(entry) + 12) + extraFrames + 12;
   }
 
   function symbolFor(id, size) {
@@ -133,7 +144,21 @@
     const colors = paletteLength(entry);
     const pals = entry.states.map((st) => `    {${st.palette.slice(0, colors).map((c) => hex(c, 4)).join(', ')}}`);
     out.push(`static const uint16_t ${sym}_PAL[${n}][${colors}] =\n{\n${pals.join(',\n')}\n};`);
-    const states = entry.states.map((st, k) => `    {${sym}_PX${st.image}, ${sym}_PAL[${k}]}`);
+
+    // Tablas de fotogramas para estados animados (si hay)
+    entry.states.forEach((st, k) => {
+      if (st.frames && st.frames.length > 1) {
+        const frameLines = st.frames.map((f) => `    {${sym}_PX${f.image}, ${sym}_PAL[${k}]}`);
+        out.push(`static const JWPLC_UIIconFrame ${sym}_ST${k}_FRAMES[${st.frames.length}] =\n{\n${frameLines.join(',\n')}\n};`);
+      }
+    });
+
+    const states = entry.states.map((st, k) => {
+      if (st.frames && st.frames.length > 1) {
+        return `    {${sym}_PX${st.image}, ${sym}_PAL[${k}], ${st.frames.length}, ${st.intervalMs || 150}, ${sym}_ST${k}_FRAMES}`;
+      }
+      return `    {${sym}_PX${st.image}, ${sym}_PAL[${k}]}`;
+    });
     out.push(`static const JWPLC_UIIconState ${sym}_STATES[${n}] =\n{\n${states.join(',\n')}\n};`);
     out.push(`static const JWPLC_UIIcon ${sym}(${entry.width}, ${entry.height}, ${n}, ${sym}_STATES, ${entry.transparent});`);
     return out.join('\n');

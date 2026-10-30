@@ -297,10 +297,33 @@ static constexpr uint8_t JWPLC_UI_ICON_MAX_SIZE = 64;
 static constexpr uint8_t JWPLC_UI_ICON_MAX_STATES = 8;
 static constexpr uint8_t JWPLC_UI_ICON_NO_TRANSPARENT = 0xFF;
 
+struct JWPLC_UIIconFrame
+{
+    const uint8_t *pixels;
+    const uint16_t *palette;
+};
+
 struct JWPLC_UIIconState
 {
     const uint8_t *pixels;
     const uint16_t *palette;
+    uint8_t frameCount;
+    uint16_t frameIntervalMs;
+    const JWPLC_UIIconFrame *frames;
+
+    constexpr JWPLC_UIIconState(
+        const uint8_t *pixelsValue = nullptr,
+        const uint16_t *paletteValue = nullptr,
+        uint8_t frameCountValue = 1,
+        uint16_t frameIntervalMsValue = 0,
+        const JWPLC_UIIconFrame *framesValue = nullptr)
+        : pixels(pixelsValue),
+          palette(paletteValue),
+          frameCount(frameCountValue),
+          frameIntervalMs(frameIntervalMsValue),
+          frames(framesValue)
+    {
+    }
 };
 
 struct JWPLC_UIIcon

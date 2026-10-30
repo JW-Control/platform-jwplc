@@ -41,6 +41,8 @@ namespace
         int16_t barDrawnW;
         // ICON: estado pedido (0..stateCount-1); se dibuja aunque no haya setter.
         uint8_t iconState;
+        uint8_t iconAnimFrame;
+        uint32_t lastAnimTickMs;
 
         int16_t fieldX;
         int16_t fieldY;
@@ -62,6 +64,8 @@ namespace
               barValue(0.0f),
               barDrawnW(-1),
               iconState(0),
+              iconAnimFrame(0),
+              lastAnimTickMs(0),
               fieldX(0),
               fieldY(0),
               fieldW(0),
@@ -108,17 +112,48 @@ namespace
 
     bool anyDirtyOnCurrentPage()
     {
+        const uint32_t now = millis();
+        bool dirtyFound = false;
+
         for (size_t i = 0; i < g_fieldCount; ++i)
         {
-            if (g_fields[i].used &&
-                g_fields[i].def.meta.page == g_page &&
-                g_fields[i].dirty)
+            FieldRuntime &f = g_fields[i];
+            if (!f.used || f.def.meta.page != g_page)
             {
-                return true;
+                continue;
+            }
+
+            if (f.dirty)
+            {
+                dirtyFound = true;
+                continue;
+            }
+
+            // Animación autónoma de fotogramas en iconos
+            if (f.def.meta.type == JWPLC_UI_FIELD_ICON)
+            {
+                const JWPLC_UIIcon *icon = f.def.icon;
+                if (icon != nullptr && icon->states != nullptr && icon->stateCount > 0)
+                {
+                    const uint8_t stIdx = (f.iconState < icon->stateCount)
+                                              ? f.iconState
+                                              : (uint8_t)(icon->stateCount - 1);
+                    const JWPLC_UIIconState &st = icon->states[stIdx];
+                    if (st.frameCount > 1 && st.frameIntervalMs > 0 && st.frames != nullptr)
+                    {
+                        if ((uint32_t)(now - f.lastAnimTickMs) >= st.frameIntervalMs)
+                        {
+                            f.lastAnimTickMs = now;
+                            f.iconAnimFrame = (uint8_t)((f.iconAnimFrame + 1) % st.frameCount);
+                            f.dirty = true;
+                            dirtyFound = true;
+                        }
+                    }
+                }
             }
         }
 
-        return false;
+        return dirtyFound;
     }
 
     void requestCurrentViewRefresh()
@@ -541,21 +576,36 @@ namespace
     }
 
     // ICON sin fondo: true si el píxel (x, y) es transparente en todos los
-    // estados (nunca se pinta, así se ve la gráfica estática de debajo).
+    // estados y cuadros (nunca se pinta, así se ve la gráfica estática de debajo).
     bool iconAlwaysTransparent(const JWPLC_UIIcon &icon, size_t stride, int16_t x, int16_t y)
     {
         for (uint8_t s = 0; s < icon.stateCount; ++s)
         {
-            const uint8_t *pixels = icon.states[s].pixels;
-            if (pixels == nullptr)
+            const JWPLC_UIIconState &st = icon.states[s];
+            if (st.frames != nullptr && st.frameCount > 1)
             {
-                continue;
+                for (uint8_t f = 0; f < st.frameCount; ++f)
+                {
+                    const uint8_t *pixels = st.frames[f].pixels;
+                    if (pixels == nullptr) continue;
+                    const uint8_t packed = pixels[(size_t)y * stride + ((size_t)x >> 1)];
+                    const uint8_t index = (x & 1) ? (packed & 0x0F) : (packed >> 4);
+                    if (index != icon.transparentIndex) return false;
+                }
             }
-            const uint8_t packed = pixels[(size_t)y * stride + ((size_t)x >> 1)];
-            const uint8_t index = (x & 1) ? (packed & 0x0F) : (packed >> 4);
-            if (index != icon.transparentIndex)
+            else
             {
-                return false;
+                const uint8_t *pixels = st.pixels;
+                if (pixels == nullptr)
+                {
+                    continue;
+                }
+                const uint8_t packed = pixels[(size_t)y * stride + ((size_t)x >> 1)];
+                const uint8_t index = (x & 1) ? (packed & 0x0F) : (packed >> 4);
+                if (index != icon.transparentIndex)
+                {
+                    return false;
+                }
             }
         }
         return true;
@@ -564,15 +614,15 @@ namespace
     // ICON sin fondo: cada fila se envía en tramos que saltan los píxeles
     // transparentes en todos los estados.
     void drawIconTransparent(JWPLC_TFTClass &tft, const FieldRuntime &field,
-                             const JWPLC_UIIcon &icon, const JWPLC_UIIconState &state,
-                             uint16_t background)
+                             const JWPLC_UIIcon &icon, const uint8_t *pixels,
+                             const uint16_t *palette, uint16_t background)
     {
         const int16_t w = icon.width;
         const size_t stride = ((size_t)w + 1U) / 2U;
 
         for (int16_t y = 0; y < icon.height; ++y)
         {
-            const uint8_t *row = state.pixels + (size_t)y * stride;
+            const uint8_t *row = pixels + (size_t)y * stride;
             int16_t x = 0;
 
             while (x < w)
@@ -587,7 +637,7 @@ namespace
                 {
                     const uint8_t packed = row[x >> 1];
                     const uint8_t index = (x & 1) ? (packed & 0x0F) : (packed >> 4);
-                    *out++ = (index == icon.transparentIndex) ? background : state.palette[index];
+                    *out++ = (index == icon.transparentIndex) ? background : palette[index];
                     ++x;
                 }
                 if (x > start)
@@ -621,14 +671,23 @@ namespace
                 : (uint8_t)(icon->stateCount - 1);
         const JWPLC_UIIconState &state = icon->states[stateIndex];
 
-        if (state.pixels == nullptr || state.palette == nullptr)
+        const uint8_t *pixels = state.pixels;
+        const uint16_t *palette = state.palette;
+        if (state.frames != nullptr && state.frameCount > 1)
+        {
+            const uint8_t fIdx = (uint8_t)(field.iconAnimFrame % state.frameCount);
+            pixels = state.frames[fIdx].pixels;
+            palette = state.frames[fIdx].palette;
+        }
+
+        if (pixels == nullptr || palette == nullptr)
         {
             return;
         }
 
         if (field.def.iconTransparent && icon->transparentIndex != JWPLC_UI_ICON_NO_TRANSPARENT)
         {
-            drawIconTransparent(tft, field, *icon, state, background);
+            drawIconTransparent(tft, field, *icon, pixels, palette, background);
             return;
         }
 
@@ -645,7 +704,7 @@ namespace
 
             for (int16_t r = 0; r < rows; ++r)
             {
-                const uint8_t *row = state.pixels + (size_t)(y0 + r) * stride;
+                const uint8_t *row = pixels + (size_t)(y0 + r) * stride;
 
                 for (int16_t x = 0; x < w; ++x)
                 {
@@ -653,7 +712,7 @@ namespace
                     const uint8_t index = (x & 1) ? (packed & 0x0F) : (packed >> 4);
                     *out++ = (index == icon->transparentIndex)
                                  ? background
-                                 : state.palette[index];
+                                 : palette[index];
                 }
             }
 
@@ -1252,6 +1311,8 @@ namespace JWPLCUI
         }
 
         field->iconState = state;
+        field->iconAnimFrame = 0;
+        field->lastAnimTickMs = millis();
         field->hasValue = true;
         markFieldDirty(*field);
 

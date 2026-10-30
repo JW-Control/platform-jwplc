@@ -1,25 +1,15 @@
 // Biblioteca de iconos con estado del HMI Designer (Alpha16): fuente.
-//
-// Cada icono se dibuja en una cuadrícula de 100 x 100 (raster.cjs) con roles de
-// una letra; cada estado da un color RGB565 a cada rol. Los estados que sólo
-// cambian colores comparten la imagen (en flash se guarda una vez).
-// draw(g, estado) puede dibujar distinto por estado (nivel del tanque, aguja).
-//
-// Tras editar: node tools/jwplc-hmi-designer/icons/build-catalog.cjs
-// (regenera poc/designer-icon-catalog.js y la hoja icons/catalogo.png).
 'use strict';
 
-// Colores RGB565 de referencia.
 const C = {
   white: 0xFFFF, light: 0xC618, mid: 0x8410, gray: 0x632C, dark: 0x4208, darker: 0x2124, black: 0x0000,
   green: 0x07E0, greenDim: 0x0320, greenHi: 0xAFF5,
   red: 0xF800, redDim: 0x6000, redHi: 0xFDB6,
   yellow: 0xFFE0, yellowDim: 0x6300, yellowHi: 0xFFF6,
   amber: 0xFD20, orange: 0xFC00,
-  blue: 0x041F, water: 0x2D7F, cyan: 0x07FF, steel: 0x9CF3
+  blue: 0x041F, blueDim: 0x0110, water: 0x2D7F, cyan: 0x07FF, cyanHi: 0xCFFF, steel: 0x9CF3
 };
 
-// Estados típicos de un equipo con marcha/falla.
 const RUN3 = [
   { name: 'Parado', colors: { S: C.gray } },
   { name: 'En marcha', colors: { S: C.green } },
@@ -45,10 +35,22 @@ const ICONS = [
   // ------------------------------------------------------------- Motores
   {
     id: 'motores/motor', name: 'Motor', category: 'motores', sizes: [24, 32, 48, 64],
-    states: withColors(RUN3, { O: C.light, T: C.black }),
-    draw(g) {
+    states: [
+      { name: 'Parado', colors: { O: C.light, S: C.gray, T: C.black, R: C.dark } },
+      { name: 'En marcha', intervalMs: 120, frameCount: 4, colors: { O: C.light, S: C.green, T: C.black, R: C.greenHi } },
+      { name: 'Falla', colors: { O: C.light, S: C.red, T: C.black, R: C.redHi } }
+    ],
+    draw(g, st, f = 0) {
       g.disc('O', 'S', 50, 50, 46);
       g.polyline('T', [[29, 70], [29, 31], [50, 56], [71, 31], [71, 70]], Math.max(g.px(2), 9));
+      if (st === 1) {
+        const deg = f * 45;
+        const pts = [[50, 8], [50, 16]];
+        [deg, deg + 90, deg + 180, deg + 270].forEach((d) => {
+          const [[x1, y1], [x2, y2]] = g.rotate(pts, 50, 50, d);
+          g.line('R', x1, y1, x2, y2, Math.max(g.px(2), 7));
+        });
+      }
     }
   },
   {
@@ -61,7 +63,6 @@ const ICONS = [
     draw(g, st) {
       g.disc('O', 'S', 50, 56, 40);
       g.polyline('T', [[33, 73], [33, 41], [50, 61], [67, 41], [67, 73]], Math.max(g.px(2), 8));
-      // Flecha del sentido en la franja superior.
       const w = Math.max(g.px(2), 7);
       if (st === 1) { g.line('A', 22, 8, 74, 8, w); g.poly('A', [[70, 0], [90, 8], [70, 16]]); }
       if (st === 2) { g.line('A', 26, 8, 78, 8, w); g.poly('A', [[30, 0], [10, 8], [30, 16]]); }
@@ -70,35 +71,60 @@ const ICONS = [
   // ------------------------------------------------------------- Bombas y ventiladores
   {
     id: 'bombas/bomba', name: 'Bomba', category: 'bombas', sizes: [24, 32, 48, 64],
-    states: withColors(RUN3, { O: C.light, T: C.black }),
-    draw(g) {
-      g.disc('O', 'S', 50, 50, 46);
-      g.poly('T', [[30, 22], [30, 78], [84, 50]]);
+    states: [
+      { name: 'Parado', colors: { O: C.light, S: C.gray, B: C.darker, I: C.dark } },
+      { name: 'En marcha', intervalMs: 120, frameCount: 3, colors: { O: C.light, S: C.green, B: C.darker, I: C.white } },
+      { name: 'Falla', colors: { O: C.light, S: C.red, B: C.darker, I: C.redHi } }
+    ],
+    draw(g, st, f = 0) {
+      g.box('O', 'B', 20, 88, 60, 10, 2);
+      g.rect('O', 58, 6, 26, 10, 2);
+      g.rect('B', 62, 16, 18, 16);
+      g.line('O', 62, 16, 62, 32, Math.max(g.px(1), g.o));
+      g.line('O', 80, 16, 80, 32, Math.max(g.px(1), g.o));
+      g.disc('O', 'S', 46, 52, 36);
+      g.disc('O', 'B', 46, 52, 18);
+      const offset = (st === 1 ? f * 40 : 0);
+      const blade = [[46, 52], [42, 40], [50, 38]];
+      [0, 120, 240].forEach((deg) => g.poly('I', g.rotate(blade, 46, 52, deg + offset)));
+      g.circle('O', 46, 52, 5);
     }
   },
   {
     id: 'bombas/ventilador', name: 'Ventilador', category: 'bombas', sizes: [24, 32, 48, 64],
-    states: withColors(RUN3, { O: C.light, B: C.darker }),
-    draw(g) {
+    states: [
+      { name: 'Parado', colors: { O: C.light, B: C.darker, S: C.gray } },
+      { name: 'En marcha', intervalMs: 90, frameCount: 3, colors: { O: C.light, B: C.darker, S: C.green } },
+      { name: 'Falla', colors: { O: C.light, B: C.darker, S: C.red } }
+    ],
+    draw(g, st, f = 0) {
       g.disc('O', 'B', 50, 50, 46);
       const blade = [[50, 50], [40, 30], [46, 12], [60, 14], [62, 34]];
-      [0, 120, 240].forEach((deg) => g.poly('S', g.rotate(blade, 50, 50, deg)));
+      const offset = (st === 1 ? f * 40 : 0);
+      [0, 120, 240].forEach((deg) => g.poly('S', g.rotate(blade, 50, 50, deg + offset)));
       g.circle('O', 50, 50, 9);
     }
   },
   {
     id: 'bombas/compresor', name: 'Compresor', category: 'bombas', sizes: [24, 32, 48],
-    states: withColors(RUN3, { O: C.light, T: C.black }),
+    states: [
+      { name: 'Parado', colors: { O: C.light, S: C.gray, B: C.darker, M: C.white, N: C.black } },
+      { name: 'En marcha', colors: { O: C.light, S: C.green, B: C.darker, M: C.white, N: C.black } },
+      { name: 'Falla', colors: { O: C.light, S: C.red, B: C.darker, M: C.white, N: C.black } }
+    ],
     draw(g) {
-      g.disc('O', 'S', 50, 50, 46);
-      const w = Math.max(g.px(2), 8);
-      g.line('T', 14, 28, 86, 40, w);
-      g.line('T', 14, 72, 86, 60, w);
+      g.box('O', 'B', 16, 86, 68, 11, 2);
+      g.box('O', 'S', 22, 32, 56, 54, 4);
+      const w = Math.max(g.px(1), 4);
+      [44, 54, 64, 74].forEach((y) => g.line('B', 14, y, 86, y, w));
+      g.box('O', 'B', 28, 16, 44, 16, 3);
+      g.disc('O', 'M', 72, 16, 12);
+      g.line('N', 72, 16, 78, 12, Math.max(g.px(1), 3));
     }
   },
   // ------------------------------------------------------------- Pilotos y señales
   {
-    id: 'pilotos/piloto', name: 'Piloto', category: 'pilotos', sizes: [24, 32, 48],
+    id: 'pilotos/piloto', name: 'Piloto (4 estados)', category: 'pilotos', sizes: [24, 32, 48],
     states: [
       { name: 'Apagado', colors: { O: C.light, B: C.darker, S: C.dark, H: C.mid } },
       { name: 'Verde', colors: { O: C.light, B: C.darker, S: C.green, H: C.greenHi } },
@@ -109,6 +135,96 @@ const ICONS = [
       g.disc('O', 'B', 50, 50, 47);
       g.circle('S', 50, 50, 34);
       g.circle('H', 38, 38, 9);
+    }
+  },
+  {
+    id: 'pilotos/piloto_verde', name: 'Piloto verde (bool)', category: 'pilotos', sizes: [24, 32, 48],
+    states: [
+      { name: 'Apagado', colors: { O: C.light, B: C.darker, S: C.dark, H: C.mid } },
+      { name: 'Encendido', colors: { O: C.light, B: C.darker, S: C.green, H: C.greenHi } }
+    ],
+    draw(g) {
+      g.disc('O', 'B', 50, 50, 47);
+      g.circle('S', 50, 50, 34);
+      g.circle('H', 38, 38, 9);
+    }
+  },
+  {
+    id: 'pilotos/piloto_rojo', name: 'Piloto rojo (bool)', category: 'pilotos', sizes: [24, 32, 48],
+    states: [
+      { name: 'Apagado', colors: { O: C.light, B: C.darker, S: C.dark, H: C.mid } },
+      { name: 'Encendido', colors: { O: C.light, B: C.darker, S: C.red, H: C.redHi } }
+    ],
+    draw(g) {
+      g.disc('O', 'B', 50, 50, 47);
+      g.circle('S', 50, 50, 34);
+      g.circle('H', 38, 38, 9);
+    }
+  },
+  {
+    id: 'pilotos/piloto_amarillo', name: 'Piloto amarillo (bool)', category: 'pilotos', sizes: [24, 32, 48],
+    states: [
+      { name: 'Apagado', colors: { O: C.light, B: C.darker, S: C.dark, H: C.mid } },
+      { name: 'Encendido', colors: { O: C.light, B: C.darker, S: C.yellow, H: C.yellowHi } }
+    ],
+    draw(g) {
+      g.disc('O', 'B', 50, 50, 47);
+      g.circle('S', 50, 50, 34);
+      g.circle('H', 38, 38, 9);
+    }
+  },
+  {
+    id: 'pilotos/piloto_azul', name: 'Piloto azul (bool)', category: 'pilotos', sizes: [24, 32, 48],
+    states: [
+      { name: 'Apagado', colors: { O: C.light, B: C.darker, S: C.dark, H: C.mid } },
+      { name: 'Encendido', colors: { O: C.light, B: C.darker, S: C.cyan, H: C.cyanHi } }
+    ],
+    draw(g) {
+      g.disc('O', 'B', 50, 50, 47);
+      g.circle('S', 50, 50, 34);
+      g.circle('H', 38, 38, 9);
+    }
+  },
+  {
+    id: 'pilotos/piloto_cuadrado', name: 'Piloto cuadrado verde', category: 'pilotos', sizes: [24, 32, 48],
+    states: [
+      { name: 'Apagado', colors: { O: C.light, B: C.darker, S: C.dark, H: C.mid } },
+      { name: 'Encendido', colors: { O: C.light, B: C.darker, S: C.green, H: C.greenHi } }
+    ],
+    draw(g) {
+      g.box('O', 'B', 6, 6, 88, 88, 8);
+      g.box('O', 'S', 20, 20, 60, 60, 4);
+      g.rect('H', 24, 24, 18, 18, 2);
+    }
+  },
+  {
+    id: 'pilotos/piloto_cuadrado_rojo', name: 'Piloto cuadrado rojo', category: 'pilotos', sizes: [24, 32, 48],
+    states: [
+      { name: 'Apagado', colors: { O: C.light, B: C.darker, S: C.dark, H: C.mid } },
+      { name: 'Encendido', colors: { O: C.light, B: C.darker, S: C.red, H: C.redHi } }
+    ],
+    draw(g) {
+      g.box('O', 'B', 6, 6, 88, 88, 8);
+      g.box('O', 'S', 20, 20, 60, 60, 4);
+      g.rect('H', 24, 24, 18, 18, 2);
+    }
+  },
+  {
+    id: 'pilotos/piloto_bisel', name: 'Piloto industrial biselado', category: 'pilotos', sizes: [24, 32, 48],
+    states: [
+      { name: 'Apagado', colors: { W: C.white, M: C.light, D: C.dark, S: C.darker, L: C.dark, H: C.mid } },
+      { name: 'Encendido', colors: { W: C.white, M: C.light, D: C.dark, S: C.darker, L: C.green, H: C.greenHi } }
+    ],
+    draw(g) {
+      // Bisel cromado exterior con reflejo
+      g.circle('M', 50, 50, 48);
+      g.arc('W', 50, 50, 48, Math.max(g.px(2), 8), 210, 330);
+      g.arc('D', 50, 50, 48, Math.max(g.px(2), 8), 30, 150);
+      // Aro negro interno
+      g.circle('S', 50, 50, 36);
+      // Lente esférica central
+      g.circle('L', 50, 50, 30);
+      g.circle('H', 40, 40, 8);
     }
   },
   {
@@ -132,15 +248,19 @@ const ICONS = [
   {
     id: 'valvulas/valvula', name: 'Válvula', category: 'valvulas', sizes: [24, 32, 48, 64],
     states: [
-      { name: 'Cerrada', colors: { O: C.light, S: C.gray } },
-      { name: 'Abierta', colors: { O: C.light, S: C.green } },
-      { name: 'Falla', colors: { O: C.light, S: C.red } }
+      { name: 'Cerrada', colors: { O: C.light, S: C.gray, B: C.darker } },
+      { name: 'Abierta', colors: { O: C.light, S: C.green, B: C.darker } },
+      { name: 'Falla', colors: { O: C.light, S: C.red, B: C.darker } }
     ],
     draw(g) {
-      g.shape('O', 'S', [[6, 30], [50, 56], [6, 82]]);
-      g.shape('O', 'S', [[94, 30], [50, 56], [94, 82]]);
-      g.line('O', 50, 56, 50, 16, Math.max(g.px(1), g.o * 1.5));
-      g.rect('O', 30, 10, 40, Math.max(g.px(2), 8));
+      g.rect('O', 6, 36, 12, 42, 2);
+      g.rect('O', 82, 36, 12, 42, 2);
+      g.shape('O', 'S', [[18, 40], [50, 57], [18, 74]]);
+      g.shape('O', 'S', [[82, 40], [50, 57], [82, 74]]);
+      g.disc('O', 'B', 50, 57, 10);
+      g.line('O', 50, 48, 50, 18, Math.max(g.px(2), g.o * 2));
+      g.rect('O', 26, 12, 48, Math.max(g.px(2), 7), 3);
+      g.line('O', 38, 15, 62, 15, Math.max(g.px(1), 3));
     }
   },
   {
@@ -214,16 +334,48 @@ const ICONS = [
     }
   },
   {
+    id: 'equipos/agitador', name: 'Agitador / mezclador', category: 'equipos', sizes: [24, 32, 48, 64],
+    states: [
+      { name: 'Parado', colors: { O: C.light, S: C.gray, B: C.darker } },
+      { name: 'En marcha', intervalMs: 140, frameCount: 4, colors: { O: C.light, S: C.green, B: C.darker } },
+      { name: 'Falla', colors: { O: C.light, S: C.red, B: C.darker } }
+    ],
+    draw(g, st, f = 0) {
+      g.rect('O', 28, 2, 44, 8, 2);
+      g.box('O', 'S', 34, 10, 32, 24, 3);
+      g.line('O', 50, 34, 50, 88, Math.max(g.px(2), 6));
+      const offset = (st === 1 ? f * 45 : 0);
+      const blade1 = [[50, 72], [24, 66], [26, 78]];
+      const blade2 = [[50, 72], [76, 66], [74, 78]];
+      g.poly('S', g.rotate(blade1, 50, 72, offset));
+      g.poly('S', g.rotate(blade2, 50, 72, offset));
+      const blade3 = [[50, 86], [28, 80], [30, 92]];
+      const blade4 = [[50, 86], [72, 80], [70, 92]];
+      g.poly('S', g.rotate(blade3, 50, 86, -offset));
+      g.poly('S', g.rotate(blade4, 50, 86, -offset));
+    }
+  },
+  {
     id: 'equipos/transportador', name: 'Cinta transportadora', category: 'equipos', sizes: [24, 32, 48, 64],
-    states: withColors(RUN3, { O: C.light, B: C.dark }),
-    draw(g) {
+    states: [
+      { name: 'Parado', colors: { O: C.light, S: C.gray, B: C.dark, A: C.dark } },
+      { name: 'En marcha', intervalMs: 130, frameCount: 3, colors: { O: C.light, S: C.green, B: C.dark, A: C.white } },
+      { name: 'Falla', colors: { O: C.light, S: C.red, B: C.dark, A: C.dark } }
+    ],
+    draw(g, st, f = 0) {
       g.rect('O', 14, 30, 72, Math.max(g.px(2), 8));
       g.rect('O', 14, 62, 72, Math.max(g.px(2), 8));
       g.disc('O', 'S', 18, 50, 18);
       g.disc('O', 'S', 82, 50, 18);
+      const deg = (st === 1 ? f * 45 : 0);
+      const [[x1, y1], [x2, y2]] = g.rotate([[18, 38], [18, 62]], 18, 50, deg);
+      g.line('B', x1, y1, x2, y2, Math.max(g.px(1), 3));
+      const [[x3, y3], [x4, y4]] = g.rotate([[82, 38], [82, 62]], 82, 50, deg);
+      g.line('B', x3, y3, x4, y4, Math.max(g.px(1), 3));
       g.circle('B', 18, 50, 5);
       g.circle('B', 82, 50, 5);
-      g.rect('O', 40, 16, 20, 14);
+      const packX = (st === 1 ? 32 + f * 10 : 40);
+      g.box('O', 'A', packX, 16, 20, 14, 2);
     }
   },
   // ------------------------------------------------------------- Sensores

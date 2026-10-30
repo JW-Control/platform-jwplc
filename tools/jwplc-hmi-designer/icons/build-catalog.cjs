@@ -22,41 +22,66 @@ const SHEET = path.join(HERE, 'catalogo.png');
 const MAX_SIZE = 64;
 const MAX_STATES = 8;
 
-// Rasteriza un icono a `size` px: imágenes 4 bpp únicas + paleta por estado.
+// Rasteriza un icono a `size` px: imágenes 4 bpp únicas + paleta por estado (con subframes si es animado).
 function buildSize(icon, size) {
-  const rasters = icon.states.map((_, st) => {
-    const g = createGrid(size);
-    icon.draw(g, st);
-    return g.roles;
+  const stateFramesRasters = icon.states.map((stDef, st) => {
+    const frameCount = stDef.frameCount || (Array.isArray(stDef.frames) ? stDef.frames.length : 1);
+    const frames = [];
+    for (let f = 0; f < frameCount; f += 1) {
+      const g = createGrid(size);
+      icon.draw(g, st, f);
+      frames.push(g.roles);
+    }
+    return frames;
   });
+
   const roleOrder = [];
-  rasters.forEach((roles) => roles.forEach((role) => {
-    if (role !== '.' && !roleOrder.includes(role)) roleOrder.push(role);
-  }));
+  stateFramesRasters.forEach((frames) => {
+    frames.forEach((roles) => {
+      roles.forEach((role) => {
+        if (role !== '.' && !roleOrder.includes(role)) roleOrder.push(role);
+      });
+    });
+  });
   if (roleOrder.length > 15) throw new Error(`${icon.id}@${size}: ${roleOrder.length} roles (máximo 15)`);
 
   const stride = Math.ceil(size / 2);
   const images = [];
-  const states = rasters.map((roles, st) => {
-    const bytes = Buffer.alloc(stride * size);
-    roles.forEach((role, p) => {
-      const index = role === '.' ? 0 : roleOrder.indexOf(role) + 1;
-      const x = p % size;
-      const y = Math.floor(p / size);
-      const at = y * stride + (x >> 1);
-      bytes[at] |= (x & 1) ? index : index << 4;
+  const states = stateFramesRasters.map((frames, st) => {
+    const stDef = icon.states[st];
+    const encodedFrames = frames.map((roles, f) => {
+      const bytes = Buffer.alloc(stride * size);
+      roles.forEach((role, p) => {
+        const index = role === '.' ? 0 : roleOrder.indexOf(role) + 1;
+        const x = p % size;
+        const y = Math.floor(p / size);
+        const at = y * stride + (x >> 1);
+        bytes[at] |= (x & 1) ? index : index << 4;
+      });
+      const b64 = bytes.toString('base64');
+      let image = images.indexOf(b64);
+      if (image < 0) { images.push(b64); image = images.length - 1; }
+
+      const frameColors = (Array.isArray(stDef.frames) && stDef.frames[f]?.colors)
+        ? { ...stDef.colors, ...stDef.frames[f].colors }
+        : stDef.colors;
+      const palette = new Array(16).fill(0);
+      roleOrder.forEach((role, k) => {
+        if (!(role in frameColors)) throw new Error(`${icon.id}: el estado «${stDef.name}» (frame ${f}) no da color al rol ${role}`);
+        palette[k + 1] = frameColors[role] & 0xFFFF;
+      });
+      return { image, palette };
     });
-    const b64 = bytes.toString('base64');
-    let image = images.indexOf(b64);
-    if (image < 0) { images.push(b64); image = images.length - 1; }
-    const colors = icon.states[st].colors;
-    const palette = new Array(16).fill(0);
-    roleOrder.forEach((role, k) => {
-      if (!(role in colors)) throw new Error(`${icon.id}: el estado «${icon.states[st].name}» no da color al rol ${role}`);
-      palette[k + 1] = colors[role] & 0xFFFF;
-    });
-    return { image, palette };
+
+    const primary = encodedFrames[0];
+    const result = { image: primary.image, palette: primary.palette };
+    if (encodedFrames.length > 1) {
+      result.intervalMs = stDef.intervalMs || 150;
+      result.frames = encodedFrames;
+    }
+    return result;
   });
+
   return { width: size, height: size, transparent: 0, images, states };
 }
 
@@ -201,7 +226,7 @@ function main() {
   const source = catalogSource(catalog);
   if (process.argv.includes('--check')) {
     const current = fs.existsSync(CATALOG) ? fs.readFileSync(CATALOG, 'utf8') : '';
-    if (current !== source) {
+    if (current.replace(/\r\n/g, '\n') !== source.replace(/\r\n/g, '\n')) {
       console.error('poc/designer-icon-catalog.js no coincide con icons/library.cjs: corre icons/build-catalog.cjs');
       process.exit(1);
     }
