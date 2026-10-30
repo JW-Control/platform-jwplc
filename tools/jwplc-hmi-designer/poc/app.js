@@ -2131,16 +2131,16 @@
     for (let y = yStart; y <= yEnd; y++) {
       const spanOut = getPolygonScanlineSpan(vOuter, y);
       if (!spanOut) continue;
-      const xOutL = Math.max(0, Math.min(WIDTH - 1, spanOut.left));
-      const xOutR = Math.max(0, Math.min(WIDTH - 1, spanOut.right));
+      const xOutL = Math.max(0, spanOut.left);
+      const xOutR = Math.min(WIDTH - 1, spanOut.right);
       if (xOutL > xOutR) continue;
 
       const spanIn = vInner ? getPolygonScanlineSpan(vInner, y) : null;
       let innerValid = false;
       let xInL = 0, xInR = -1;
       if (spanIn && spanIn.left <= spanIn.right) {
-        xInL = Math.max(0, Math.min(WIDTH - 1, spanIn.left));
-        xInR = Math.max(0, Math.min(WIDTH - 1, spanIn.right));
+        xInL = Math.max(0, spanIn.left);
+        xInR = Math.min(WIDTH - 1, spanIn.right);
         if (xInL <= xInR && xInL >= xOutL && xInR <= xOutR) {
           innerValid = true;
         }
