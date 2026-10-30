@@ -56,7 +56,7 @@ El uso con extensiones funcionales distintas de temas se considera experimental 
 Desde `tools\jwplc-hmi-designer`:
 
 ```powershell
-.\Build-ArduinoIDE-Launcher.ps1
+.\scripts\Build-ArduinoIDE-Launcher.ps1
 ```
 
 Genera:
@@ -70,7 +70,7 @@ dist\jwplc-hmi-launcher-0.1.0.vsix
 Con el Designer ya instalado:
 
 ```powershell
-.\Install-ArduinoIDE-Launcher.ps1
+.\scripts\Install-ArduinoIDE-Launcher.ps1
 ```
 
 Después se debe cerrar completamente Arduino IDE y volver a abrirlo.

@@ -12,8 +12,7 @@ on:
       - tools/jwplc-hmi-designer/poc/**
       - tools/jwplc-hmi-designer/arduino-ide-launcher/**
       - tools/jwplc-hmi-designer/assets/**
-      - tools/jwplc-hmi-designer/Build-*.ps1
-      - tools/jwplc-hmi-designer/JWPLC-ElectronBuilderCache.ps1
+      - tools/jwplc-hmi-designer/scripts/**
       - .github/workflows/hmi-designer-windows.yml
   workflow_call:
     inputs:
@@ -76,7 +75,7 @@ jobs:
       - name: Generar Setup y portable
         shell: pwsh
         working-directory: tools/jwplc-hmi-designer
-        run: ./Build-JWPLC-HMI-Designer-Setup.ps1 -Portable -Version '${{ steps.version.outputs.version }}'
+        run: ./scripts/Build-JWPLC-HMI-Designer-Setup.ps1 -Portable -Version '${{ steps.version.outputs.version }}'
 
       - name: Verificar y calcular SHA-256
         shell: pwsh

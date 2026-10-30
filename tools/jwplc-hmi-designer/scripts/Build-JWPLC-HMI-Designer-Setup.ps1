@@ -1,4 +1,4 @@
-﻿param(
+param(
     [switch]$SkipDependencies,
     # También genera el .exe portable (sin instalar). Lo usa el workflow de release.
     [switch]$Portable,
@@ -7,9 +7,14 @@
 )
 
 $ErrorActionPreference = 'Stop'
-. (Join-Path $PSScriptRoot 'JWPLC-ElectronBuilderCache.ps1')
 
-$root = $PSScriptRoot
+$scriptDir = $PSScriptRoot
+$root = Split-Path $scriptDir -Parent
+if (-not (Test-Path -LiteralPath (Join-Path $root 'electron') -PathType Container)) {
+    $root = $scriptDir
+}
+. (Join-Path $scriptDir 'JWPLC-ElectronBuilderCache.ps1')
+
 $electronRoot = Join-Path $root 'electron'
 $packageJson = Join-Path $electronRoot 'package.json'
 $packageLock = Join-Path $electronRoot 'package-lock.json'
@@ -19,7 +24,10 @@ $electronBuild = Join-Path $electronRoot 'build'
 $electronIcon = Join-Path $electronBuild 'icon.ico'
 $releaseRoot = Join-Path $electronRoot 'release'
 $distRoot = Join-Path $root 'dist'
-$launcherBuilder = Join-Path $root 'Build-ArduinoIDE-Launcher.ps1'
+$launcherBuilder = Join-Path $scriptDir 'Build-ArduinoIDE-Launcher.ps1'
+if (-not (Test-Path -LiteralPath $launcherBuilder -PathType Leaf)) {
+    $launcherBuilder = Join-Path $root 'Build-ArduinoIDE-Launcher.ps1'
+}
 
 foreach ($required in @($packageJson, $packageLock, $installerNsh, $sourceIcon, $launcherBuilder)) {
     if (-not (Test-Path -LiteralPath $required -PathType Leaf)) {

@@ -1,11 +1,19 @@
-﻿param(
+param(
     [string]$DesignerHome = (Join-Path $env:LOCALAPPDATA 'JWPLC\HMI Designer'),
     [switch]$SkipBuild
 )
 
 $ErrorActionPreference = 'Stop'
-$buildScript = Join-Path $PSScriptRoot 'Build-ArduinoIDE-Launcher.ps1'
-$dist = Join-Path $PSScriptRoot 'dist'
+$scriptDir = $PSScriptRoot
+$hmiRoot = Split-Path $scriptDir -Parent
+if (-not (Test-Path -LiteralPath (Join-Path $hmiRoot 'arduino-ide-launcher') -PathType Container)) {
+    $hmiRoot = $scriptDir
+}
+$buildScript = Join-Path $scriptDir 'Build-ArduinoIDE-Launcher.ps1'
+if (-not (Test-Path -LiteralPath $buildScript -PathType Leaf)) {
+    $buildScript = Join-Path $hmiRoot 'Build-ArduinoIDE-Launcher.ps1'
+}
+$dist = Join-Path $hmiRoot 'dist'
 $plugins = Join-Path $HOME '.arduinoIDE\plugins'
 
 # El VSIX aporta dos capacidades independientes:

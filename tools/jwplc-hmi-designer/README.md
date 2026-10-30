@@ -72,7 +72,7 @@ Si una versión anterior del generador falló con `Cannot create symbolic link :
 privilegio requerido` (en `winCodeSign`), basta con hacer `git pull` y volver a ejecutarlo. El paquete
 `winCodeSign` de electron-builder trae enlaces simbólicos de macOS que Windows no deja crear sin modo
 desarrollador; ahora el generador lo prepara en la caché de electron-builder sin esa carpeta
-(`JWPLC-ElectronBuilderCache.ps1`). No hace falta activar el modo desarrollador ni ejecutar como administrador.
+(`scripts/JWPLC-ElectronBuilderCache.ps1`). No hace falta activar el modo desarrollador ni ejecutar como administrador.
 
 Sólo la app de escritorio puede **abrir el sketch en el Arduino IDE** y **abrir su
 carpeta** (menú «Sketch: nombre ▾»). La versión de navegador no puede lanzar programas.
@@ -127,15 +127,12 @@ después del 2026-10-19 (si no, se escriben el header y el `.jwhmi` y el aviso p
 
 | Archivo | Para qué | ¿Lo uso? |
 |---|---|---|
-| `Generar-e-Instalar-App-Escritorio.cmd` | Compila e instala la app de escritorio | **Sí: es el único paso** |
+| `Generar-e-Instalar-App-Escritorio.cmd` | Compila e instala la app de escritorio de forma unificada | **Sí: es el único paso** |
 | `Abrir-Designer-Desarrollo.cmd` | Abre la app de escritorio desde el repo, sin instalar; recarga al guardar | Para probar cambios |
-| `JWPLC-HMI-Designer.cmd` · `Start-JWPLC-HMI-Designer.ps1` · `JWPLC-HMI-Server.ps1` | Abre la versión de navegador desde el repo, sin instalar (desarrollo) | Opcional |
-| `Build-JWPLC-HMI-Designer-Electron.ps1` | Sólo compila la app (paso 1) | Lo llama el generador |
-| `Install-JWPLC-HMI-Designer.ps1` · `.cmd` | Sólo instala (paso 2). Sin app compilada instala el lanzador de navegador | Lo llama el generador |
-| `Build-JWPLC-HMI-Designer-Setup.ps1` | Genera el instalador `Setup.exe` (y con `-Portable` el portable) para repartir a otras PCs | Lo hace el CI al publicar |
-| `Build-JWPLC-HMI-Designer-Exe.ps1` · `JWPLC-HMI-Designer-Launcher.cs` | Lanzador de compatibilidad (abre el navegador) | Interno |
-| `Build-ArduinoIDE-Launcher.ps1` · `Install-ArduinoIDE-Launcher.ps1` | Extensión de Arduino IDE 2 | Interno |
-| `Test-JWPLC-HMI-Designer-Install.ps1` | Verifica una instalación | Diagnóstico |
+| `scripts/Install-DesktopApp.ps1` | Pipeline unificado de build Electron e instalación de la app | Invocado por el .cmd |
+| `scripts/Build-JWPLC-HMI-Designer-Setup.ps1` | Genera el instalador `Setup.exe` (y con `-Portable` el portable) para repartir | Lo hace el CI al publicar |
+| `scripts/Build-ArduinoIDE-Launcher.ps1` | Genera el VSIX de extensión de Arduino IDE 2 | Interno / CI |
+| `scripts/Install-ArduinoIDE-Launcher.ps1` | Instala sólo la extensión de Arduino IDE 2 | Interno / Diagnóstico |
 
 ---
 
@@ -316,7 +313,7 @@ Los gates visuales WIDE y MEDIUM/50 % fueron aprobados por usuario.
 Instalador:
 
 ```text
-Install-JWPLC-HMI-Designer.cmd
+Generar-e-Instalar-App-Escritorio.cmd
 ```
 
 Destino:
@@ -422,7 +419,7 @@ A11_6_ARDUINO_IDE_AUTOCOMPLETE=PASS_USER_2_3_4
 Diagnóstico/instalación independiente:
 
 ```powershell
-.\Install-ArduinoIDE-Launcher.ps1
+.\scripts\Install-ArduinoIDE-Launcher.ps1
 ```
 
 El instalador del VSIX quedó desacoplado de la presencia del Designer:
@@ -461,15 +458,18 @@ ALPHA11_RUNTIME_CLOSED_LOOP=PASS_PHYSICAL
 
 ```text
 tools/jwplc-hmi-designer/
-├─ Install-JWPLC-HMI-Designer.cmd
-├─ Install-JWPLC-HMI-Designer.ps1
-├─ Build-JWPLC-HMI-Designer-Electron.ps1
-├─ Build-ArduinoIDE-Launcher.ps1
-├─ Install-ArduinoIDE-Launcher.ps1
+├─ Abrir-Designer-Desarrollo.cmd
+├─ Generar-e-Instalar-App-Escritorio.cmd
 ├─ arduino-ide-launcher/
 ├─ electron/
 ├─ poc/
-└─ gates/
+├─ scripts/
+│  ├─ Install-DesktopApp.ps1
+│  ├─ Build-JWPLC-HMI-Designer-Setup.ps1
+│  ├─ Build-ArduinoIDE-Launcher.ps1
+│  ├─ Install-ArduinoIDE-Launcher.ps1
+│  └─ JWPLC-ElectronBuilderCache.ps1
+└─ tests/
 ```
 
 ---

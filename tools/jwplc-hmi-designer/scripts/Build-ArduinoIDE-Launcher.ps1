@@ -1,9 +1,16 @@
 param(
-    [string]$OutputDirectory = (Join-Path $PSScriptRoot 'dist')
+    [string]$OutputDirectory = ''
 )
 
 $ErrorActionPreference = 'Stop'
-$source = Join-Path $PSScriptRoot 'arduino-ide-launcher'
+$hmiRoot = Split-Path $PSScriptRoot -Parent
+if (-not (Test-Path -LiteralPath (Join-Path $hmiRoot 'arduino-ide-launcher') -PathType Container)) {
+    $hmiRoot = $PSScriptRoot
+}
+if (-not $OutputDirectory) {
+    $OutputDirectory = Join-Path $hmiRoot 'dist'
+}
+$source = Join-Path $hmiRoot 'arduino-ide-launcher'
 $packageJson = Join-Path $source 'package.json'
 $extensionJs = Join-Path $source 'extension.js'
 

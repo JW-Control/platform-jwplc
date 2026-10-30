@@ -7,7 +7,7 @@ echo ==========================================================
 echo  JWPLC HMI Designer - Generar e instalar app de escritorio
 echo ==========================================================
 echo.
-echo Este paso hace todo de una vez:
+echo Este paso realiza todo el proceso de forma integrada:
 echo   1. Compila la app de escritorio (Electron) con la version
 echo      actual del repositorio.
 echo   2. La instala en %%LOCALAPPDATA%%\JWPLC\HMI Designer, con
@@ -28,18 +28,7 @@ if errorlevel 1 (
   exit /b 1
 )
 
-echo [1/2] Compilando la app de escritorio...
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0Build-JWPLC-HMI-Designer-Electron.ps1"
-if errorlevel 1 (
-  echo.
-  echo ERROR: no se pudo compilar la app de escritorio. Revisa los mensajes de arriba.
-  pause
-  exit /b 1
-)
-
-echo.
-echo [2/2] Instalando...
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0Install-JWPLC-HMI-Designer.ps1" -RequireElectron
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\Install-DesktopApp.ps1"
 if errorlevel 1 (
   echo.
   echo ERROR: la instalacion no finalizo correctamente. Revisa los mensajes de arriba.
