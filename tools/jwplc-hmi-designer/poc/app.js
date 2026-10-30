@@ -2896,7 +2896,7 @@
       if (seen.has(key)) return;
       seen.add(key);
       const icon = window.JWPLCHMIIcons?.iconInfo?.(field.iconId) || core.findIcon(window.JWPLCIconCatalog, field.iconId);
-      const override = (field.bodyColor || field.stateColors || field.tierColors || field.tierCount || field.customColors) ? field : null;
+      const override = (field.bodyColor || field.stateColors || field.tierColors || field.tierCount || field.customColors || field.animIntervalMs) ? field : null;
       assets.push({ id: field.iconId, name: icon?.name, stateNames: field.stateNames || icon?.stateNames, entry, symbol, override });
     });
     return core.assetsSection(assets);

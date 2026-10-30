@@ -169,7 +169,12 @@
     const frameObj = (stBase && Array.isArray(stBase.frames) && stBase.frames.length > 0)
       ? stBase.frames[Math.max(0, Math.min(Math.trunc(Number(frame) || 0), stBase.frames.length - 1))]
       : stBase;
-    const bytes = base64ToBytes(entry.images[frameObj.image]);
+    let imageIdx = frameObj.image;
+    if (entry.tierImages && entry.tierImages.length > 0) {
+      const tierCount = Math.max(1, Math.min(entry.tierImages.length, Number(paletteOverride?.tierCount || paletteOverride?.activeTiers || 4)));
+      imageIdx = entry.tierImages[tierCount - 1];
+    }
+    const bytes = base64ToBytes(entry.images[imageIdx]);
     const w = entry.width;
     const h = entry.height;
     const s = stride(w);
@@ -299,10 +304,16 @@
     const states = [];
     for (let k = 0; k < n; k += 1) {
       const st = entry.states[Math.min(k, entry.states.length - 1)];
+      let imgIdx = st.image;
+      if (entry.tierImages && entry.tierImages.length > 0) {
+        const tierCount = Math.max(1, Math.min(entry.tierImages.length, Number(override?.tierCount || override?.activeTiers || 4)));
+        imgIdx = entry.tierImages[tierCount - 1];
+      }
       if (st.frames && st.frames.length > 1) {
-        states.push(`    {${sym}_PX${st.image}, ${sym}_PAL[${k}], ${st.frames.length}, ${st.intervalMs || 150}, ${sym}_ST${k}_FRAMES}`);
+        const interval = Math.max(20, Math.min(2000, Number(override?.animIntervalMs) || st.intervalMs || 120));
+        states.push(`    {${sym}_PX${imgIdx}, ${sym}_PAL[${k}], ${st.frames.length}, ${interval}, ${sym}_ST${k}_FRAMES}`);
       } else {
-        states.push(`    {${sym}_PX${st.image}, ${sym}_PAL[${k}]}`);
+        states.push(`    {${sym}_PX${imgIdx}, ${sym}_PAL[${k}]}`);
       }
     }
     out.push(`static const JWPLC_UIIconState ${sym}_STATES[${n}] =\n{\n${states.join(',\n')}\n};`);

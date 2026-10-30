@@ -269,12 +269,12 @@
 
   loadScript('./designer-color-editor.js?v=1793801300', () => {
   loadScript('./designer-bool.js?v=1793802300', () => {
-    loadScript('./designer-bar.js?v=1793802800', () => {
+    loadScript('./designer-bar.js?v=1793804800', () => {
       loadScript('./designer-zone-indicator.js?v=1793801300', () => {
         loadScript('./designer-field-inspector.js?v=1793801300', () => {
           loadScript('./designer-menu.js?v=1793801700');
           loadScript('./designer-event-log.js?v=1793802700');
-          loadScript('./designer-icons.js?v=1793802000');
+          loadScript('./designer-icons.js?v=1793805000');
           loadScript('./designer-idle.js?v=1793801300');
           loadScript('./designer-field-visibility.js?v=1793802300', () => {
             loadScript('./designer-pages.js?v=1793802300', () => {

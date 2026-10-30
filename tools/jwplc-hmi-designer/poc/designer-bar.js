@@ -97,31 +97,29 @@
             <div class="bar-presets-grid two-presets">
               <button type="button" class="bar-preset-btn active" data-bar-preset="LINEAR" title="Barra de nivel (Horizontal o Vertical)">
                 <span class="bar-preset-icon">
-                  <svg width="24" height="14" viewBox="0 0 24 14" fill="none" style="display:block;margin:0 auto 4px;">
+                  <svg width="24" height="14" viewBox="0 0 24 14" fill="none" style="display:block;margin:0 auto 2px;">
                     <rect x="1" y="2" width="22" height="10" rx="2" stroke="#52c9ff" stroke-width="1.5" />
                     <rect x="3" y="4" width="12" height="6" rx="1" fill="#52c9ff" />
                   </svg>
                 </span>
                 <span class="bar-preset-name">Barra</span>
-                <span class="bar-preset-desc">Nivel clásico</span>
               </button>
               <button type="button" class="bar-preset-btn" data-bar-preset="CIRCULAR" title="Medidor circular (360°, 270°, 240°, 180°)">
                 <span class="bar-preset-icon">
-                  <svg width="22" height="22" viewBox="0 0 22 22" fill="none" style="display:block;margin:0 auto 4px;">
+                  <svg width="20" height="20" viewBox="0 0 22 22" fill="none" style="display:block;margin:0 auto 2px;">
                     <circle cx="11" cy="11" r="8" stroke="#253a48" stroke-width="2.5" />
                     <path d="M 11 3 A 8 8 0 1 1 3 11" stroke="#52c9ff" stroke-width="2.5" stroke-linecap="round" />
                   </svg>
                 </span>
                 <span class="bar-preset-name">Circular</span>
-                <span class="bar-preset-desc">Medidor de carga</span>
               </button>
             </div>
           </div>
 
-          <!-- Simulación / Valor de prueba (debajo del tipo de indicador) -->
-          <div class="bar-top-slider-wrap">
+          <!-- Simulación de nivel (slider simple) -->
+          <div class="bar-top-slider-wrap" id="barTopSimWrap">
             <div class="bar-top-slider-header">
-              <span>Simulación / Valor de prueba</span>
+              <span>Simulación de nivel</span>
               <strong id="barTopSimReadout">50.0 %</strong>
             </div>
             <input id="barTopSimSlider" class="bar-top-slider-input" type="range" min="0" max="100" step="0.5" value="50" />
@@ -145,21 +143,7 @@
                 </div>
               </div>
 
-              <!-- Modo Ancho y Tipo de Relleno -->
-              <div class="bar-two-cols" style="margin-top:6px;">
-                <label class="field-label">Modo de ancho
-                  <select id="barFormaWidthMode" class="field-input">
-                    <option value="AUTO">AUTO</option>
-                    <option value="FIXED" selected>FIJO</option>
-                  </select>
-                </label>
-                <label class="field-label">Tipo de Relleno
-                  <select id="barFormaFillMode" class="field-input">
-                    <option value="SOLID" selected>Color Sólido</option>
-                    <option value="GRADIENT" disabled>Degradado (requiere firmware)</option>
-                  </select>
-                </label>
-              </div>
+
 
               <!-- Longitud y Grosor -->
               <div class="bar-two-cols" style="margin-top:6px;">
@@ -275,40 +259,25 @@
                 </div>
               </div>
 
-              <!-- Dirección de llenado -->
+              <!-- Dirección de llenado y Rotación -->
               <div class="field-label full" style="margin-top:6px;">
-                <span class="bar-visual-group-title">Dirección de llenado</span>
-                <div class="bar-visual-grid-2" id="barCircularDirWrap">
-                  <button type="button" class="bar-visual-btn bar-dir-btn active" data-dir="CW" title="Sentido de agujas del reloj">
+                <span class="bar-visual-group-title">Dirección y Rotación <span id="barCircleStartHint" style="font-weight:normal;color:#8ea3b3;margin-left:4px;font-size:10px;">(Inicio: 12h)</span></span>
+                <div class="bar-visual-grid-4" id="barCircularDirRotWrap">
+                  <button type="button" class="bar-visual-btn bar-dir-btn active" data-dir="CW" title="Llenado en sentido horario">
                     <span style="font-size:13px;line-height:1;">↻</span>
                     <span>Horario</span>
                   </button>
-                  <button type="button" class="bar-visual-btn bar-dir-btn" data-dir="CCW" title="Sentido antihorario">
+                  <button type="button" class="bar-visual-btn bar-dir-btn" data-dir="CCW" title="Llenado en sentido antihorario">
                     <span style="font-size:13px;line-height:1;">↺</span>
                     <span>Antihorario</span>
                   </button>
-                </div>
-              </div>
-
-              <!-- Inicio del 0 -->
-              <div class="field-label full" style="margin-top:6px;">
-                <span class="bar-visual-group-title">Inicio del 0</span>
-                <div class="bar-visual-grid-4" id="barCircularQuadrantWrap">
-                  <button type="button" class="bar-visual-btn bar-quadrant-btn active" data-quadrant="TOP" title="Arriba (12h)">
-                    <span style="font-size:13px;line-height:1;">↑</span>
-                    <span>Arriba</span>
+                  <button type="button" class="bar-visual-btn bar-rot-btn" data-rot="-90" title="Rotar posición de inicio -90° (antihorario)">
+                    <span style="font-size:13px;line-height:1;">↶</span>
+                    <span>-90°</span>
                   </button>
-                  <button type="button" class="bar-visual-btn bar-quadrant-btn" data-quadrant="RIGHT" title="Derecha (3h)">
-                    <span style="font-size:13px;line-height:1;">→</span>
-                    <span>Derecha</span>
-                  </button>
-                  <button type="button" class="bar-visual-btn bar-quadrant-btn" data-quadrant="BOTTOM" title="Abajo (6h)">
-                    <span style="font-size:13px;line-height:1;">↓</span>
-                    <span>Abajo</span>
-                  </button>
-                  <button type="button" class="bar-visual-btn bar-quadrant-btn" data-quadrant="LEFT" title="Izquierda (9h)">
-                    <span style="font-size:13px;line-height:1;">←</span>
-                    <span>Izquierda</span>
+                  <button type="button" class="bar-visual-btn bar-rot-btn" data-rot="+90" title="Rotar posición de inicio +90° (horario)">
+                    <span style="font-size:13px;line-height:1;">↷</span>
+                    <span>+90°</span>
                   </button>
                 </div>
               </div>
@@ -346,13 +315,7 @@
                 </label>
               </div>
 
-              <!-- Tipo de Relleno Arco -->
-              <label class="field-label full" style="margin-top:6px;">Tipo de Relleno Arco
-                <select id="barFormaCircleColorMode" class="field-input">
-                  <option value="SOLID" selected>Color Sólido</option>
-                  <option value="GRADIENT" disabled>Degradado (requiere firmware)</option>
-                </select>
-              </label>
+
             </div>
           </div>
         </div>
@@ -440,9 +403,74 @@
 
         <!-- SUBPANEL 1.3: APARIENCIA -->
         <div class="bar-subpanel" id="barSubpanelAppearance" data-subpanel="appearance" style="display:none;">
-          <!-- Alpha15: mini-modelo + leyenda + indicador A1, como TEXT/VALUE/BOOL -->
+          <!-- Mini-modelo + leyenda + indicador A1 -->
           <div class="bar-card" id="barAppMini"></div>
-          <!-- Controles anteriores: quedan ocultos (BAR circular/degradado sin firmware) -->
+
+          <!-- Configuración de Relleno y Degradado (en Apariencia) -->
+          <div class="bar-card" id="barAppGradCard" style="margin-top:10px;">
+            <div class="bar-card-section-title">▾ Relleno del indicador (Barra / Arco)</div>
+            <div class="bar-visual-grid-2" style="margin-top:6px;" id="barAppFillModeGroup">
+              <button type="button" class="bar-visual-btn bar-app-fill-btn active" data-fill="SOLID" title="Color liso uniforme">
+                <svg width="20" height="12" viewBox="0 0 20 12"><rect x="1" y="1" width="18" height="10" rx="1.5" fill="currentColor"/></svg>
+                <span>Color Sólido</span>
+              </button>
+              <button type="button" class="bar-visual-btn bar-app-fill-btn" data-fill="GRADIENT" title="Degradado suave entre dos colores">
+                <svg width="20" height="12" viewBox="0 0 20 12">
+                  <defs>
+                    <linearGradient id="barSvgGradIcon" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stop-color="#ff3b30"/>
+                      <stop offset="100%" stop-color="#34c759"/>
+                    </linearGradient>
+                  </defs>
+                  <rect x="1" y="1" width="18" height="10" rx="1.5" fill="url(#barSvgGradIcon)"/>
+                </svg>
+                <span>Degradado</span>
+              </button>
+            </div>
+
+            <!-- Controles cuando Degradado está activo -->
+            <div id="barAppGradSettings" style="display:none;margin-top:10px;">
+              <div class="bar-grad-row full">
+                <label class="field-label" style="flex:1;min-width:0;">Color Inicial
+                  <div class="bar-color-input-wrap compact">
+                    <input id="barGradStartNative" type="color" value="#00ffff" />
+                    <span id="barGradStartHex" class="hex-label compact">0x07FF</span>
+                  </div>
+                </label>
+                <button type="button" id="barGradSwapBtn" class="bar-swap-icon-btn" title="Intercalar color inicial y final" style="align-self:flex-end;margin-bottom:2px;">⇄</button>
+                <label class="field-label" style="flex:1;min-width:0;">Color Final
+                  <div class="bar-color-input-wrap compact">
+                    <input id="barGradEndNative" type="color" value="#00ff00" />
+                    <span id="barGradEndHex" class="hex-label compact">0x07E0</span>
+                  </div>
+                </label>
+              </div>
+
+              <!-- Paletas rápidas -->
+              <div class="field-label full" style="margin-top:8px;">
+                <span style="font-size:10px;color:#8ea3b3;margin-bottom:5px;display:block;font-weight:600;">Paletas rápidas de degradado:</span>
+                <div class="bar-palette-row" id="barGradPalettes">
+                  <button type="button" class="bar-palette-pill" data-grad-start="0xF800" data-grad-end="0x07E0">
+                    <span class="bar-palette-preview" style="background:linear-gradient(90deg,#ff0000,#00ff00);"></span>Rojo-Verde
+                  </button>
+                  <button type="button" class="bar-palette-pill" data-grad-start="0x07E0" data-grad-end="0xF800">
+                    <span class="bar-palette-preview" style="background:linear-gradient(90deg,#00ff00,#ff0000);"></span>Verde-Rojo
+                  </button>
+                  <button type="button" class="bar-palette-pill" data-grad-start="0x07FF" data-grad-end="0x001F">
+                    <span class="bar-palette-preview" style="background:linear-gradient(90deg,#00ffff,#0000ff);"></span>Cian-Azul
+                  </button>
+                  <button type="button" class="bar-palette-pill" data-grad-start="0xFD20" data-grad-end="0xF800">
+                    <span class="bar-palette-preview" style="background:linear-gradient(90deg,#ff9900,#ff0000);"></span>Fuego
+                  </button>
+                  <button type="button" class="bar-palette-pill" data-grad-start="0x780F" data-grad-end="0xF81F">
+                    <span class="bar-palette-preview" style="background:linear-gradient(90deg,#7700ff,#ff00ff);"></span>Neón
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Controles anteriores: quedan ocultos -->
           <div class="bar-card" id="barAppLegacyCard" style="display:none;">
             <!-- Barra Lineal Colores -->
             <div id="barAppLinearFillWrap">
@@ -642,34 +670,7 @@
           </div>
         </div>
 
-        <!-- Tarjeta 3: Simulación local (ÚNICAMENTE AQUÍ) -->
-        <div class="bar-card" style="margin-top:10px;">
-          <div class="bar-card-header" style="justify-content:space-between;">
-            <span class="bar-card-title bar-cyan-title">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-              Simulación local
-            </span>
-            <label class="bar-toggle-switch" title="Habilitar / Deshabilitar simulación">
-              <input id="barPlcSimToggle" type="checkbox" checked />
-              <span class="bar-toggle-slider"></span>
-            </label>
-          </div>
-          <div class="bar-sim-header" style="margin-top:8px;display:flex;justify-content:space-between;align-items:center;">
-            <span style="font-size:11px;color:#8ea3b3;font-weight:600;">Valor de prueba</span>
-            <strong id="barPlcSimReadout" class="bar-cyan-readout" style="font-size:13px;font-family:'Cascadia Code',Consolas,monospace;color:#00d7ef;">50.0 %</strong>
-          </div>
-          <div style="margin-top:6px;">
-            <input id="barPlcSimSlider" class="bar-top-slider-input" type="range" min="0" max="100" step="0.5" value="50" />
-          </div>
-          <div style="display:flex;justify-content:space-between;margin-top:2px;font-size:9.5px;color:#6b8699;font-family:'Cascadia Code',Consolas,monospace;">
-            <span id="barPlcSimMinLabel">0</span>
-            <span id="barPlcSimMaxLabel">100</span>
-          </div>
-          <div class="bar-info-note" style="margin-top:8px;">
-            <span class="bar-info-icon">ℹ</span>
-            <span>La simulación no modifica el firmware. Solo se visualiza en el editor.</span>
-          </div>
-        </div>
+
       </div>
 
       <!-- PANEL 3: TÉCNICO -->
@@ -1194,6 +1195,13 @@
           cy = field.y + pad + Math.max(radius, Math.trunc(labelBounds.height / 2));
           labelX = cx + radius + FIELD_GAP;
           labelY = cy - Math.trunc(labelBounds.height / 2);
+        } else if (alignH === 'CENTER') {
+          fieldW = 2 * pad + Math.max(diameter, labelBounds.width);
+          fieldH = 2 * pad + Math.max(diameter, labelBounds.height);
+          cx = field.x + pad + Math.max(radius, Math.trunc(labelBounds.width / 2));
+          cy = field.y + pad + Math.max(radius, Math.trunc(labelBounds.height / 2));
+          labelX = Math.round(cx - labelBounds.width / 2);
+          labelY = Math.round(cy - labelBounds.height / 2);
         } else {
           fieldW = 2 * pad + labelBounds.width + FIELD_GAP + diameter;
           fieldH = 2 * pad + Math.max(diameter, labelBounds.height);
@@ -2539,28 +2547,93 @@
     });
   });
 
-  // Modo de relleno lineal
-  barFormaFillMode?.addEventListener('change', () => {
-    const field = selectedField();
-    if (!isBar(field)) return;
-    field.barFillMode = barFormaFillMode.value;
-    const isGrad = (field.barFillMode === 'GRADIENT');
-    if (barAppLinearSolidWrap) barAppLinearSolidWrap.style.display = isGrad ? 'none' : 'block';
-    if (barAppLinearGradWrap) barAppLinearGradWrap.style.display = isGrad ? 'grid' : 'none';
-    if (isGrad && !field.valueColorEnd) field.valueColorEnd = 0x07E0;
-    updateBarFromControls(true);
+  // Modo de Relleno (Sólido / Degradado) en Apariencia para ambos medidores
+  document.querySelectorAll('.bar-app-fill-btn').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const field = selectedField();
+      if (!isBar(field)) return;
+      const isGrad = (btn.dataset.fill === 'GRADIENT');
+      if (field.barPreset === 'CIRCULAR') {
+        field.circleColorMode = isGrad ? 'GRADIENT' : 'SOLID';
+      } else {
+        field.barFillMode = isGrad ? 'GRADIENT' : 'SOLID';
+      }
+      if (isGrad && !field.valueColorEnd) field.valueColorEnd = 0x07E0;
+      patchInspector(field);
+      triggerCoreRender(true);
+    });
   });
 
-  // Modo de color circular
-  barFormaCircleColorMode?.addEventListener('change', () => {
+  const barGradStartNative = document.getElementById('barGradStartNative');
+  const barGradStartHex = document.getElementById('barGradStartHex');
+  const barGradEndNative = document.getElementById('barGradEndNative');
+  const barGradEndHex = document.getElementById('barGradEndHex');
+  const barGradSwapBtn = document.getElementById('barGradSwapBtn');
+
+  barGradStartNative?.addEventListener('input', () => {
     const field = selectedField();
     if (!isBar(field)) return;
-    field.circleColorMode = barFormaCircleColorMode.value;
-    const isGrad = (field.circleColorMode === 'GRADIENT');
-    if (barAppCircularSolidWrap) barAppCircularSolidWrap.style.display = isGrad ? 'none' : 'block';
-    if (barAppCircularGradWrap) barAppCircularGradWrap.style.display = isGrad ? 'grid' : 'none';
-    if (isGrad && !field.valueColorEnd) field.valueColorEnd = 0x07E0;
-    updateBarFromControls(true);
+    field.valueColor = hexCssTo565(barGradStartNative.value);
+    if (barGradStartHex) barGradStartHex.textContent = hex565(field.valueColor);
+    syncBarMini(field);
+    triggerCoreRender(false);
+  });
+  barGradStartNative?.addEventListener('change', () => {
+    const field = selectedField();
+    if (!isBar(field)) return;
+    field.valueColor = hexCssTo565(barGradStartNative.value);
+    if (barGradStartHex) barGradStartHex.textContent = hex565(field.valueColor);
+    syncBarMini(field);
+    triggerCoreRender(true);
+  });
+
+  barGradEndNative?.addEventListener('input', () => {
+    const field = selectedField();
+    if (!isBar(field)) return;
+    field.valueColorEnd = hexCssTo565(barGradEndNative.value);
+    if (barGradEndHex) barGradEndHex.textContent = hex565(field.valueColorEnd);
+    syncBarMini(field);
+    triggerCoreRender(false);
+  });
+  barGradEndNative?.addEventListener('change', () => {
+    const field = selectedField();
+    if (!isBar(field)) return;
+    field.valueColorEnd = hexCssTo565(barGradEndNative.value);
+    if (barGradEndHex) barGradEndHex.textContent = hex565(field.valueColorEnd);
+    syncBarMini(field);
+    triggerCoreRender(true);
+  });
+
+  barGradSwapBtn?.addEventListener('click', (e) => {
+    e.preventDefault();
+    const field = selectedField();
+    if (!isBar(field)) return;
+    const temp = field.valueColor || 0x07FF;
+    field.valueColor = field.valueColorEnd || 0x07E0;
+    field.valueColorEnd = temp;
+    if (barGradStartNative) barGradStartNative.value = rgb565ToHexCss(field.valueColor);
+    if (barGradStartHex) barGradStartHex.textContent = hex565(field.valueColor);
+    if (barGradEndNative) barGradEndNative.value = rgb565ToHexCss(field.valueColorEnd);
+    if (barGradEndHex) barGradEndHex.textContent = hex565(field.valueColorEnd);
+    syncBarMini(field);
+    triggerCoreRender(true);
+  });
+
+  document.querySelectorAll('#barGradPalettes .bar-palette-pill').forEach((pill) => {
+    pill.addEventListener('click', (e) => {
+      e.preventDefault();
+      const field = selectedField();
+      if (!isBar(field)) return;
+      field.valueColor = Number(pill.dataset.gradStart);
+      field.valueColorEnd = Number(pill.dataset.gradEnd);
+      if (barGradStartNative) barGradStartNative.value = rgb565ToHexCss(field.valueColor);
+      if (barGradStartHex) barGradStartHex.textContent = hex565(field.valueColor);
+      if (barGradEndNative) barGradEndNative.value = rgb565ToHexCss(field.valueColorEnd);
+      if (barGradEndHex) barGradEndHex.textContent = hex565(field.valueColorEnd);
+      syncBarMini(field);
+      triggerCoreRender(true);
+    });
   });
 
   // Botones de Estilo de Barra Lineal
@@ -2646,12 +2719,22 @@
     });
   });
 
-  document.querySelectorAll('.bar-quadrant-btn').forEach((btn) => {
-    btn.addEventListener('click', () => {
+  const QUADRANTS = ['TOP', 'RIGHT', 'BOTTOM', 'LEFT'];
+  document.querySelectorAll('.bar-rot-btn').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
       const field = selectedField();
       if (!isBar(field)) return;
-      field.circleStartAngle = btn.dataset.quadrant || 'TOP';
-      document.querySelectorAll('.bar-quadrant-btn').forEach((b) => b.classList.toggle('active', b === btn));
+      const rot = parseInt(btn.dataset.rot, 10);
+      let cur = field.circleStartAngle || 'TOP';
+      let idx = QUADRANTS.indexOf(cur);
+      if (idx === -1) idx = 0;
+      if (rot === 90 || rot === -270) {
+        idx = (idx + 1) % 4;
+      } else {
+        idx = (idx + 3) % 4;
+      }
+      field.circleStartAngle = QUADRANTS[idx];
       patchInspector(field);
       triggerCoreRender(true);
     });
@@ -3182,9 +3265,9 @@
       });
 
       const curQuad = field.circleStartAngle || 'TOP';
-      document.querySelectorAll('.bar-quadrant-btn').forEach((btn) => {
-        btn.classList.toggle('active', btn.dataset.quadrant === curQuad);
-      });
+      const QUAD_CLOCK = { TOP: '12h (Arriba)', RIGHT: '3h (Derecha)', BOTTOM: '6h (Abajo)', LEFT: '9h (Izquierda)' };
+      const startHint = document.getElementById('barCircleStartHint');
+      if (startHint) startHint.textContent = `(Inicio: ${QUAD_CLOCK[curQuad] || '12h'})`;
 
       const curStyle = field.circleStyle || 'CONTINUOUS';
       document.querySelectorAll('.bar-style-btn').forEach((btn) => {
@@ -3346,14 +3429,26 @@
     }
     if (barTopSimReadout) barTopSimReadout.textContent = `${(norm * 100).toFixed(1)} %`;
 
-    if (barPlcSimSlider) {
-      barPlcSimSlider.min = String(field.barMin);
-      barPlcSimSlider.max = String(field.barMax);
-      barPlcSimSlider.value = String(field.barValue);
+    // Sincronizar Relleno y Degradado en Apariencia
+    const isGradActive = (field.barPreset === 'CIRCULAR')
+      ? (field.circleColorMode === 'GRADIENT')
+      : (field.barFillMode === 'GRADIENT');
+
+    document.querySelectorAll('.bar-app-fill-btn').forEach((btn) => {
+      btn.classList.toggle('active', isGradActive ? btn.dataset.fill === 'GRADIENT' : btn.dataset.fill === 'SOLID');
+    });
+
+    const gradSettings = document.getElementById('barAppGradSettings');
+    if (gradSettings) gradSettings.style.display = isGradActive ? 'block' : 'none';
+
+    if (barGradStartNative) {
+      barGradStartNative.value = rgb565ToHexCss(field.valueColor || 0x07FF);
+      if (barGradStartHex) barGradStartHex.textContent = hex565(field.valueColor || 0x07FF);
     }
-    if (barPlcSimMinLabel) barPlcSimMinLabel.textContent = String(field.barMin);
-    if (barPlcSimMaxLabel) barPlcSimMaxLabel.textContent = String(field.barMax);
-    if (barPlcSimReadout) barPlcSimReadout.textContent = `${(norm * 100).toFixed(1)} %`;
+    if (barGradEndNative) {
+      barGradEndNative.value = rgb565ToHexCss(field.valueColorEnd || 0x07E0);
+      if (barGradEndHex) barGradEndHex.textContent = hex565(field.valueColorEnd || 0x07E0);
+    }
 
     // 6. TÉCNICO
     if (barTechName) barTechName.value = field.name || '';
@@ -3611,10 +3706,18 @@
     if (!barMiniCard || !isBar(field)) return;
     if (!barMiniRows(field).includes(barActiveKey)) barActiveKey = 'value';
     buildBarMini(field);
+    const isGradActiveForMini = (field.barPreset === 'CIRCULAR')
+      ? (field.circleColorMode === 'GRADIENT')
+      : (field.barFillMode === 'GRADIENT');
+
     Object.keys(BAR_COLOR_PROP).forEach((key) => {
       const v = barColorOf(field, key);
       barMiniCard.querySelectorAll(`[data-bar-swatch="${key}"]`).forEach((sw) => {
-        sw.style.background = rgb565ToCss(v);
+        if (key === 'value' && isGradActiveForMini) {
+          sw.style.background = `linear-gradient(90deg, ${rgb565ToCss(v)}, ${rgb565ToCss(field.valueColorEnd || 0x07E0)})`;
+        } else {
+          sw.style.background = rgb565ToCss(v);
+        }
         sw.style.color = ((v >> 11) + ((v >> 5) & 0x3F) / 2 + (v & 0x1F)) > 40 ? '#000' : '#fff';
         sw.classList.toggle('active', key === barActiveKey);
       });
@@ -3628,6 +3731,10 @@
     const field = selectedField();
     if (!isBar(field)) return;
     field[BAR_COLOR_PROP[key]] = value565 & 0xFFFF;
+    if (key === 'value') {
+      if (barGradStartNative) barGradStartNative.value = rgb565ToHexCss(value565);
+      if (barGradStartHex) barGradStartHex.textContent = hex565(value565);
+    }
     if (key === 'track') {
       field.backgroundColor = value565 & 0xFFFF; // un solo color en firmware
       field.circleTrackColor = value565 & 0xFFFF;
@@ -3698,9 +3805,6 @@
   }
 
   function closeBarInspector() {
-    // BAR-1: la simulación sólo en Datos.
-    hideForFirmware(barInspectorWrap.querySelector('#barSubpanelShape .bar-top-slider-wrap'));
-
     // BAR-3: variantes sin soporte en el firmware.
     markNeedsFirmware(barInspectorWrap.querySelector('.bar-orient-btn[data-orient="VERTICAL"]'));
     barInspectorWrap.querySelectorAll('.bar-linear-style-btn:not([data-style="SOLID"])').forEach(markNeedsFirmware);
@@ -3709,18 +3813,14 @@
     markNeedsFirmware(borderToggle);
     borderToggle?.closest('label')?.classList.add('insp-needs-fw');
     alignMatrixCells.forEach((cell) => {
-      const supported = cell.dataset.alignH === 'LEFT' && (cell.dataset.alignV === 'TOP' || cell.dataset.alignV === 'MID');
-      if (supported) cell.title = cell.dataset.alignV === 'MID' ? 'Etiqueta a la izquierda (INLINE)' : 'Etiqueta arriba (STACKED)';
-      else markNeedsFirmware(cell);
+      cell.disabled = false;
+      cell.classList.remove('insp-needs-fw');
+      const vLabels = { TOP: 'Arriba', MID: 'Medio', BOTTOM: 'Abajo' };
+      const hLabels = { LEFT: 'Izquierda', CENTER: 'Centro', RIGHT: 'Derecha' };
+      cell.title = `Alineación: ${vLabels[cell.dataset.alignV] || cell.dataset.alignV} ${hLabels[cell.dataset.alignH] || cell.dataset.alignH}`;
     });
 
-    // BAR-2/BAR-3: selects que no aportan nada al firmware.
-    const widthMode = barInspectorWrap.querySelector('#barFormaWidthMode')?.closest('label');
-    const fillMode = barInspectorWrap.querySelector('#barFormaFillMode')?.closest('label');
-    hideForFirmware(widthMode);
-    if (fillMode) {
-      fillMode.replaceWith(fwCard('Relleno', ['Degradado']));
-    }
+
     const pctWrap = barInspectorWrap.querySelector('#barContentLinearWrap');
     if (pctWrap) {
       hideForFirmware(pctWrap);

@@ -83,7 +83,29 @@ function buildSize(icon, size) {
     return result;
   });
 
-  return { width: size, height: size, transparent: 0, images, states, roles: roleOrder };
+  const tierImages = [];
+  if (Array.isArray(icon.extraDraws)) {
+    icon.extraDraws.forEach((drawFn) => {
+      const g = createGrid(size);
+      drawFn(g);
+      const bytes = Buffer.alloc(stride * size);
+      g.roles.forEach((role, p) => {
+        const index = role === '.' ? 0 : roleOrder.indexOf(role) + 1;
+        const x = p % size;
+        const y = Math.floor(p / size);
+        const at = y * stride + (x >> 1);
+        bytes[at] |= (x & 1) ? index : index << 4;
+      });
+      const b64 = bytes.toString('base64');
+      let image = images.indexOf(b64);
+      if (image < 0) { images.push(b64); image = images.length - 1; }
+      tierImages.push(image);
+    });
+  }
+
+  const resultObj = { width: size, height: size, transparent: 0, images, states, roles: roleOrder };
+  if (tierImages.length > 0) resultObj.tierImages = tierImages;
+  return resultObj;
 }
 
 function buildCatalog() {

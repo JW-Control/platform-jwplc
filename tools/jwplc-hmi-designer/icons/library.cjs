@@ -31,6 +31,41 @@ const CATEGORIES = [
   { id: 'botones', name: 'Botones y selectores' }
 ];
 
+function drawBalizaTiers(g, tiers = 4) {
+  // Base y mástil inferior
+  g.rect('M', 45, 80, 10, 14);
+  g.rect('O', 32, 94, 36, 6, 2);
+  g.rect('O', 32, 80, 36, 3);
+
+  // Piso 1: Verde (y = 64..80)
+  g.rect('G', 34, 64, 32, 16, 2);
+  if (tiers === 1) {
+    g.rect('O', 30, 59, 40, 5, 2);
+    return;
+  }
+  g.rect('O', 32, 62, 36, 3);
+
+  // Piso 2: Ámbar (y = 46..62)
+  g.rect('Y', 34, 46, 32, 16, 2);
+  if (tiers === 2) {
+    g.rect('O', 30, 41, 40, 5, 2);
+    return;
+  }
+  g.rect('O', 32, 44, 36, 3);
+
+  // Piso 3: Rojo (y = 28..44)
+  g.rect('R', 34, 28, 32, 16, 2);
+  if (tiers === 3) {
+    g.rect('O', 30, 23, 40, 5, 2);
+    return;
+  }
+  g.rect('O', 32, 26, 36, 3);
+
+  // Piso 4: Azul (y = 10..26)
+  g.rect('B', 34, 10, 32, 16, 2);
+  g.rect('O', 30, 6, 40, 5, 2);
+}
+
 const ICONS = [
   // ------------------------------------------------------------- Motores
   {
@@ -195,18 +230,6 @@ const ICONS = [
     }
   },
   {
-    id: 'pilotos/piloto_cuadrado', name: 'Piloto cuadrado', category: 'pilotos', sizes: [24, 32, 48],
-    states: [
-      { name: 'Apagado', colors: { O: C.light, B: C.darker, S: C.dark, H: C.mid } },
-      { name: 'Encendido', colors: { O: C.light, B: C.darker, S: C.green, H: C.greenHi } }
-    ],
-    draw(g) {
-      g.box('O', 'B', 6, 6, 88, 88, 8);
-      g.box('O', 'S', 20, 20, 60, 60, 4);
-      g.rect('H', 24, 24, 18, 18, 2);
-    }
-  },
-  {
     id: 'pilotos/baliza', name: 'Torre de señalización', category: 'pilotos', sizes: [24, 32, 48],
     states: [
       { name: 'Apagada', colors: { O: C.light, M: C.darker, B: C.blueDim, R: C.redDim, Y: C.yellowDim, G: C.greenDim } },
@@ -227,22 +250,14 @@ const ICONS = [
       { name: 'Azul+Rojo+Ámbar+Verde', colors: { O: C.light, M: C.darker, B: C.cyan, R: C.red, Y: C.amber, G: C.green } }
     ],
     draw(g) {
-      // Base y mástil inferior
-      g.rect('M', 45, 80, 10, 14);
-      g.rect('O', 32, 94, 36, 6, 2);
-      // Módulos apilados (Piso 4: Azul, Piso 3: Rojo, Piso 2: Ámbar, Piso 1: Verde)
-      g.rect('B', 34, 10, 32, 16, 2);
-      g.rect('R', 34, 28, 32, 16, 2);
-      g.rect('Y', 34, 46, 32, 16, 2);
-      g.rect('G', 34, 64, 32, 16, 2);
-      // Tapa superior
-      g.rect('O', 30, 6, 40, 5, 2);
-      // Anillos divisores
-      g.rect('O', 32, 26, 36, 3);
-      g.rect('O', 32, 44, 36, 3);
-      g.rect('O', 32, 62, 36, 3);
-      g.rect('O', 32, 80, 36, 3);
-    }
+      drawBalizaTiers(g, 4);
+    },
+    extraDraws: [
+      (g) => drawBalizaTiers(g, 1),
+      (g) => drawBalizaTiers(g, 2),
+      (g) => drawBalizaTiers(g, 3),
+      (g) => drawBalizaTiers(g, 4)
+    ]
   },
   // ------------------------------------------------------------- Válvulas
   {
