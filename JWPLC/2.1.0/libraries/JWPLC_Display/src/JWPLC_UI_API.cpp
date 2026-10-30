@@ -410,12 +410,19 @@ extern "C" void __attribute__((weak)) jwplcUIMenuInvalidateAll(void) {}
 extern "C" void __attribute__((weak)) jwplcUIMenuDrawStatic(JWPLC_TFTClass *tft) { (void)tft; }
 extern "C" void __attribute__((weak)) jwplcUIMenuDrawDirty(JWPLC_TFTClass *tft) { (void)tft; }
 
+// Hooks de EVENT_LOG (Alpha16). JWPLC_UI_EventLog.cpp aporta las versiones strong.
+extern "C" void __attribute__((weak)) jwplcUIEventLogServiceInput(void) {}
+extern "C" void __attribute__((weak)) jwplcUIEventLogPrepareEnter(void) {}
+extern "C" void __attribute__((weak)) jwplcUIEventLogInvalidateAll(void) {}
+extern "C" void __attribute__((weak)) jwplcUIEventLogDrawStatic(JWPLC_TFTClass *tft) { (void)tft; }
+extern "C" void __attribute__((weak)) jwplcUIEventLogDrawDirty(JWPLC_TFTClass *tft) { (void)tft; }
+
 // Implementaciones strong de los hooks internos. Este TU solo se enlaza cuando
 // la HMI se usa: JWPLC_UI.cpp depende de los constructores definidos arriba.
 extern "C" void jwplcUIRuntimeServiceInput(void)
 {
-    // El MENU de la página atiende primero sus teclas (UP/DOWN/LEFT/RIGHT/OK y
-    // ESC fuera de la raíz); lo que no consume sigue al selector de páginas.
+    // EVENT_LOG y MENU atienden sus teclas con prioridad antes del selector de páginas.
+    jwplcUIEventLogServiceInput();
     jwplcUIMenuServiceInput();
     JWPLCUIPages::serviceNavigation();
     JWPLCUI::pollClockFields();
@@ -437,6 +444,7 @@ extern "C" bool jwplcUIRuntimeRefreshNeeded(void)
 
 extern "C" void jwplcUIRuntimeInvalidateAll(bool redrawStatic)
 {
+    jwplcUIEventLogInvalidateAll();
     jwplcUIMenuInvalidateAll();
     JWPLCUI::invalidateAll(redrawStatic);
 }
@@ -445,6 +453,7 @@ extern "C" void jwplcUIRuntimePrepareEnter(void)
 {
     JWPLCUI::prepareEnter();
     jwplcUIMenuPrepareEnter();
+    jwplcUIEventLogPrepareEnter();
     JWPLCUIPages::prepareEnter();
 }
 
@@ -477,6 +486,7 @@ extern "C" void jwplcUIRuntimeDrawStatic(JWPLC_TFTClass *tft)
         JWPLCUI::drawPixelMapsStatic(*tft);
         JWPLCUI::drawStatic(*tft);
         jwplcUIMenuDrawStatic(tft);
+        jwplcUIEventLogDrawStatic(tft);
     }
 }
 
@@ -486,6 +496,7 @@ extern "C" void jwplcUIRuntimeDrawDirty(JWPLC_TFTClass *tft)
     {
         JWPLCUI::drawDirty(*tft);
         jwplcUIMenuDrawDirty(tft);
+        jwplcUIEventLogDrawDirty(tft);
         JWPLCUIPages::drawModeChange(*tft);
         JWPLCUIPages::drawIndicator(*tft);
     }

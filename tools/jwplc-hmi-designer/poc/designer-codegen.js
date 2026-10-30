@@ -1075,6 +1075,7 @@ static void jwplcHMIDrawMicroText(JWPLC_TFTClass &tft, int16_t x, int16_t y, con
     let text = decorateHeader(codeOutput.textContent);
     text = groupGeneratedSections(text);
     if (window.JWPLCHMIMenu?.patchHeader) text = window.JWPLCHMIMenu.patchHeader(text);
+    if (window.JWPLCHMIEventLog?.patchHeader) text = window.JWPLCHMIEventLog.patchHeader(text);
     text = patchPageIndicator(text);
     if (window.JWPLCHMIIdle?.patchHeader) text = window.JWPLCHMIIdle.patchHeader(text);
     text = duplicateDiagnostic(text, validationIssues());

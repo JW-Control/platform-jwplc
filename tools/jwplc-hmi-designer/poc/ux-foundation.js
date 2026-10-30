@@ -273,6 +273,7 @@
       loadScript('./designer-zone-indicator.js?v=1793801300', () => {
         loadScript('./designer-field-inspector.js?v=1793801300', () => {
           loadScript('./designer-menu.js?v=1793801700');
+          loadScript('./designer-event-log.js?v=1793802700');
           loadScript('./designer-icons.js?v=1793802000');
           loadScript('./designer-idle.js?v=1793801300');
           loadScript('./designer-field-visibility.js?v=1793802300', () => {

@@ -102,6 +102,7 @@
             "BAR",
             "ICON",
             "MENU",
+            "EVENT_LOG",
             "RAW_TEXT",
             "LINE",
             "RECT",
@@ -1774,6 +1775,115 @@
               "x",
               "y",
               "nodes"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "EVENT_LOG"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "type": {
+                "const": "EVENT_LOG"
+              },
+              "name": {
+                "description": "Nombre visible en la lista de objetos del Designer (no llega al C++).",
+                "type": "string"
+              },
+              "id": {
+                "description": "Identificador C++ del objeto (único en el proyecto). Si falta se genera FIELD_<TIPO>_<n>.",
+                "type": "string",
+                "pattern": "^([A-Za-z_][A-Za-z0-9_]*)?$"
+              },
+              "page": {
+                "description": "Página (id) donde se dibuja.",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 15,
+                "default": 0
+              },
+              "layerOrder": {
+                "description": "Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9999
+              },
+              "hidden": {
+                "description": "Oculto en el lienzo y fuera del header.",
+                "type": "boolean"
+              },
+              "locked": {
+                "description": "Bloqueado en el lienzo (no se puede mover con el ratón).",
+                "type": "boolean"
+              },
+              "cornerRadius": {
+                "description": "Lo agrega el Designer al abrir (sólo lo usan RECT y MENU).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 85
+              },
+              "x": {
+                "description": "Esquina superior izquierda, X (px).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 319
+              },
+              "y": {
+                "description": "Esquina superior izquierda, Y (px).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 169
+              },
+              "width": {
+                "description": "Ancho (px).",
+                "type": "integer",
+                "minimum": 40,
+                "maximum": 320,
+                "default": 320
+              },
+              "height": {
+                "description": "Alto (px).",
+                "type": "integer",
+                "minimum": 30,
+                "maximum": 170,
+                "default": 170
+              },
+              "ramCapacity": {
+                "description": "Capacidad del buffer en RAM.",
+                "type": "integer",
+                "minimum": 16,
+                "maximum": 128,
+                "default": 64
+              },
+              "enableFram": {
+                "description": "Persistencia de los últimos 16 eventos en FRAM ante corte de luz.",
+                "type": "boolean",
+                "default": true
+              },
+              "enableSd": {
+                "description": "Exportación no bloqueante a microSD.",
+                "type": "boolean",
+                "default": true
+              },
+              "sdFileName": {
+                "description": "Nombre del archivo CSV en microSD.",
+                "type": "string",
+                "default": "/EVENTOS.CSV"
+              },
+              "descriptors": {
+                "description": "Descriptores de eventos conocidos del proyecto.",
+                "type": "array"
+              }
+            },
+            "required": [
+              "type",
+              "x",
+              "y"
             ]
           }
         },

@@ -15,7 +15,8 @@ enum JWPLC_UIFieldType : uint8_t
     JWPLC_UI_FIELD_TEXT,
     JWPLC_UI_FIELD_BOOL,
     JWPLC_UI_FIELD_BAR,
-    JWPLC_UI_FIELD_ICON
+    JWPLC_UI_FIELD_ICON,
+    JWPLC_UI_FIELD_CIRCULAR
 };
 
 enum JWPLC_UIFieldLayout : uint8_t
@@ -349,6 +350,49 @@ struct JWPLC_UIIcon
     }
 };
 
+#define JWPLC_UI_HAS_CIRCULAR 1
+
+struct JWPLC_UICircularStyle
+{
+    uint16_t sweep;
+    uint8_t thickness;
+    uint8_t centerMode;       // 0 = NONE, 1 = PERCENT, 2 = VALUE
+    uint8_t labelTextSize;
+    bool frame;
+    uint16_t trackColor;
+    uint8_t startQuadrant;    // 0 = TOP, 1 = RIGHT, 2 = BOTTOM, 3 = LEFT
+    bool clockwise;
+    bool segmented;
+    uint8_t centerTextSize;
+    uint16_t centerTextColor;
+
+    constexpr JWPLC_UICircularStyle(
+        uint16_t sweepValue = 360,
+        uint8_t thicknessValue = 5,
+        uint8_t centerModeValue = 1,
+        uint8_t labelTextSizeValue = 1,
+        bool frameValue = false,
+        uint16_t trackColorValue = 0x0000,
+        uint8_t startQuadrantValue = 0,
+        bool clockwiseValue = true,
+        bool segmentedValue = false,
+        uint8_t centerTextSizeValue = 1,
+        uint16_t centerTextColorValue = 0xFFFF)
+        : sweep(sweepValue),
+          thickness(thicknessValue),
+          centerMode(centerModeValue),
+          labelTextSize(labelTextSizeValue),
+          frame(frameValue),
+          trackColor(trackColorValue),
+          startQuadrant(startQuadrantValue),
+          clockwise(clockwiseValue),
+          segmented(segmentedValue),
+          centerTextSize(centerTextSizeValue),
+          centerTextColor(centerTextColorValue)
+    {
+    }
+};
+
 struct JWPLC_UIRange
 {
     float min;
@@ -392,6 +436,9 @@ struct JWPLC_UIField
     // ICON sin fondo: no pinta el recuadro del campo ni los píxeles que son
     // transparentes en todos los estados (ahí se ve la gráfica estática).
     bool iconTransparent = false;
+
+    // Medidor circular (JWPLC_UICircularField)
+    JWPLC_UICircularStyle circularStyle = JWPLC_UICircularStyle();
 
     JWPLC_UIField(
         JWPLC_UIFieldMeta metaValue = JWPLC_UIFieldMeta(),
@@ -485,6 +532,15 @@ JWPLC_UIField JWPLC_UIIconField(
     JWPLC_UIColors colors = JWPLC_UIColors(),
     bool transparentBackground = false);
 
+JWPLC_UIField JWPLC_UICircularField(
+    uint8_t id,
+    JWPLC_UIRect rect,
+    JWPLC_UIText text = JWPLC_UIText(),
+    JWPLC_UIRange range = JWPLC_UIRange(),
+    JWPLC_UICircularStyle circularStyle = JWPLC_UICircularStyle(),
+    uint8_t page = 0,
+    JWPLC_UIColors colors = JWPLC_UIColors());
+
 // ---------------------------------------------------------------------
 // Helpers cortos para el caso comun.
 // ---------------------------------------------------------------------
@@ -521,6 +577,16 @@ JWPLC_UIField JWPLC_UIBarField(
     JWPLC_UIRange range = JWPLC_UIRange(),
     int16_t width = 100,
     int16_t height = 28,
+    uint8_t page = 0);
+
+JWPLC_UIField JWPLC_UICircularField(
+    uint8_t id,
+    int16_t x,
+    int16_t y,
+    int16_t diameter = 52,
+    const char *label = nullptr,
+    JWPLC_UIRange range = JWPLC_UIRange(),
+    uint16_t sweep = 360,
     uint8_t page = 0);
 
 namespace JWPLCUI
@@ -563,5 +629,6 @@ namespace JWPLCUI
 }
 
 #include "JWPLC_UI_Menu.h"
+#include "JWPLC_UI_EventLog.h"
 
 #endif // JWPLC_UI_H

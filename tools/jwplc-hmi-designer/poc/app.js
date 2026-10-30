@@ -1301,6 +1301,7 @@
     if (field.type === 'TEXT') return 'textField';
     if (field.type === 'NAV_BAR') return 'navBarField';
     if (field.type === 'MENU') return 'menuField';
+    if (field.type === 'EVENT_LOG') return 'eventLogField';
     if (field.type === 'ICON') return 'iconField';
     return 'pointer';
   }
@@ -2360,11 +2361,11 @@
       };
     }
 
-    if (field.type === 'MENU') {
+    if (field.type === 'MENU' || field.type === 'EVENT_LOG') {
       const x = Number(field.x) || 0;
       const y = Number(field.y) || 0;
-      const w = Math.max(1, Number(field.width) || 1);
-      const h = Math.max(1, Number(field.height) || 1);
+      const w = Math.max(1, Number(field.width) || (field.type === 'EVENT_LOG' ? 320 : 1));
+      const h = Math.max(1, Number(field.height) || (field.type === 'EVENT_LOG' ? 170 : 1));
       return { x, y, minX: x, maxX: x + w - 1, minY: y, maxY: y + h - 1, width: w, height: h };
     }
 
@@ -2758,6 +2759,13 @@
           drawRect: (x, y, w, h, c) => drawBufferRect(framebuffer, x, y, w, h, c),
           pixel: (x, y, c) => setBufferPixel(framebuffer, x, y, c)
         });
+      } else if (field.type === 'EVENT_LOG') {
+        window.JWPLCHMIEventLog?.paint?.(field, {
+          fillRect: (x, y, w, h, c) => fillBufferRect(framebuffer, x, y, w, h, c),
+          drawRect: (x, y, w, h, c) => drawBufferRect(framebuffer, x, y, w, h, c),
+          drawText: (text, x, y, fg, bg, sz) => drawRawTextAt(framebuffer, text, x, y, fg, bg, sz || 1),
+          pixel: (x, y, c) => setBufferPixel(framebuffer, x, y, c)
+        });
       } else if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(field.type)) {
         drawShape(framebuffer, field);
       } else if (field.type === 'RAW_TEXT') {
@@ -3094,7 +3102,7 @@
       TEXT: 'Texto',
       VALUE: 'Valor',
       BOOL: 'Bool',
-      BAR: 'Barra',
+      BAR: 'Indicador',
       RAW_TEXT: 'Texto RAW',
       LINE: 'Línea',
       RECT: 'Rectángulo',
@@ -3131,6 +3139,7 @@
       else if (field.type === 'POLYGON') icon = '⬡';
       else if (field.type === 'NAV_BAR') icon = '☰';
       else if (field.type === 'MENU') icon = '▤';
+      else if (field.type === 'EVENT_LOG') icon = '📋';
       else if (field.type === 'ICON') icon = '◈';
 
       button.innerHTML = `
@@ -5401,6 +5410,29 @@
 
   // A15-8: MENU (árbol de configuración). Uno por página; el modelo y el
   // dibujo viven en designer-menu.js.
+  
+  function addEventLogField() {
+    const api = window.JWPLCHMIEventLog;
+    if (!api || hmiFields.length >= MAX_FIELDS) return;
+    if (hmiFields.some((f) => f.type === 'EVENT_LOG' && Number(f.page || 0) === activePage)) {
+      window.JWPLCDialog.alert('Esta página ya tiene un EVENT_LOG: sólo se permite uno por página.');
+      return;
+    }
+    fieldSerial += 1;
+    const field = api.createDefault(`eventlog-${fieldSerial}`, fieldSerial);
+    field.id = uniqueFieldSymbol(field.id);
+    field.page = activePage;
+    placeNewField(field);
+    assignNewLayerOrder(field);
+    hmiFields.push(field);
+    setSelectedKeys([field.key]);
+    selectedTool = 'eventLogField';
+    syncInputsFromState();
+    syncToolUI();
+    render();
+    commitHistory();
+  }
+
   function addMenuField() {
     const api = window.JWPLCHMIMenu;
     if (!api || hmiFields.length >= MAX_FIELDS) return;
@@ -5772,6 +5804,10 @@
         addMenuField();
         return;
       }
+      if (tool === 'eventLogField') {
+        addEventLogField();
+        return;
+      }
       selectedTool = tool;
       if (!['pointer', 'textField', 'valueField', 'boolField', 'barField', 'navBarField', 'menuField'].includes(tool)) {
         setSelectedKeys([]);
@@ -5804,7 +5840,7 @@
   const VAR_TITLES = {
     valueField: 'Variables del PLC · Valor Numérico (VALUE)',
     boolField: 'Variables del PLC · Booleano (BOOL)',
-    barField: 'Variables del PLC · Barra de Nivel (BAR)',
+    barField: 'Variables del PLC · Indicadores de Nivel (BAR)',
     navBarField: 'Variables del PLC · Barra de Navegación (NAV)',
     menuField: 'Variables del PLC · Menú de configuración (MENU)'
   };

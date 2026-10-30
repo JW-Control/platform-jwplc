@@ -199,6 +199,21 @@ const TYPES = {
       nodes: { kind: 'array', desc: 'Nodos del árbol (ver «Nodos de MENU»). Se pueden anidar con `children` en lugar de `parent`.', required: true }
     }
   },
+  EVENT_LOG: {
+    group: 'menu',
+    desc: 'Historial y registro de eventos (Alpha16). 10 filas de altura fija con registro en RAM/FRAM/SD.',
+    props: {
+      ...BASE,
+      ...POS,
+      width: int(40, SCREEN.width, 'Ancho (px).', { default: 320 }),
+      height: int(30, SCREEN.height, 'Alto (px).', { default: 170 }),
+      ramCapacity: int(16, 128, 'Capacidad del buffer en RAM.', { default: 64 }),
+      enableFram: bool('Persistencia de los últimos 16 eventos en FRAM ante corte de luz.', { default: true }),
+      enableSd: bool('Exportación no bloqueante a microSD.', { default: true }),
+      sdFileName: str('Nombre del archivo CSV en microSD.', { default: '/EVENTOS.CSV' }),
+      descriptors: { kind: 'array', desc: 'Descriptores de eventos conocidos del proyecto.', default: [] }
+    }
+  },
   RAW_TEXT: {
     group: 'estatico',
     desc: 'Texto fijo (se dibuja una vez al entrar a la página). Admite fuentes GLCD, bitmap y FreeFonts.',

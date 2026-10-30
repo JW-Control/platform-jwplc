@@ -31,6 +31,16 @@ function loadMenuModule() {
   return context.window.JWPLCHMIMenu;
 }
 
+function loadEventLogModule() {
+  const context = { window: {}, console };
+  context.self = context.window;
+  vm.createContext(context);
+  for (const file of ['designer-cp437.js', 'designer-event-log.js']) {
+    vm.runInContext(fs.readFileSync(path.join(POC, file), 'utf8'), context, { filename: file });
+  }
+  return context.window.JWPLCHMIEventLog;
+}
+
 const failures = [];
 function check(condition, message) {
   if (condition) console.log(`  PASS ${message}`);
@@ -111,6 +121,22 @@ check(/#error "MENU: /.test(menuApi.generate(twoOnPage, { fields: others }).decl
 
 const L = menuApi.layout({ textSize: 2, frame: true, title: 'X', height: 100 });
 check(L.rowH === 20 && L.headerH === 20 && L.rows === 3, 'layout: 2× -> filas de 20 px, 3 visibles en 100 px');
+
+console.log('EVENT_LOG (sin DOM)');
+const evtApi = loadEventLogModule();
+check(Boolean(evtApi?.generate), 'designer-event-log.js carga sin DOM');
+const sampleEvt = evtApi.createDefault(2);
+check(sampleEvt.type === 'EVENT_LOG' && sampleEvt.page === 2, 'createDefault crea EVENT_LOG en la página indicada');
+sampleEvt.descriptors = [
+  { code: 100, label: 'Arranque sistema', severity: 'INFO', category: 'SYSTEM' },
+  { code: 201, label: 'Falla de bomba 1', severity: 'CRIT', category: 'ALARM' }
+];
+const genEvt = evtApi.generate([sampleEvt]);
+check(/JWPLC_UIEventDescriptor HMI_EVENT_DESCRIPTORS/.test(genEvt.declarations), 'genera tabla de descriptores PROGMEM');
+check(/JWPLC_UIEventLog HMI_EVENT_LOG/.test(genEvt.declarations), 'genera estructura JWPLC_UIEventLog');
+check(/JWPLC_Display\.setEventLog\(HMI_EVENT_LOG\);/.test(genEvt.setup), 'genera setup JWPLC_Display.setEventLog');
+const patched = evtApi.patchHeader('void jwplcHMISetup()\n{\n    JWPLCUI::begin();\n}\n', [sampleEvt]);
+check(/HMI_EVENT_LOG/.test(patched) && /JWPLC_Display\.setEventLog/.test(patched), 'patchHeader inyecta declaraciones y setup de EVENT_LOG');
 
 if (hasGpp()) {
   console.log('COMPILACIÓN HOST (g++)');

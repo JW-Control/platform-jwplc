@@ -229,7 +229,14 @@ El estado `k` de la variable muestra la imagen `k` (bool: 0 = false, 1 = true). 
 | `bombas/bomba` | Bomba | 24, 32, 48, 64 | Parado · En marcha · Falla |
 | `bombas/ventilador` | Ventilador | 24, 32, 48, 64 | Parado · En marcha · Falla |
 | `bombas/compresor` | Compresor | 24, 32, 48 | Parado · En marcha · Falla |
-| `pilotos/piloto` | Piloto | 24, 32, 48 | Apagado · Verde · Amarillo · Rojo |
+| `pilotos/piloto` | Piloto (4 estados) | 24, 32, 48 | Apagado · Verde · Amarillo · Rojo |
+| `pilotos/piloto_verde` | Piloto verde (bool) | 24, 32, 48 | Apagado · Encendido |
+| `pilotos/piloto_rojo` | Piloto rojo (bool) | 24, 32, 48 | Apagado · Encendido |
+| `pilotos/piloto_amarillo` | Piloto amarillo (bool) | 24, 32, 48 | Apagado · Encendido |
+| `pilotos/piloto_azul` | Piloto azul (bool) | 24, 32, 48 | Apagado · Encendido |
+| `pilotos/piloto_cuadrado` | Piloto cuadrado verde | 24, 32, 48 | Apagado · Encendido |
+| `pilotos/piloto_cuadrado_rojo` | Piloto cuadrado rojo | 24, 32, 48 | Apagado · Encendido |
+| `pilotos/piloto_bisel` | Piloto industrial biselado | 24, 32, 48 | Apagado · Encendido |
 | `pilotos/baliza` | Torre de señalización | 24, 32, 48 | Apagada · Verde · Amarilla · Roja |
 | `valvulas/valvula` | Válvula | 24, 32, 48, 64 | Cerrada · Abierta · Falla |
 | `valvulas/valvula_motorizada` | Válvula motorizada | 24, 32, 48 | Cerrada · Abierta · Falla |
@@ -237,6 +244,7 @@ El estado `k` de la variable muestra la imagen `k` (bool: 0 = false, 1 = true). 
 | `equipos/tanque` | Tanque (nivel) | 24, 32, 48, 64 | Vacío · Bajo · Medio · Lleno |
 | `equipos/silo` | Silo / tolva | 24, 32, 48, 64 | Vacío · Con material · Falla |
 | `equipos/resistencia` | Resistencia / calefactor | 24, 32, 48 | Apagada · Encendida |
+| `equipos/agitador` | Agitador / mezclador | 24, 32, 48, 64 | Parado · En marcha · Falla |
 | `equipos/transportador` | Cinta transportadora | 24, 32, 48, 64 | Parado · En marcha · Falla |
 | `sensores/proximidad` | Sensor de proximidad | 24, 32, 48 | Sin detección · Detección |
 | `sensores/termometro` | Temperatura | 24, 32, 48 | Baja · Normal · Alta |
@@ -293,6 +301,27 @@ El estado `k` de la variable muestra la imagen `k` (bool: 0 = false, 1 = true). 
 Colores del MENU (`colors`), por defecto:
 
 `text` = `0xFFFF` · `background` = `0x0000` · `value` = `0x07FF` · `selectText` = `0x0000` · `selectBackground` = `0x07FF` · `editText` = `0x0000` · `editBackground` = `0xFD20` · `title` = `0x0000` · `titleBackground` = `0xFFFF` · `frame` = `0xFFFF`
+
+### `EVENT_LOG`
+
+Historial y registro de eventos (Alpha16). 10 filas de altura fija con registro en RAM/FRAM/SD.
+
+| Propiedad | Tipo / valores | Por defecto | Descripción |
+|---|---|---|---|
+| `type` **(obligatoria)** | texto |  | Tipo de objeto. |
+| `name` | texto |  | Nombre visible en la lista de objetos del Designer (no llega al C++). |
+| `id` | identificador C++ |  | Identificador C++ del objeto (único en el proyecto). Si falta se genera FIELD_<TIPO>_<n>. |
+| `page` | entero 0..15 | `0` | Página (id) donde se dibuja. |
+| `layerOrder` | entero 0..9999 |  | Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima). |
+| `x` **(obligatoria)** | entero 0..319 |  | Esquina superior izquierda, X (px). |
+| `y` **(obligatoria)** | entero 0..169 |  | Esquina superior izquierda, Y (px). |
+| `width` | entero 40..320 | `320` | Ancho (px). |
+| `height` | entero 30..170 | `170` | Alto (px). |
+| `ramCapacity` | entero 16..128 | `64` | Capacidad del buffer en RAM. |
+| `enableFram` | bool | `true` | Persistencia de los últimos 16 eventos en FRAM ante corte de luz. |
+| `enableSd` | bool | `true` | Exportación no bloqueante a microSD. |
+| `sdFileName` | texto | `"/EVENTOS.CSV"` | Nombre del archivo CSV en microSD. |
+| `descriptors` | arreglo | `[]` | Descriptores de eventos conocidos del proyecto. |
 
 ### `RAW_TEXT`
 
