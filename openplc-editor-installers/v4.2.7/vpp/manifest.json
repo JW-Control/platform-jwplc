@@ -3,7 +3,7 @@
     "package": {
         "id": "com.jwcontrol.jwplc-basic",
         "name": "JWPLC Basic OpenPLC",
-        "version": "2.1.0-alpha.15",
+        "version": "2.1.0-alpha.16",
         "vendor": {
             "name": "JW Control",
             "url": "https://www.jw-control.com",
@@ -21,8 +21,7 @@
             "preview": "assets/jwplcbasic.png",
             "screens": {
                 "Modbus": "screens/modbus.json",
-                "JWPLC Backplane": "screens/backplane.json",
-                "Pantalla HMI": "screens/hmi.json"
+                "JWPLC Backplane": "screens/backplane.json"
             },
             "target": {
                 "type": "arduino-cli",
