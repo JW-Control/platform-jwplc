@@ -99,7 +99,10 @@
       const entry = asset?.entry;
       if (!entry || !Array.isArray(entry.images) || !Array.isArray(entry.states)) return;
       if (!(entry.width > 0 && entry.width <= core.MAX_SIZE && entry.height > 0 && entry.height <= core.MAX_SIZE)) return;
-      projectAssets.set(key, asset);
+      // La clave guardada es 'id@tamaño:SIMBOLO' (Alpha16, un bitmap por apariencia) o
+      // 'id@tamaño' (proyectos anteriores); la copia se busca por 'id@tamaño'.
+      const base = String(key).split(':')[0];
+      if (!projectAssets.has(base) || !asset.override) projectAssets.set(base, asset);
     });
   }
 

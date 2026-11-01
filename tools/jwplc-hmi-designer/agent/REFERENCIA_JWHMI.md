@@ -217,6 +217,15 @@ Icono con estado (motor, piloto, válvula…; JWPLC_UIIconField): una imagen por
 | `iconVarType` | `"bool"` · `"uint8"` | `"bool"` | Tipo de la variable: bool usa los estados 0 y 1; uint8 todos (0..N-1). Por defecto bool con 2 estados y uint8 con más. |
 | `iconState` | entero 0..7 | `0` | Estado de muestra en el lienzo. |
 | `transparentBackground` | bool | `false` | Sin fondo: no pinta el recuadro ni detrás de la etiqueta, y lo transparente en todos los estados deja ver la gráfica estática (RECT, RAW_TEXT…). Lo que cambia entre estados usa backgroundColor. |
+| `stateCount` | entero 2..8 |  | Sólo `pilotos/piloto` con `uint8`: cantidad de estados (2..8). |
+| `stateColors` | arreglo |  | Sólo `pilotos/piloto`: color RGB565 de cada estado (`[apagado, encendido, …]`). |
+| `stateNames` | arreglo |  | Nombres de los estados (comentario del header y leyenda del inspector). Si falta, los del catálogo. |
+| `bodyColor` | color |  | Color del cuerpo del icono (en lugar del del catálogo). |
+| `animIntervalMs` | entero 20..2000 |  | Iconos animados: ms entre cuadros (por defecto el del catálogo). |
+| `tierCount` | entero 1..4 |  | Sólo `pilotos/baliza`: cantidad de pisos. |
+| `tierColors` | arreglo |  | Sólo `pilotos/baliza`: color RGB565 de cada piso, de abajo arriba. |
+| `balizaMode` | `"bitmask"` · `"independent"` |  | Sólo `pilotos/baliza`: `bitmask` = una variable uint8_t (bit n = piso n); `independent` = una variable bool por piso. |
+| `tierVariables` | arreglo |  | Sólo `pilotos/baliza` con `independent`: nombre de la variable bool de cada piso. |
 
 #### Iconos del catálogo (`iconId`)
 
@@ -231,7 +240,6 @@ El estado `k` de la variable muestra la imagen `k` (bool: 0 = false, 1 = true). 
 | `bombas/ventilador` | Ventilador | 24, 32, 48, 64 | Parado · En marcha · Falla |
 | `bombas/compresor` | Compresor | 24, 32, 48 | Parado · En marcha · Falla |
 | `pilotos/piloto` | Piloto luminoso | 24, 32, 48 | Apagado · Encendido |
-| `pilotos/piloto_cuadrado` | Piloto cuadrado | 24, 32, 48 | Apagado · Encendido |
 | `pilotos/baliza` | Torre de señalización | 24, 32, 48 | Apagada · Verde · Ámbar · Ámbar+Verde · Rojo · Rojo+Verde · Rojo+Ámbar · Rojo+Ámbar+Verde · Azul · Azul+Verde · Azul+Ámbar · Azul+Ámbar+Verde · Azul+Rojo · Azul+Rojo+Verde · Azul+Rojo+Ámbar · Azul+Rojo+Ámbar+Verde |
 | `valvulas/valvula` | Válvula | 24, 32, 48, 64 | Cerrada · Abierta · Falla |
 | `valvulas/valvula_motorizada` | Válvula motorizada | 24, 32, 48 | Cerrada · Abierta · Falla |
