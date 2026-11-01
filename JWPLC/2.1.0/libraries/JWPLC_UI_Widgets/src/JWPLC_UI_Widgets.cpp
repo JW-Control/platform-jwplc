@@ -631,7 +631,18 @@ void JWPLC_UITrend::begin(int16_t x, int16_t y, int16_t w, int16_t h,
     _thresholds = 0;
     _pos = 0;
     _pending = 0;
+    _scale = false;
     _full = true;
+}
+
+void JWPLC_UITrend::showScale(uint8_t decimals)
+{
+    if (_channels == 0 && _w - 2 - SCALE_W >= 8)
+    {
+        _scale = true;
+        _scaleDecimals = decimals > 3 ? 3 : decimals;
+        _full = true;
+    }
 }
 
 bool JWPLC_UITrend::addChannel(uint16_t color, uint8_t *storage, size_t storageSize)
@@ -655,6 +666,7 @@ bool JWPLC_UITrend::addThreshold(float value, uint16_t color)
         return false;
     }
     _thrPix[_thresholds] = toPixel(value);
+    _thrValue[_thresholds] = value;
     _thrColor[_thresholds] = color;
     _thresholds++;
     _full = true;
@@ -719,7 +731,7 @@ void JWPLC_UITrend::invalidate()
 
 void JWPLC_UITrend::eraseColumn(JWPLC_TFTClass &tft, int16_t col)
 {
-    const int16_t sx = (int16_t)(_x + 1 + col);
+    const int16_t sx = (int16_t)(plotX() + 1 + col);
     const int16_t top = (int16_t)(_y + 1);
     tft.drawFastVLine(sx, top, plotH(), _theme->background);
     if ((col & 3) == 0)
@@ -742,7 +754,7 @@ void JWPLC_UITrend::eraseColumn(JWPLC_TFTClass &tft, int16_t col)
 void JWPLC_UITrend::drawColumn(JWPLC_TFTClass &tft, int16_t col)
 {
     const int16_t pw = plotWidth();
-    const int16_t sx = (int16_t)(_x + 1 + col);
+    const int16_t sx = (int16_t)(plotX() + 1 + col);
     const int16_t base = (int16_t)(_y + plotH()); // fila del valor 0
     const int16_t prevCol = (int16_t)((col + pw - 1) % pw);
     // Del último canal al primero: el canal 0 queda encima.
@@ -771,7 +783,11 @@ void JWPLC_UITrend::draw(JWPLC_TFTClass &tft)
     const int16_t pw = plotWidth();
     if (_full)
     {
-        tft.drawRect(_x, _y, _w, _h, _theme->border);
+        tft.drawRect(plotX(), _y, (int16_t)(plotWidth() + 2), _h, _theme->border);
+        if (_scale)
+        {
+            drawScale(tft);
+        }
         for (int16_t col = 0; col < pw; col++)
         {
             eraseColumn(tft, col);
@@ -796,4 +812,65 @@ void JWPLC_UITrend::draw(JWPLC_TFTClass &tft)
         col = (int16_t)((col + 1) % pw);
         _pending--;
     }
+}
+
+void JWPLC_UITrend::scaleLabel(JWPLC_TFTClass &tft, float value, uint8_t pix, uint16_t color)
+{
+    char txt[12];
+    const int32_t m = pow10i(_scaleDecimals);
+    const int32_t v = (int32_t)(value * (float)m + (value < 0 ? -0.5f : 0.5f));
+    if (_scaleDecimals == 0)
+    {
+        snprintf(txt, sizeof(txt), "%ld", (long)v);
+    }
+    else
+    {
+        const int32_t a = v < 0 ? -v : v;
+        snprintf(txt, sizeof(txt), "%s%ld.%0*ld", v < 0 ? "-" : "", (long)(a / m),
+                 (int)_scaleDecimals, (long)(a % m));
+    }
+    // La etiqueta queda centrada en su fila, sin salirse del alto del widget.
+    int16_t cy = (int16_t)(_y + plotH() - pix);
+    if (cy < _y + 4)
+    {
+        cy = (int16_t)(_y + 4);
+    }
+    if (cy > _y + _h - 5)
+    {
+        cy = (int16_t)(_y + _h - 5);
+    }
+    tft.setTextColor(color, _theme->background);
+    tft.drawString(txt, (int16_t)(_x + SCALE_W - 3), cy);
+}
+
+void JWPLC_UITrend::drawScale(JWPLC_TFTClass &tft)
+{
+    tft.fillRect(_x, _y, SCALE_W, _h, _theme->background);
+    useGlcd(tft, 1);
+    tft.setTextDatum(JWPLC_TFTDatum::MIDDLE_RIGHT);
+    uint8_t used[5];
+    for (uint8_t k = 0; k <= 4; k++)
+    {
+        const float v = _min + (_max - _min) * (float)k / 4.0f;
+        used[k] = toPixel(v);
+        scaleLabel(tft, v, used[k], _theme->textMuted);
+    }
+    // Umbrales en su color, si no tapan una etiqueta de la rejilla.
+    for (uint8_t t = 0; t < _thresholds; t++)
+    {
+        bool libre = true;
+        for (uint8_t k = 0; k <= 4; k++)
+        {
+            const int d = (int)_thrPix[t] - (int)used[k];
+            if (d > -9 && d < 9)
+            {
+                libre = false;
+            }
+        }
+        if (libre)
+        {
+            scaleLabel(tft, _thrValue[t], _thrPix[t], _thrColor[t]);
+        }
+    }
+    restoreFont(tft);
 }

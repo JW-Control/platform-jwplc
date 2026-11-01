@@ -30,7 +30,7 @@ Está en modo fuente desde el inicio (sin `precompiled`).
 | `JWPLC_UIDigitEditor` | Editor por dígito como el del LOGO!: entero escalado con decimales, unidad, rango y signo; al mantener ▲ ▼ acelera | ◄ ► ▲ ▼ OK ESC |
 | `JWPLC_UIDialog` | Diálogo modal Sí/No o Aceptar | ◄ ► OK ESC |
 | `JWPLC_UIToast` | Aviso temporal en una franja reservada (pie) | — |
-| `JWPLC_UITrend` | Tendencia de barrido (registrador): hasta 3 canales y 2 umbrales punteados, rejilla en cuartos | — |
+| `JWPLC_UITrend` | Tendencia de barrido (registrador): hasta 3 canales y 2 umbrales punteados, rejilla en cuartos y escala vertical opcional | — |
 
 Fuentes (decisión del propietario, 01/11): títulos, botones y dígitos en GLCD 5×7 ×2, la de la IDLE; filas, mensajes y avisos en `JWPLC_FONT_16` (Font 2 de TFT_eSPI convertida a GFXfont, trazo de 1 px, ~0,7 KB, nueva en `JWPLC_TFT`), elegida frente a GLCD ×2 y Spleen 8×16 tras una comparación en el simulador. Barra de título con el gris de la IDLE (0x39E7). Todos usan dirty refresh: la lista redibuja solo las dos filas que cambian de selección (o la vista al hacer scroll), el editor solo los dígitos que cambian y el diálogo solo sus botones. Se llaman desde los callbacks USER, que ya corren dentro del batch de `JWPLC_Display`, y dejan `JWPLC_FONT_GLCD` activa al terminar.
 
@@ -50,11 +50,11 @@ Prueba en JWPLC Sim (01/11), estímulo: OK, ▼ ▼, OK, ▲, ◄, ▲, OK, OK (
 
 La gráfica es de barrido, como un registrador: el cursor avanza de izquierda a derecha y, al llegar al borde, vuelve a empezar dejando un hueco de 6 columnas por delante. Cada muestra dibuja solo su columna (un tramo vertical entre la muestra anterior y la actual, para que la curva sea continua) y borra la columna del hueco con su rejilla y sus umbrales. Nunca se redibuja la gráfica entera por muestra; solo al entrar a la pantalla (`invalidate()`).
 
-La RAM del historial la pone la aplicación: un byte por columna y canal (318 B por canal a ancho completo). El primer canal agregado queda encima de los demás. No hay escala automática: el rango se fija en `begin()`.
+La RAM del historial la pone la aplicación: un byte por columna y canal (`plotWidthFor(w, escala)`; 292 B por canal a ancho completo con escala). `showScale(decimales)` reserva 26 px a la izquierda para la escala vertical (0, 25, 50, 75 y 100 % del rango, y los umbrales en su color si no tapan una de esas etiquetas); se dibuja solo al entrar a la pantalla. El eje de tiempo no lleva etiquetas fijas, porque en el barrido el instante de cada columna cambia con el cursor: el ejemplo indica la duración de una pantalla en el pie (observación del propietario, 01/11). El primer canal agregado queda encima de los demás. No hay escala automática: el rango se fija en `begin()`.
 
-`Widgets_Tendencia` simula un horno con control todo/nada (histéresis ±2 C) en `loop()`, sin cableado: temperatura en naranja, consigna en cian y alarma a 85 C en rojo punteado, una muestra cada 250 ms (318 columnas ≈ 80 s). ▲ ▼ cambian la consigna en 5 C, OK pausa la gráfica y ESC vuelve a IDLE; al volver a entrar se redibuja el historial guardado. La leyenda redibuja solo el campo cuyo texto cambió.
+`Widgets_Tendencia` simula un horno con control todo/nada (histéresis ±2 C) en `loop()`, sin cableado: temperatura en naranja, consigna en cian y alarma a 85 C en rojo punteado, una muestra cada 250 ms (292 columnas ≈ 73 s por pantalla). ▲ ▼ cambian la consigna en 5 C, OK pausa la gráfica y ESC vuelve a IDLE; al volver a entrar se redibuja el historial guardado. La leyenda redibuja solo el campo cuyo texto cambió.
 
-Prueba en JWPLC Sim (01/11): la temperatura sube de 20 a 60 C y oscila alrededor de la consigna; ▲ ▲ a los 20 s llevan la consigna a 70 C; la pausa congela la gráfica; a los ~85 s el cursor da la vuelta con el hueco visible.
+Prueba en JWPLC Sim (01/11): la temperatura sube de 20 a 60 C y oscila alrededor de la consigna; ▲ ▲ a los 20 s llevan la consigna a 70 C; la pausa congela la gráfica; a los ~75 s el cursor da la vuelta con el hueco visible.
 
 ## JWPLC Sim
 

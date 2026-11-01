@@ -233,6 +233,19 @@ public:
                float minValue, float maxValue,
                const JWPLC_UITheme &theme = JWPLC_UI_THEME_DARK);
 
+    // Escala vertical a la izquierda (valores en 0, 25, 50, 75 y 100 % y en
+    // los umbrales), en una franja de SCALE_W px que se resta al área de
+    // trazado. Llamar después de begin() y antes de addChannel().
+    static const int16_t SCALE_W = 26;
+    void showScale(uint8_t decimals = 0);
+
+    // Ancho del área de trazado (= bytes de historial por canal) para un
+    // widget de ancho w, con o sin escala. Sirve para dimensionar el storage.
+    static constexpr int16_t plotWidthFor(int16_t w, bool scale)
+    {
+        return (int16_t)(w - 2 - (scale ? SCALE_W : 0));
+    }
+
     // storage: plotWidth() bytes que el widget usa como historial del canal.
     // El primer canal agregado se dibuja encima de los demás.
     bool addChannel(uint16_t color, uint8_t *storage, size_t storageSize);
@@ -249,13 +262,16 @@ public:
     void invalidate(); // redibuja marco, rejilla e historial en el próximo draw()
     void draw(JWPLC_TFTClass &tft);
 
-    int16_t plotWidth() const { return (int16_t)(_w - 2); }
+    int16_t plotWidth() const { return plotWidthFor(_w, _scale); }
 
 private:
     static const uint8_t GAP = 6;     // columnas que se borran por delante
     static const uint8_t NO_DATA = 0xFF;
 
     uint8_t toPixel(float v) const;
+    void drawScale(JWPLC_TFTClass &tft);
+    void scaleLabel(JWPLC_TFTClass &tft, float value, uint8_t pix, uint16_t color);
+    int16_t plotX() const { return (int16_t)(_x + (_scale ? SCALE_W : 0)); }
     void eraseColumn(JWPLC_TFTClass &tft, int16_t col);
     void drawColumn(JWPLC_TFTClass &tft, int16_t col);
     int16_t plotH() const { return (int16_t)(_h - 2); }
@@ -272,5 +288,8 @@ private:
     uint16_t _thrColor[MAX_THRESHOLDS] = {0};
     int16_t _pos = 0;      // próxima columna a escribir
     uint16_t _pending = 0; // muestras sin dibujar
+    bool _scale = false;
+    uint8_t _scaleDecimals = 0;
+    float _thrValue[MAX_THRESHOLDS] = {0};
     bool _full = true;
 };

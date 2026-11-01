@@ -29,7 +29,7 @@ static const uint16_t COLOR_ALARMA = 0xF800; // rojo
 static const float T_MIN = 0.0f;
 static const float T_MAX = 100.0f;
 static const float T_ALARMA = 85.0f;
-static const uint32_t PERIODO_MUESTRA_MS = 250; // 318 columnas = 79,5 s
+static const uint32_t PERIODO_MUESTRA_MS = 250; // 292 columnas = 73 s por pantalla
 
 // Gráfica: ocupa todo el ancho, entre la leyenda y el pie.
 static const int16_t G_X = 0;
@@ -38,8 +38,10 @@ static const int16_t G_W = 320;
 static const int16_t G_H = 104;
 
 static JWPLC_UITrend g_tendencia;
-static uint8_t g_histTemp[G_W - 2]; // un byte por columna y canal
-static uint8_t g_histSp[G_W - 2];
+// Un byte por columna y canal; la escala vertical ocupa SCALE_W px.
+static const int16_t G_PLOT_W = JWPLC_UITrend::plotWidthFor(G_W, true);
+static uint8_t g_histTemp[G_PLOT_W];
+static uint8_t g_histSp[G_PLOT_W];
 
 // Proceso simulado (lo escribe loop(), lo lee la pantalla).
 static volatile float g_temp = 20.0f;
@@ -171,7 +173,7 @@ static void dibujarPie(JWPLC_TFTClass &tft)
     tft.setTextSize(1);
     tft.setTextColor(T.textMuted, T.background);
     tft.setCursor(8, 156);
-    tft.print("0-100 C  UP/DOWN consigna  OK pausa  ESC");
+    tft.print("73 s/pant.  UP/DN consigna  OK pausa  ESC");
     g_pieDibujado = true;
 }
 
@@ -245,6 +247,7 @@ void setup()
     Serial.println("JWPLC Basic - Widgets_Tendencia");
 
     g_tendencia.begin(G_X, G_Y, G_W, G_H, T_MIN, T_MAX, T);
+    g_tendencia.showScale(0); // valores enteros a la izquierda
     g_tendencia.addChannel(COLOR_TEMP, g_histTemp, sizeof(g_histTemp));
     g_tendencia.addChannel(COLOR_SP, g_histSp, sizeof(g_histSp));
     g_tendencia.addThreshold(T_ALARMA, COLOR_ALARMA);
