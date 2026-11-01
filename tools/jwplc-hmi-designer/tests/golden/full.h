@@ -99,16 +99,24 @@ static const JWPLC_UIField HMI_FIELDS[] =
             0x07FF,
             0x0000,
             0xFFFF)),
-    // Barra Sólida (HORIZONTAL) - Estilo: SOLID, Radio: 0
-    JWPLC_UIBarField(
+    // Medidor Circular (360°) - Estilo: CONTINUOUS - Inicio: TOP (CW)
+    JWPLC_UICircularField(
         FIELD_NIVEL,
-        JWPLC_UIRect(160, 40, 110, JWPLC_UI_AUTO),
+        JWPLC_UIRect(160, 40, 52, 52),
         JWPLC_UIText("Nivel", "%"),
         JWPLC_UIRange(0.0f, 100.0f),
-        JWPLC_UIBarStyle(
+        JWPLC_UICircularStyle(
+            360,
+            5,
+            1,
             1,
             false,
-            JWPLC_UI_LAYOUT_STACKED),
+            0x0000,
+            0,
+            true,
+            false,
+            1,
+            0xFFFF),
         2,
         JWPLC_UIColors(
             0xFFFF,
