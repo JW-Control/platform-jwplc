@@ -653,8 +653,8 @@ void openSdMenu()
 namespace
 {
 const char *const CFG_ROWS[] = {"Fecha", "Hora", "Arranque", "PIN de Admin", "Volver a RUN sin teclas",
-                                "Borrar retentivos", "Version"};
-uint16_t cfgCount() { return 7; }
+                                "Borrar retentivos", "Expansion", "Version"};
+uint16_t cfgCount() { return 8; }
 int32_t g_newDate = 0;
 
 void cfgRow(uint16_t i, JWPLC_UIRow r)
@@ -699,6 +699,10 @@ void cfgRow(uint16_t i, JWPLC_UIRow r)
         break;
     case 5:
         r.right(">");
+        break;
+    case 6:
+        snprintf(t, sizeof(t), "%u modulo(s) >", core.expansion.count());
+        r.right(t);
         break;
     default:
         snprintf(t, sizeof(t), "Runtime %s", JWPLC_RUNTIME_VERSION);
@@ -792,6 +796,9 @@ void cfgOk(uint16_t i)
         break;
     case 5:
         confirm("Retentivos", "Contadores y TONR a cero.", []() { runCommand(CMD_CLEAR_RETAIN); });
+        break;
+    case 6:
+        openExpansionMenu();
         break;
     default:
         break;

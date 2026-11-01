@@ -12,6 +12,8 @@
 //   0x0700  programa, ranura B (1536 B)
 //   0x0D00  retentivos (64 x 4 B + CRC)
 //   0x0E80  eventos (32 x 16 B, anillo) y su índice en 0x1080
+//   0x1100  módulos de expansión vinculados (7 x 16 B + CRC)
+//   0x1180  configuración de esclavo (JWPLC_Expansion), si el equipo es módulo
 #pragma once
 
 #include "RtProgram.h"
@@ -33,7 +35,9 @@ struct Config
     uint8_t pinEnabled;  // 1 = pide PIN para Admin
     uint16_t pin;        // 0000..9999
     uint8_t idleMinutes; // vuelta a la pantalla RUN sin teclas (0 = nunca)
-    uint8_t reserved[21];
+    uint8_t busBaud;     // bus de expansión: 0 = 115200 (fábrica), 1..5 = código 0..4
+    uint8_t busFrame;    // 0 = 8N1, 1 = 8E1, 2 = 8O1
+    uint8_t reserved[19];
     uint32_t crc;
 };
 
@@ -54,6 +58,11 @@ enum EventCode : uint8_t
     EV_RETAIN_RESTORED,
     EV_PROGRAM_ERASED,
     EV_CLOCK_SET,
+    EV_X_ADDED,     // arg = módulo
+    EV_X_REMOVED,
+    EV_X_OFFLINE,
+    EV_X_ONLINE,
+    EV_X_WRONG,     // otro equipo en el ID del módulo
 };
 
 struct Event
@@ -74,6 +83,24 @@ static const uint8_t EVENT_SLOTS = 32;
 
 const char *eventText(uint8_t code);
 
+// Módulo de expansión vinculado (16 bytes). Módulo n = posición n - 1.
+static const uint8_t XL_USED = 0x01;
+static const uint8_t XL_LOCKED = 0x02; // configuración fija desde el sketch del esclavo
+
+struct XLink
+{
+    uint8_t flags;      // XL_*
+    uint8_t id;         // ID Modbus 1..246
+    uint8_t product;
+    uint8_t io;         // DI en el nibble alto, DO en el bajo (8/8 = 0x88)
+    uint8_t safeValue;  // estado seguro: bit n = Q(n+1) ON
+    uint8_t safeHold;   // bit n = Q(n+1) mantiene
+    uint8_t watchdog;   // x 100 ms
+    uint8_t firmware;   // mayor en el nibble alto, menor en el bajo
+    uint32_t uid;       // UID del esclavo (CRC de su MAC)
+    uint32_t reserved;
+};
+
 class Store
 {
 public:
@@ -89,6 +116,9 @@ public:
     bool loadRetained(uint32_t values[MAX_BLOCKS]);
     bool saveRetained(const uint32_t values[MAX_BLOCKS]);
     void clearRetained();
+
+    bool loadLinks(XLink links[NUM_X]);
+    bool saveLinks(const XLink links[NUM_X]);
 
     void addEvent(const Event &e);
     uint8_t eventCount() const { return _evCount; }

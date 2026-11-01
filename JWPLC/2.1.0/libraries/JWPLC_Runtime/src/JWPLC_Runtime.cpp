@@ -39,6 +39,8 @@ const uint32_t RETAIN_PERIOD_MS = 500;
 
 uint8_t g_lastQ = 0xFF;
 uint64_t g_lastAlarms = 0;
+char g_alarmCode[5] = ""; // primer aviso activo
+char g_lastErr[6] = "";   // ERR mostrado
 uint32_t g_lastRetainSave = 0;
 bool g_retainPending = false;
 
@@ -139,7 +141,7 @@ void enterStop()
     core.mode = MODE_STOP;
     writeOutputs(0);
     JWPLC_Display.setRunLed(false);
-    JWPLC_Display.setErrCode("");
+    g_alarmCode[0] = 0;
     g_lastAlarms = 0;
     if (core.store.config().lastRun)
     {
@@ -174,7 +176,90 @@ bool validate(const Program &p, char why[], size_t size)
             }
         }
     }
+    for (uint8_t o = 0; o < NUM_OUT; o++)
+    {
+        const uint8_t s = outSource(p, o);
+        if (srcIsBlock(s) && srcBlock(s) >= p.count)
+        {
+            char n[8];
+            outName(o, n, sizeof(n));
+            snprintf(why, size, "%s: fuente invalida", n);
+            return false;
+        }
+    }
     return true;
+}
+
+// Puesta en marcha de los módulos: bloquea la tarea (hasta ~6 s al buscar),
+// por eso solo con el programa detenido.
+void doExpansion(uint8_t cmd, const CommandArgs &a)
+{
+    Expansion &x = core.expansion;
+    char why[40] = "";
+    if (core.mode == MODE_RUN && cmd != CMD_X_PROBE)
+    {
+        setResult(false, "Detenga el programa");
+        return;
+    }
+    const uint8_t sv = (uint8_t)a.p1, sh = (uint8_t)(a.p1 >> 8), wd = (uint8_t)(a.p1 >> 16);
+    switch (cmd)
+    {
+    case CMD_X_PROBE:
+        if (x.probe(a.aux, a.flags & 1, x.lastProbe))
+        {
+            setResult(true, "");
+        }
+        else
+        {
+            snprintf(why, sizeof(why), "Sin respuesta en ID %u", a.aux);
+            setResult(false, why);
+        }
+        break;
+    case CMD_X_ADD:
+    case CMD_X_LINK:
+    {
+        const int8_t m = cmd == CMD_X_ADD ? x.addFactory(a.aux, sv, sh, wd, why, sizeof(why))
+                                          : x.linkExisting(a.aux, why, sizeof(why));
+        core.xLastModule = m;
+        if (m >= 0)
+        {
+            logEvent(EV_X_ADDED, (uint8_t)(m + 1));
+            snprintf(why, sizeof(why), "Modulo %d en el ID %u", m + 1, x.link((uint8_t)m).id);
+        }
+        setResult(m >= 0, why);
+        break;
+    }
+    case CMD_X_SCAN:
+    {
+        core.xFoundCount = x.scan(core.xFound, X_FOUND_MAX);
+        snprintf(why, sizeof(why), "%u modulo(s)", core.xFoundCount);
+        setResult(true, why);
+        break;
+    }
+    case CMD_X_SAFE:
+    {
+        const bool ok = x.setSafe(a.block, sv, sh, wd, why, sizeof(why));
+        setResult(ok, ok ? "Guardado en el modulo" : why);
+        break;
+    }
+    case CMD_X_REMOVE:
+        if (x.remove(a.block))
+        {
+            logEvent(EV_X_REMOVED, (uint8_t)(a.block + 1));
+            setResult(true, "Modulo quitado");
+        }
+        else
+        {
+            setResult(false, "No se pudo quitar");
+        }
+        break;
+    case CMD_X_BUS:
+        setResult(x.setBus((uint8_t)a.p1, (uint8_t)a.p2),
+                  x.count() ? "Quite los modulos primero" : "");
+        break;
+    default:
+        break;
+    }
 }
 
 void doCommand(const QueuedCommand &qc)
@@ -372,17 +457,48 @@ void doCommand(const QueuedCommand &qc)
         setResult(true, "");
         break;
     }
+    case CMD_X_PROBE:
+    case CMD_X_ADD:
+    case CMD_X_SCAN:
+    case CMD_X_LINK:
+    case CMD_X_SAFE:
+    case CMD_X_REMOVE:
+    case CMD_X_BUS:
+        doExpansion(qc.cmd, a);
+        break;
     default:
         break;
     }
     core.doneSeq = qc.seq;
 }
 
+// ERR de la pantalla RUN: aviso "Axx" o, si no hay, módulo "Xn"/"XUn".
+void showErr(const char alarm[])
+{
+    char code[6];
+    snprintf(code, sizeof(code), "%s", alarm);
+    if (!code[0])
+    {
+        core.expansion.errCode(code, sizeof(code));
+    }
+    if (strcmp(code, g_lastErr) != 0)
+    {
+        strcpy(g_lastErr, code);
+        JWPLC_Display.setErrCode(code);
+    }
+}
+
 void updateAlarms()
 {
+    uint8_t xm, xs;
+    while (core.expansion.takeChange(xm, xs))
+    {
+        logEvent(xs == XS_ONLINE ? EV_X_ONLINE : (xs == XS_WRONG ? EV_X_WRONG : EV_X_OFFLINE), (uint8_t)(xm + 1));
+    }
     const uint64_t a = core.mode == MODE_RUN ? core.engine.alarms() : 0;
     if (a == g_lastAlarms)
     {
+        showErr(g_alarmCode);
         return;
     }
     const uint64_t changed = a ^ g_lastAlarms;
@@ -394,17 +510,17 @@ void updateAlarms()
         }
     }
     g_lastAlarms = a;
-    // ERR de la pantalla RUN: "A" + número del primer aviso activo.
-    char code[5] = "";
+    // "A" + número del primer aviso activo.
+    g_alarmCode[0] = 0;
     for (uint8_t b = 0; b < MAX_BLOCKS; b++)
     {
         if ((a >> b) & 1)
         {
-            snprintf(code, sizeof(code), "A%02u", b + 1);
+            snprintf(g_alarmCode, sizeof(g_alarmCode), "A%02u", b + 1);
             break;
         }
     }
-    JWPLC_Display.setErrCode(code);
+    showErr(g_alarmCode);
 }
 
 void task(void *)
@@ -421,8 +537,16 @@ void task(void *)
         if (core.mode == MODE_RUN)
         {
             const uint32_t t0 = micros();
+            for (uint8_t x = 0; x < NUM_X; x++)
+            {
+                core.engine.setRemoteInputs(x, core.expansion.inputs(x));
+            }
             core.engine.scan(JWPLC_readInputs(), millis(), clockNow());
             writeOutputs(core.engine.outputs());
+            for (uint8_t x = 0; x < NUM_X; x++)
+            {
+                core.expansion.setOutputs(x, core.engine.remoteOutputs(x));
+            }
             const uint32_t us = micros() - t0;
             core.scanUsLast = us;
             if (us > core.scanUsMax)
@@ -446,6 +570,14 @@ void task(void *)
         {
             writeOutputs(0);
         }
+        if (core.mode != MODE_RUN)
+        {
+            for (uint8_t x = 0; x < NUM_X; x++)
+            {
+                core.engine.setRemoteInputs(x, core.expansion.inputs(x));
+            }
+        }
+        core.expansion.service(millis(), core.mode == MODE_RUN);
         updateAlarms();
 
         // Vuelta a la pantalla RUN (fuera del batch de pantalla).
@@ -564,6 +696,7 @@ bool JWPLC_RuntimeClass::begin()
     core.engine.load(p);
     core.draft = p;
     logEvent(EV_POWER_ON, 0);
+    core.expansion.begin(core.store);
 
     // Pantalla: la RUN es la IDLE de siempre, con el título del Runtime.
     JWPLCIdleScreen::setTitle("Runtime v" JWPLC_RUNTIME_VERSION); // cabe en el recuadro del título

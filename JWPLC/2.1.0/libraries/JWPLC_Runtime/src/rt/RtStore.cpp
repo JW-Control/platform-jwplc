@@ -22,7 +22,7 @@ static bool framWrite(uint32_t addr, const uint8_t *data, size_t len)
 
 static const uint32_t CFG_MAGIC = 0x5452574AUL; // "JWRT"
 static const uint32_t IMG_MAGIC = 0x4750574AUL; // "JWPG"
-static const uint16_t IMG_VERSION = 1;
+static const uint16_t IMG_VERSION = 2; // v2: salidas remotas; la v1 se sigue leyendo
 
 static const uint32_t ADDR_CFG1 = 0x0000;
 static const uint32_t ADDR_CFG2 = 0x0040;
@@ -30,6 +30,7 @@ static const uint32_t ADDR_SLOT[2] = {0x0100, 0x0700};
 static const uint32_t ADDR_RETAIN = 0x0D00;
 static const uint32_t ADDR_EVENTS = 0x0E80;
 static const uint32_t ADDR_EVHEAD = 0x1080;
+static const uint32_t ADDR_LINKS = 0x1100;
 
 struct ImageHeader
 {
@@ -43,6 +44,8 @@ struct ImageHeader
 static_assert(sizeof(ImageHeader) + sizeof(Program) <= 0x600, "el programa no entra en la ranura");
 static_assert(sizeof(Config) == 40, "Config debe ocupar 40 bytes");
 static_assert(sizeof(Event) == 16, "Event debe ocupar 16 bytes");
+static_assert(sizeof(XLink) == 16, "XLink debe ocupar 16 bytes");
+static_assert(ADDR_LINKS + NUM_X * sizeof(XLink) + 4 <= 0x1180, "la tabla de módulos pisa al esclavo");
 
 const char *eventText(uint8_t code)
 {
@@ -74,6 +77,16 @@ const char *eventText(uint8_t code)
         return "Programa borrado";
     case EV_CLOCK_SET:
         return "Reloj ajustado";
+    case EV_X_ADDED:
+        return "Modulo agregado";
+    case EV_X_REMOVED:
+        return "Modulo quitado";
+    case EV_X_OFFLINE:
+        return "Modulo sin respuesta";
+    case EV_X_ONLINE:
+        return "Modulo en linea";
+    case EV_X_WRONG:
+        return "Modulo distinto";
     default:
         return "?";
     }
@@ -136,22 +149,34 @@ bool Store::saveConfig()
     return framWrite(addr, (const uint8_t *)&_cfg, sizeof(_cfg));
 }
 
+// Cabecera válida: v2 completa o v1 (sin salidas remotas, que quedan abiertas).
+static bool headerOk(const ImageHeader &h)
+{
+    return h.magic == IMG_MAGIC && ((h.version == IMG_VERSION && h.size == sizeof(Program)) ||
+                                    (h.version == 1 && h.size == PROGRAM_V1_SIZE));
+}
+
+static bool bodyOk(const ImageHeader &h, Program &p)
+{
+    if (h.size < sizeof(Program))
+    {
+        memset((uint8_t *)&p + h.size, 0, sizeof(Program) - h.size);
+    }
+    return crc32((const uint8_t *)&p, h.size) == h.crc && p.count <= MAX_BLOCKS;
+}
+
 static bool readImage(uint32_t addr, Program &p)
 {
     ImageHeader h;
-    if (!JWPLC_FRAM.read(addr, (uint8_t *)&h, sizeof(h)))
+    if (!JWPLC_FRAM.read(addr, (uint8_t *)&h, sizeof(h)) || !headerOk(h))
     {
         return false;
     }
-    if (h.magic != IMG_MAGIC || h.version != IMG_VERSION || h.size != sizeof(Program))
+    if (!JWPLC_FRAM.read(addr + sizeof(h), (uint8_t *)&p, h.size))
     {
         return false;
     }
-    if (!JWPLC_FRAM.read(addr + sizeof(h), (uint8_t *)&p, sizeof(p)))
-    {
-        return false;
-    }
-    return crc32((const uint8_t *)&p, sizeof(p)) == h.crc && p.count <= MAX_BLOCKS;
+    return bodyOk(h, p);
 }
 
 bool Store::loadProgram(Program &p)
@@ -191,6 +216,41 @@ bool Store::saveProgram(const Program &p)
     // Recién ahora se cambia de ranura: la anterior queda como respaldo.
     _cfg.slot = slot;
     return saveConfig();
+}
+
+bool Store::loadLinks(XLink links[NUM_X])
+{
+    memset(links, 0, sizeof(XLink) * NUM_X);
+    if (!_framOk)
+    {
+        return false;
+    }
+    uint8_t buf[NUM_X * sizeof(XLink) + 4];
+    if (!JWPLC_FRAM.read(ADDR_LINKS, buf, sizeof(buf)))
+    {
+        return false;
+    }
+    uint32_t crc;
+    memcpy(&crc, buf + NUM_X * sizeof(XLink), 4);
+    if (crc != crc32(buf, NUM_X * sizeof(XLink)))
+    {
+        return false; // FRAM nueva o dañada: sin módulos
+    }
+    memcpy(links, buf, NUM_X * sizeof(XLink));
+    return true;
+}
+
+bool Store::saveLinks(const XLink links[NUM_X])
+{
+    if (!_framOk)
+    {
+        return false;
+    }
+    uint8_t buf[NUM_X * sizeof(XLink) + 4];
+    memcpy(buf, links, NUM_X * sizeof(XLink));
+    const uint32_t crc = crc32(buf, NUM_X * sizeof(XLink));
+    memcpy(buf + NUM_X * sizeof(XLink), &crc, 4);
+    return framWrite(ADDR_LINKS, buf, sizeof(buf));
 }
 
 bool Store::loadRetained(uint32_t values[MAX_BLOCKS])
@@ -400,12 +460,8 @@ bool Store::sdLoad(const char file[], Program &p)
     }
     ImageHeader h;
     Program tmp;
-    const bool ok = f.read((uint8_t *)&h, sizeof(h)) == sizeof(h) &&
-                    h.magic == IMG_MAGIC && h.version == IMG_VERSION &&
-                    h.size == sizeof(Program) &&
-                    f.read((uint8_t *)&tmp, sizeof(tmp)) == sizeof(tmp) &&
-                    crc32((const uint8_t *)&tmp, sizeof(tmp)) == h.crc &&
-                    tmp.count <= MAX_BLOCKS;
+    const bool ok = f.read((uint8_t *)&h, sizeof(h)) == sizeof(h) && headerOk(h) &&
+                    f.read((uint8_t *)&tmp, h.size) == h.size && bodyOk(h, tmp);
     f.close();
     if (ok)
     {

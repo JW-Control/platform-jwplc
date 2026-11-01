@@ -1,13 +1,13 @@
 # A16 RT2 — Módulos de expansión del Runtime por Modbus RTU (diseño)
 
 Rama: `v2.1.0-alpha.16/JWPLC-Sim/feature/runtime-expansion`, desde `…/feature/runtime-mvp` (PR #203).
-Estado: **aprobado por el propietario el 01/11** con las respuestas de §8; en implementación.
+Estado: **aprobado por el propietario el 01/11** con las respuestas de §8; implementado y probado en el simulador.
 
 ```text
 A16_RT2_DISENO=PASS              aprobado 01/11 (§8)
 A16_RT2_ESCLAVO=PASS_SIM         [ejecutado] JWPLC_Expansion 0.1.0 + Expansion_Esclavo_Basic, ver §10
-A16_RT2_MAESTRO=PENDING          Configuración > Expansión en el Runtime
-A16_RT2_SIM=PENDING              maestro y esclavo en JWPLC Sim (dos equipos en el mismo RS-485)
+A16_RT2_MAESTRO=PASS_SIM         [ejecutado] Runtime 0.2.0: Configuración > Expansión, 1.I1/1.Q1 en editor y motor, ver §12
+A16_RT2_SIM=PASS_SIM             [ejecutado] maestro (Runtime_Panel) y esclavo en el bus RS-485 de JWPLC Sim
 A16_RT2_FISICO=PENDING           dos JWPLC Basic por RS-485
 ```
 
@@ -174,3 +174,28 @@ Además: las filas y baldosas vuelven a sprites de 4 bits (los de 16 bits no mej
 En la placa v2.0 el pin TE (FMARK) del ST7789 no tiene un GPIO libre (propietario, 01/11), así que el refresco no se puede
 sincronizar con el panel. Las filas y baldosas se suben de una sola vez desde sprites de 4 bits, que es lo que se puede
 hacer por software. Sugerencia para la próxima revisión del Top: llevar TE a un GPIO de entrada libre.
+
+## 12. Maestro en el simulador (01/11)
+
+[ejecutado] `Runtime_Panel` (Runtime 0.2.0) y `Expansion_Esclavo_Basic` como dos PLC en el bus RS-485 de JWPLC Sim:
+
+| Prueba | Resultado |
+|---|---|
+| Configuración > Expansión > + Agregar módulo (STOP, «Conecte solo el módulo nuevo») | lee la ficha en el ID 247, propone el ID 1, estado seguro por salida (OFF / ON / mantener) y vigilancia; «Guardar y vincular» deja «Módulo 1 ID 1 en línea» |
+| Detalle del módulo | estado, modelo y firmware, direcciones `1.I1-1.I8 1.Q1-1.Q8`, entradas y salidas en vivo, estado seguro editable |
+| Editor | la columna de salidas suma `1.Q1`…`1.Q8`; el selector de fuentes suma `1.I1`…`1.I8` («entrada módulo 1») |
+| RUN con `1.Q1 ← 1.I1` | I0.0 del esclavo en 1 → Q0.0 del esclavo en 1 |
+| Maestro sin el esclavo conectado | ERR `X1`, BUS `TMO`, módulo «sin respuesta» y evento «Módulo sin respuesta» |
+| Buscar módulos con un esclavo fijo en su sketch (ID 3) | lo lista como «fijo en sketch»; al vincularlo, el detalle muestra su estado seguro en solo lectura (Q1 ON) |
+
+Detalles de la implementación:
+
+- Imagen de programa v2 (1288 B): agrega `xq[7][8]` y `xqNeg[7]` al final; las imágenes v1 de FRAM y SD se siguen leyendo
+  (las salidas remotas quedan sin conectar).
+- Bus: el maestro usa el ID propio 247 en el puerto; baudrate y trama del bus en la configuración del Runtime
+  (`busBaud`, `busFrame`). Solo se cambian sin módulos vinculados.
+- Ciclo: un intercambio por vuelta de la tarea (10 ms): FC15 salidas y FC02 entradas por módulo. En STOP las salidas
+  remotas se escriben en 0 (el esclavo no entra en estado seguro por un STOP).
+- Agregar, buscar, vincular, estado seguro y quitar bloquean la tarea (la búsqueda dura unos 6 s), así que solo se
+  permiten en STOP.
+- No probado en el simulador: `XU` (otro equipo en el ID), porque todos los nodos del simulador tienen la misma MAC.

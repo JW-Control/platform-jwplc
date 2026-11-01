@@ -5,6 +5,7 @@
 #pragma once
 
 #include <Arduino.h>
+#include <stddef.h>
 
 namespace jwrt
 {
@@ -18,6 +19,9 @@ static const uint8_t NUM_M = 8;        // marcas M1..M8
 static const uint8_t NUM_TEXTS = 8;    // textos de aviso
 static const uint8_t TEXT_LEN = 20;    // caracteres por texto (con el 0 final)
 static const uint8_t NAME_LEN = 16;    // nombre del programa (con el 0 final)
+static const uint8_t NUM_X = 7;        // módulos de expansión (1..7)
+static const uint8_t X_IO = 8;         // entradas y salidas por módulo
+static const uint8_t NUM_OUT = NUM_Q + NUM_X * X_IO; // salidas del programa: Q1..Q8 y 1.Q1..7.Q8
 
 // ---------------------------------------------------------------- fuentes
 // Una entrada de bloque, Q o M lee una "fuente" de un byte.
@@ -27,10 +31,13 @@ static const uint8_t SRC_LO = 0x02;   // constante 0
 static const uint8_t SRC_I = 0x10;    // 0x10..0x17 = I1..I8
 static const uint8_t SRC_Q = 0x20;    // 0x20..0x27 = Q1..Q8 (valor del scan anterior)
 static const uint8_t SRC_M = 0x30;    // 0x30..0x37 = M1..M8 (valor del scan anterior)
+static const uint8_t SRC_XI = 0x40;   // 0x40..0x77 = 1.I1..7.I8 (módulo = (s - 0x40) / 8 + 1)
 static const uint8_t SRC_B = 0x80;    // 0x80..0xBF = salida del bloque B01..B64
 
 inline bool srcIsBlock(uint8_t s) { return s >= SRC_B && s < SRC_B + MAX_BLOCKS; }
 inline uint8_t srcBlock(uint8_t s) { return (uint8_t)(s - SRC_B); }
+inline bool srcIsRemote(uint8_t s) { return s >= SRC_XI && s < SRC_XI + NUM_X * X_IO; }
+inline uint8_t srcModule(uint8_t s) { return (uint8_t)((s - SRC_XI) / X_IO); } // 0..6
 
 // ---------------------------------------------------------------- tipos
 enum BlockType : uint8_t
@@ -94,7 +101,28 @@ struct Program
     uint8_t reserved2[2];
     Block blocks[MAX_BLOCKS];
     char texts[NUM_TEXTS][TEXT_LEN];
+    // Imagen v2: salidas de los módulos de expansión (1.Q1..7.Q8).
+    uint8_t xq[NUM_X][X_IO];  // fuente de cada salida remota
+    uint8_t xqNeg[NUM_X];     // bit i = salida i+1 del módulo negada
+    uint8_t reserved3;
 };
+
+// Tamaño de la imagen v1 (sin las salidas remotas): se sigue leyendo.
+static const uint16_t PROGRAM_V1_SIZE = (uint16_t)offsetof(Program, xq);
+
+// Salida o del programa: 0..7 = Q1..Q8, 8.. = 1.Q1..7.Q8.
+inline uint8_t outSource(const Program &p, uint8_t o)
+{
+    return o < NUM_Q ? p.q[o] : p.xq[(o - NUM_Q) / X_IO][(o - NUM_Q) % X_IO];
+}
+inline bool outNeg(const Program &p, uint8_t o)
+{
+    return o < NUM_Q ? ((p.qNeg >> o) & 1) : ((p.xqNeg[(o - NUM_Q) / X_IO] >> ((o - NUM_Q) % X_IO)) & 1);
+}
+void setOutSource(Program &p, uint8_t o, uint8_t src);
+void setOutNeg(Program &p, uint8_t o, bool neg);
+// "Q3" o "1.Q3"
+void outName(uint8_t o, char out[], size_t size);
 
 // Severidad de ALARM (bits 4..5 de aux); bits 0..2 = índice del texto.
 static const uint8_t SEV_INFO = 0;

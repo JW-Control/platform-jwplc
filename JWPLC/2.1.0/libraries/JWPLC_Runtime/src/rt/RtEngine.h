@@ -30,6 +30,14 @@ public:
     void reset();
     void scan(uint8_t inputs, uint32_t nowMs, const ClockNow &clock);
 
+    // Módulos de expansión: entradas leídas antes del scan (fuera de línea = 0)
+    // y salidas calculadas en el scan.
+    void setRemoteInputs(uint8_t module, uint8_t bits) { if (module < NUM_X) _xi[module] = bits; }
+    uint8_t remoteInputs(uint8_t module) const { return module < NUM_X ? _xi[module] : 0; }
+    uint8_t remoteOutputs(uint8_t module) const { return module < NUM_X ? _xq[module] : 0; }
+    // Salida o del programa (0..7 = Q1..Q8, 8.. = 1.Q1..).
+    bool outputValue(uint8_t o) const;
+
     bool blockOut(uint8_t b) const { return b < _p.count && _out[b]; }
     bool pinValue(uint8_t b, uint8_t pin) const;
     bool sourceValue(uint8_t src) const;
@@ -74,6 +82,8 @@ private:
     uint8_t _in = 0;
     uint8_t _q = 0;
     uint8_t _m = 0;
+    uint8_t _xi[NUM_X] = {0};
+    uint8_t _xq[NUM_X] = {0};
     uint64_t _alarms = 0;
     bool _retDirty = false;
 };

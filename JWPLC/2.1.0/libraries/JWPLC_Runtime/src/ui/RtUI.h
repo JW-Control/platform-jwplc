@@ -108,6 +108,7 @@ void openProgramMenu();
 void openParams();
 void openSdMenu();
 void openConfigMenu();
+void openExpansionMenu();
 void openNetMenu();
 void openDiagMenu();
 

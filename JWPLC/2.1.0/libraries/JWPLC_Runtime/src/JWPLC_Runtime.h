@@ -21,10 +21,10 @@
 #include <Arduino.h>
 
 #define JWPLC_RUNTIME_VERSION_MAJOR 0
-#define JWPLC_RUNTIME_VERSION_MINOR 1
-#define JWPLC_RUNTIME_VERSION_PATCH 3
+#define JWPLC_RUNTIME_VERSION_MINOR 2
+#define JWPLC_RUNTIME_VERSION_PATCH 0
 // Se muestra en la pantalla RUN y en Configuración > Versión.
-#define JWPLC_RUNTIME_VERSION "0.1.3"
+#define JWPLC_RUNTIME_VERSION "0.2.0"
 
 class JWPLC_RuntimeClass
 {
