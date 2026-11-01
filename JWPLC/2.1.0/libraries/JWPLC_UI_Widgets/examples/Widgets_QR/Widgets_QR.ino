@@ -51,6 +51,8 @@ static void nuevoCodigo()
     snprintf(c, sizeof(c), "%06ld", random(0, 1000000));
     g_codigo = c;
     g_inicioCodigo = millis();
+    // El QR lleva un enlace http completo: la cámara del celular lo reconoce
+    // y abre la página del equipo sola, con el código ya puesto.
     g_qr.setText((String(DIRECCION) + "/v?c=" + g_codigo).c_str());
     Serial.println("CODIGO " + g_codigo);
 }
@@ -116,11 +118,11 @@ static void dibujarRecuadro()
         l1 = "Solicitud rechazada";
         l2 = "Codigo renovado";
     }
-    JWPLC_TFT.fillRect(150, 116, 168, 40, T.background);
-    JWPLC_TFT.fillRoundRect(150, 116, 168, 40, 5, T.surface);
-    JWPLC_TFT.drawRoundRect(150, 116, 168, 40, 5, borde);
-    texto(l1.c_str(), 158, 119, T.text, T.surface);
-    texto(l2.c_str(), 158, 137, borde, T.surface);
+    JWPLC_TFT.fillRect(150, 114, 168, 42, T.background);
+    JWPLC_TFT.fillRoundRect(150, 114, 168, 42, 5, T.surface);
+    JWPLC_TFT.drawRoundRect(150, 114, 168, 42, 5, borde);
+    texto(l1.c_str(), 158, 118, T.text, T.surface);
+    texto(l2.c_str(), 158, 136, borde, T.surface);
 }
 
 static void dibujarQRyCodigo()
@@ -136,12 +138,12 @@ static void dibujarQRyCodigo()
     g_qr.draw((int16_t)(74 - lado / 2), (int16_t)(24 + (134 - lado) / 2), escala);
 
     // Código en dos grupos de 3, como en la maqueta.
-    JWPLC_TFT.fillRect(150, 66, 170, 28, T.background);
+    JWPLC_TFT.fillRect(150, 60, 170, 26, T.background);
     JWPLC_TFT.setFont(JWPLC_FONT_26);
     JWPLC_TFT.setTextDatum(DATUM_TOP_LEFT);
     JWPLC_TFT.setTextColor(T.accent, T.background);
     const String grupos = g_codigo.substring(0, 3) + " " + g_codigo.substring(3);
-    JWPLC_TFT.drawString(grupos.c_str(), 150, 66);
+    JWPLC_TFT.drawString(grupos.c_str(), 150, 60);
     JWPLC_TFT.setFont(JWPLC_FONT_GLCD);
     g_barraDibujada = -1;
     g_segundosDibujados = -1;
@@ -156,12 +158,12 @@ static void dibujarVigencia()
     const int16_t lleno = (int16_t)((uint32_t)ancho * resta / VIGENCIA_MS);
     if (g_barraDibujada < 0)
     {
-        JWPLC_TFT.fillRoundRect(150, 96, ancho + 4, 8, 3, T.surfaceAlt);
-        JWPLC_TFT.fillRect(152, 98, lleno, 4, T.accent);
+        JWPLC_TFT.fillRoundRect(150, 87, ancho + 4, 8, 3, T.surfaceAlt);
+        JWPLC_TFT.fillRect(152, 89, lleno, 4, T.accent);
     }
     else if (lleno < g_barraDibujada)
     {
-        JWPLC_TFT.fillRect(152 + lleno, 98, g_barraDibujada - lleno, 4, T.surfaceAlt);
+        JWPLC_TFT.fillRect(152 + lleno, 89, g_barraDibujada - lleno, 4, T.surfaceAlt);
     }
     g_barraDibujada = lleno;
 
@@ -169,8 +171,9 @@ static void dibujarVigencia()
     if (s != g_segundosDibujados)
     {
         g_segundosDibujados = s;
-        JWPLC_TFT.fillRect(150, 104, 168, 12, T.background);
-        texto(("Expira en " + String(s) + " s").c_str(), 150, 102, T.textMuted, T.background);
+        // El texto ocupa 16 px (96 a 111): no toca el recuadro, que empieza en 114.
+        JWPLC_TFT.fillRect(150, 96, 168, 16, T.background);
+        texto(("Expira en " + String(s) + " s").c_str(), 150, 96, T.textMuted, T.background);
     }
 }
 
