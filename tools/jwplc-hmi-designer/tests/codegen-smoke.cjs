@@ -221,7 +221,12 @@ async function main() {
     console.log('Contenido del header');
     const full = headers.full || '';
     check(!/getTFT/.test(Object.values(headers).join('\n')), 'no usa JWPLC_Display.getTFT()');
-    check(!/JWPLC_UICircularField|JWPLC_UIGradientBarField/.test(full), 'no usa helpers BAR inexistentes');
+    // Un helper BAR solo vale si JWPLC_UI.h lo declara (el medidor circular entró en alpha.16 con
+    // JWPLC_Display en modo fuente); los demás siguen sin existir en el firmware.
+    const uiHeader = fs.readFileSync(path.join(LIBS, 'JWPLC_Display', 'src', 'JWPLC_UI.h'), 'utf8');
+    const barHelpers = [...new Set([...full.matchAll(/JWPLC_UI(Circular|GradientBar)Field/g)].map((m) => m[0]))];
+    const missingHelpers = barHelpers.filter((h) => !new RegExp(`\\b${h}\\s*\\(`).test(uiHeader));
+    check(missingHelpers.length === 0, `no usa helpers BAR inexistentes (${missingHelpers.join(', ') || 'ok'})`);
     const fontCallsOutsideGuard = full.split('\n').reduce((state, line) => {
       if (/^\s*#if JWPLC_HMI_TFT_FONTS/.test(line)) state.inside = true;
       else if (/^\s*#(else|endif)/.test(line)) state.inside = false;

@@ -7989,6 +7989,12 @@
     updateEyedropperLiveUI({ x: -1, y: -1 });
   }
 
+  // Cambio de tema (modo claro/oscuro): reglas y lienzo con los colores nuevos.
+  window.addEventListener('jwplc:themechange', () => {
+    drawRulers();
+    render();
+  });
+
   window.JWPLCHMIEditor = {
     trackViewportPointer,
     clearViewportCursor,
@@ -8226,11 +8232,6 @@
       this.classList.toggle('active', toggle.checked);
       toggle.dispatchEvent(new Event('change', { bubbles: true }));
     }
-  });
-
-  window.addEventListener('jwplc:themechange', () => {
-    drawRulers();
-    renderAll();
   });
 
 // --- End PanZoom ---
