@@ -6,14 +6,17 @@
 #include <atomic>
 
 #define JWPLC_TFT_VERSION_MAJOR 0
-#define JWPLC_TFT_VERSION_MINOR 4
+#define JWPLC_TFT_VERSION_MINOR 5
 #define JWPLC_TFT_VERSION_PATCH 0
 
 // 0.4.0: recorte, líneas gruesas, polilíneas y sprites (Runtime alpha.16).
+// 0.5.0: fuentes grandes (JWPLC_FONT_26, JWPLC_FONT_7SEG_48), scroll de sprite
+//        y constantes DATUM_* sin «::» (alpha.16).
 #define JWPLC_TFT_HAS_CLIP 1
 #define JWPLC_TFT_HAS_WIDE_LINE 1
 #define JWPLC_TFT_HAS_SPRITE 1
 #define JWPLC_TFT_HAS_FONT16 1
+#define JWPLC_TFT_HAS_BIG_FONTS 1
 
 enum class JWPLC_TFTPanel : uint8_t
 {
@@ -84,6 +87,13 @@ extern const JWPLC_TFTFont JWPLC_FONT_MONO_BOLD_24;
 // Fuente de 16 px con trazo de 1 px (Font 2 de TFT_eSPI): para listas y textos
 // junto a títulos en GLCD x2. Solo se enlaza si el sketch la usa.
 extern const JWPLC_TFTFont JWPLC_FONT_16;
+// 0.5.0: fuentes grandes sin escalar la GLCD (solo se enlazan si se usan).
+// JWPLC_FONT_26: 26 px, misma familia que JWPLC_FONT_16 (Font 4 de TFT_eSPI),
+// para valores grandes y títulos. ~2,8 KB.
+extern const JWPLC_TFTFont JWPLC_FONT_26;
+// JWPLC_FONT_7SEG_48: 48 px de 7 segmentos (Font 7 de TFT_eSPI), para el
+// reloj y valores de proceso. Solo « -.0123456789:». ~2 KB.
+extern const JWPLC_TFTFont JWPLC_FONT_7SEG_48;
 
 // Punto de anclaje de drawString(). Valores idénticos a TFT_eSPI.
 enum class JWPLC_TFTDatum : uint8_t
@@ -409,6 +419,12 @@ public:
     // y 1 bit se dibuja sin suavizado (los colores son índices).
     void drawWideLine(int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint8_t width, uint16_t color, uint16_t background = JWPLC_TFT_BLACK);
     void drawPixel(int16_t x, int16_t y, uint16_t color);
+
+    // 0.5.0: desplaza todo el contenido dx, dy píxeles (negativo = hacia la
+    // izquierda o hacia arriba) y rellena el hueco con fillColor. Es el
+    // scroll de región: se mueve lo ya dibujado, se pinta solo lo nuevo y se
+    // envía con push().
+    void scroll(int16_t dx, int16_t dy, uint16_t fillColor = 0);
 
     void setFont(const JWPLC_TFTFont &font);
     void setTextColor(uint16_t foreground, uint16_t background);
