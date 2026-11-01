@@ -31,6 +31,16 @@ function loadMenuModule() {
   return context.window.JWPLCHMIMenu;
 }
 
+function loadEventLogModule() {
+  const context = { window: {}, console };
+  context.self = context.window;
+  vm.createContext(context);
+  for (const file of ['designer-cp437.js', 'designer-event-log.js']) {
+    vm.runInContext(fs.readFileSync(path.join(POC, file), 'utf8'), context, { filename: file });
+  }
+  return context.window.JWPLCHMIEventLog;
+}
+
 const failures = [];
 function check(condition, message) {
   if (condition) console.log(`  PASS ${message}`);
@@ -70,6 +80,34 @@ check(core.variableDeclaration({ type: 'TEXT', capacity: 12 }, 'msg') === 'char 
 check(core.setterCall({ type: 'BAR' }, 'F', 'v') === 'JWPLC_Display.setBar(F, v);', 'setter de BAR');
 const bar = core.barFieldBlock({ ...COLORS, type: 'BAR', x: 1, y: 2, barWidth: 500, barMin: 0, barMax: 10, labelSize: 1, frame: true, layout: 'INLINE', page: 3, showLabel: false, barUnit: '', trackColor: 0x18C3 }, 'B');
 check(/JWPLC_UIRect\(1, 2, 320, JWPLC_UI_AUTO\)/.test(bar) && /JWPLC_UIText\(nullptr, nullptr\)/.test(bar) && /0x18C3/.test(bar), 'BAR: ancho acotado a 320, sin etiqueta, pista como fondo');
+const circular = core.barFieldBlock({
+  ...COLORS,
+  type: 'BAR',
+  barPreset: 'CIRCULAR',
+  x: 10,
+  y: 20,
+  circleRadius: 30,
+  circleSweep: 270,
+  circleThickness: 6,
+  circleStartAngle: 'TOP',
+  circleDirection: 'CW',
+  circleStyle: 'CONTINUOUS',
+  circleCenterMode: 'PERCENT',
+  circleTextSize: 1,
+  circleTextColor: 0xFFFF,
+  circleTrackColor: 0x2104,
+  barMin: 0,
+  barMax: 100,
+  barLabel: 'Tanque',
+  barUnit: '%',
+  showLabel: true,
+  page: 1,
+  frame: false
+}, 'C');
+check(/JWPLC_UICircularField\(/.test(circular) &&
+  /JWPLC_UIRect\(10, 20, 60, 60\)/.test(circular) &&
+  /JWPLC_UICircularStyle\(\s*270,\s*6,\s*1/.test(circular),
+  'CIRCULAR: genera JWPLC_UICircularField con JWPLC_UICircularStyle');
 
 console.log('MENU (sin DOM)');
 const menuApi = loadMenuModule();
@@ -111,6 +149,22 @@ check(/#error "MENU: /.test(menuApi.generate(twoOnPage, { fields: others }).decl
 
 const L = menuApi.layout({ textSize: 2, frame: true, title: 'X', height: 100 });
 check(L.rowH === 20 && L.headerH === 20 && L.rows === 3, 'layout: 2× -> filas de 20 px, 3 visibles en 100 px');
+
+console.log('EVENT_LOG (sin DOM)');
+const evtApi = loadEventLogModule();
+check(Boolean(evtApi?.generate), 'designer-event-log.js carga sin DOM');
+const sampleEvt = evtApi.createDefault(2);
+check(sampleEvt.type === 'EVENT_LOG' && sampleEvt.page === 2, 'createDefault crea EVENT_LOG en la página indicada');
+sampleEvt.descriptors = [
+  { code: 100, label: 'Arranque sistema', severity: 'INFO', category: 'SYSTEM' },
+  { code: 201, label: 'Falla de bomba 1', severity: 'CRIT', category: 'ALARM' }
+];
+const genEvt = evtApi.generate([sampleEvt]);
+check(/JWPLC_UIEventDescriptor HMI_EVENT_DESCRIPTORS/.test(genEvt.declarations), 'genera tabla de descriptores PROGMEM');
+check(/JWPLC_UIEventLog HMI_EVENT_LOG/.test(genEvt.declarations), 'genera estructura JWPLC_UIEventLog');
+check(/JWPLC_Display\.setEventLog\(HMI_EVENT_LOG\);/.test(genEvt.setup), 'genera setup JWPLC_Display.setEventLog');
+const patched = evtApi.patchHeader('void jwplcHMISetup()\n{\n    JWPLCUI::begin();\n}\n', [sampleEvt]);
+check(/HMI_EVENT_LOG/.test(patched) && /JWPLC_Display\.setEventLog/.test(patched), 'patchHeader inyecta declaraciones y setup de EVENT_LOG');
 
 if (hasGpp()) {
   console.log('COMPILACIÓN HOST (g++)');

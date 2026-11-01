@@ -41,6 +41,8 @@ namespace
         int16_t barDrawnW;
         // ICON: estado pedido (0..stateCount-1); se dibuja aunque no haya setter.
         uint8_t iconState;
+        uint8_t iconAnimFrame;
+        uint32_t lastAnimTickMs;
 
         int16_t fieldX;
         int16_t fieldY;
@@ -62,6 +64,8 @@ namespace
               barValue(0.0f),
               barDrawnW(-1),
               iconState(0),
+              iconAnimFrame(0),
+              lastAnimTickMs(0),
               fieldX(0),
               fieldY(0),
               fieldW(0),
@@ -108,17 +112,48 @@ namespace
 
     bool anyDirtyOnCurrentPage()
     {
+        const uint32_t now = millis();
+        bool dirtyFound = false;
+
         for (size_t i = 0; i < g_fieldCount; ++i)
         {
-            if (g_fields[i].used &&
-                g_fields[i].def.meta.page == g_page &&
-                g_fields[i].dirty)
+            FieldRuntime &f = g_fields[i];
+            if (!f.used || f.def.meta.page != g_page)
             {
-                return true;
+                continue;
+            }
+
+            if (f.dirty)
+            {
+                dirtyFound = true;
+                continue;
+            }
+
+            // Animación autónoma de fotogramas en iconos
+            if (f.def.meta.type == JWPLC_UI_FIELD_ICON)
+            {
+                const JWPLC_UIIcon *icon = f.def.icon;
+                if (icon != nullptr && icon->states != nullptr && icon->stateCount > 0)
+                {
+                    const uint8_t stIdx = (f.iconState < icon->stateCount)
+                                              ? f.iconState
+                                              : (uint8_t)(icon->stateCount - 1);
+                    const JWPLC_UIIconState &st = icon->states[stIdx];
+                    if (st.frameCount > 1 && st.frameIntervalMs > 0 && st.frames != nullptr)
+                    {
+                        if ((uint32_t)(now - f.lastAnimTickMs) >= st.frameIntervalMs)
+                        {
+                            f.lastAnimTickMs = now;
+                            f.iconAnimFrame = (uint8_t)((f.iconAnimFrame + 1) % st.frameCount);
+                            f.dirty = true;
+                            dirtyFound = true;
+                        }
+                    }
+                }
             }
         }
 
-        return false;
+        return dirtyFound;
     }
 
     void requestCurrentViewRefresh()
@@ -184,7 +219,7 @@ namespace
                                   ? 1
                                   : def.style.labelTextSize;
 
-        if (def.meta.type != JWPLC_UI_FIELD_BAR)
+        if (def.meta.type != JWPLC_UI_FIELD_BAR && def.meta.type != JWPLC_UI_FIELD_CIRCULAR)
         {
             const uint8_t valueSize = (def.style.valueTextSize == 0)
                                           ? 1
@@ -258,7 +293,7 @@ namespace
         JWPLC_TFTClass &tft,
         const FieldRuntime &field)
     {
-        if (field.def.meta.type == JWPLC_UI_FIELD_BAR)
+        if (field.def.meta.type == JWPLC_UI_FIELD_BAR || field.def.meta.type == JWPLC_UI_FIELD_CIRCULAR)
         {
             return field.valueX;
         }
@@ -396,6 +431,15 @@ namespace
             }
             break;
 
+        case JWPLC_UI_FIELD_CIRCULAR:
+        {
+            uint16_t diameter = (def.rect.width != JWPLC_UI_AUTO) ? def.rect.width : 52;
+            if (diameter < 20) diameter = 20;
+            valueW = diameter;
+            valueH = diameter;
+            break;
+        }
+
         case JWPLC_UI_FIELD_BAR:
         default:
             valueW =
@@ -490,7 +534,7 @@ namespace
 
         field.valueW = (int16_t)valueW;
         field.valueH =
-            (def.meta.type == JWPLC_UI_FIELD_BAR)
+            (def.meta.type == JWPLC_UI_FIELD_BAR || def.meta.type == JWPLC_UI_FIELD_CIRCULAR)
                 ? (int16_t)valueH
                 : (int16_t)((valueH == 0)
                                  ? (7 * ((def.style.valueTextSize == 0)
@@ -541,21 +585,36 @@ namespace
     }
 
     // ICON sin fondo: true si el píxel (x, y) es transparente en todos los
-    // estados (nunca se pinta, así se ve la gráfica estática de debajo).
+    // estados y cuadros (nunca se pinta, así se ve la gráfica estática de debajo).
     bool iconAlwaysTransparent(const JWPLC_UIIcon &icon, size_t stride, int16_t x, int16_t y)
     {
         for (uint8_t s = 0; s < icon.stateCount; ++s)
         {
-            const uint8_t *pixels = icon.states[s].pixels;
-            if (pixels == nullptr)
+            const JWPLC_UIIconState &st = icon.states[s];
+            if (st.frames != nullptr && st.frameCount > 1)
             {
-                continue;
+                for (uint8_t f = 0; f < st.frameCount; ++f)
+                {
+                    const uint8_t *pixels = st.frames[f].pixels;
+                    if (pixels == nullptr) continue;
+                    const uint8_t packed = pixels[(size_t)y * stride + ((size_t)x >> 1)];
+                    const uint8_t index = (x & 1) ? (packed & 0x0F) : (packed >> 4);
+                    if (index != icon.transparentIndex) return false;
+                }
             }
-            const uint8_t packed = pixels[(size_t)y * stride + ((size_t)x >> 1)];
-            const uint8_t index = (x & 1) ? (packed & 0x0F) : (packed >> 4);
-            if (index != icon.transparentIndex)
+            else
             {
-                return false;
+                const uint8_t *pixels = st.pixels;
+                if (pixels == nullptr)
+                {
+                    continue;
+                }
+                const uint8_t packed = pixels[(size_t)y * stride + ((size_t)x >> 1)];
+                const uint8_t index = (x & 1) ? (packed & 0x0F) : (packed >> 4);
+                if (index != icon.transparentIndex)
+                {
+                    return false;
+                }
             }
         }
         return true;
@@ -564,15 +623,15 @@ namespace
     // ICON sin fondo: cada fila se envía en tramos que saltan los píxeles
     // transparentes en todos los estados.
     void drawIconTransparent(JWPLC_TFTClass &tft, const FieldRuntime &field,
-                             const JWPLC_UIIcon &icon, const JWPLC_UIIconState &state,
-                             uint16_t background)
+                             const JWPLC_UIIcon &icon, const uint8_t *pixels,
+                             const uint16_t *palette, uint16_t background)
     {
         const int16_t w = icon.width;
         const size_t stride = ((size_t)w + 1U) / 2U;
 
         for (int16_t y = 0; y < icon.height; ++y)
         {
-            const uint8_t *row = state.pixels + (size_t)y * stride;
+            const uint8_t *row = pixels + (size_t)y * stride;
             int16_t x = 0;
 
             while (x < w)
@@ -587,7 +646,7 @@ namespace
                 {
                     const uint8_t packed = row[x >> 1];
                     const uint8_t index = (x & 1) ? (packed & 0x0F) : (packed >> 4);
-                    *out++ = (index == icon.transparentIndex) ? background : state.palette[index];
+                    *out++ = (index == icon.transparentIndex) ? background : palette[index];
                     ++x;
                 }
                 if (x > start)
@@ -621,14 +680,23 @@ namespace
                 : (uint8_t)(icon->stateCount - 1);
         const JWPLC_UIIconState &state = icon->states[stateIndex];
 
-        if (state.pixels == nullptr || state.palette == nullptr)
+        const uint8_t *pixels = state.pixels;
+        const uint16_t *palette = state.palette;
+        if (state.frames != nullptr && state.frameCount > 1)
+        {
+            const uint8_t fIdx = (uint8_t)(field.iconAnimFrame % state.frameCount);
+            pixels = state.frames[fIdx].pixels;
+            palette = state.frames[fIdx].palette;
+        }
+
+        if (pixels == nullptr || palette == nullptr)
         {
             return;
         }
 
         if (field.def.iconTransparent && icon->transparentIndex != JWPLC_UI_ICON_NO_TRANSPARENT)
         {
-            drawIconTransparent(tft, field, *icon, state, background);
+            drawIconTransparent(tft, field, *icon, pixels, palette, background);
             return;
         }
 
@@ -645,7 +713,7 @@ namespace
 
             for (int16_t r = 0; r < rows; ++r)
             {
-                const uint8_t *row = state.pixels + (size_t)(y0 + r) * stride;
+                const uint8_t *row = pixels + (size_t)(y0 + r) * stride;
 
                 for (int16_t x = 0; x < w; ++x)
                 {
@@ -653,7 +721,7 @@ namespace
                     const uint8_t index = (x & 1) ? (packed & 0x0F) : (packed >> 4);
                     *out++ = (index == icon->transparentIndex)
                                  ? background
-                                 : state.palette[index];
+                                 : palette[index];
                 }
             }
 
@@ -664,6 +732,136 @@ namespace
                 rows,
                 g_iconRows);
         }
+    }
+
+    void drawCircularGauge(
+        JWPLC_TFTClass &tft,
+        FieldRuntime &field,
+        uint16_t background)
+    {
+        const JWPLC_UIField &def = field.def;
+        float minValue = def.options.barRange.min;
+        float maxValue = def.options.barRange.max;
+        if (maxValue <= minValue) maxValue = minValue + 1.0f;
+        float normalized = (field.barValue - minValue) / (maxValue - minValue);
+        if (normalized < 0.0f) normalized = 0.0f;
+        if (normalized > 1.0f) normalized = 1.0f;
+
+        const int16_t cx = field.valueX + field.valueW / 2;
+        const int16_t cy = field.valueY + field.valueH / 2;
+        const int16_t R = field.valueW / 2;
+        int16_t thick = def.circularStyle.thickness;
+        if (thick < 2) thick = 2;
+        if (thick > R - 2) thick = R - 2;
+        const int16_t Rin = R - thick;
+
+        uint16_t sweepDeg = def.circularStyle.sweep;
+        if (sweepDeg == 0 || sweepDeg > 360) sweepDeg = 360;
+        const uint8_t quad = def.circularStyle.startQuadrant;
+        float quadAngle = -90.0f; // TOP
+        if (quad == 1) quadAngle = 0.0f; // RIGHT
+        else if (quad == 2) quadAngle = 90.0f; // BOTTOM
+        else if (quad == 3) quadAngle = 180.0f; // LEFT
+
+        float startAngle = quadAngle;
+        if (sweepDeg < 360) {
+            startAngle = quadAngle - (float)sweepDeg / 2.0f;
+        }
+
+        const bool isCW = def.circularStyle.clockwise;
+        const bool isSeg = def.circularStyle.segmented;
+        const float activeSweep = normalized * (float)sweepDeg;
+        const uint16_t activeCol = def.style.colors.value;
+        const uint16_t trackCol = def.circularStyle.trackColor ? def.circularStyle.trackColor : background;
+
+        const int16_t R2 = R * R;
+        const int16_t Rin2 = Rin * Rin;
+
+        tft.beginBatch();
+
+        for (int16_t dy = -R; dy <= R; dy++)
+        {
+            int16_t py = cy + dy;
+            if (py < 0 || py >= tft.height()) continue;
+            int16_t dy2 = dy * dy;
+            if (dy2 > R2) continue;
+            int16_t dxOut = (int16_t)sqrtf((float)(R2 - dy2));
+            int16_t dxIn = (Rin > 0 && dy2 < Rin2) ? (int16_t)sqrtf((float)(Rin2 - dy2)) : -1;
+
+            if (dxIn >= 0)
+            {
+                tft.drawFastHLine(cx - dxIn, py, 2 * dxIn + 1, background);
+            }
+
+            for (int16_t side = 0; side < 2; side++)
+            {
+                int16_t xStart = (side == 0) ? -dxOut : (dxIn >= 0 ? dxIn + 1 : 0);
+                int16_t xEnd = (side == 0) ? (dxIn >= 0 ? -dxIn - 1 : 0) : dxOut;
+                if (xStart > xEnd) continue;
+
+                for (int16_t dx = xStart; dx <= xEnd; dx++)
+                {
+                    int16_t px = cx + dx;
+                    if (px < 0 || px >= tft.width()) continue;
+
+                    float deg = atan2f((float)dy, (float)dx) * 180.0f / 3.14159265f;
+                    float delta = isCW ? (deg - startAngle) : ((startAngle + (float)sweepDeg) - deg);
+                    while (delta < 0.0f) delta += 360.0f;
+                    while (delta >= 360.0f) delta -= 360.0f;
+
+                    if (delta < (float)sweepDeg)
+                    {
+                        if (isSeg)
+                        {
+                            int segCount = (sweepDeg >= 360) ? 16 : ((sweepDeg >= 270) ? 12 : ((sweepDeg >= 240) ? 10 : 8));
+                            float segStep = (float)sweepDeg / segCount;
+                            float phase = fmodf(delta, segStep);
+                            if (phase > segStep * 0.82f)
+                            {
+                                tft.drawPixel(px, py, background);
+                                continue;
+                            }
+                        }
+
+                        if (delta <= activeSweep && activeSweep > 0.5f)
+                        {
+                            tft.drawPixel(px, py, activeCol);
+                        }
+                        else
+                        {
+                            tft.drawPixel(px, py, trackCol);
+                        }
+                    }
+                    else
+                    {
+                        tft.drawPixel(px, py, background);
+                    }
+                }
+            }
+        }
+
+        if (def.circularStyle.centerMode == 1) // PERCENT
+        {
+            char buf[8];
+            int pct = (int)roundf(normalized * 100.0f);
+            if (pct < 0) pct = 0;
+            if (pct > 100) pct = 100;
+            snprintf(buf, sizeof(buf), "%d%%", pct);
+
+            uint8_t sz = def.circularStyle.centerTextSize > 0 ? def.circularStyle.centerTextSize : 1;
+            int16_t tw = (int16_t)(strlen(buf) * 6 * sz);
+            int16_t th = (int16_t)(8 * sz);
+            int16_t tx = cx - tw / 2;
+            int16_t ty = cy - th / 2;
+            uint16_t txtColor = def.circularStyle.centerTextColor ? def.circularStyle.centerTextColor : def.style.colors.label;
+
+            tft.setTextSize(sz);
+            tft.setTextColor(txtColor, background);
+            tft.setCursor(tx, ty);
+            tft.print(buf);
+        }
+
+        tft.endBatch();
     }
 
     void drawFieldStatic(JWPLC_TFTClass &tft, FieldRuntime &field)
@@ -800,6 +998,31 @@ namespace
             }
 
             field.barDrawnW = fillW;
+            field.dirty = false;
+
+            if (profile)
+            {
+                jwplcH3E1RecordFieldDraw(
+                    def.meta.id,
+                    (uint8_t)def.meta.type,
+                    (uint16_t)field.valueW,
+                    (uint16_t)field.valueH,
+                    0U,
+                    (uint32_t)(micros() - totalStartUs),
+                    0U,
+                    0U,
+                    (uint32_t)(micros() - printStartUs));
+            }
+
+            return;
+        }
+
+        // CIRCULAR: dibuja arco, pista y porcentaje central.
+        if (def.meta.type == JWPLC_UI_FIELD_CIRCULAR)
+        {
+            const uint32_t printStartUs = profile ? micros() : 0U;
+
+            drawCircularGauge(tft, field, fieldBackground(field));
             field.dirty = false;
 
             if (profile)
@@ -1252,6 +1475,8 @@ namespace JWPLCUI
         }
 
         field->iconState = state;
+        field->iconAnimFrame = 0;
+        field->lastAnimTickMs = millis();
         field->hasValue = true;
         markFieldDirty(*field);
 
@@ -1303,7 +1528,7 @@ namespace JWPLCUI
         FieldRuntime *field = findField(fieldId);
 
         if (field == nullptr ||
-            field->def.meta.type != JWPLC_UI_FIELD_BAR)
+            (field->def.meta.type != JWPLC_UI_FIELD_BAR && field->def.meta.type != JWPLC_UI_FIELD_CIRCULAR))
         {
             return false;
         }

@@ -1301,6 +1301,7 @@
     if (field.type === 'TEXT') return 'textField';
     if (field.type === 'NAV_BAR') return 'navBarField';
     if (field.type === 'MENU') return 'menuField';
+    if (field.type === 'EVENT_LOG') return 'eventLogField';
     if (field.type === 'ICON') return 'iconField';
     return 'pointer';
   }
@@ -1647,6 +1648,110 @@
     return pts;
   }
 
+  function getShapeBaseVertices(field) {
+    if (!field) return [];
+    const x1 = field.x ?? 0; const y1 = field.y ?? 0;
+    const x2 = field.x2 ?? x1; const y2 = field.y2 ?? y1;
+    if (field.type === 'TRIANGLE') {
+      const topPt = { x: Math.round((x1 + x2) / 2), y: y1 };
+      const bl = { x: x1, y: y2 };
+      const br = { x: x2, y: y2 };
+      return [topPt, br, bl];
+    }
+    if (field.type === 'POLYGON') {
+      return getPolygonVertices(field);
+    }
+    if (field.type === 'RECT') {
+      const left = Math.min(x1, x2);
+      const right = Math.max(x1, x2);
+      const top = Math.min(y1, y2);
+      const bottom = Math.max(y1, y2);
+      return [
+        { x: left, y: top },
+        { x: right, y: top },
+        { x: right, y: bottom },
+        { x: left, y: bottom }
+      ];
+    }
+    return [];
+  }
+
+  function insetPolygon(pts, s) {
+    if (!Array.isArray(pts) || pts.length < 3 || s <= 0) return pts ? [...pts] : null;
+    const n = pts.length;
+    let cx = 0, cy = 0;
+    for (const p of pts) { cx += p.x; cy += p.y; }
+    cx /= n; cy /= n;
+
+    const lines = [];
+    for (let i = 0; i < n; i++) {
+      const p1 = pts[i];
+      const p2 = pts[(i + 1) % n];
+      const dx = p2.x - p1.x;
+      const dy = p2.y - p1.y;
+      const len = Math.hypot(dx, dy);
+      if (len < 1e-4) return null;
+      const ux = dx / len;
+      const uy = dy / len;
+      let nx = -uy, ny = ux;
+      const midX = (p1.x + p2.x) / 2, midY = (p1.y + p2.y) / 2;
+      if (nx * (cx - midX) + ny * (cy - midY) < 0) {
+        nx = -nx; ny = -ny;
+      }
+      lines.push({ p: { x: p1.x + s * nx, y: p1.y + s * ny }, u: { x: ux, y: uy } });
+    }
+
+    const out = [];
+    for (let i = 0; i < n; i++) {
+      const prev = lines[(i - 1 + n) % n];
+      const curr = lines[i];
+      const det = prev.u.x * (-curr.u.y) - prev.u.y * (-curr.u.x);
+      if (Math.abs(det) < 1e-5) {
+        out.push({ x: curr.p.x, y: curr.p.y });
+        continue;
+      }
+      const dx = curr.p.x - prev.p.x;
+      const dy = curr.p.y - prev.p.y;
+      const t = (dx * (-curr.u.y) - dy * (-curr.u.x)) / det;
+      const pt = {
+        x: prev.p.x + t * prev.u.x,
+        y: prev.p.y + t * prev.u.y
+      };
+      if ((pt.x - cx) * (pts[i].x - cx) + (pt.y - cy) * (pts[i].y - cy) < -1e-3) {
+        return null;
+      }
+      out.push(pt);
+    }
+    return out;
+  }
+
+  function getPolygonScanlineSpan(pts, y) {
+    if (!pts || pts.length < 3) return null;
+    const n = pts.length;
+    let minX = Infinity, maxX = -Infinity;
+    let count = 0;
+    for (let i = 0; i < n; i++) {
+      const p1 = pts[i];
+      const p2 = pts[(i + 1) % n];
+      if ((p1.y <= y && p2.y > y) || (p2.y <= y && p1.y > y)) {
+        const x = p1.x + ((y - p1.y) * (p2.x - p1.x)) / (p2.y - p1.y);
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        count++;
+      } else if (p1.y === y && p2.y === y) {
+        const xL = Math.min(p1.x, p2.x);
+        const xR = Math.max(p1.x, p2.x);
+        if (xL < minX) minX = xL;
+        if (xR > maxX) maxX = xR;
+        count += 2;
+      }
+    }
+    if (count >= 2 && Number.isFinite(minX) && Number.isFinite(maxX)) {
+      return { left: Math.round(minX), right: Math.round(maxX) };
+    }
+    return null;
+  }
+
   function fillShapeEllipse(buffer, a, b, color) {
     const minX = Math.min(a.x, b.x);
     const maxX = Math.max(a.x, b.x);
@@ -1967,23 +2072,100 @@
   // que el código generado (designer-codegen.js:staticDrawCode): relleno en
   // abanico de fillTriangle desde el primer vértice y borde con drawLine entre
   // vértices consecutivos, todo sobre vértices enteros.
-  function drawShapePolygonScanline(buffer, pts, frameColor, fillColor, strokeSize, hasBorder, hasFill) {
+  function drawShapePolygonScanline(buffer, pts, frameColor, fillColor, strokeSize, hasBorder, hasFill, field = null) {
     if (!pts || pts.length < 3) return;
-    const v = pts.map((p) => ({ x: Math.round(p.x), y: Math.round(p.y) }));
-    const n = v.length;
+    const vOuter = pts.map((p) => ({ x: Math.round(p.x), y: Math.round(p.y) }));
+    const n = vOuter.length;
 
-    if (hasFill) {
-      for (let i = 1; i < n - 1; i++) {
-        fillBufferTriangleTft(buffer, v[0].x, v[0].y, v[i].x, v[i].y, v[i + 1].x, v[i + 1].y, fillColor);
+    const effStroke = hasBorder ? Math.max(1, Math.round(strokeSize || 1)) : 0;
+    const borderOn = hasBorder && effStroke > 0;
+
+    let vInner = null;
+    if (borderOn) {
+      if (field && (field.type === 'TRIANGLE' || field.type === 'POLYGON' || field.type === 'RECT')) {
+        const basePts = getShapeBaseVertices(field);
+        const r = clamp(Math.round(Number(field.cornerRadius) || 0), 0, getMaxCornerRadius(field));
+        const x1 = field.x ?? 0; const y1 = field.y ?? 0;
+        const x2 = field.x2 ?? x1; const y2 = field.y2 ?? y1;
+        const cx = (x1 + x2) / 2; const cy = (y1 + y2) / 2;
+        const angleDeg = Number(field.rotation) || 0;
+        const flipH = Boolean(field.flipH); const flipV = Boolean(field.flipV);
+        const tf = (p) => transformShapePoint(p.x, p.y, cx, cy, angleDeg, flipH, flipV);
+        const baseInner = insetPolygon(basePts, effStroke);
+        vInner = baseInner ? roundShapePoints(buildRoundedPolygonPoints(baseInner, Math.max(0, r - effStroke)).map(tf)) : null;
+      } else {
+        vInner = insetPolygon(vOuter, effStroke);
       }
     }
 
-    if (hasBorder && strokeSize > 0) {
-      for (let i = 0; i < n; i++) {
-        const a = v[i];
-        const b = v[(i + 1) % n];
-        rasterLineThick(buffer, a.x, a.y, b.x, b.y, frameColor, strokeSize);
+    if (!borderOn) {
+      if (hasFill) {
+        for (let i = 1; i < n - 1; i++) {
+          fillBufferTriangleTft(buffer, vOuter[0].x, vOuter[0].y, vOuter[i].x, vOuter[i].y, vOuter[i + 1].x, vOuter[i + 1].y, fillColor);
+        }
       }
+      return;
+    }
+
+    if (effStroke === 1) {
+      if (hasFill) {
+        for (let i = 1; i < n - 1; i++) {
+          fillBufferTriangleTft(buffer, vOuter[0].x, vOuter[0].y, vOuter[i].x, vOuter[i].y, vOuter[i + 1].x, vOuter[i + 1].y, fillColor);
+        }
+      }
+      for (let i = 0; i < n; i++) {
+        const a = vOuter[i];
+        const b = vOuter[(i + 1) % n];
+        rasterLineBuffer(buffer, a.x, a.y, b.x, b.y, frameColor, 1);
+      }
+      return;
+    }
+
+    let minY = Infinity, maxY = -Infinity;
+    for (const p of vOuter) {
+      if (p.y < minY) minY = p.y;
+      if (p.y > maxY) maxY = p.y;
+    }
+    const yStart = Math.max(0, Math.floor(minY));
+    const yEnd = Math.min(HEIGHT - 1, Math.ceil(maxY));
+
+    for (let y = yStart; y <= yEnd; y++) {
+      const spanOut = getPolygonScanlineSpan(vOuter, y);
+      if (!spanOut) continue;
+      const xOutL = Math.max(0, spanOut.left);
+      const xOutR = Math.min(WIDTH - 1, spanOut.right);
+      if (xOutL > xOutR) continue;
+
+      const spanIn = vInner ? getPolygonScanlineSpan(vInner, y) : null;
+      let innerValid = false;
+      let xInL = 0, xInR = -1;
+      if (spanIn && spanIn.left <= spanIn.right) {
+        xInL = Math.max(0, spanIn.left);
+        xInR = Math.min(WIDTH - 1, spanIn.right);
+        if (xInL <= xInR && xInL >= xOutL && xInR <= xOutR) {
+          innerValid = true;
+        }
+      }
+
+      if (!innerValid) {
+        fillBufferRect(buffer, xOutL, y, xOutR - xOutL + 1, 1, frameColor);
+      } else {
+        if (xInL > xOutL) {
+          fillBufferRect(buffer, xOutL, y, xInL - xOutL, 1, frameColor);
+        }
+        if (hasFill && xInR >= xInL) {
+          fillBufferRect(buffer, xInL, y, xInR - xInL + 1, 1, fillColor);
+        }
+        if (xOutR > xInR) {
+          fillBufferRect(buffer, xInR + 1, y, xOutR - xInR, 1, frameColor);
+        }
+      }
+    }
+
+    for (let i = 0; i < n; i++) {
+      const a = vOuter[i];
+      const b = vOuter[(i + 1) % n];
+      rasterLineBuffer(buffer, a.x, a.y, b.x, b.y, frameColor, 1);
     }
   }
 
@@ -2020,7 +2202,7 @@
     if (!pts || pts.length === 0) return;
 
     if (field.type === 'RECT' || field.type === 'TRIANGLE' || field.type === 'POLYGON' || field.type === 'ELLIPSE') {
-      drawShapePolygonScanline(buffer, pts, color, fillColor, size, hasBorder, hasFill);
+      drawShapePolygonScanline(buffer, pts, color, fillColor, size, hasBorder, hasFill, field);
       return;
     }
   }
@@ -2179,11 +2361,11 @@
       };
     }
 
-    if (field.type === 'MENU') {
+    if (field.type === 'MENU' || field.type === 'EVENT_LOG') {
       const x = Number(field.x) || 0;
       const y = Number(field.y) || 0;
-      const w = Math.max(1, Number(field.width) || 1);
-      const h = Math.max(1, Number(field.height) || 1);
+      const w = Math.max(1, Number(field.width) || (field.type === 'EVENT_LOG' ? 320 : 1));
+      const h = Math.max(1, Number(field.height) || (field.type === 'EVENT_LOG' ? 170 : 1));
       return { x, y, minX: x, maxX: x + w - 1, minY: y, maxY: y + h - 1, width: w, height: h };
     }
 
@@ -2256,30 +2438,8 @@
         };
       }
       const angleDeg = Number(field.rotation) || 0;
+      const lb = getShapeLocalBounds(field);
       if (angleDeg === 0) {
-        if (field.type === 'POLYGON' || field.type === 'TRIANGLE' || (Number(field.cornerRadius) || 0) > 0) {
-          const pts = getShapeTransformedVertices(field);
-          let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-          for (const p of pts) {
-            if (p.x < minX) minX = p.x;
-            if (p.x > maxX) maxX = p.x;
-            if (p.y < minY) minY = p.y;
-            if (p.y > maxY) maxY = p.y;
-          }
-          if (Number.isFinite(minX)) {
-            return {
-              x: minX,
-              y: minY,
-              minX,
-              maxX,
-              minY,
-              maxY,
-              width: Math.max(1, maxX - minX + 1),
-              height: Math.max(1, maxY - minY + 1)
-            };
-          }
-        }
-        const lb = getShapeLocalBounds(field);
         return {
           x: lb.minX,
           y: lb.minY,
@@ -2291,9 +2451,15 @@
           height: Math.max(1, lb.maxY - lb.minY + 1)
         };
       }
-      const pts = getShapeTransformedVertices(field);
+      const x1 = field.x ?? 0; const y1 = field.y ?? 0;
+      const x2 = field.x2 ?? x1; const y2 = field.y2 ?? y1;
+      const cx = (x1 + x2) / 2; const cy = (y1 + y2) / 2;
+      const flipH = Boolean(field.flipH); const flipV = Boolean(field.flipV);
+      const corners = [
+        [lb.minX, lb.minY], [lb.maxX, lb.minY], [lb.maxX, lb.maxY], [lb.minX, lb.maxY]
+      ].map(([px, py]) => transformShapePoint(px, py, cx, cy, angleDeg, flipH, flipV));
       let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-      for (const p of pts) {
+      for (const p of corners) {
         if (p.x < minX) minX = p.x;
         if (p.x > maxX) maxX = p.x;
         if (p.y < minY) minY = p.y;
@@ -2328,7 +2494,7 @@
 
   function computeFieldGeometry(field) {
     if (!field) return null;
-    if (field.type === 'NAV_BAR' || field.type === 'MENU') {
+    if (field.type === 'NAV_BAR' || field.type === 'MENU' || field.type === 'EVENT_LOG') {
       const b = getFieldBounds(field);
       return {
         pad: 0,
@@ -2464,7 +2630,7 @@
       if (!entry) return g;
       // Sin fondo: lo transparente en todos los estados no se pinta; lo que es
       // transparente sólo en algunos toma el fondo del campo.
-      const img = window.JWPLCIconsCore.decode(entry, field.iconState);
+      const img = window.JWPLCIconsCore.decode(entry, field.iconState, field._animFrame || 0, field);
       const mask = field.transparentBackground ? window.JWPLCIconsCore.alwaysTransparentMask(entry) : null;
       const iconBg = mask ? (Number(field.backgroundColor) & 0xFFFF) : textBg;
       for (let y = 0; y < img.height; y += 1) {
@@ -2593,6 +2759,13 @@
           drawRect: (x, y, w, h, c) => drawBufferRect(framebuffer, x, y, w, h, c),
           pixel: (x, y, c) => setBufferPixel(framebuffer, x, y, c)
         });
+      } else if (field.type === 'EVENT_LOG') {
+        window.JWPLCHMIEventLog?.paint?.(field, {
+          fillRect: (x, y, w, h, c) => fillBufferRect(framebuffer, x, y, w, h, c),
+          drawRect: (x, y, w, h, c) => drawBufferRect(framebuffer, x, y, w, h, c),
+          drawText: (text, x, y, fg, bg, sz) => drawRawTextAt(framebuffer, text, x, y, fg, bg, sz || 1),
+          pixel: (x, y, c) => setBufferPixel(framebuffer, x, y, c)
+        });
       } else if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(field.type)) {
         drawShape(framebuffer, field);
       } else if (field.type === 'RAW_TEXT') {
@@ -2702,7 +2875,7 @@
     const core = window.JWPLCHMICodegenCore;
     if (field.type === 'ICON') {
       const entry = iconEntry(field);
-      const symbol = window.JWPLCIconsCore.symbolFor(field.iconId, entry ? entry.width : field.iconSize);
+      const symbol = window.JWPLCHMIIcons?.symbolForField?.(field) || window.JWPLCIconsCore.symbolFor(field.iconId, entry ? entry.width : field.iconSize);
       return window.JWPLCIconsCore.iconFieldBlock(field, id, symbol, core.cppString);
     }
     return field.type === 'VALUE' ? core.valueFieldBlock(field, id) : core.textFieldBlock(field, id);
@@ -2717,11 +2890,14 @@
     fields.filter((field) => field.type === 'ICON').forEach((field) => {
       const entry = iconEntry(field);
       if (!entry) return;
-      const key = `${field.iconId}@${entry.width}`;
+      const customSymbol = window.JWPLCHMIIcons?.symbolForField?.(field);
+      const symbol = customSymbol || core.symbolFor(field.iconId, entry.width);
+      const key = `${field.iconId}@${entry.width}:${symbol}`;
       if (seen.has(key)) return;
       seen.add(key);
       const icon = window.JWPLCHMIIcons?.iconInfo?.(field.iconId) || core.findIcon(window.JWPLCIconCatalog, field.iconId);
-      assets.push({ id: field.iconId, name: icon?.name, stateNames: icon?.stateNames, entry });
+      const override = (field.bodyColor || field.stateColors || field.tierColors || field.tierCount || field.customColors || field.animIntervalMs) ? field : null;
+      assets.push({ id: field.iconId, name: icon?.name, stateNames: field.stateNames || icon?.stateNames, entry, symbol, override });
     });
     return core.assetsSection(assets);
   }
@@ -2732,14 +2908,14 @@
     if (window.JWPLCHMICodegenCore?.isClockField?.(field)) return `// ${id}: fecha/hora del RTC (la actualiza el firmware)`;
     if (field.type === 'VALUE') return `// JWPLC_Display.setValue(${id}, ${variable});`;
     if (field.type === 'BOOL') return `// JWPLC_Display.setBool(${id}, ${variable});`;
-    if (field.type === 'ICON') return `// ${window.JWPLCIconsCore.iconSetter(id, variable)}`;
+    if (field.type === 'ICON') return `// ${window.JWPLCIconsCore.iconSetter(id, variable, field)}`;
     if (field.type === 'BAR') return `// JWPLC_Display.setBar(${id}, ${variable});`;
     return `// JWPLC_Display.setText(${id}, ${variable});`;
   }
 
   function buildContractText() {
-    const validFields = hmiFields.filter(f => !['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON', 'RAW_TEXT', 'NAV_BAR', 'MENU'].includes(f.type));
-    const hasStaticObjects = hmiFields.some(f => ['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON', 'RAW_TEXT', 'NAV_BAR', 'MENU'].includes(f.type));
+    const validFields = hmiFields.filter(f => !['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON', 'RAW_TEXT', 'NAV_BAR', 'MENU', 'EVENT_LOG'].includes(f.type));
+    const hasStaticObjects = hmiFields.some(f => ['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON', 'RAW_TEXT', 'NAV_BAR', 'MENU', 'EVENT_LOG'].includes(f.type));
     if (validFields.length === 0 && !hasStaticObjects) return '// Sin campos HMI. Agrega TEXT, VALUE, BOOL o BAR para comenzar.';
     if (validFields.length === 0) {
       // Sólo gráfica estática: sin HMI_FIELDS (un arreglo vacío no es C++ válido).
@@ -2929,7 +3105,7 @@
       TEXT: 'Texto',
       VALUE: 'Valor',
       BOOL: 'Bool',
-      BAR: 'Barra',
+      BAR: 'Indicador',
       RAW_TEXT: 'Texto RAW',
       LINE: 'Línea',
       RECT: 'Rectángulo',
@@ -2966,6 +3142,7 @@
       else if (field.type === 'POLYGON') icon = '⬡';
       else if (field.type === 'NAV_BAR') icon = '☰';
       else if (field.type === 'MENU') icon = '▤';
+      else if (field.type === 'EVENT_LOG') icon = '📋';
       else if (field.type === 'ICON') icon = '◈';
 
       button.innerHTML = `
@@ -3170,6 +3347,65 @@
         pageCount: hmiPages.length
       }
     }));
+  }
+
+  function redrawCanvasOnly() {
+    rebuildLogicalImage();
+    displayCtx.imageSmoothingEnabled = false;
+    displayCtx.clearRect(0, 0, displayCanvas.width, displayCanvas.height);
+    displayCtx.drawImage(logicalCanvas, 0, 0, WIDTH, HEIGHT, 0, 0, WIDTH * zoom, HEIGHT * zoom);
+
+    const visiblePageBars = fieldsForPage(activePage)
+      .filter((field) => field.type === 'BAR' && !field.hidden)
+      .sort((a, b) => ensureLayerOrder(b) - ensureLayerOrder(a));
+    const stampHigherLayersOverBar = (ctx, barField, scale) => {
+      const barOrder = ensureLayerOrder(barField);
+      const b = getFieldBounds(barField);
+      const x0 = Math.max(0, Math.floor(b.minX ?? b.x ?? 0));
+      const y0 = Math.max(0, Math.floor(b.minY ?? b.y ?? 0));
+      const x1 = Math.min(WIDTH, Math.ceil((b.maxX ?? (x0 + (b.width || 0))) + 1));
+      const y1 = Math.min(HEIGHT, Math.ceil((b.maxY ?? (y0 + (b.height || 0))) + 1));
+      for (let py = y0; py < y1; py++) {
+        let spanStart = -1;
+        for (let px = x0; px <= x1; px++) {
+          const idx = py * WIDTH + px;
+          const covered = px < x1 && topFieldOrder[idx] < barOrder && !topFieldIsBar[idx];
+          if (covered && spanStart < 0) {
+            spanStart = px;
+          } else if (!covered && spanStart >= 0) {
+            const spanW = px - spanStart;
+            ctx.drawImage(logicalCanvas, spanStart, py, spanW, 1, spanStart * scale, py * scale, spanW * scale, scale);
+            spanStart = -1;
+          }
+        }
+      }
+    };
+    if (window.JWPLCHMIBar?.drawBarField) {
+      for (let i = 0; i < visiblePageBars.length; i++) {
+        window.JWPLCHMIBar.drawBarField(displayCtx, visiblePageBars[i], zoom);
+        stampHigherLayersOverBar(displayCtx, visiblePageBars[i], zoom);
+      }
+    }
+
+    drawGrid();
+
+    if (previewCtx) {
+      previewCtx.imageSmoothingEnabled = false;
+      previewCtx.clearRect(0, 0, WIDTH, HEIGHT);
+      previewCtx.drawImage(logicalCanvas, 0, 0);
+      if (window.JWPLCHMIBar?.drawBarField) {
+        for (let i = 0; i < visiblePageBars.length; i++) {
+          window.JWPLCHMIBar.drawBarField(previewCtx, visiblePageBars[i], 1);
+          stampHigherLayersOverBar(previewCtx, visiblePageBars[i], 1);
+        }
+      }
+    }
+
+    if (!window.JWPLCHMIEditor?.integratedBarLayers && window.JWPLCHMIBar?.drawBars) {
+      window.JWPLCHMIBar.drawBars(displayCtx, zoom, previewCtx);
+    }
+
+    drawSelectionAndGuides();
   }
 
   function pointFromPointer(event) {
@@ -3945,7 +4181,7 @@
       button.classList.toggle('active', button.dataset.tool === selectedTool);
     });
 
-    const isVarTool = ['valueField', 'boolField', 'barField', 'navBarField', 'menuField'].includes(selectedTool);
+    const isVarTool = ['valueField', 'boolField', 'barField', 'navBarField', 'menuField', 'eventLogField'].includes(selectedTool);
     const varToolBtn = document.getElementById('variableToolBtn');
     if (varToolBtn) {
       varToolBtn.classList.toggle('active', isVarTool);
@@ -3972,6 +4208,7 @@
     const isShape = Boolean(field && SHAPE_TYPES.includes(field.type));
     const isNavBar = selectedTool === 'navBarField' || field?.type === 'NAV_BAR';
     const isMenu = field?.type === 'MENU';
+    const isEventLog = field?.type === 'EVENT_LOG';
     const isIcon = field?.type === 'ICON';
     const iconSection = document.getElementById('iconInspectorSection');
     if (iconSection) {
@@ -3982,6 +4219,14 @@
     if (menuSection) {
       menuSection.hidden = !isMenu;
       menuSection.style.display = isMenu ? '' : 'none';
+    }
+    const eventLogSection = document.getElementById('eventLogInspectorSection');
+    if (eventLogSection) {
+      eventLogSection.hidden = !isEventLog;
+      eventLogSection.style.display = isEventLog ? '' : 'none';
+      if (isEventLog && window.JWPLCHMIEventLog?.syncInspector) {
+        window.JWPLCHMIEventLog.syncInspector();
+      }
     }
     const navBarSection = document.getElementById('navBarInspectorSection');
     if (navBarSection) {
@@ -4007,7 +4252,7 @@
         syncRawTextInspector();
       }
     }
-    const showField = Boolean(field && fieldTools.includes(selectedTool) && field.type !== 'RAW_TEXT' && !isShape && field.type !== 'NAV_BAR' && !isMenu);
+    const showField = Boolean(field && fieldTools.includes(selectedTool) && field.type !== 'RAW_TEXT' && !isShape && field.type !== 'NAV_BAR' && !isMenu && !isEventLog && !isIcon);
     if (fieldSection) {
       fieldSection.hidden = !showField;
       fieldSection.style.display = showField ? '' : 'none';
@@ -5177,6 +5422,29 @@
 
   // A15-8: MENU (árbol de configuración). Uno por página; el modelo y el
   // dibujo viven en designer-menu.js.
+  
+  function addEventLogField() {
+    const api = window.JWPLCHMIEventLog;
+    if (!api || hmiFields.length >= MAX_FIELDS) return;
+    if (hmiFields.some((f) => f.type === 'EVENT_LOG' && Number(f.page || 0) === activePage)) {
+      window.JWPLCDialog.alert('Esta página ya tiene un EVENT_LOG: sólo se permite uno por página.');
+      return;
+    }
+    fieldSerial += 1;
+    const field = api.createDefault(`eventlog-${fieldSerial}`, fieldSerial);
+    field.id = uniqueFieldSymbol(field.id);
+    field.page = activePage;
+    placeNewField(field);
+    assignNewLayerOrder(field);
+    hmiFields.push(field);
+    setSelectedKeys([field.key]);
+    selectedTool = 'eventLogField';
+    syncInputsFromState();
+    syncToolUI();
+    render();
+    commitHistory();
+  }
+
   function addMenuField() {
     const api = window.JWPLCHMIMenu;
     if (!api || hmiFields.length >= MAX_FIELDS) return;
@@ -5238,7 +5506,9 @@
     field.iconId = iconId;
     field.iconSize = core.resolveSize(icon, size || 32);
     field.iconVarType = icon.stateNames.length > 2 ? 'uint8' : 'bool';
-    field.iconState = 0;
+    const initEntry = core?.entryFor?.(window.JWPLCIconCatalog, iconId, field.iconSize);
+    const hasAnimSt1 = (initEntry?.states?.[1]?.frameCount > 1) || (initEntry?.states?.[1]?.frames?.length > 1);
+    field.iconState = hasAnimSt1 ? 1 : 0;
     field.transparentBackground = false;
     field.label = '';
     field.preview = '';
@@ -5548,6 +5818,10 @@
         addMenuField();
         return;
       }
+      if (tool === 'eventLogField') {
+        addEventLogField();
+        return;
+      }
       selectedTool = tool;
       if (!['pointer', 'textField', 'valueField', 'boolField', 'barField', 'navBarField', 'menuField'].includes(tool)) {
         setSelectedKeys([]);
@@ -5580,7 +5854,7 @@
   const VAR_TITLES = {
     valueField: 'Variables del PLC · Valor Numérico (VALUE)',
     boolField: 'Variables del PLC · Booleano (BOOL)',
-    barField: 'Variables del PLC · Barra de Nivel (BAR)',
+    barField: 'Variables del PLC · Indicadores de Nivel (BAR)',
     navBarField: 'Variables del PLC · Barra de Navegación (NAV)',
     menuField: 'Variables del PLC · Menú de configuración (MENU)'
   };
@@ -6498,11 +6772,11 @@
           f.y = Math.round(newMinY + origRelY1 * scaleY);
           f.x2 = Math.round(newMinX + origRelX2 * scaleX);
           f.y2 = Math.round(newMinY + origRelY2 * scaleY);
-        } else if (f.type === 'MENU') {
+        } else if (f.type === 'MENU' || f.type === 'EVENT_LOG') {
           f.x = Math.round(newMinX + (orig.x - initMinX) * scaleX);
           f.y = Math.round(newMinY + (orig.y - initMinY) * scaleY);
-          f.width = clamp(Math.round((Number(orig.width) || 1) * scaleX), 20, WIDTH);
-          f.height = clamp(Math.round((Number(orig.height) || 1) * scaleY), 8, HEIGHT);
+          f.width = clamp(Math.round((Number(orig.width) || 1) * scaleX), 40, WIDTH);
+          f.height = clamp(Math.round((Number(orig.height) || 1) * scaleY), 28, HEIGHT);
         } else if (f.type === 'BAR') {
           f.barAutoWidth = false;
           const origW = Number(orig.barWidth) || 110;
@@ -7752,6 +8026,8 @@
     moveSelectedFieldToPage,
     commitHistory,
     render,
+    redrawCanvasOnly,
+    renderCanvasOnly: redrawCanvasOnly,
     fitCanvas,
     fitSelection,
     applyZoom,

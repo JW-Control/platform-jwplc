@@ -9,8 +9,7 @@ Editor visual (HTML/JS sin framework ni bundler, empaquetado con Electron) que
 diseña páginas para la TFT ST7789 320x170 del JWPLC Basic y genera
 `JWPLC_HMI_Generated.h` contra `JWPLC_Display` / `JWPLC_UI` / `JWPLC_TFT`.
 
-App de escritorio en Windows: `Generar-e-Instalar-App-Escritorio.cmd` (compila Electron + instala con
-`-RequireElectron`). `electron/main.js` y `preload.cjs` van dentro del .exe: un cambio ahí exige volver a
+App de escritorio en Windows: `Generar-e-Instalar-App-Escritorio.cmd` (pipeline unificado de build Electron + instalador en `scripts/Install-DesktopApp.ps1`). `electron/main.js` y `preload.cjs` van dentro del .exe: un cambio ahí exige volver a
 generarlo. `poc/` se sincroniza al abrir (`electron/bootstrap.js`).
 
 Entrada real de la app: `poc/desktop.html` (Electron carga
@@ -111,7 +110,7 @@ window.JWPLCValueFormat   designer-value-format   formato de VALUE (número, mil
 
   No escribir un manifiesto a mano.
 - Binarios desde la fuente: `tools/alpha15/build_live_bridge_firmware.sh [--install]` (compila el `.ino` de
-  `gates/A11_LivePreview_WebSerial/` con `jwplc_local`, deja la misma carpeta y la compara con el repo). Un binario
+  `firmware/JWPLC_HMI_Live_Bridge/` con `jwplc_local`, deja la misma carpeta y la compara con el repo). Un binario
   nuevo se prueba en la placa antes de publicarlo. Test: `tests/live-bridge-flasher.test.cjs`, que también
   verifica la tabla de particiones contra el `.csv` del package.
 
@@ -120,7 +119,7 @@ window.JWPLCValueFormat   designer-value-format   formato de VALUE (número, mil
 Reglas de UX/UI completas (Apariencia, botonera, capturas obligatorias): skill del repo
 `.claude/skills/hmi-designer-ux/SKILL.md` (cualquier agente puede leerlo como guía).
 
-Referencia: `JWPLC_HMI_Designer_BAR_Propuesta_2_Paquete_UI/` y `poc/designer-bar.js`.
+Referencia: `poc/designer-bar.js`.
 
 - Pestañas principales: **Diseño / Datos / Técnico**.
 - Diseño en sub-pestañas: **Forma / Contenido / Apariencia / Ubicación**.

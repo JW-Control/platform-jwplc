@@ -158,7 +158,7 @@ Estado ON/OFF. Declara `bool`. Muestra un texto por estado o un piloto (círculo
 
 ### `BAR`
 
-Barra de nivel horizontal (JWPLC_UIBarField). Declara `float`. El firmware dibuja sólo la barra lineal sólida.
+Indicador de nivel: Barra lineal o Medidor circular (JWPLC_UIBarField / JWPLC_UICircularField). Declara `float`.
 
 | Propiedad | Tipo / valores | Por defecto | Descripción |
 |---|---|---|---|
@@ -224,19 +224,24 @@ El estado `k` de la variable muestra la imagen `k` (bool: 0 = false, 1 = true). 
 
 | `iconId` | Nombre | Tamaños (px) | Estados (0..N-1) |
 |---|---|---|---|
-| `motores/motor` | Motor | 24, 32, 48, 64 | Parado · En marcha · Falla |
+| `motores/motor` | Motor trifásico | 24, 32, 48, 64 | Parado · En marcha · Falla |
+| `motores/motorreductor` | Motorreductor | 24, 32, 48, 64 | Parado · En marcha · Falla |
 | `motores/motor_dos_sentidos` | Motor dos sentidos | 24, 32, 48 | Parado · Adelante · Atrás |
 | `bombas/bomba` | Bomba | 24, 32, 48, 64 | Parado · En marcha · Falla |
 | `bombas/ventilador` | Ventilador | 24, 32, 48, 64 | Parado · En marcha · Falla |
 | `bombas/compresor` | Compresor | 24, 32, 48 | Parado · En marcha · Falla |
-| `pilotos/piloto` | Piloto | 24, 32, 48 | Apagado · Verde · Amarillo · Rojo |
-| `pilotos/baliza` | Torre de señalización | 24, 32, 48 | Apagada · Verde · Amarilla · Roja |
+| `pilotos/piloto` | Piloto luminoso | 24, 32, 48 | Apagado · Encendido |
+| `pilotos/piloto_cuadrado` | Piloto cuadrado | 24, 32, 48 | Apagado · Encendido |
+| `pilotos/baliza` | Torre de señalización | 24, 32, 48 | Apagada · Verde · Ámbar · Ámbar+Verde · Rojo · Rojo+Verde · Rojo+Ámbar · Rojo+Ámbar+Verde · Azul · Azul+Verde · Azul+Ámbar · Azul+Ámbar+Verde · Azul+Rojo · Azul+Rojo+Verde · Azul+Rojo+Ámbar · Azul+Rojo+Ámbar+Verde |
 | `valvulas/valvula` | Válvula | 24, 32, 48, 64 | Cerrada · Abierta · Falla |
 | `valvulas/valvula_motorizada` | Válvula motorizada | 24, 32, 48 | Cerrada · Abierta · Falla |
 | `valvulas/valvula_solenoide` | Electroválvula | 24, 32, 48 | Cerrada · Abierta · Falla |
+| `equipos/piston` | Pistón neumático | 24, 32, 48, 64 | Retraído · En movimiento · Extendido · Falla |
+| `equipos/piston_vertical` | Pistón vertical | 24, 32, 48, 64 | Retraído · En movimiento · Extendido · Falla |
 | `equipos/tanque` | Tanque (nivel) | 24, 32, 48, 64 | Vacío · Bajo · Medio · Lleno |
 | `equipos/silo` | Silo / tolva | 24, 32, 48, 64 | Vacío · Con material · Falla |
 | `equipos/resistencia` | Resistencia / calefactor | 24, 32, 48 | Apagada · Encendida |
+| `equipos/agitador` | Agitador / mezclador | 24, 32, 48, 64 | Parado · En marcha · Falla |
 | `equipos/transportador` | Cinta transportadora | 24, 32, 48, 64 | Parado · En marcha · Falla |
 | `sensores/proximidad` | Sensor de proximidad | 24, 32, 48 | Sin detección · Detección |
 | `sensores/termometro` | Temperatura | 24, 32, 48 | Baja · Normal · Alta |
@@ -293,6 +298,28 @@ El estado `k` de la variable muestra la imagen `k` (bool: 0 = false, 1 = true). 
 Colores del MENU (`colors`), por defecto:
 
 `text` = `0xFFFF` · `background` = `0x0000` · `value` = `0x07FF` · `selectText` = `0x0000` · `selectBackground` = `0x07FF` · `editText` = `0x0000` · `editBackground` = `0xFD20` · `title` = `0x0000` · `titleBackground` = `0xFFFF` · `frame` = `0xFFFF`
+
+### `EVENT_LOG`
+
+Historial y registro de eventos (Alpha16). 10 filas de altura fija con registro en RAM/FRAM/SD.
+
+| Propiedad | Tipo / valores | Por defecto | Descripción |
+|---|---|---|---|
+| `type` **(obligatoria)** | texto |  | Tipo de objeto. |
+| `name` | texto |  | Nombre visible en la lista de objetos del Designer (no llega al C++). |
+| `id` | identificador C++ |  | Identificador C++ del objeto (único en el proyecto). Si falta se genera FIELD_<TIPO>_<n>. |
+| `page` | entero 0..15 | `0` | Página (id) donde se dibuja. |
+| `layerOrder` | entero 0..9999 |  | Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima). |
+| `x` **(obligatoria)** | entero 0..319 |  | Esquina superior izquierda, X (px). |
+| `y` **(obligatoria)** | entero 0..169 |  | Esquina superior izquierda, Y (px). |
+| `width` | entero 40..320 | `320` | Ancho (px). |
+| `height` | entero 30..170 | `170` | Alto (px). |
+| `frame` | bool | `true` | Marco exterior alrededor del historial. |
+| `ramCapacity` | entero 16..128 | `64` | Capacidad del buffer en RAM. |
+| `enableFram` | bool | `true` | Persistencia de los últimos 16 eventos en FRAM ante corte de luz. |
+| `enableSd` | bool | `true` | Exportación no bloqueante a microSD. |
+| `sdFileName` | texto | `"/EVENTOS.CSV"` | Nombre del archivo CSV en microSD. |
+| `descriptors` | arreglo | `[]` | Descriptores de eventos conocidos del proyecto. |
 
 ### `RAW_TEXT`
 

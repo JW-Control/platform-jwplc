@@ -1,25 +1,15 @@
 // Biblioteca de iconos con estado del HMI Designer (Alpha16): fuente.
-//
-// Cada icono se dibuja en una cuadrícula de 100 x 100 (raster.cjs) con roles de
-// una letra; cada estado da un color RGB565 a cada rol. Los estados que sólo
-// cambian colores comparten la imagen (en flash se guarda una vez).
-// draw(g, estado) puede dibujar distinto por estado (nivel del tanque, aguja).
-//
-// Tras editar: node tools/jwplc-hmi-designer/icons/build-catalog.cjs
-// (regenera poc/designer-icon-catalog.js y la hoja icons/catalogo.png).
 'use strict';
 
-// Colores RGB565 de referencia.
 const C = {
   white: 0xFFFF, light: 0xC618, mid: 0x8410, gray: 0x632C, dark: 0x4208, darker: 0x2124, black: 0x0000,
   green: 0x07E0, greenDim: 0x0320, greenHi: 0xAFF5,
   red: 0xF800, redDim: 0x6000, redHi: 0xFDB6,
   yellow: 0xFFE0, yellowDim: 0x6300, yellowHi: 0xFFF6,
   amber: 0xFD20, orange: 0xFC00,
-  blue: 0x041F, water: 0x2D7F, cyan: 0x07FF, steel: 0x9CF3
+  blue: 0x041F, blueDim: 0x0110, water: 0x2D7F, cyan: 0x07FF, cyanHi: 0xCFFF, steel: 0x9CF3
 };
 
-// Estados típicos de un equipo con marcha/falla.
 const RUN3 = [
   { name: 'Parado', colors: { S: C.gray } },
   { name: 'En marcha', colors: { S: C.green } },
@@ -41,14 +31,117 @@ const CATEGORIES = [
   { id: 'botones', name: 'Botones y selectores' }
 ];
 
+function drawBalizaTiers(g, tiers = 4) {
+  // Base y mástil inferior
+  g.rect('M', 45, 80, 10, 14);
+  g.rect('O', 32, 94, 36, 6, 2);
+  g.rect('O', 32, 80, 36, 3);
+
+  // Piso 1: Verde (y = 64..80)
+  g.rect('G', 34, 64, 32, 16, 2);
+  if (tiers === 1) {
+    g.rect('O', 30, 59, 40, 5, 2);
+    return;
+  }
+  g.rect('O', 32, 62, 36, 3);
+
+  // Piso 2: Ámbar (y = 46..62)
+  g.rect('Y', 34, 46, 32, 16, 2);
+  if (tiers === 2) {
+    g.rect('O', 30, 41, 40, 5, 2);
+    return;
+  }
+  g.rect('O', 32, 44, 36, 3);
+
+  // Piso 3: Rojo (y = 28..44)
+  g.rect('R', 34, 28, 32, 16, 2);
+  if (tiers === 3) {
+    g.rect('O', 30, 23, 40, 5, 2);
+    return;
+  }
+  g.rect('O', 32, 26, 36, 3);
+
+  // Piso 4: Azul (y = 10..26)
+  g.rect('B', 34, 10, 32, 16, 2);
+  g.rect('O', 30, 6, 40, 5, 2);
+}
+
 const ICONS = [
   // ------------------------------------------------------------- Motores
   {
-    id: 'motores/motor', name: 'Motor', category: 'motores', sizes: [24, 32, 48, 64],
-    states: withColors(RUN3, { O: C.light, T: C.black }),
-    draw(g) {
-      g.disc('O', 'S', 50, 50, 46);
-      g.polyline('T', [[29, 70], [29, 31], [50, 56], [71, 31], [71, 70]], Math.max(g.px(2), 9));
+    id: 'motores/motor', name: 'Motor trifásico', category: 'motores', sizes: [24, 32, 48, 64],
+    states: [
+      { name: 'Parado', colors: { O: C.darker, S: C.gray, F: C.light, T: C.dark, C: C.darker, W: C.white, K: C.black } },
+      { name: 'En marcha', intervalMs: 120, frameCount: 4, colors: { O: C.darker, S: C.green, F: C.greenHi, T: C.dark, C: C.darker, W: C.white, K: C.black } },
+      { name: 'Falla', colors: { O: C.darker, S: C.red, F: C.redHi, T: C.dark, C: C.darker, W: C.white, K: C.black } }
+    ],
+    draw(g, st, f = 0) {
+      // Patas de montaje inferiores (B3)
+      g.box('O', 'T', 20, 78, 16, 12, 1);
+      g.box('O', 'T', 56, 78, 16, 12, 1);
+      g.circle('K', 28, 84, 2);
+      g.circle('K', 64, 84, 2);
+
+      // Carcasa cilíndrica del estator con aletas
+      g.box('O', 'S', 22, 32, 50, 46, 2);
+      [42, 52, 62, 72].forEach((y) => g.line('F', 23, y, 71, y, Math.max(g.px(1), 3)));
+
+      // Caja de bornes superior
+      g.box('O', 'T', 34, 16, 26, 16, 2);
+      g.line('F', 36, 24, 58, 24, Math.max(g.px(1), 2));
+
+      // Tapa trasera y ventilador (izquierda)
+      g.box('O', 'C', 8, 34, 14, 42, 3);
+      const fanOffset = (st === 1 ? f * 45 : 0);
+      const fanBlade = [[15, 55], [11, 46], [19, 44]];
+      [0, 90, 180, 270].forEach((deg) => g.poly('F', g.rotate(fanBlade, 15, 55, deg + fanOffset)));
+      g.circle('K', 15, 55, 3);
+
+      // Tapa delantera (derecha)
+      g.rect('O', 72, 36, 6, 38, 1);
+
+      // Eje de transmisión frontal
+      g.box('O', 'W', 78, 48, 16, 14, 1);
+      const keyY = (st === 1) ? [49, 53, 58, 53][f % 4] : 51;
+      const keyCol = (st === 1 && f % 2 === 1) ? 'F' : 'K';
+      g.line(keyCol, 80, keyY, 92, keyY, Math.max(g.px(1), 3));
+    }
+  },
+  {
+    id: 'motores/motorreductor', name: 'Motorreductor', category: 'motores', sizes: [24, 32, 48, 64],
+    states: [
+      { name: 'Parado', colors: { O: C.darker, S: C.gray, F: C.light, T: C.dark, G: C.darker, W: C.white, K: C.black } },
+      { name: 'En marcha', intervalMs: 130, frameCount: 4, colors: { O: C.darker, S: C.green, F: C.greenHi, T: C.dark, G: C.darker, W: C.white, K: C.black } },
+      { name: 'Falla', colors: { O: C.darker, S: C.red, F: C.redHi, T: C.dark, G: C.darker, W: C.white, K: C.black } }
+    ],
+    draw(g, st, f = 0) {
+      // Motor a la izquierda
+      g.box('O', 'S', 12, 34, 34, 42, 2);
+      [42, 50, 58, 66].forEach((y) => g.line('F', 13, y, 45, y, Math.max(g.px(1), 2)));
+      g.box('O', 'T', 20, 20, 20, 14, 2);
+      g.box('O', 'T', 4, 36, 8, 38, 2);
+
+      // Ventilador motor
+      const fanOffset = (st === 1 ? f * 45 : 0);
+      const fanBlade = [[8, 55], [5, 48], [11, 46]];
+      [0, 120, 240].forEach((deg) => g.poly('F', g.rotate(fanBlade, 8, 55, deg + fanOffset)));
+      g.box('O', 'T', 10, 76, 14, 10, 1);
+
+      // Caja reductora robusta a la derecha
+      g.box('O', 'G', 46, 26, 36, 52, 4);
+      g.line('F', 48, 36, 80, 36, Math.max(g.px(1), 2));
+      g.box('O', 'T', 68, 78, 14, 10, 1);
+
+      // Visor de nivel de aceite
+      g.circle('W', 54, 66, 4);
+      g.circle('K', 54, 66, 2);
+
+      // Eje macizo de salida
+      g.disc('O', 'W', 70, 48, 12);
+      const slowDeg = (st === 1 ? f * 90 : 0);
+      const keyPts = g.rotate([[70, 48], [70, 38]], 70, 48, slowDeg);
+      g.line('K', keyPts[0][0], keyPts[0][1], keyPts[1][0], keyPts[1][1], Math.max(g.px(1), 3));
+      g.circle('K', 70, 48, 4);
     }
   },
   {
@@ -61,7 +154,6 @@ const ICONS = [
     draw(g, st) {
       g.disc('O', 'S', 50, 56, 40);
       g.polyline('T', [[33, 73], [33, 41], [50, 61], [67, 41], [67, 73]], Math.max(g.px(2), 8));
-      // Flecha del sentido en la franja superior.
       const w = Math.max(g.px(2), 7);
       if (st === 1) { g.line('A', 22, 8, 74, 8, w); g.poly('A', [[70, 0], [90, 8], [70, 16]]); }
       if (st === 2) { g.line('A', 26, 8, 78, 8, w); g.poly('A', [[30, 0], [10, 8], [30, 16]]); }
@@ -70,77 +162,120 @@ const ICONS = [
   // ------------------------------------------------------------- Bombas y ventiladores
   {
     id: 'bombas/bomba', name: 'Bomba', category: 'bombas', sizes: [24, 32, 48, 64],
-    states: withColors(RUN3, { O: C.light, T: C.black }),
-    draw(g) {
-      g.disc('O', 'S', 50, 50, 46);
-      g.poly('T', [[30, 22], [30, 78], [84, 50]]);
+    states: [
+      { name: 'Parado', colors: { O: C.light, S: C.gray, B: C.darker, I: C.dark } },
+      { name: 'En marcha', intervalMs: 120, frameCount: 3, colors: { O: C.light, S: C.green, B: C.darker, I: C.white } },
+      { name: 'Falla', colors: { O: C.light, S: C.red, B: C.darker, I: C.redHi } }
+    ],
+    draw(g, st, f = 0) {
+      g.box('O', 'B', 20, 88, 60, 10, 2);
+      g.rect('O', 58, 6, 26, 10, 2);
+      g.rect('B', 62, 16, 18, 16);
+      g.line('O', 62, 16, 62, 32, Math.max(g.px(1), g.o));
+      g.line('O', 80, 16, 80, 32, Math.max(g.px(1), g.o));
+      g.disc('O', 'S', 46, 52, 36);
+      g.disc('O', 'B', 46, 52, 18);
+      const offset = (st === 1 ? f * 40 : 0);
+      const blade = [[46, 52], [42, 40], [50, 38]];
+      [0, 120, 240].forEach((deg) => g.poly('I', g.rotate(blade, 46, 52, deg + offset)));
+      g.circle('O', 46, 52, 5);
     }
   },
   {
     id: 'bombas/ventilador', name: 'Ventilador', category: 'bombas', sizes: [24, 32, 48, 64],
-    states: withColors(RUN3, { O: C.light, B: C.darker }),
-    draw(g) {
+    states: [
+      { name: 'Parado', colors: { O: C.light, B: C.darker, S: C.gray } },
+      { name: 'En marcha', intervalMs: 90, frameCount: 3, colors: { O: C.light, B: C.darker, S: C.green } },
+      { name: 'Falla', colors: { O: C.light, B: C.darker, S: C.red } }
+    ],
+    draw(g, st, f = 0) {
       g.disc('O', 'B', 50, 50, 46);
       const blade = [[50, 50], [40, 30], [46, 12], [60, 14], [62, 34]];
-      [0, 120, 240].forEach((deg) => g.poly('S', g.rotate(blade, 50, 50, deg)));
+      const offset = (st === 1 ? f * 40 : 0);
+      [0, 120, 240].forEach((deg) => g.poly('S', g.rotate(blade, 50, 50, deg + offset)));
       g.circle('O', 50, 50, 9);
     }
   },
   {
     id: 'bombas/compresor', name: 'Compresor', category: 'bombas', sizes: [24, 32, 48],
-    states: withColors(RUN3, { O: C.light, T: C.black }),
+    states: [
+      { name: 'Parado', colors: { O: C.light, S: C.gray, B: C.darker, M: C.white, N: C.black } },
+      { name: 'En marcha', colors: { O: C.light, S: C.green, B: C.darker, M: C.white, N: C.black } },
+      { name: 'Falla', colors: { O: C.light, S: C.red, B: C.darker, M: C.white, N: C.black } }
+    ],
     draw(g) {
-      g.disc('O', 'S', 50, 50, 46);
-      const w = Math.max(g.px(2), 8);
-      g.line('T', 14, 28, 86, 40, w);
-      g.line('T', 14, 72, 86, 60, w);
+      g.box('O', 'B', 16, 86, 68, 11, 2);
+      g.box('O', 'S', 22, 32, 56, 54, 4);
+      const w = Math.max(g.px(1), 4);
+      [44, 54, 64, 74].forEach((y) => g.line('B', 14, y, 86, y, w));
+      g.box('O', 'B', 28, 16, 44, 16, 3);
+      g.disc('O', 'M', 72, 16, 12);
+      g.line('N', 72, 16, 78, 12, Math.max(g.px(1), 3));
     }
   },
   // ------------------------------------------------------------- Pilotos y señales
   {
-    id: 'pilotos/piloto', name: 'Piloto', category: 'pilotos', sizes: [24, 32, 48],
+    id: 'pilotos/piloto', name: 'Piloto luminoso', category: 'pilotos', sizes: [24, 32, 48],
     states: [
-      { name: 'Apagado', colors: { O: C.light, B: C.darker, S: C.dark, H: C.mid } },
-      { name: 'Verde', colors: { O: C.light, B: C.darker, S: C.green, H: C.greenHi } },
-      { name: 'Amarillo', colors: { O: C.light, B: C.darker, S: C.yellow, H: C.yellowHi } },
-      { name: 'Rojo', colors: { O: C.light, B: C.darker, S: C.red, H: C.redHi } }
+      { name: 'Apagado', colors: { W: C.white, M: C.light, D: C.dark, S: C.darker, L: C.dark, H: C.mid } },
+      { name: 'Encendido', colors: { W: C.white, M: C.light, D: C.dark, S: C.darker, L: C.green, H: C.greenHi } }
     ],
     draw(g) {
-      g.disc('O', 'B', 50, 50, 47);
-      g.circle('S', 50, 50, 34);
-      g.circle('H', 38, 38, 9);
+      g.circle('M', 50, 50, 48);
+      g.arc('W', 50, 50, 48, Math.max(g.px(2), 8), 210, 330);
+      g.arc('D', 50, 50, 48, Math.max(g.px(2), 8), 30, 150);
+      g.circle('S', 50, 50, 36);
+      g.circle('L', 50, 50, 30);
+      g.circle('H', 40, 40, 8);
     }
   },
   {
     id: 'pilotos/baliza', name: 'Torre de señalización', category: 'pilotos', sizes: [24, 32, 48],
     states: [
-      { name: 'Apagada', colors: { O: C.light, R: C.redDim, Y: C.yellowDim, G: C.greenDim, B: C.dark } },
-      { name: 'Verde', colors: { O: C.light, R: C.redDim, Y: C.yellowDim, G: C.green, B: C.dark } },
-      { name: 'Amarilla', colors: { O: C.light, R: C.redDim, Y: C.yellow, G: C.greenDim, B: C.dark } },
-      { name: 'Roja', colors: { O: C.light, R: C.red, Y: C.yellowDim, G: C.greenDim, B: C.dark } }
+      { name: 'Apagada', colors: { O: C.light, M: C.darker, B: C.blueDim, R: C.redDim, Y: C.yellowDim, G: C.greenDim } },
+      { name: 'Verde', colors: { O: C.light, M: C.darker, B: C.blueDim, R: C.redDim, Y: C.yellowDim, G: C.green } },
+      { name: 'Ámbar', colors: { O: C.light, M: C.darker, B: C.blueDim, R: C.redDim, Y: C.amber, G: C.greenDim } },
+      { name: 'Ámbar+Verde', colors: { O: C.light, M: C.darker, B: C.blueDim, R: C.redDim, Y: C.amber, G: C.green } },
+      { name: 'Rojo', colors: { O: C.light, M: C.darker, B: C.blueDim, R: C.red, Y: C.yellowDim, G: C.greenDim } },
+      { name: 'Rojo+Verde', colors: { O: C.light, M: C.darker, B: C.blueDim, R: C.red, Y: C.yellowDim, G: C.green } },
+      { name: 'Rojo+Ámbar', colors: { O: C.light, M: C.darker, B: C.blueDim, R: C.red, Y: C.amber, G: C.greenDim } },
+      { name: 'Rojo+Ámbar+Verde', colors: { O: C.light, M: C.darker, B: C.blueDim, R: C.red, Y: C.amber, G: C.green } },
+      { name: 'Azul', colors: { O: C.light, M: C.darker, B: C.cyan, R: C.redDim, Y: C.yellowDim, G: C.greenDim } },
+      { name: 'Azul+Verde', colors: { O: C.light, M: C.darker, B: C.cyan, R: C.redDim, Y: C.yellowDim, G: C.green } },
+      { name: 'Azul+Ámbar', colors: { O: C.light, M: C.darker, B: C.cyan, R: C.redDim, Y: C.amber, G: C.greenDim } },
+      { name: 'Azul+Ámbar+Verde', colors: { O: C.light, M: C.darker, B: C.cyan, R: C.redDim, Y: C.amber, G: C.green } },
+      { name: 'Azul+Rojo', colors: { O: C.light, M: C.darker, B: C.cyan, R: C.red, Y: C.yellowDim, G: C.greenDim } },
+      { name: 'Azul+Rojo+Verde', colors: { O: C.light, M: C.darker, B: C.cyan, R: C.red, Y: C.yellowDim, G: C.green } },
+      { name: 'Azul+Rojo+Ámbar', colors: { O: C.light, M: C.darker, B: C.cyan, R: C.red, Y: C.amber, G: C.greenDim } },
+      { name: 'Azul+Rojo+Ámbar+Verde', colors: { O: C.light, M: C.darker, B: C.cyan, R: C.red, Y: C.amber, G: C.green } }
     ],
     draw(g) {
-      g.rect('O', 28, 2, 44, 78, 10);
-      g.rect('R', 28 + g.o, 2 + g.o, 44 - 2 * g.o, 25 - g.o, Math.max(0, 10 - g.o));
-      g.rect('Y', 28 + g.o, 28, 44 - 2 * g.o, 24);
-      g.rect('G', 28 + g.o, 53, 44 - 2 * g.o, 27 - g.o);
-      g.rect('B', 36, 80, 28, 10);
-      g.rect('O', 24, 90, 52, 9);
-    }
+      drawBalizaTiers(g, 4);
+    },
+    extraDraws: [
+      (g) => drawBalizaTiers(g, 1),
+      (g) => drawBalizaTiers(g, 2),
+      (g) => drawBalizaTiers(g, 3),
+      (g) => drawBalizaTiers(g, 4)
+    ]
   },
   // ------------------------------------------------------------- Válvulas
   {
     id: 'valvulas/valvula', name: 'Válvula', category: 'valvulas', sizes: [24, 32, 48, 64],
     states: [
-      { name: 'Cerrada', colors: { O: C.light, S: C.gray } },
-      { name: 'Abierta', colors: { O: C.light, S: C.green } },
-      { name: 'Falla', colors: { O: C.light, S: C.red } }
+      { name: 'Cerrada', colors: { O: C.light, S: C.gray, B: C.darker } },
+      { name: 'Abierta', colors: { O: C.light, S: C.green, B: C.darker } },
+      { name: 'Falla', colors: { O: C.light, S: C.red, B: C.darker } }
     ],
     draw(g) {
-      g.shape('O', 'S', [[6, 30], [50, 56], [6, 82]]);
-      g.shape('O', 'S', [[94, 30], [50, 56], [94, 82]]);
-      g.line('O', 50, 56, 50, 16, Math.max(g.px(1), g.o * 1.5));
-      g.rect('O', 30, 10, 40, Math.max(g.px(2), 8));
+      g.rect('O', 6, 36, 12, 42, 2);
+      g.rect('O', 82, 36, 12, 42, 2);
+      g.shape('O', 'S', [[18, 40], [50, 57], [18, 74]]);
+      g.shape('O', 'S', [[82, 40], [50, 57], [82, 74]]);
+      g.disc('O', 'B', 50, 57, 10);
+      g.line('O', 50, 48, 50, 18, Math.max(g.px(2), g.o * 2));
+      g.rect('O', 26, 12, 48, Math.max(g.px(2), 7), 3);
+      g.line('O', 38, 15, 62, 15, Math.max(g.px(1), 3));
     }
   },
   {
@@ -174,6 +309,54 @@ const ICONS = [
     }
   },
   // ------------------------------------------------------------- Tanques y equipos
+  {
+    id: 'equipos/piston', name: 'Pistón neumático', category: 'equipos', sizes: [24, 32, 48, 64],
+    states: [
+      { name: 'Retraído', colors: { O: C.darker, S: C.gray, C: C.light, R: C.white, K: C.black } },
+      { name: 'En movimiento', intervalMs: 110, frameCount: 4, colors: { O: C.darker, S: C.green, C: C.light, R: C.white, K: C.black } },
+      { name: 'Extendido', colors: { O: C.darker, S: C.green, C: C.light, R: C.white, K: C.black } },
+      { name: 'Falla', colors: { O: C.darker, S: C.red, C: C.light, R: C.white, K: C.black } }
+    ],
+    draw(g, st, f = 0) {
+      g.box('O', 'S', 8, 32, 46, 36, 2);
+      g.line('C', 10, 42, 52, 42, Math.max(g.px(1), 2));
+      g.line('C', 10, 58, 52, 58, Math.max(g.px(1), 2));
+      g.box('O', 'C', 4, 28, 8, 44, 1);
+      g.rect('K', 5, 22, 6, 6);
+      g.box('O', 'C', 54, 28, 8, 44, 1);
+      g.rect('K', 55, 22, 6, 6);
+
+      const ext = (st === 0) ? 4 : (st === 2) ? 32 : (st === 3) ? 16 : (8 + f * 8);
+      g.box('O', 'R', 62, 44, ext, 12, 1);
+      const forkX = 62 + ext;
+      g.box('O', 'C', forkX, 40, 8, 20, 2);
+      g.circle('K', forkX + 4, 50, 3);
+    }
+  },
+  {
+    id: 'equipos/piston_vertical', name: 'Pistón vertical', category: 'equipos', sizes: [24, 32, 48, 64],
+    states: [
+      { name: 'Retraído', colors: { O: C.darker, S: C.gray, C: C.light, R: C.white, K: C.black } },
+      { name: 'En movimiento', intervalMs: 110, frameCount: 4, colors: { O: C.darker, S: C.green, C: C.light, R: C.white, K: C.black } },
+      { name: 'Extendido', colors: { O: C.darker, S: C.green, C: C.light, R: C.white, K: C.black } },
+      { name: 'Falla', colors: { O: C.darker, S: C.red, C: C.light, R: C.white, K: C.black } }
+    ],
+    draw(g, st, f = 0) {
+      g.box('O', 'C', 28, 88, 44, 8, 1);
+      g.rect('K', 72, 89, 6, 6);
+      g.box('O', 'S', 32, 46, 36, 42, 2);
+      g.line('C', 42, 48, 42, 86, Math.max(g.px(1), 2));
+      g.line('C', 58, 48, 58, 86, Math.max(g.px(1), 2));
+      g.box('O', 'C', 28, 38, 44, 8, 1);
+      g.rect('K', 72, 39, 6, 6);
+
+      const ext = (st === 0) ? 4 : (st === 2) ? 30 : (st === 3) ? 15 : (6 + f * 8);
+      g.box('O', 'R', 44, 38 - ext, 12, ext, 1);
+      const forkY = 38 - ext - 8;
+      g.box('O', 'C', 40, forkY, 20, 8, 2);
+      g.circle('K', 50, forkY + 4, 3);
+    }
+  },
   {
     id: 'equipos/tanque', name: 'Tanque (nivel)', category: 'equipos', sizes: [24, 32, 48, 64],
     states: [
@@ -214,16 +397,48 @@ const ICONS = [
     }
   },
   {
+    id: 'equipos/agitador', name: 'Agitador / mezclador', category: 'equipos', sizes: [24, 32, 48, 64],
+    states: [
+      { name: 'Parado', colors: { O: C.light, S: C.gray, B: C.darker } },
+      { name: 'En marcha', intervalMs: 140, frameCount: 4, colors: { O: C.light, S: C.green, B: C.darker } },
+      { name: 'Falla', colors: { O: C.light, S: C.red, B: C.darker } }
+    ],
+    draw(g, st, f = 0) {
+      g.rect('O', 28, 2, 44, 8, 2);
+      g.box('O', 'S', 34, 10, 32, 24, 3);
+      g.line('O', 50, 34, 50, 88, Math.max(g.px(2), 6));
+      const offset = (st === 1 ? f * 45 : 0);
+      const blade1 = [[50, 72], [24, 66], [26, 78]];
+      const blade2 = [[50, 72], [76, 66], [74, 78]];
+      g.poly('S', g.rotate(blade1, 50, 72, offset));
+      g.poly('S', g.rotate(blade2, 50, 72, offset));
+      const blade3 = [[50, 86], [28, 80], [30, 92]];
+      const blade4 = [[50, 86], [72, 80], [70, 92]];
+      g.poly('S', g.rotate(blade3, 50, 86, -offset));
+      g.poly('S', g.rotate(blade4, 50, 86, -offset));
+    }
+  },
+  {
     id: 'equipos/transportador', name: 'Cinta transportadora', category: 'equipos', sizes: [24, 32, 48, 64],
-    states: withColors(RUN3, { O: C.light, B: C.dark }),
-    draw(g) {
+    states: [
+      { name: 'Parado', colors: { O: C.light, S: C.gray, B: C.dark, A: C.dark } },
+      { name: 'En marcha', intervalMs: 130, frameCount: 3, colors: { O: C.light, S: C.green, B: C.dark, A: C.white } },
+      { name: 'Falla', colors: { O: C.light, S: C.red, B: C.dark, A: C.dark } }
+    ],
+    draw(g, st, f = 0) {
       g.rect('O', 14, 30, 72, Math.max(g.px(2), 8));
       g.rect('O', 14, 62, 72, Math.max(g.px(2), 8));
       g.disc('O', 'S', 18, 50, 18);
       g.disc('O', 'S', 82, 50, 18);
+      const deg = (st === 1 ? f * 45 : 0);
+      const [[x1, y1], [x2, y2]] = g.rotate([[18, 38], [18, 62]], 18, 50, deg);
+      g.line('B', x1, y1, x2, y2, Math.max(g.px(1), 3));
+      const [[x3, y3], [x4, y4]] = g.rotate([[82, 38], [82, 62]], 82, 50, deg);
+      g.line('B', x3, y3, x4, y4, Math.max(g.px(1), 3));
       g.circle('B', 18, 50, 5);
       g.circle('B', 82, 50, 5);
-      g.rect('O', 40, 16, 20, 14);
+      const packX = (st === 1 ? 32 + f * 10 : 40);
+      g.box('O', 'A', packX, 16, 20, 14, 2);
     }
   },
   // ------------------------------------------------------------- Sensores
