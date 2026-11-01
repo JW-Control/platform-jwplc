@@ -151,11 +151,21 @@
     if (painter.drawText) {
       const title = (w >= 200) ? (field.title || 'HISTORIAL DE EVENTOS') : 'HISTORIAL';
       painter.drawText(title, x0 + border + 6, y0 + border + 4, c.headerText, c.headerBackground, 1);
+      // Mismas posiciones que JWPLC_UI_EventLog.cpp; con varias páginas, el indicador
+      // NN/TT tapa la esquina y el firmware corre el contador y "SD" a su izquierda.
+      let shift = 0;
+      const pagesApi = window.JWPLCHMIPages;
+      const pageCount = window.JWPLCHMIEditor?.getPages?.()?.length || 1;
+      if (pagesApi?.indicatorRect && pageCount > 1) {
+        const r = pagesApi.indicatorRect();
+        const hx0 = x0 + border, hy0 = y0 + border, hx1 = x0 + border + w, hy1 = hy0 + HEADER_HEIGHT;
+        if (r.x < hx1 && r.x + r.w > hx0 && r.y < hy1 && r.y + r.h > hy0) shift = Math.max(0, hx1 - (r.x - 4));
+      }
       if (w >= 180) {
-        painter.drawText('01/06', x0 + border + w - (w >= 240 ? 95 : 55), y0 + border + 4, c.headerText, c.headerBackground, 1);
+        painter.drawText('01/06', x0 + border + w - (w >= 240 ? 110 : 70) - shift, y0 + border + 4, c.headerText, c.headerBackground, 1);
       }
       if (w >= 240) {
-        painter.drawText(field.enableSd ? 'SD:OK' : 'SD:--', x0 + border + w - 45, y0 + border + 4, field.enableSd ? 0x07E0 : 0x632C, c.headerBackground, 1);
+        painter.drawText(field.enableSd ? 'SD:OK' : 'SD:--', x0 + border + w - 50 - shift, y0 + border + 4, field.enableSd ? 0x07E0 : 0x632C, c.headerBackground, 1);
       }
     }
 

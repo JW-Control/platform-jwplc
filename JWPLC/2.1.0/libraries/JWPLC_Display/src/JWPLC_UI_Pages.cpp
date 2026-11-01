@@ -325,6 +325,15 @@ namespace JWPLCUIPages
         JWPLCUI::requestRefresh();
     }
 
+    bool indicatorRect(int16_t &x, int16_t &y, int16_t &w, int16_t &h)
+    {
+        x = g_indicatorX;
+        y = g_indicatorY;
+        w = INDICATOR_W;
+        h = INDICATOR_H;
+        return navigationEnabled() && g_indicatorVisible;
+    }
+
     void drawIndicator(JWPLC_TFTClass &tft)
     {
         if (!navigationEnabled() || !g_indicatorVisible || !g_indicatorDirty)

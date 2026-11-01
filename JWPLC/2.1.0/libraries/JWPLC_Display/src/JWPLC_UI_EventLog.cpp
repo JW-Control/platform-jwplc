@@ -660,12 +660,24 @@ namespace JWPLCUIEventLog
         tft.setCursor(x0 + border + 6, y0 + border + 4);
         tft.print(w >= 220 ? "HISTORIAL DE EVENTOS" : "HISTORIAL");
 
-        // Contador e indicador de SD
+        // Contador e indicador de SD. Si el indicador de página NN/TT del Display cae
+        // sobre la cabecera, se corren a su izquierda para no taparse.
+        int16_t shift = 0;
+        {
+            int16_t ix, iy, iw, ih;
+            const int16_t hx0 = x0 + border, hy0 = y0 + border, hx1 = x0 + border + w, hy1 = hy0 + HEADER_HEIGHT;
+            if (JWPLCUIPages::indicatorRect(ix, iy, iw, ih) &&
+                ix < hx1 && ix + iw > hx0 && iy < hy1 && iy + ih > hy0)
+            {
+                shift = (int16_t)(hx1 - (ix - 4));
+                if (shift < 0) shift = 0;
+            }
+        }
         if (w >= 180)
         {
             char countBuf[16];
             snprintf(countBuf, sizeof(countBuf), "%02d/%02d", (int)(g_count > 0 ? (g_selectedIndex + 1) : 0), (int)g_count);
-            tft.setCursor(x0 + border + w - (w >= 240 ? 110 : 70), y0 + border + 4);
+            tft.setCursor(x0 + border + w - (w >= 240 ? 110 : 70) - shift, y0 + border + 4);
             tft.print(countBuf);
         }
 
@@ -673,7 +685,7 @@ namespace JWPLCUIEventLog
         {
             const bool sdOk = JWPLC_SD.isReady();
             tft.setTextColor(sdOk ? 0x07E0 : 0x632C, c.headerBackground);
-            tft.setCursor(x0 + border + w - 50, y0 + border + 4);
+            tft.setCursor(x0 + border + w - 50 - shift, y0 + border + 4);
             tft.print(sdOk ? "SD:OK" : "SD:--");
         }
 
