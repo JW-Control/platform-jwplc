@@ -614,3 +614,186 @@ bool JWPLC_UIToast::draw(JWPLC_TFTClass &tft)
     }
     return false;
 }
+
+// ================================================================ tendencia
+
+void JWPLC_UITrend::begin(int16_t x, int16_t y, int16_t w, int16_t h,
+                          float minValue, float maxValue, const JWPLC_UITheme &theme)
+{
+    _x = x;
+    _y = y;
+    _w = w < 8 ? 8 : w;
+    _h = h < 8 ? 8 : (h > 250 ? 250 : h); // la altura en píxeles cabe en un uint8_t
+    _min = minValue;
+    _max = maxValue > minValue ? maxValue : minValue + 1.0f;
+    _theme = &theme;
+    _channels = 0;
+    _thresholds = 0;
+    _pos = 0;
+    _pending = 0;
+    _full = true;
+}
+
+bool JWPLC_UITrend::addChannel(uint16_t color, uint8_t *storage, size_t storageSize)
+{
+    if (_channels >= MAX_CHANNELS || storage == nullptr || storageSize < (size_t)plotWidth())
+    {
+        return false;
+    }
+    memset(storage, NO_DATA, (size_t)plotWidth());
+    _color[_channels] = color;
+    _data[_channels] = storage;
+    _last[_channels] = _min;
+    _channels++;
+    return true;
+}
+
+bool JWPLC_UITrend::addThreshold(float value, uint16_t color)
+{
+    if (_thresholds >= MAX_THRESHOLDS)
+    {
+        return false;
+    }
+    _thrPix[_thresholds] = toPixel(value);
+    _thrColor[_thresholds] = color;
+    _thresholds++;
+    _full = true;
+    return true;
+}
+
+uint8_t JWPLC_UITrend::toPixel(float v) const
+{
+    float r = (v - _min) / (_max - _min);
+    if (r < 0.0f)
+    {
+        r = 0.0f;
+    }
+    if (r > 1.0f)
+    {
+        r = 1.0f;
+    }
+    return (uint8_t)(r * (float)(plotH() - 1) + 0.5f);
+}
+
+void JWPLC_UITrend::push(const float *values)
+{
+    if (_channels == 0 || values == nullptr)
+    {
+        return;
+    }
+    const int16_t pw = plotWidth();
+    for (uint8_t c = 0; c < _channels; c++)
+    {
+        _data[c][_pos] = toPixel(values[c]);
+        _last[c] = values[c];
+        // El hueco por delante del cursor queda sin datos.
+        _data[c][(_pos + GAP) % pw] = NO_DATA;
+    }
+    _pos = (int16_t)((_pos + 1) % pw);
+    if (_pending < (uint16_t)pw)
+    {
+        _pending++;
+    }
+}
+
+float JWPLC_UITrend::lastValue(uint8_t channel) const
+{
+    return channel < _channels ? _last[channel] : 0.0f;
+}
+
+void JWPLC_UITrend::clear()
+{
+    for (uint8_t c = 0; c < _channels; c++)
+    {
+        memset(_data[c], NO_DATA, (size_t)plotWidth());
+    }
+    _pos = 0;
+    _pending = 0;
+    _full = true;
+}
+
+void JWPLC_UITrend::invalidate()
+{
+    _full = true;
+}
+
+void JWPLC_UITrend::eraseColumn(JWPLC_TFTClass &tft, int16_t col)
+{
+    const int16_t sx = (int16_t)(_x + 1 + col);
+    const int16_t top = (int16_t)(_y + 1);
+    tft.drawFastVLine(sx, top, plotH(), _theme->background);
+    if ((col & 3) == 0)
+    {
+        // Rejilla punteada en cuartos.
+        for (uint8_t k = 1; k < 4; k++)
+        {
+            tft.drawPixel(sx, (int16_t)(top + plotH() * k / 4), _theme->border);
+        }
+    }
+    for (uint8_t t = 0; t < _thresholds; t++)
+    {
+        if ((col % 6) < 3)
+        {
+            tft.drawPixel(sx, (int16_t)(top + plotH() - 1 - _thrPix[t]), _thrColor[t]);
+        }
+    }
+}
+
+void JWPLC_UITrend::drawColumn(JWPLC_TFTClass &tft, int16_t col)
+{
+    const int16_t pw = plotWidth();
+    const int16_t sx = (int16_t)(_x + 1 + col);
+    const int16_t base = (int16_t)(_y + plotH()); // fila del valor 0
+    const int16_t prevCol = (int16_t)((col + pw - 1) % pw);
+    // Del último canal al primero: el canal 0 queda encima.
+    for (int8_t c = (int8_t)(_channels - 1); c >= 0; c--)
+    {
+        const uint8_t cur = _data[c][col];
+        if (cur == NO_DATA)
+        {
+            continue;
+        }
+        uint8_t prev = _data[c][prevCol];
+        if (prev == NO_DATA)
+        {
+            prev = cur;
+        }
+        // Tramo vertical entre la muestra anterior y la actual: la curva queda
+        // continua aunque cambie rápido.
+        const uint8_t lo = prev < cur ? prev : cur;
+        const uint8_t hi = prev < cur ? cur : prev;
+        tft.drawFastVLine(sx, (int16_t)(base - hi), (int16_t)(hi - lo + 1), _color[c]);
+    }
+}
+
+void JWPLC_UITrend::draw(JWPLC_TFTClass &tft)
+{
+    const int16_t pw = plotWidth();
+    if (_full)
+    {
+        tft.drawRect(_x, _y, _w, _h, _theme->border);
+        for (int16_t col = 0; col < pw; col++)
+        {
+            eraseColumn(tft, col);
+        }
+        for (int16_t col = 0; col < pw; col++)
+        {
+            drawColumn(tft, col);
+        }
+        _full = false;
+        _pending = 0;
+        return;
+    }
+    if (_pending == 0)
+    {
+        return;
+    }
+    int16_t col = (int16_t)((_pos - _pending + pw) % pw);
+    while (_pending)
+    {
+        eraseColumn(tft, (int16_t)((col + GAP) % pw));
+        drawColumn(tft, col);
+        col = (int16_t)((col + 1) % pw);
+        _pending--;
+    }
+}

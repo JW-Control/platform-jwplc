@@ -216,3 +216,61 @@ private:
     bool _visible = false;
     bool _pendingDraw = false;
 };
+
+// ---------------------------------------------------------------- tendencia
+// Gráfica de tendencia con barrido (como un registrador): un cursor avanza de
+// izquierda a derecha y cada muestra nueva dibuja solo su columna y borra un
+// hueco por delante. Nunca se redibuja toda la gráfica por muestra.
+// La RAM de cada canal la pone la aplicación: un uint8_t por columna
+// (plotWidth() bytes).
+class JWPLC_UITrend
+{
+public:
+    static const uint8_t MAX_CHANNELS = 3;
+    static const uint8_t MAX_THRESHOLDS = 2;
+
+    void begin(int16_t x, int16_t y, int16_t w, int16_t h,
+               float minValue, float maxValue,
+               const JWPLC_UITheme &theme = JWPLC_UI_THEME_DARK);
+
+    // storage: plotWidth() bytes que el widget usa como historial del canal.
+    // El primer canal agregado se dibuja encima de los demás.
+    bool addChannel(uint16_t color, uint8_t *storage, size_t storageSize);
+    uint8_t channelCount() const { return _channels; }
+
+    // Línea horizontal punteada (umbral o consigna).
+    bool addThreshold(float value, uint16_t color);
+
+    // Agrega una muestra por canal (values[0..channelCount()-1]).
+    void push(const float *values);
+    float lastValue(uint8_t channel) const;
+
+    void clear();      // borra el historial
+    void invalidate(); // redibuja marco, rejilla e historial en el próximo draw()
+    void draw(JWPLC_TFTClass &tft);
+
+    int16_t plotWidth() const { return (int16_t)(_w - 2); }
+
+private:
+    static const uint8_t GAP = 6;     // columnas que se borran por delante
+    static const uint8_t NO_DATA = 0xFF;
+
+    uint8_t toPixel(float v) const;
+    void eraseColumn(JWPLC_TFTClass &tft, int16_t col);
+    void drawColumn(JWPLC_TFTClass &tft, int16_t col);
+    int16_t plotH() const { return (int16_t)(_h - 2); }
+
+    const JWPLC_UITheme *_theme = &JWPLC_UI_THEME_DARK;
+    int16_t _x = 0, _y = 0, _w = 0, _h = 0;
+    float _min = 0, _max = 100;
+    uint8_t _channels = 0;
+    uint16_t _color[MAX_CHANNELS] = {0};
+    uint8_t *_data[MAX_CHANNELS] = {nullptr};
+    float _last[MAX_CHANNELS] = {0};
+    uint8_t _thresholds = 0;
+    uint8_t _thrPix[MAX_THRESHOLDS] = {0};
+    uint16_t _thrColor[MAX_THRESHOLDS] = {0};
+    int16_t _pos = 0;      // próxima columna a escribir
+    uint16_t _pending = 0; // muestras sin dibujar
+    bool _full = true;
+};
