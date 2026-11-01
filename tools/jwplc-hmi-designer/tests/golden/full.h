@@ -103,7 +103,7 @@ static const JWPLC_UIField HMI_FIELDS[] =
     JWPLC_UICircularField(
         FIELD_NIVEL,
         JWPLC_UIRect(160, 40, 52, 52),
-        JWPLC_UIText("Nivel", "%"),
+        JWPLC_UIText("Nivel", nullptr),
         JWPLC_UIRange(0.0f, 100.0f),
         JWPLC_UICircularStyle(
             360,

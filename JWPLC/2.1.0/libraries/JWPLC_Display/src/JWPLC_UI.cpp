@@ -840,13 +840,23 @@ namespace
             }
         }
 
-        if (def.circularStyle.centerMode == 1) // PERCENT
+        if (def.circularStyle.centerMode == 1 || def.circularStyle.centerMode == 2) // PERCENT / VALUE
         {
-            char buf[8];
-            int pct = (int)roundf(normalized * 100.0f);
-            if (pct < 0) pct = 0;
-            if (pct > 100) pct = 100;
-            snprintf(buf, sizeof(buf), "%d%%", pct);
+            char buf[12];
+            if (def.circularStyle.centerMode == 1)
+            {
+                int pct = (int)roundf(normalized * 100.0f);
+                if (pct < 0) pct = 0;
+                if (pct > 100) pct = 100;
+                snprintf(buf, sizeof(buf), "%d%%", pct);
+            }
+            else
+            {
+                // Como el Designer: entero si no tiene decimales, si no un decimal.
+                const float v = field.barValue;
+                if (v == (float)(long)v) snprintf(buf, sizeof(buf), "%ld", (long)v);
+                else snprintf(buf, sizeof(buf), "%.1f", (double)v);
+            }
 
             uint8_t sz = def.circularStyle.centerTextSize > 0 ? def.circularStyle.centerTextSize : 1;
             int16_t tw = (int16_t)(strlen(buf) * 6 * sz);

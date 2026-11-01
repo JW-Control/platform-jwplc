@@ -158,7 +158,7 @@ Estado ON/OFF. Declara `bool`. Muestra un texto por estado o un piloto (círculo
 
 ### `BAR`
 
-Indicador de nivel: Barra lineal o Medidor circular (JWPLC_UIBarField / JWPLC_UICircularField). Declara `float`.
+Indicador de nivel: barra lineal (`barPreset: LINEAR`) o medidor circular (`barPreset: CIRCULAR`, JWPLC_UICircularField). Declara `float`.
 
 | Propiedad | Tipo / valores | Por defecto | Descripción |
 |---|---|---|---|
@@ -190,6 +190,17 @@ Indicador de nivel: Barra lineal o Medidor circular (JWPLC_UIBarField / JWPLC_UI
 | `barValue` | número | `50` | Valor de muestra en el lienzo. |
 | `barWidth` | entero 20..320 | `110` | Ancho total del campo (px). |
 | `trackColor` | color | `0x0000` | Fondo de la pista (parte vacía). |
+| `barPreset` | `"LINEAR"` · `"CIRCULAR"` · `"GRADIENT"` | `"LINEAR"` | LINEAR = barra (JWPLC_UIBarField); CIRCULAR = medidor circular (JWPLC_UICircularField, propiedades circle*). GRADIENT cae a LINEAR. |
+| `circleRadius` | entero 10..80 | `26` | CIRCULAR: radio (px); el campo ocupa 2·radio de lado. |
+| `circleThickness` | entero 2..25 | `5` | CIRCULAR: grosor del arco (px). |
+| `circleSweep` | `360` · `270` · `240` · `180` | `360` | CIRCULAR: recorrido del arco (grados). |
+| `circleDirection` | `"CW"` · `"CCW"` | `"CW"` | CIRCULAR: sentido de llenado. |
+| `circleStartAngle` | `"TOP"` · `"RIGHT"` · `"BOTTOM"` · `"LEFT"` | `"TOP"` | CIRCULAR: dónde empieza el arco. |
+| `circleStyle` | `"CONTINUOUS"` · `"SEGMENTED"` | `"CONTINUOUS"` | CIRCULAR: arco continuo o por segmentos. |
+| `circleCenterMode` | `"NONE"` · `"PERCENT"` · `"VALUE"` | `"PERCENT"` | CIRCULAR: texto del centro (nada, porcentaje o valor). |
+| `circleTextSize` | entero 1..4 | `1` | CIRCULAR: escala del texto del centro. |
+| `circleTextColor` | color | `0xFFFF` | CIRCULAR: color del texto del centro. |
+| `circleTrackColor` | color | `0x0000` | CIRCULAR: color de la parte vacía del arco. |
 
 ### `ICON`
 

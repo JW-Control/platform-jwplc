@@ -19,7 +19,8 @@
   }
 
   function allFields() {
-    return (editor()?.getAllFields?.() || []).filter((field) => field.type !== 'NAV_BAR' && field.type !== 'MENU');
+    // MENU y EVENT_LOG los genera su propio módulo (no son campos JWPLC_UIField).
+    return (editor()?.getAllFields?.() || []).filter((field) => field.type !== 'NAV_BAR' && field.type !== 'MENU' && field.type !== 'EVENT_LOG');
   }
 
   function pages() {

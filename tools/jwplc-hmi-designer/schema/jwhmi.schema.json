@@ -1073,7 +1073,7 @@
                 "default": 1
               },
               "barPreset": {
-                "description": "Sólo LINEAR (el resto cae a LINEAR).",
+                "description": "LINEAR = barra (JWPLC_UIBarField); CIRCULAR = medidor circular (JWPLC_UICircularField, propiedades circle*). GRADIENT cae a LINEAR.",
                 "enum": [
                   "LINEAR",
                   "CIRCULAR",
@@ -1179,57 +1179,83 @@
                 "default": 2016
               },
               "circleRadius": {
-                "description": "Sin uso (circular).",
-                "type": "number",
+                "description": "CIRCULAR: radio (px); el campo ocupa 2·radio de lado.",
+                "type": "integer",
+                "minimum": 10,
+                "maximum": 80,
                 "default": 26
               },
               "circleThickness": {
-                "description": "Sin uso.",
-                "type": "number",
+                "description": "CIRCULAR: grosor del arco (px).",
+                "type": "integer",
+                "minimum": 2,
+                "maximum": 25,
                 "default": 5
               },
               "circleSweep": {
-                "description": "Sin uso.",
-                "type": "number",
+                "description": "CIRCULAR: recorrido del arco (grados).",
+                "enum": [
+                  360,
+                  270,
+                  240,
+                  180
+                ],
                 "default": 360
               },
               "circleDirection": {
-                "description": "Sin uso.",
-                "type": "string",
+                "description": "CIRCULAR: sentido de llenado.",
+                "enum": [
+                  "CW",
+                  "CCW"
+                ],
                 "default": "CW"
               },
               "circleStartAngle": {
-                "description": "Sin uso.",
-                "type": "string",
+                "description": "CIRCULAR: dónde empieza el arco.",
+                "enum": [
+                  "TOP",
+                  "RIGHT",
+                  "BOTTOM",
+                  "LEFT"
+                ],
                 "default": "TOP"
               },
               "circleStyle": {
-                "description": "Sin uso.",
-                "type": "string",
+                "description": "CIRCULAR: arco continuo o por segmentos.",
+                "enum": [
+                  "CONTINUOUS",
+                  "SEGMENTED"
+                ],
                 "default": "CONTINUOUS"
               },
               "circleCenterMode": {
-                "description": "Sin uso.",
-                "type": "string",
+                "description": "CIRCULAR: texto del centro (nada, porcentaje o valor).",
+                "enum": [
+                  "NONE",
+                  "PERCENT",
+                  "VALUE"
+                ],
                 "default": "PERCENT"
               },
               "circleColorMode": {
-                "description": "Sin uso.",
+                "description": "Sólo SOLID.",
                 "type": "string",
                 "default": "SOLID"
               },
               "circleShowPercent": {
-                "description": "Sin uso.",
+                "description": "Proyectos anteriores (hoy circleCenterMode).",
                 "type": "boolean",
                 "default": true
               },
               "circleTextSize": {
-                "description": "Sin uso.",
-                "type": "number",
+                "description": "CIRCULAR: escala del texto del centro.",
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 4,
                 "default": 1
               },
               "circleTextColor": {
-                "description": "Sin uso. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "description": "CIRCULAR: color del texto del centro. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
                 "oneOf": [
                   {
                     "type": "integer",
@@ -1244,7 +1270,7 @@
                 "default": 65535
               },
               "circleTrackColor": {
-                "description": "Sin uso. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "description": "CIRCULAR: color de la parte vacía del arco. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
                 "oneOf": [
                   {
                     "type": "integer",

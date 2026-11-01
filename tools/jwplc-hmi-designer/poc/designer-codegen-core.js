@@ -168,7 +168,7 @@
         `    JWPLC_UICircularField(\n` +
         `        ${id},\n` +
         `        ${rect},\n` +
-        `        JWPLC_UIText(${label}, ${unit}),\n` +
+        `        JWPLC_UIText(${label}, nullptr),\n` +
         `        JWPLC_UIRange(${cppFloat(field.barMin)}, ${cppFloat(field.barMax)}),\n` +
         `        JWPLC_UICircularStyle(\n` +
         `            ${sweep},\n` +
@@ -183,7 +183,7 @@
         `            ${centerTextSize},\n` +
         `            ${centerTextColor}),\n` +
         `        ${field.page || 0},\n` +
-        `        ${colorsBlock(field.labelColor, field.valueColor, field.circleTrackColor || field.trackColor || field.backgroundColor, field.frameColor)})`;
+        `        ${colorsBlock(field.labelColor, field.valueColor, field.backgroundColor, field.frameColor)})`;
     }
 
     const isGrad = (field.barFillMode === 'GRADIENT' || field.barPreset === 'GRADIENT');
