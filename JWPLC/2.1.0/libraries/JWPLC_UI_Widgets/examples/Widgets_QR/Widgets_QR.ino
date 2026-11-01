@@ -1,15 +1,18 @@
 /*
   JWPLC Basic - Widgets_QR
 
-  Código QR generado en el equipo con JWPLC_UIQR (sin librerías externas).
-  Muestra dos códigos: el de vinculación del celular (enlace con el número
-  de equipo y un código de 6 dígitos) y el de la red Wi-Fi del equipo.
+  Vinculación del celular con JWPLC_UIQR, como en la maqueta del Runtime
+  (vista «Conectar celular»):
 
-  Uso: OK sale de IDLE. En la pantalla, ◄ ► cambian de código y ESC vuelve
-  a IDLE.
+    - QR con la dirección del equipo y un código de 6 dígitos.
+    - El código expira a los 60 s (barra y «Expira en N s») y se renueva.
+    - ◄ ► eligen el rol con el que entra el celular: Operador o Admin.
+    - Cuando un celular pide vincularse, el equipo pide confirmación física:
+      OK acepta y ESC rechaza. Sin el botón no hay vínculo.
 
-  El QR se calcula una vez con setText() y se dibuja con draw() solo al
-  cambiar: nunca en cada ciclo.
+  En este ejemplo la solicitud del celular se simula con ▼; en una
+  aplicación real la daría el servidor web del equipo al recibir el código.
+  ESC (sin solicitud pendiente) vuelve a IDLE.
 */
 
 #include <JWPLC_UI_Widgets.h>
@@ -17,109 +20,252 @@
 static JWPLC_UITheme T = JWPLC_UI_THEME_DARK;
 static JWPLC_UIQR g_qr;
 
-static const char ID_EQUIPO[] = "JWPLC-0001";
-static const char CODIGO[] = "482913"; // en una aplicación real, uno nuevo por vinculación
+static const char DIRECCION[] = "http://192.168.1.50"; // en una aplicación real, la IP del equipo
+static const uint32_t VIGENCIA_MS = 60000;
 
-static uint8_t g_pagina = 0;
-static bool g_dibujado = false;
+enum : uint8_t
+{
+    EST_ESPERA,    // QR a la vista, esperando al celular
+    EST_SOLICITUD, // un celular envió el código: falta OK en el equipo
+    EST_VINCULADO,
+    EST_RECHAZADO
+};
+
+static uint8_t g_estado = EST_ESPERA;
+static uint8_t g_rol = 0; // 0 = Operador, 1 = Admin
+static String g_codigo;
+static uint32_t g_inicioCodigo = 0;
+static uint32_t g_inicioMensaje = 0;
+static int16_t g_barraDibujada = -1;
+static int32_t g_segundosDibujados = -1;
+static bool g_pantallaDibujada = false;
 static volatile bool g_pedirIdle = false;
 
-static void dibujarEncabezado(const char titulo[])
+// ---------------------------------------------------------------- código
+
+static void nuevoCodigo()
+{
+    // random() sirve para el ejemplo; en producción usar un número aleatorio
+    // del hardware para que el código no se pueda adivinar.
+    char c[8];
+    snprintf(c, sizeof(c), "%06ld", random(0, 1000000));
+    g_codigo = c;
+    g_inicioCodigo = millis();
+    g_qr.setText((String(DIRECCION) + "/v?c=" + g_codigo).c_str());
+    Serial.println("CODIGO " + g_codigo);
+}
+
+// ---------------------------------------------------------------- pantalla
+
+static void texto(const char t[], int16_t x, int16_t y, uint16_t color, uint16_t fondo)
+{
+    JWPLC_TFT.setFont(JWPLC_FONT_16);
+    JWPLC_TFT.setTextDatum(DATUM_TOP_LEFT);
+    JWPLC_TFT.setTextColor(color, fondo);
+    JWPLC_TFT.drawString(t, x, y);
+}
+
+static void dibujarEncabezado()
 {
     JWPLC_TFT.fillRect(0, 0, 320, 22, T.header);
     JWPLC_TFT.setFont(JWPLC_FONT_GLCD);
     JWPLC_TFT.setTextSize(2);
     JWPLC_TFT.setTextDatum(DATUM_MIDDLE_LEFT);
     JWPLC_TFT.setTextColor(T.headerText, T.header);
-    JWPLC_TFT.drawString(titulo, 8, 11);
+    JWPLC_TFT.drawString("Conectar celular", 8, 11);
+    JWPLC_TFT.setTextSize(1);
+}
+
+static void dibujarPie()
+{
+    JWPLC_TFT.fillRect(0, 158, 320, 12, T.background);
+    JWPLC_TFT.setFont(JWPLC_FONT_GLCD);
     JWPLC_TFT.setTextSize(1);
     JWPLC_TFT.setTextDatum(DATUM_TOP_LEFT);
+    JWPLC_TFT.setTextColor(T.textMuted, T.background);
+    JWPLC_TFT.drawString("ESC cancelar  <> rol:", 4, 160);
+    JWPLC_TFT.setTextColor(g_rol == 0 ? T.accent : T.textMuted, T.background);
+    JWPLC_TFT.drawString("Operador", 136, 160);
+    JWPLC_TFT.setTextColor(T.textMuted, T.background);
+    JWPLC_TFT.drawString("/", 190, 160);
+    JWPLC_TFT.setTextColor(g_rol == 1 ? T.accent : T.textMuted, T.background);
+    JWPLC_TFT.drawString("Admin", 202, 160);
 }
 
-static void texto(const char t[], int16_t y, uint16_t color)
+// Recuadro de abajo a la derecha: indicación o pedido de confirmación.
+static void dibujarRecuadro()
 {
-    JWPLC_TFT.setFont(JWPLC_FONT_16);
-    JWPLC_TFT.setTextDatum(DATUM_TOP_LEFT);
-    JWPLC_TFT.setTextColor(color, T.background);
-    JWPLC_TFT.drawString(t, 166, y);
+    uint16_t borde = T.accent;
+    String l1 = "Al conectar, confirma";
+    String l2 = "con OK en el equipo";
+    if (g_estado == EST_SOLICITUD)
+    {
+        borde = T.warn;
+        l1 = String("Pide acceso: ") + (g_rol == 0 ? "Operador" : "Admin");
+        l2 = "OK acepta  ESC rechaza";
+    }
+    else if (g_estado == EST_VINCULADO)
+    {
+        borde = T.ok;
+        l1 = "Celular vinculado";
+        l2 = String("como ") + (g_rol == 0 ? "Operador" : "Admin");
+    }
+    else if (g_estado == EST_RECHAZADO)
+    {
+        borde = T.error;
+        l1 = "Solicitud rechazada";
+        l2 = "Codigo renovado";
+    }
+    JWPLC_TFT.fillRect(150, 116, 168, 40, T.background);
+    JWPLC_TFT.fillRoundRect(150, 116, 168, 40, 5, T.surface);
+    JWPLC_TFT.drawRoundRect(150, 116, 168, 40, 5, borde);
+    texto(l1.c_str(), 158, 119, T.text, T.surface);
+    texto(l2.c_str(), 158, 137, borde, T.surface);
 }
 
-static void dibujarPagina()
+static void dibujarQRyCodigo()
 {
-    JWPLC_TFT.fillRect(0, 22, 320, 148, T.background);
-    String contenido;
-    if (g_pagina == 0)
-    {
-        dibujarEncabezado("Vincular celular");
-        contenido = String("jwplc://vincular?id=") + ID_EQUIPO + "&c=" + CODIGO;
-    }
-    else
-    {
-        dibujarEncabezado("Red Wi-Fi");
-        contenido = String("WIFI:T:WPA;S:") + ID_EQUIPO + ";P:jw12345678;;";
-    }
-
-    if (!g_qr.setText(contenido.c_str()))
-    {
-        texto("Texto muy largo", 60, T.error);
-        return;
-    }
-    Serial.println("QR v" + String(g_qr.version()) + " " + contenido);
-
-    // Escala que entra en 146 px de alto, centrado a la izquierda.
-    uint8_t escala = 146 / g_qr.drawSize(1);
+    // QR a la izquierda, centrado en el área de 146 x 134 px.
+    JWPLC_TFT.fillRect(0, 22, 148, 136, T.background);
+    uint8_t escala = 134 / g_qr.drawSize(1);
     if (escala < 1)
     {
         escala = 1;
     }
     const int16_t lado = g_qr.drawSize(escala);
-    g_qr.draw((int16_t)(80 - lado / 2), (int16_t)(24 + (146 - lado) / 2), escala);
+    g_qr.draw((int16_t)(74 - lado / 2), (int16_t)(24 + (134 - lado) / 2), escala);
 
-    if (g_pagina == 0)
-    {
-        texto("Escanee con", 34, T.text);
-        texto("el celular", 52, T.text);
-        texto("Equipo", 80, T.textMuted);
-        texto(ID_EQUIPO, 98, T.text);
-        texto("Codigo", 120, T.textMuted);
-        JWPLC_TFT.setFont(JWPLC_FONT_26);
-        JWPLC_TFT.setTextColor(T.accent, T.background);
-        JWPLC_TFT.drawString(CODIGO, 166, 138);
-    }
-    else
-    {
-        texto("Red", 34, T.textMuted);
-        texto(ID_EQUIPO, 52, T.text);
-        texto("Clave", 80, T.textMuted);
-        texto("jw12345678", 98, T.text);
-    }
+    // Código en dos grupos de 3, como en la maqueta.
+    JWPLC_TFT.fillRect(150, 66, 170, 28, T.background);
+    JWPLC_TFT.setFont(JWPLC_FONT_26);
+    JWPLC_TFT.setTextDatum(DATUM_TOP_LEFT);
+    JWPLC_TFT.setTextColor(T.accent, T.background);
+    const String grupos = g_codigo.substring(0, 3) + " " + g_codigo.substring(3);
+    JWPLC_TFT.drawString(grupos.c_str(), 150, 66);
     JWPLC_TFT.setFont(JWPLC_FONT_GLCD);
+    g_barraDibujada = -1;
+    g_segundosDibujados = -1;
 }
+
+// Barra de vigencia y «Expira en N s»: solo el tramo y el número que cambian.
+static void dibujarVigencia()
+{
+    const uint32_t pasado = millis() - g_inicioCodigo;
+    const uint32_t resta = pasado < VIGENCIA_MS ? VIGENCIA_MS - pasado : 0;
+    const int16_t ancho = 164;
+    const int16_t lleno = (int16_t)((uint32_t)ancho * resta / VIGENCIA_MS);
+    if (g_barraDibujada < 0)
+    {
+        JWPLC_TFT.fillRoundRect(150, 96, ancho + 4, 8, 3, T.surfaceAlt);
+        JWPLC_TFT.fillRect(152, 98, lleno, 4, T.accent);
+    }
+    else if (lleno < g_barraDibujada)
+    {
+        JWPLC_TFT.fillRect(152 + lleno, 98, g_barraDibujada - lleno, 4, T.surfaceAlt);
+    }
+    g_barraDibujada = lleno;
+
+    const int32_t s = (int32_t)((resta + 999) / 1000);
+    if (s != g_segundosDibujados)
+    {
+        g_segundosDibujados = s;
+        JWPLC_TFT.fillRect(150, 104, 168, 12, T.background);
+        texto(("Expira en " + String(s) + " s").c_str(), 150, 102, T.textMuted, T.background);
+    }
+}
+
+static void dibujarTodo()
+{
+    JWPLC_TFT.fillScreen(T.background);
+    dibujarEncabezado();
+    texto("Escanea con la camara", 150, 26, T.text, T.background);
+    texto(DIRECCION, 150, 42, T.textMuted, T.background);
+    dibujarQRyCodigo();
+    dibujarVigencia();
+    dibujarRecuadro();
+    dibujarPie();
+    g_pantallaDibujada = true;
+}
+
+// ---------------------------------------------------------------- USER
 
 extern "C" void jwplcUIEnter()
 {
     // Teclas pulsadas en IDLE: no deben actuar sobre esta pantalla.
     JWPLC_Display.clearPendingInput();
-    JWPLC_TFT.fillScreen(T.background);
-    g_dibujado = false;
+    g_estado = EST_ESPERA;
+    nuevoCodigo();
+    g_pantallaDibujada = false;
 }
 
 extern "C" void jwplcUIUpdate()
 {
-    if (JWPLC_Buttons.pressed(BTN_RIGHT) || JWPLC_Buttons.pressed(BTN_LEFT))
+    if (!g_pantallaDibujada)
     {
-        g_pagina = (uint8_t)(1 - g_pagina);
-        g_dibujado = false;
+        dibujarTodo();
     }
-    if (JWPLC_Buttons.pressed(BTN_ESC))
+
+    const uint32_t ahora = millis();
+    if (g_estado == EST_ESPERA)
     {
-        g_pedirIdle = true; // goIdle() se llama desde loop(), fuera del batch
+        if (JWPLC_Buttons.pressed(BTN_LEFT) || JWPLC_Buttons.pressed(BTN_RIGHT))
+        {
+            g_rol = (uint8_t)(1 - g_rol);
+            dibujarPie();
+        }
+        if (JWPLC_Buttons.pressed(BTN_DOWN)) // simula el pedido del celular
+        {
+            g_estado = EST_SOLICITUD;
+            Serial.println(String("SOLICITUD rol=") + (g_rol == 0 ? "Operador" : "Admin"));
+            dibujarRecuadro();
+        }
+        else if (JWPLC_Buttons.pressed(BTN_ESC))
+        {
+            g_pedirIdle = true; // goIdle() se llama desde loop(), fuera del batch
+        }
+        else if (ahora - g_inicioCodigo >= VIGENCIA_MS)
+        {
+            nuevoCodigo();
+            dibujarQRyCodigo();
+        }
     }
-    if (!g_dibujado)
+    else if (g_estado == EST_SOLICITUD)
     {
-        dibujarPagina();
-        g_dibujado = true;
+        // Confirmación física: solo OK en el equipo crea el vínculo.
+        if (JWPLC_Buttons.pressed(BTN_OK))
+        {
+            g_estado = EST_VINCULADO;
+            g_inicioMensaje = ahora;
+            Serial.println(String("VINCULADO rol=") + (g_rol == 0 ? "Operador" : "Admin"));
+            dibujarRecuadro();
+        }
+        else if (JWPLC_Buttons.pressed(BTN_ESC))
+        {
+            g_estado = EST_RECHAZADO;
+            g_inicioMensaje = ahora;
+            Serial.println("RECHAZADO");
+            nuevoCodigo(); // el código usado ya no sirve
+            dibujarQRyCodigo();
+            dibujarRecuadro();
+        }
+        else if (ahora - g_inicioCodigo >= VIGENCIA_MS)
+        {
+            g_estado = EST_ESPERA; // venció sin confirmar
+            nuevoCodigo();
+            dibujarQRyCodigo();
+            dibujarRecuadro();
+        }
     }
+    else if (ahora - g_inicioMensaje >= 3000)
+    {
+        // Tras el mensaje, otro código para el siguiente celular.
+        g_estado = EST_ESPERA;
+        nuevoCodigo();
+        dibujarQRyCodigo();
+        dibujarRecuadro();
+    }
+
+    dibujarVigencia();
 }
 
 extern "C" void jwplcUIExit()
