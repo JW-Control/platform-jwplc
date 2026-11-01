@@ -12,6 +12,17 @@ A16_UI1_EJEMPLO_COMPILA=PENDING  [no verificado] Arduino IDE con la placa local
 A16_UI1_FISICO=PENDING           ver checklist físico
 ```
 
+## API solo con «.» (0.2.0)
+
+Regla del propietario (01/11): desde el sketch no se usan `::`, `*` ni `&`. En la 0.2.0:
+
+- Los resultados son constantes globales: `UI_EDIT_NONE/CHANGED/ACCEPTED/CANCELLED` y `UI_DIALOG_NONE/YES/NO`.
+- `draw()` no lleva argumentos: dibuja en `JWPLC_TFT`, que es la misma pantalla que `JWPLC_Display.tft()`. El tema se copia en cada widget.
+- La lista pide sus filas a una función `void fila(uint16_t i, JWPLC_UIRow fila)` que escribe con `fila.left(...)` y `fila.right(...)` (texto o `String`).
+- `JWPLC_UITrend` reserva su historial en un bloque al recibir la primera muestra; `addChannel(color)` y `push(v1)`, `push(v1, v2)` o `push(v1, v2, v3)`.
+- `JWPLC_TFT` agrega `DATUM_TOP_LEFT` … `DATUM_BASELINE_RIGHT` (mismos valores que `JWPLC_TFTDatum`, que se conserva).
+- Los tres ejemplos (`Widgets_Parametros`, `Widgets_Tendencia`, `Display_Graficos_Sprite`) se reescribieron así. En JWPLC Sim las tres pruebas pasan con las mismas capturas de referencia, es decir, el resultado en pantalla no cambió.
+
 ## Por qué una librería aparte
 
 Los widgets viven en `JWPLC_UI_Widgets` y no dentro de `JWPLC_UI` (que está en `JWPLC_Display`) por dos motivos:
