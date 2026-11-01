@@ -115,13 +115,11 @@ namespace
 
     uint32_t currentTimestamp()
     {
-        if (JWPLC_RTC.isReady())
+        // JW_RTC no tiene isReady(): now() marca la hora como no válida si el RTC no responde.
+        JW_RTC::DateTime dt = JWPLC_RTC.now();
+        if (dt.valid)
         {
-            JW_RTC::DateTime dt = JWPLC_RTC.now();
-            if (dt.valid)
-            {
-                return JW_RTC::toUnix(dt);
-            }
+            return JW_RTC::toUnix(dt);
         }
         // Fallback: uptime en segundos con bit más significativo en 1 para indicar relativo
         return (millis() / 1000UL) | 0x80000000UL;
@@ -193,12 +191,14 @@ namespace
     // Persistencia en FRAM (últimos 16 eventos)
     void framSaveRecord(const JWPLC_UIEventRecord &rec)
     {
-        if (!g_config.enableFram || !JWPLC_FRAM.isReady())
+        if (!g_config.enableFram || JWPLC_FRAM.size() == 0)
         {
             return;
         }
 
         const uint32_t slotAddr = JWPLC_EVENT_FRAM_ADDR + 16 + ((uint32_t)g_framHeadSlot * sizeof(JWPLC_UIEventRecord));
+        // JW_FRAM::write() es de bajo nivel: WREN antes de cada escritura.
+        JWPLC_FRAM.writeEnable(true);
         JWPLC_FRAM.write(slotAddr, (const uint8_t *)&rec, sizeof(JWPLC_UIEventRecord));
 
         g_framHeadSlot = (uint8_t)((g_framHeadSlot + 1) % JWPLC_EVENT_FRAM_MAX);
@@ -209,12 +209,13 @@ namespace
         memcpy(header, &magic, 4);
         header[4] = (g_count > JWPLC_EVENT_FRAM_MAX) ? JWPLC_EVENT_FRAM_MAX : (uint8_t)g_count;
         header[5] = g_framHeadSlot;
+        JWPLC_FRAM.writeEnable(true);
         JWPLC_FRAM.write(JWPLC_EVENT_FRAM_ADDR, header, sizeof(header));
     }
 
     void framRestore()
     {
-        if (!g_config.enableFram || !JWPLC_FRAM.isReady())
+        if (!g_config.enableFram || JWPLC_FRAM.size() == 0)
         {
             return;
         }
