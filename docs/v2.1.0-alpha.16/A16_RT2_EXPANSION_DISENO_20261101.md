@@ -5,7 +5,7 @@ Estado: **aprobado por el propietario el 01/11** con las respuestas de §8; en i
 
 ```text
 A16_RT2_DISENO=PASS              aprobado 01/11 (§8)
-A16_RT2_ESCLAVO=PENDING          librería + ejemplo con un JWPLC Basic como esclavo
+A16_RT2_ESCLAVO=PASS_SIM         [ejecutado] JWPLC_Expansion 0.1.0 + Expansion_Esclavo_Basic, ver §10
 A16_RT2_MAESTRO=PENDING          Configuración > Expansión en el Runtime
 A16_RT2_SIM=PENDING              maestro y esclavo en JWPLC Sim (dos equipos en el mismo RS-485)
 A16_RT2_FISICO=PENDING           dos JWPLC Basic por RS-485
@@ -72,11 +72,11 @@ lectura.
 **Valores de fábrica** del sketch de esclavo: ID **247**, 115200, 8N1 (los del Backplane), estado seguro «todo OFF»,
 vigilancia 1 s, sin vínculo. El 247 queda reservado para módulos sin configurar; los asignados usan 1..246.
 
-**Volver a fábrica** en el esclavo: mantener ESC + OK al encenderlo y confirmar en su pantalla (en módulos sin
-pantalla, un puente o botón definido por el modelo). Cruce con `JW_MatrixButtons` (matriz 2 × 3): ESC y OK están en la
+**Volver a fábrica** en el esclavo: mantener ESC + OK durante 3 s al encenderlo (en módulos sin pantalla, un puente o
+botón definido por el modelo). Cruce con `JW_MatrixButtons` (matriz 2 × 3): ESC y OK están en la
 fila 1 (GPIO 2), así que se leen juntas sin teclas fantasma, y GPIO 2 en alto al arrancar no cambia el modo de
 arranque. **No** se usan teclas de la fila 0 (◄ ▲ ►, GPIO 12): GPIO 12 es el pin de arranque MTDI y en alto al encender
-cambia la tensión de la flash. La combinación se lee después de iniciar el escáner de la botonera y debe mantenerse 2 s.
+cambia la tensión de la flash. La combinación se lee después de iniciar el escáner de la botonera y debe mantenerse 3 s.
 
 **Agregar módulo** (Runtime del maestro, conectado solo el nuevo):
 
@@ -154,3 +154,23 @@ Además: las filas y baldosas vuelven a sprites de 4 bits (los de 16 bits no mej
   RS485_MULTINODE), con ruido inyectado (`rs485-noise`) para los fallos.
 - Física: dos JWPLC Basic; alta de módulo, barrido, desconexión (entradas a 0, aviso), estado seguro en el esclavo al
   cortar el cable, esclavo bloqueado por sketch, volver a fábrica.
+
+## 10. Esclavo en el simulador (01/11)
+
+[ejecutado] Maestro de prueba y `Expansion_Esclavo_Basic` como dos PLC en el bus RS-485 de JWPLC Sim (115200 8N1):
+
+| Prueba | Resultado |
+|---|---|
+| Identificación de fábrica (FC04 240..255 en el ID 247) | firma `JWPL`, protocolo 2, producto 1, DI/DO 8/8, estado 5 (de fábrica) |
+| Comando 5 «guardar todo» (ID 5, estado seguro Q1 ON / Q2 mantener, vigilancia 1 s, vínculo) | responde en el ID 5 con estado 1, banderas configurado + vinculado; el 247 deja de responder |
+| Clave errónea | resultado 1, nada cambia |
+| Salidas Q2+Q3 escritas cada 100 ms y luego el maestro calla | tras 1 s las salidas pasan a Q1+Q2 (`0x03`): Q1 ON, Q2 mantenida, Q3 OFF |
+| Reinicio con la misma FRAM | vuelve en el ID 5 |
+| ESC + OK mantenidas 3 s al encender | vuelve a fábrica (ID 247, sin vínculo) |
+| Sketch con `begin(3, 115200, SERIAL_8N1)` | estado 6 (bloqueado), capacidad bit 7; el comando 5 responde 3 y la configuración no cambia |
+
+## 11. Corte de imagen (tearing) en la TFT
+
+En la placa v2.0 el pin TE (FMARK) del ST7789 no tiene un GPIO libre (propietario, 01/11), así que el refresco no se puede
+sincronizar con el panel. Las filas y baldosas se suben de una sola vez desde sprites de 4 bits, que es lo que se puede
+hacer por software. Sugerencia para la próxima revisión del Top: llevar TE a un GPIO de entrada libre.
