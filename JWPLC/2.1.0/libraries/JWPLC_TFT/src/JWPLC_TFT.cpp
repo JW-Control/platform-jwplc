@@ -1,6 +1,7 @@
 #include "JWPLC_TFT.h"
 
 #include <SPI.h>
+#include <new>
 #include <TFT_eSPI.h>
 
 #include "freertos/FreeRTOS.h"
@@ -94,6 +95,8 @@ const JWPLC_TFTFont JWPLC_FONT_MONO_BOLD_24 = {1, &FreeMonoBold24pt7b};
 namespace
 {
     const JWPLC_TFTFont *g_font = &JWPLC_FONT_GLCD;
+    // 0.4.0: recorte activo. Fuera de la clase para no tocar su layout (ABI).
+    bool g_clipActive = false;
     JWPLC_TFTDatum g_datum = JWPLC_TFTDatum::TOP_LEFT;
     uint16_t g_padding = 0;
 
@@ -246,6 +249,13 @@ void JWPLC_TFTClass::endBatch()
     {
         // Una tarea ajena nunca cierra ni libera el mutex del propietario.
         return;
+    }
+
+    if (g_clipActive)
+    {
+        // El recorte vive sólo dentro del batch que lo pidió.
+        g_backend.resetViewport();
+        g_clipActive = false;
     }
 
     g_backend.endWrite();
@@ -908,4 +918,422 @@ size_t JWPLC_TFTClass::write(
 
     releaseAfterOperation();
     return written;
+}
+
+// ---------------------------------------------------------------------------
+// 0.4.0: recorte, líneas gruesas y polilíneas
+// ---------------------------------------------------------------------------
+
+bool JWPLC_TFTClass::setClipRect(
+    int16_t x,
+    int16_t y,
+    int16_t w,
+    int16_t h)
+{
+    void *const self = xTaskGetCurrentTaskHandle();
+    if (!_ready || _batchOwner.load(std::memory_order_acquire) != self)
+    {
+        // Fuera de un batch propio el recorte podría quedar activo para otra
+        // tarea (por ejemplo JWPLC_Display): se rechaza.
+        return false;
+    }
+
+    if (w <= 0 || h <= 0)
+    {
+        return false;
+    }
+
+    // vpDatum=false: las coordenadas siguen siendo de pantalla; sólo recorta.
+    g_backend.setViewport(x, y, w, h, false);
+    g_clipActive = true;
+    return true;
+}
+
+void JWPLC_TFTClass::resetClip()
+{
+    void *const self = xTaskGetCurrentTaskHandle();
+    if (_batchOwner.load(std::memory_order_acquire) != self)
+    {
+        return;
+    }
+
+    if (g_clipActive)
+    {
+        g_backend.resetViewport();
+        g_clipActive = false;
+    }
+}
+
+bool JWPLC_TFTClass::clipActive() const
+{
+    return g_clipActive;
+}
+
+bool JWPLC_TFTClass::drawWideLine(
+    int16_t x0,
+    int16_t y0,
+    int16_t x1,
+    int16_t y1,
+    uint8_t width,
+    uint16_t color,
+    uint16_t background,
+    uint32_t timeoutMs)
+{
+    if (!acquireForOperation(timeoutMs))
+    {
+        return false;
+    }
+
+    if (width <= 1)
+    {
+        g_backend.drawLine(x0, y0, x1, y1, color);
+    }
+    else
+    {
+        // Siempre con fondo explícito: el valor por defecto de TFT_eSPI
+        // (0x00FFFFFF) leería la GRAM y el bus compartido no lo garantiza.
+        g_backend.drawWideLine(
+            static_cast<float>(x0),
+            static_cast<float>(y0),
+            static_cast<float>(x1),
+            static_cast<float>(y1),
+            static_cast<float>(width),
+            color,
+            background);
+    }
+
+    releaseAfterOperation();
+    return true;
+}
+
+bool JWPLC_TFTClass::drawPolyline(
+    const int16_t *xy,
+    size_t points,
+    uint8_t width,
+    uint16_t color,
+    uint16_t background,
+    uint32_t timeoutMs)
+{
+    if (xy == nullptr || points < 2)
+    {
+        return false;
+    }
+
+    if (!acquireForOperation(timeoutMs))
+    {
+        return false;
+    }
+
+    for (size_t i = 1; i < points; ++i)
+    {
+        const int16_t ax = xy[(i - 1) * 2];
+        const int16_t ay = xy[(i - 1) * 2 + 1];
+        const int16_t bx = xy[i * 2];
+        const int16_t by = xy[i * 2 + 1];
+
+        if (width <= 1)
+        {
+            g_backend.drawLine(ax, ay, bx, by, color);
+        }
+        else
+        {
+            g_backend.drawWideLine(
+                static_cast<float>(ax),
+                static_cast<float>(ay),
+                static_cast<float>(bx),
+                static_cast<float>(by),
+                static_cast<float>(width),
+                color,
+                background);
+        }
+    }
+
+    releaseAfterOperation();
+    return true;
+}
+
+// ---------------------------------------------------------------------------
+// 0.4.0: JWPLC_TFTSprite (envoltorio de TFT_eSprite; no se expone al sketch)
+// ---------------------------------------------------------------------------
+
+namespace
+{
+    inline TFT_eSprite *spr(void *impl)
+    {
+        return static_cast<TFT_eSprite *>(impl);
+    }
+
+    void applySpriteFont(TFT_eSprite *s, const JWPLC_TFTFont &font)
+    {
+        if (font.kind == 1 && font.data != nullptr)
+        {
+            s->setFreeFont(static_cast<const GFXfont *>(font.data));
+            return;
+        }
+
+        s->setFreeFont(nullptr);
+        s->setTextFont(1);
+    }
+}
+
+JWPLC_TFTSprite::JWPLC_TFTSprite()
+    : _impl(nullptr),
+      _depth(16)
+{
+}
+
+JWPLC_TFTSprite::~JWPLC_TFTSprite()
+{
+    destroy();
+}
+
+bool JWPLC_TFTSprite::create(int16_t width, int16_t height, uint8_t colorDepth)
+{
+    destroy();
+
+    if (width <= 0 || height <= 0)
+    {
+        return false;
+    }
+
+    if (colorDepth != 16 && colorDepth != 8 && colorDepth != 4 && colorDepth != 1)
+    {
+        return false;
+    }
+
+    TFT_eSprite *s = new (std::nothrow) TFT_eSprite(&g_backend);
+    if (s == nullptr)
+    {
+        return false;
+    }
+
+    s->setColorDepth(colorDepth);
+    if (s->createSprite(width, height) == nullptr)
+    {
+        delete s;
+        return false;
+    }
+
+    applySpriteFont(s, JWPLC_FONT_GLCD);
+    s->setTextDatum(TL_DATUM);
+    _impl = s;
+    _depth = colorDepth;
+    return true;
+}
+
+void JWPLC_TFTSprite::destroy()
+{
+    if (_impl == nullptr)
+    {
+        return;
+    }
+
+    spr(_impl)->deleteSprite();
+    delete spr(_impl);
+    _impl = nullptr;
+}
+
+bool JWPLC_TFTSprite::created() const { return _impl != nullptr; }
+int16_t JWPLC_TFTSprite::width() const { return _impl ? spr(_impl)->width() : 0; }
+int16_t JWPLC_TFTSprite::height() const { return _impl ? spr(_impl)->height() : 0; }
+uint8_t JWPLC_TFTSprite::colorDepth() const { return _depth; }
+
+void JWPLC_TFTSprite::setPaletteColor(uint8_t index, uint16_t color)
+{
+    if (_impl && _depth == 4 && index < 16)
+    {
+        spr(_impl)->setPaletteColor(index, color);
+    }
+}
+
+void JWPLC_TFTSprite::fill(uint16_t color)
+{
+    if (_impl) spr(_impl)->fillSprite(color);
+}
+
+void JWPLC_TFTSprite::fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color)
+{
+    if (_impl) spr(_impl)->fillRect(x, y, w, h, color);
+}
+
+void JWPLC_TFTSprite::drawRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color)
+{
+    if (_impl) spr(_impl)->drawRect(x, y, w, h, color);
+}
+
+void JWPLC_TFTSprite::fillRoundRect(int16_t x, int16_t y, int16_t w, int16_t h, int16_t radius, uint16_t color)
+{
+    if (_impl) spr(_impl)->fillRoundRect(x, y, w, h, radius, color);
+}
+
+void JWPLC_TFTSprite::drawRoundRect(int16_t x, int16_t y, int16_t w, int16_t h, int16_t radius, uint16_t color)
+{
+    if (_impl) spr(_impl)->drawRoundRect(x, y, w, h, radius, color);
+}
+
+void JWPLC_TFTSprite::fillCircle(int16_t x, int16_t y, int16_t radius, uint16_t color)
+{
+    if (_impl) spr(_impl)->fillCircle(x, y, radius, color);
+}
+
+void JWPLC_TFTSprite::drawCircle(int16_t x, int16_t y, int16_t radius, uint16_t color)
+{
+    if (_impl) spr(_impl)->drawCircle(x, y, radius, color);
+}
+
+void JWPLC_TFTSprite::fillTriangle(int16_t x0, int16_t y0, int16_t x1, int16_t y1, int16_t x2, int16_t y2, uint16_t color)
+{
+    if (_impl) spr(_impl)->fillTriangle(x0, y0, x1, y1, x2, y2, color);
+}
+
+void JWPLC_TFTSprite::drawFastHLine(int16_t x, int16_t y, int16_t w, uint16_t color)
+{
+    if (_impl) spr(_impl)->drawFastHLine(x, y, w, color);
+}
+
+void JWPLC_TFTSprite::drawFastVLine(int16_t x, int16_t y, int16_t h, uint16_t color)
+{
+    if (_impl) spr(_impl)->drawFastVLine(x, y, h, color);
+}
+
+void JWPLC_TFTSprite::drawLine(int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint16_t color)
+{
+    if (_impl) spr(_impl)->drawLine(x0, y0, x1, y1, color);
+}
+
+void JWPLC_TFTSprite::drawWideLine(int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint8_t width, uint16_t color, uint16_t background)
+{
+    if (_impl == nullptr)
+    {
+        return;
+    }
+
+    TFT_eSprite *s = spr(_impl);
+    if (width <= 1)
+    {
+        s->drawLine(x0, y0, x1, y1, color);
+        return;
+    }
+
+    if (_depth == 4 || _depth == 1)
+    {
+        // Con índices de paleta no hay mezcla de colores: trazo sólido
+        // formado por líneas paralelas desplazadas.
+        const int16_t half = width / 2;
+        const bool mostlyHorizontal = abs(x1 - x0) >= abs(y1 - y0);
+        for (int16_t d = -half; d <= half - ((width % 2) ? 0 : 1); ++d)
+        {
+            if (mostlyHorizontal)
+            {
+                s->drawLine(x0, y0 + d, x1, y1 + d, color);
+            }
+            else
+            {
+                s->drawLine(x0 + d, y0, x1 + d, y1, color);
+            }
+        }
+        return;
+    }
+
+    s->drawWideLine(
+        static_cast<float>(x0),
+        static_cast<float>(y0),
+        static_cast<float>(x1),
+        static_cast<float>(y1),
+        static_cast<float>(width),
+        color,
+        background);
+}
+
+void JWPLC_TFTSprite::drawPixel(int16_t x, int16_t y, uint16_t color)
+{
+    if (_impl) spr(_impl)->drawPixel(x, y, color);
+}
+
+void JWPLC_TFTSprite::setFont(const JWPLC_TFTFont &font)
+{
+    if (_impl) applySpriteFont(spr(_impl), font);
+}
+
+void JWPLC_TFTSprite::setTextColor(uint16_t foreground, uint16_t background)
+{
+    if (_impl) spr(_impl)->setTextColor(foreground, background, true);
+}
+
+void JWPLC_TFTSprite::setTextColor(uint16_t foreground)
+{
+    if (_impl) spr(_impl)->setTextColor(foreground);
+}
+
+void JWPLC_TFTSprite::setTextDatum(JWPLC_TFTDatum datum)
+{
+    if (_impl) spr(_impl)->setTextDatum(static_cast<uint8_t>(datum));
+}
+
+void JWPLC_TFTSprite::setTextSize(uint8_t size)
+{
+    if (_impl) spr(_impl)->setTextSize(size == 0 ? 1 : size);
+}
+
+int16_t JWPLC_TFTSprite::drawString(const char *text, int16_t x, int16_t y)
+{
+    if (_impl == nullptr || text == nullptr)
+    {
+        return 0;
+    }
+
+    return spr(_impl)->drawString(text, x, y);
+}
+
+int16_t JWPLC_TFTSprite::textWidth(const char *text)
+{
+    if (_impl == nullptr || text == nullptr)
+    {
+        return 0;
+    }
+
+    return spr(_impl)->textWidth(text);
+}
+
+int16_t JWPLC_TFTSprite::fontHeight()
+{
+    return _impl ? spr(_impl)->fontHeight() : 0;
+}
+
+bool JWPLC_TFTSprite::push(int16_t x, int16_t y, uint32_t timeoutMs)
+{
+    if (_impl == nullptr)
+    {
+        return false;
+    }
+
+    // Mismo lock que las primitivas: si la tarea ya tiene un batch abierto
+    // el envío participa en él (y en su recorte); si no, toma y suelta el bus.
+    if (!JWPLC_TFT.acquireForOperation(timeoutMs))
+    {
+        return false;
+    }
+
+    spr(_impl)->pushSprite(x, y);
+    JWPLC_TFT.releaseAfterOperation();
+    return true;
+}
+
+bool JWPLC_TFTSprite::push(int16_t x, int16_t y, uint16_t transparent, uint32_t timeoutMs)
+{
+    if (_impl == nullptr)
+    {
+        return false;
+    }
+
+    // Mismo lock que las primitivas: si la tarea ya tiene un batch abierto
+    // el envío participa en él (y en su recorte); si no, toma y suelta el bus.
+    if (!JWPLC_TFT.acquireForOperation(timeoutMs))
+    {
+        return false;
+    }
+
+    spr(_impl)->pushSprite(x, y, transparent);
+    JWPLC_TFT.releaseAfterOperation();
+    return true;
 }
