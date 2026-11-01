@@ -6,8 +6,13 @@
 #include <atomic>
 
 #define JWPLC_TFT_VERSION_MAJOR 0
-#define JWPLC_TFT_VERSION_MINOR 3
+#define JWPLC_TFT_VERSION_MINOR 4
 #define JWPLC_TFT_VERSION_PATCH 0
+
+// 0.4.0: recorte, líneas gruesas, polilíneas y sprites (Runtime alpha.16).
+#define JWPLC_TFT_HAS_CLIP 1
+#define JWPLC_TFT_HAS_WIDE_LINE 1
+#define JWPLC_TFT_HAS_SPRITE 1
 
 enum class JWPLC_TFTPanel : uint8_t
 {
@@ -91,6 +96,8 @@ enum class JWPLC_TFTDatum : uint8_t
     BASELINE_CENTER = 10,
     BASELINE_RIGHT = 11
 };
+
+class JWPLC_TFTSprite;
 
 class JWPLC_TFTClass : public Print
 {
@@ -229,6 +236,37 @@ public:
         const uint16_t *pixels,
         uint32_t timeoutMs = 50);
 
+    // --- 0.4.0: recorte -------------------------------------------------
+    // Limita el dibujo al rectángulo dado (coordenadas de pantalla). Sólo se
+    // acepta dentro de beginBatch() de la misma tarea, y endBatch() lo quita
+    // siempre: así JWPLC_Display u otra tarea nunca heredan un recorte ajeno.
+    bool setClipRect(int16_t x, int16_t y, int16_t w, int16_t h);
+    void resetClip();
+    bool clipActive() const;
+
+    // --- 0.4.0: líneas gruesas -----------------------------------------
+    // Línea con grosor y bordes suavizados. `background` es el color sobre
+    // el que se suaviza (la TFT no se lee de vuelta).
+    bool drawWideLine(
+        int16_t x0,
+        int16_t y0,
+        int16_t x1,
+        int16_t y1,
+        uint8_t width,
+        uint16_t color,
+        uint16_t background = JWPLC_TFT_BLACK,
+        uint32_t timeoutMs = 50);
+
+    // Polilínea de `points` vértices en `xy` = {x0, y0, x1, y1, ...}. Con
+    // width <= 1 usa líneas finas; si no, drawWideLine. Un solo lock SPI.
+    bool drawPolyline(
+        const int16_t *xy,
+        size_t points,
+        uint8_t width,
+        uint16_t color,
+        uint16_t background = JWPLC_TFT_BLACK,
+        uint32_t timeoutMs = 50);
+
     void setCursor(int16_t x, int16_t y);
     int16_t cursorX() const;
     int16_t cursorY() const;
@@ -283,6 +321,9 @@ public:
     using Print::write;
 
 private:
+    // JWPLC_TFTSprite::push() comparte el lock/batch de la TFT global.
+    friend class JWPLC_TFTSprite;
+
     bool _ready;
     // NULL = sin batch. La tarea propietaria se publica de forma atomica.
     // No se expone al sketch ni cambia la API publica.
@@ -300,6 +341,72 @@ private:
     void releaseAfterOperation();
     void syncTextState();
     void syncCursorState();
+};
+
+// --- 0.4.0: sprites ------------------------------------------------------
+// Lienzo en RAM: se dibuja sin tocar el bus SPI y se envía a la TFT de una
+// vez con push(). Evita parpadeos y barridos al redibujar zonas que cambian
+// (mapa FBD, listas con scroll, tendencias).
+//
+// Profundidad de color y RAM aproximada para un área de 320x140:
+//   16 bits: RGB565 directo           ~87.5 KB  (sólo zonas pequeñas)
+//    8 bits: RGB332 (colores RGB565 convertidos)  ~43.8 KB
+//    4 bits: paleta de 16 colores (los colores son ÍNDICES 0..15)  ~21.9 KB
+//    1 bit : monocromo (0 = fondo, 1 = tinta)  ~5.5 KB
+// La memoria se reserva en create() y se libera en destroy() o al destruir
+// el objeto. Dibujar en el sprite no necesita el bus; push() sí.
+class JWPLC_TFTSprite
+{
+public:
+    JWPLC_TFTSprite();
+    ~JWPLC_TFTSprite();
+
+    JWPLC_TFTSprite(const JWPLC_TFTSprite &) = delete;
+    JWPLC_TFTSprite &operator=(const JWPLC_TFTSprite &) = delete;
+
+    bool create(int16_t width, int16_t height, uint8_t colorDepth = 16);
+    void destroy();
+    bool created() const;
+    int16_t width() const;
+    int16_t height() const;
+    uint8_t colorDepth() const;
+
+    // Sólo con colorDepth 4: asigna el color RGB565 del índice 0..15.
+    void setPaletteColor(uint8_t index, uint16_t color);
+
+    void fill(uint16_t color);
+    void fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color);
+    void drawRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color);
+    void fillRoundRect(int16_t x, int16_t y, int16_t w, int16_t h, int16_t radius, uint16_t color);
+    void drawRoundRect(int16_t x, int16_t y, int16_t w, int16_t h, int16_t radius, uint16_t color);
+    void fillCircle(int16_t x, int16_t y, int16_t radius, uint16_t color);
+    void drawCircle(int16_t x, int16_t y, int16_t radius, uint16_t color);
+    void fillTriangle(int16_t x0, int16_t y0, int16_t x1, int16_t y1, int16_t x2, int16_t y2, uint16_t color);
+    void drawFastHLine(int16_t x, int16_t y, int16_t w, uint16_t color);
+    void drawFastVLine(int16_t x, int16_t y, int16_t h, uint16_t color);
+    void drawLine(int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint16_t color);
+    // En sprites de 16 y 8 bits el borde se suaviza contra `background`; en 4
+    // y 1 bit se dibuja sin suavizado (los colores son índices).
+    void drawWideLine(int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint8_t width, uint16_t color, uint16_t background = JWPLC_TFT_BLACK);
+    void drawPixel(int16_t x, int16_t y, uint16_t color);
+
+    void setFont(const JWPLC_TFTFont &font);
+    void setTextColor(uint16_t foreground, uint16_t background);
+    void setTextColor(uint16_t foreground);   // fondo transparente
+    void setTextDatum(JWPLC_TFTDatum datum);
+    void setTextSize(uint8_t size);
+    int16_t drawString(const char *text, int16_t x, int16_t y);
+    int16_t textWidth(const char *text);
+    int16_t fontHeight();
+
+    // Envía el sprite a la TFT con su esquina en (x, y). Respeta el recorte
+    // activo. La variante con `transparent` no pinta ese color.
+    bool push(int16_t x, int16_t y, uint32_t timeoutMs = 50);
+    bool push(int16_t x, int16_t y, uint16_t transparent, uint32_t timeoutMs);
+
+private:
+    void *_impl;
+    uint8_t _depth;
 };
 
 extern JWPLC_TFTClass JWPLC_TFT;
