@@ -94,6 +94,11 @@ void popTo(Screen *s)
 
 volatile bool editing = false;
 
+void requestIdle()
+{
+    g_idleRequest = true;
+}
+
 Screen *current()
 {
     return g_depth ? g_stack[g_depth - 1] : nullptr;
@@ -654,7 +659,15 @@ extern "C" void jwplcUIEnter(void)
     g_depth = 0;
     core.admin = false;
     g_lastKey = millis();
+    releaseHMI();
+    // ◄ ► en la pantalla RUN: páginas HMI (la última o la primera); el resto, menú.
+    const bool right = JWPLC_Buttons.isDown(BTN_RIGHT);
+    const bool left = JWPLC_Buttons.isDown(BTN_LEFT);
     pushRootMenu();
+    if (hasHMI() && (right || left))
+    {
+        openHMI(right ? 0 : (uint8_t)(hmiPageCount() - 1));
+    }
 }
 
 extern "C" void jwplcUIUpdate(void)
@@ -688,12 +701,16 @@ extern "C" void jwplcUIUpdate(void)
             g_stack[d]->resume();
         }
     }
-    refreshStatusBar(false);
-    serviceFooter();
+    if (!hmiActive()) // la página HMI ocupa toda la pantalla
+    {
+        refreshStatusBar(false);
+        serviceFooter();
+    }
 }
 
 extern "C" void jwplcUIExit(void)
 {
+    releaseHMI();
     g_depth = 0;
     core.admin = false;
 }

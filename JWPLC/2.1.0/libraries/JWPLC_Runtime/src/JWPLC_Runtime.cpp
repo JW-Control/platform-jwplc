@@ -571,7 +571,7 @@ void task(void *)
         {
             JWPLC_Display.goIdle();
         }
-        else if (!JWPLC_Display.isIdleMode() && !rtui::editing && core.store.config().idleMinutes &&
+        else if (!JWPLC_Display.isIdleMode() && !rtui::editing && !rtui::hmiActive() && core.store.config().idleMinutes &&
                  millis() - rtui::lastKeyMs() > core.store.config().idleMinutes * 60000UL)
         {
             JWPLC_Display.goIdle();
@@ -692,6 +692,7 @@ bool JWPLC_RuntimeClass::begin()
     JWPLC_Display.setRunLed(false);
     JWPLC_Display.clearPendingInput();
     rtui::begin();
+    jwplcRuntimeHMISetup(); // página HMI del Designer, si el sketch la incluye
 
     g_queue = xQueueCreate(8, sizeof(QueuedCommand));
     JWPLC_writeOutputs(0);
@@ -722,6 +723,40 @@ void JWPLC_RuntimeClass::stop()
 bool JWPLC_RuntimeClass::isRunning() const
 {
     return core.mode == MODE_RUN;
+}
+
+bool JWPLC_RuntimeClass::input(uint8_t number) const
+{
+    return number >= 1 && number <= NUM_I && ((core.engine.inputs() >> (number - 1)) & 1);
+}
+
+bool JWPLC_RuntimeClass::block(uint8_t number) const
+{
+    return number >= 1 && core.engine.blockOut((uint8_t)(number - 1));
+}
+
+float JWPLC_RuntimeClass::blockSeconds(uint8_t number) const
+{
+    if (number < 1)
+    {
+        return 0.0f;
+    }
+    return core.engine.elapsedMs((uint8_t)(number - 1), millis()) / 1000.0f;
+}
+
+int32_t JWPLC_RuntimeClass::counter(uint8_t number) const
+{
+    return number >= 1 ? core.engine.count((uint8_t)(number - 1)) : 0;
+}
+
+void JWPLC_RuntimeClass::setHMI(const JWPLC_UIField fields[], uint8_t count, uint8_t pages)
+{
+    rtui::setHMI(fields, count, pages);
+}
+
+bool JWPLC_RuntimeClass::hasHMI() const
+{
+    return rtui::hasHMI();
 }
 
 bool JWPLC_RuntimeClass::output(uint8_t number) const
