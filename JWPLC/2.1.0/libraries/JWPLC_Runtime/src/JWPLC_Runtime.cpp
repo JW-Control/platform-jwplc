@@ -566,7 +566,7 @@ bool JWPLC_RuntimeClass::begin()
     logEvent(EV_POWER_ON, 0);
 
     // Pantalla: la RUN es la IDLE de siempre, con el título del Runtime.
-    JWPLCIdleScreen::setTitle("JWPLC Runtime");
+    JWPLCIdleScreen::setTitle("Runtime v" JWPLC_RUNTIME_VERSION); // cabe en el recuadro del título
     JWPLC_Display.setIdleWakeMode(IDLE_WAKE_ANY_BUTTON);
     JWPLC_Display.setIdleReturnMode(IDLE_RETURN_DISABLED); // la UI decide
     JWPLC_Display.setUserRefreshPeriodMs(40);

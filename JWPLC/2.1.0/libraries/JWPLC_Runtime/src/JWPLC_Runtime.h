@@ -22,7 +22,9 @@
 
 #define JWPLC_RUNTIME_VERSION_MAJOR 0
 #define JWPLC_RUNTIME_VERSION_MINOR 1
-#define JWPLC_RUNTIME_VERSION_PATCH 0
+#define JWPLC_RUNTIME_VERSION_PATCH 1
+// Se muestra en la pantalla RUN y en Configuración > Versión.
+#define JWPLC_RUNTIME_VERSION "0.1.1"
 
 class JWPLC_RuntimeClass
 {

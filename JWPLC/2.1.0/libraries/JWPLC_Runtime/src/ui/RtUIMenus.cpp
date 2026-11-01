@@ -1,5 +1,6 @@
 // Menú raíz (6 baldosas + INICIAR/DETENER) y submenús del Runtime.
 #include "RtUI.h"
+#include "../JWPLC_Runtime.h"
 
 #include <string.h>
 
@@ -21,60 +22,60 @@ void tileRect(uint8_t i, int16_t &x, int16_t &y)
     y = (int16_t)(BODY_Y + 2 + (i / 3) * (TILE_H + 4));
 }
 
-void drawIcon(uint8_t i, int16_t cx, int16_t cy, uint16_t c, uint16_t bg)
+// Se dibuja en el sprite de la baldosa; c es un índice de su paleta.
+void drawIcon(JWPLC_TFTSprite &g, uint8_t i, int16_t cx, int16_t cy, uint16_t c)
 {
     switch (i)
     {
     case 0: // dos bloques unidos
-        JWPLC_TFT.drawRect(cx - 14, cy - 7, 10, 14, c);
-        JWPLC_TFT.drawRect(cx + 4, cy - 7, 10, 14, c);
-        JWPLC_TFT.drawFastHLine(cx - 4, cy - 1, 8, c);
-        JWPLC_TFT.drawFastHLine(cx - 4, cy, 8, c);
+        g.drawRect(cx - 14, cy - 7, 10, 14, c);
+        g.drawRect(cx + 4, cy - 7, 10, 14, c);
+        g.drawFastHLine(cx - 4, cy - 1, 8, c);
+        g.drawFastHLine(cx - 4, cy, 8, c);
         break;
     case 1: // deslizadores
         for (int8_t k = -1; k <= 1; k++)
         {
-            JWPLC_TFT.drawFastHLine(cx - 14, cy + k * 7, 28, c);
+            g.drawFastHLine(cx - 14, cy + k * 7, 28, c);
             const int16_t kx = (int16_t)(cx + (k == 0 ? 4 : (k < 0 ? -4 : -8)));
-            JWPLC_TFT.fillRect(kx - 2, cy + k * 7 - 2, 5, 5, c);
+            g.fillRect(kx - 2, cy + k * 7 - 2, 5, 5, c);
         }
         break;
     case 2: // tarjeta SD
-        JWPLC_TFT.drawLine(cx - 8, cy - 10, cx + 4, cy - 10, c);
-        JWPLC_TFT.drawLine(cx + 4, cy - 10, cx + 9, cy - 5, c);
-        JWPLC_TFT.drawFastVLine(cx + 9, cy - 5, 16, c);
-        JWPLC_TFT.drawFastHLine(cx - 8, cy + 10, 18, c);
-        JWPLC_TFT.drawFastVLine(cx - 8, cy - 10, 21, c);
-        JWPLC_TFT.drawFastVLine(cx - 4, cy - 7, 4, c);
-        JWPLC_TFT.drawFastVLine(cx - 1, cy - 7, 4, c);
+        g.drawLine(cx - 8, cy - 10, cx + 4, cy - 10, c);
+        g.drawLine(cx + 4, cy - 10, cx + 9, cy - 5, c);
+        g.drawFastVLine(cx + 9, cy - 5, 16, c);
+        g.drawFastHLine(cx - 8, cy + 10, 18, c);
+        g.drawFastVLine(cx - 8, cy - 10, 21, c);
+        g.drawFastVLine(cx - 4, cy - 7, 4, c);
+        g.drawFastVLine(cx - 1, cy - 7, 4, c);
         break;
     case 3: // engranaje
-        JWPLC_TFT.drawCircle(cx, cy, 8, c);
-        JWPLC_TFT.drawCircle(cx, cy, 7, c);
-        JWPLC_TFT.fillCircle(cx, cy, 3, c);
-        JWPLC_TFT.fillRect(cx - 2, cy - 11, 4, 3, c);
-        JWPLC_TFT.fillRect(cx - 2, cy + 9, 4, 3, c);
-        JWPLC_TFT.fillRect(cx - 11, cy - 2, 3, 4, c);
-        JWPLC_TFT.fillRect(cx + 9, cy - 2, 3, 4, c);
+        g.drawCircle(cx, cy, 8, c);
+        g.drawCircle(cx, cy, 7, c);
+        g.fillCircle(cx, cy, 3, c);
+        g.fillRect(cx - 2, cy - 11, 4, 3, c);
+        g.fillRect(cx - 2, cy + 9, 4, 3, c);
+        g.fillRect(cx - 11, cy - 2, 3, 4, c);
+        g.fillRect(cx + 9, cy - 2, 3, 4, c);
         break;
     case 4: // red
-        JWPLC_TFT.drawRect(cx - 4, cy - 11, 9, 7, c);
-        JWPLC_TFT.drawFastVLine(cx, cy - 4, 5, c);
-        JWPLC_TFT.drawFastHLine(cx - 10, cy + 1, 21, c);
-        JWPLC_TFT.drawFastVLine(cx - 10, cy + 1, 4, c);
-        JWPLC_TFT.drawFastVLine(cx + 10, cy + 1, 4, c);
-        JWPLC_TFT.drawRect(cx - 14, cy + 5, 9, 7, c);
-        JWPLC_TFT.drawRect(cx + 6, cy + 5, 9, 7, c);
+        g.drawRect(cx - 4, cy - 11, 9, 7, c);
+        g.drawFastVLine(cx, cy - 4, 5, c);
+        g.drawFastHLine(cx - 10, cy + 1, 21, c);
+        g.drawFastVLine(cx - 10, cy + 1, 4, c);
+        g.drawFastVLine(cx + 10, cy + 1, 4, c);
+        g.drawRect(cx - 14, cy + 5, 9, 7, c);
+        g.drawRect(cx + 6, cy + 5, 9, 7, c);
         break;
     default: // pulso
-        JWPLC_TFT.drawFastHLine(cx - 14, cy, 8, c);
-        JWPLC_TFT.drawLine(cx - 6, cy, cx - 2, cy - 10, c);
-        JWPLC_TFT.drawLine(cx - 2, cy - 10, cx + 2, cy + 10, c);
-        JWPLC_TFT.drawLine(cx + 2, cy + 10, cx + 6, cy, c);
-        JWPLC_TFT.drawFastHLine(cx + 6, cy, 8, c);
+        g.drawFastHLine(cx - 14, cy, 8, c);
+        g.drawLine(cx - 6, cy, cx - 2, cy - 10, c);
+        g.drawLine(cx - 2, cy - 10, cx + 2, cy + 10, c);
+        g.drawLine(cx + 2, cy + 10, cx + 6, cy, c);
+        g.drawFastHLine(cx + 6, cy, 8, c);
         break;
     }
-    (void)bg;
 }
 
 class RootMenu : public Screen
@@ -84,25 +85,38 @@ public:
     uint8_t drawnSel = 0xFF;
     int8_t drawnMode = -1;
 
+    // La baldosa se arma en un sprite de 4 bits y se envía de una vez, para
+    // que al mover la selección no se vea el relleno antes del icono.
     void drawTile(uint8_t i, bool selected)
     {
         int16_t x, y;
         tileRect(i, x, y);
         const uint16_t bg = selected ? C_TILE_SEL : T.surface;
-        JWPLC_TFT.fillRoundRect(x, y, TILE_W, TILE_H, 5, bg);
-        JWPLC_TFT.drawRoundRect(x, y, TILE_W, TILE_H, 5, selected ? C_ON : T.border);
+        const uint16_t fg = selected ? C_ON : T.text;
+        static JWPLC_TFTSprite g;
+        if (!g.created() && !g.create(TILE_W, TILE_H, 4))
+        {
+            return; // sin memoria: la baldosa no se dibuja (no debería pasar)
+        }
+        // Paleta: 0 fondo de pantalla (esquinas), 1 baldosa, 2 borde, 3 icono y texto.
+        g.setPaletteColor(0, T.background);
+        g.setPaletteColor(1, bg);
+        g.setPaletteColor(2, selected ? C_ON : T.border);
+        g.setPaletteColor(3, fg);
+        g.fill(0);
+        g.fillRoundRect(0, 0, TILE_W, TILE_H, 5, 1);
+        g.drawRoundRect(0, 0, TILE_W, TILE_H, 5, 2);
         if (selected)
         {
-            JWPLC_TFT.drawRoundRect(x + 1, y + 1, TILE_W - 2, TILE_H - 2, 4, C_ON);
+            g.drawRoundRect(1, 1, TILE_W - 2, TILE_H - 2, 4, 2);
         }
-        const uint16_t fg = selected ? C_ON : T.text;
-        drawIcon(i, (int16_t)(x + TILE_W / 2), (int16_t)(y + 16), fg, bg);
-        JWPLC_TFT.setFont(JWPLC_FONT_16);
-        JWPLC_TFT.setTextSize(1);
-        JWPLC_TFT.setTextDatum(DATUM_TOP_CENTER);
-        JWPLC_TFT.setTextColor(fg, bg);
-        JWPLC_TFT.drawString(TILE_NAMES[i], (int16_t)(x + TILE_W / 2), (int16_t)(y + 32));
-        JWPLC_TFT.setTextDatum(DATUM_TOP_LEFT);
+        drawIcon(g, i, TILE_W / 2, 16, 3);
+        g.setFont(JWPLC_FONT_16);
+        g.setTextSize(1);
+        g.setTextDatum(DATUM_TOP_CENTER);
+        g.setTextColor(3, 1);
+        g.drawString(TILE_NAMES[i], TILE_W / 2, 32);
+        g.push(x, y);
     }
 
     void drawAction(bool selected)
@@ -687,7 +701,7 @@ void cfgRow(uint16_t i, JWPLC_UIRow r)
         r.right(">");
         break;
     default:
-        snprintf(t, sizeof(t), "Runtime %d.%d.%d", 0, 1, 0);
+        snprintf(t, sizeof(t), "Runtime %s", JWPLC_RUNTIME_VERSION);
         r.right(t);
         break;
     }
