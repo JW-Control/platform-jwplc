@@ -266,6 +266,8 @@
     const fields = (api?.getAllFields?.() || []).map((field) => {
       const copy = { ...field };
       delete copy.key;
+      // Estado de la animación del lienzo (_animFrame, _lastAnimTick): no se guarda.
+      Object.keys(copy).forEach((k) => { if (k.startsWith('_')) delete copy[k]; });
       return copy;
     });
 

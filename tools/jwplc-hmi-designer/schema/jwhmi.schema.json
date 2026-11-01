@@ -1495,6 +1495,65 @@
                 "type": "boolean",
                 "default": false
               },
+              "stateCount": {
+                "description": "Sólo `pilotos/piloto` con `uint8`: cantidad de estados (2..8).",
+                "type": "integer",
+                "minimum": 2,
+                "maximum": 8
+              },
+              "stateColors": {
+                "description": "Sólo `pilotos/piloto`: color RGB565 de cada estado (`[apagado, encendido, …]`).",
+                "type": "array"
+              },
+              "stateNames": {
+                "description": "Nombres de los estados (comentario del header y leyenda del inspector). Si falta, los del catálogo.",
+                "type": "array"
+              },
+              "bodyColor": {
+                "description": "Color del cuerpo del icono (en lugar del del catálogo). RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ]
+              },
+              "customColors": {
+                "description": "Colores por rol del icono (`{rol: color}`), en lugar de los del catálogo.",
+                "type": "object"
+              },
+              "animIntervalMs": {
+                "description": "Iconos animados: ms entre cuadros (por defecto el del catálogo).",
+                "type": "integer",
+                "minimum": 20,
+                "maximum": 2000
+              },
+              "tierCount": {
+                "description": "Sólo `pilotos/baliza`: cantidad de pisos.",
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 4
+              },
+              "tierColors": {
+                "description": "Sólo `pilotos/baliza`: color RGB565 de cada piso, de abajo arriba.",
+                "type": "array"
+              },
+              "balizaMode": {
+                "description": "Sólo `pilotos/baliza`: `bitmask` = una variable uint8_t (bit n = piso n); `independent` = una variable bool por piso.",
+                "enum": [
+                  "bitmask",
+                  "independent"
+                ]
+              },
+              "tierVariables": {
+                "description": "Sólo `pilotos/baliza` con `independent`: nombre de la variable bool de cada piso.",
+                "type": "array"
+              },
               "capacity": {
                 "description": "Uso interno.",
                 "type": "integer",

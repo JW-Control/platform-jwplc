@@ -181,10 +181,11 @@ async function main() {
 
     // Arrastrar al lienzo.
     await openMenu();
-    await page.click(`${L} [data-icons-cat="pilotos"]`);
+    // Válvula: 3 estados de catálogo (el piloto ahora tiene 2 configurables).
+    await page.click(`${L} [data-icons-cat="valvulas"]`);
     await page.click(`${L} [data-icons-pick-size="24"]`);
     const box = await page.locator('#displayCanvas').boundingBox();
-    await page.dragAndDrop(`${L} [data-icon-id="pilotos/piloto"]`, '#displayCanvas', {
+    await page.dragAndDrop(`${L} [data-icon-id="valvulas/valvula"]`, '#displayCanvas', {
       targetPosition: { x: box.width * 200 / 320, y: box.height * 100 / 170 },
       // El menú tapa el punto de destino; al arrastrar deja pasar el puntero
       // (pointer-events: none), cosa que la comprobación previa de Playwright no ve.
@@ -192,12 +193,12 @@ async function main() {
     });
     await page.waitForTimeout(200);
     list = await icons();
-    const dropped = list.find((f) => f.iconId === 'pilotos/piloto');
+    const dropped = list.find((f) => f.iconId === 'valvulas/valvula');
     check(Boolean(dropped) && Math.abs(dropped.x - 200) <= 2 && Math.abs(dropped.y - 100) <= 2, `arrastrar suelta el icono donde se suelta (${dropped?.x}, ${dropped?.y})`);
 
     console.log('INSPECTOR');
     await page.click(`${S} [data-icon-sub="content"]`);
-    await page.click(`${S} [data-icon-state="2"]`);
+    await page.click(`${S} [data-icon-states] [data-icon-state="2"]`);
     let sel = await page.evaluate(() => ({ ...window.JWPLCHMIEditor.getSelectedField() }));
     check(sel.iconState === 2, 'clic en un estado lo muestra en el lienzo');
     await page.fill(`${S} [data-icon-prop="label"]`, 'P1');
@@ -221,7 +222,7 @@ async function main() {
     check(sel.iconSize === 48 && sel.w > 48, `tamaño 48 px (recuadro ${sel.w} px con etiqueta)`);
     await page.click(`${S} [data-icon-main="data"]`);
     await page.click(`${S} [data-icon-set="iconVarType"][data-value="bool"]`);
-    check(await page.locator(`${S} [data-icon-warn]`).isVisible(), 'aviso: bool con 4 estados sólo alcanza 2');
+    check(await page.locator(`${S} [data-icon-warn]`).isVisible(), 'aviso: bool con 3 estados sólo alcanza 2');
     await page.click(`${S} [data-icon-set="iconVarType"][data-value="uint8"]`);
     check(!(await page.locator(`${S} [data-icon-warn]`).isVisible()), 'con uint8_t no hay aviso');
     await page.keyboard.press('Control+z');
@@ -236,10 +237,12 @@ async function main() {
 
     console.log('GUARDAR / ABRIR');
     const saved = await page.evaluate(() => window.JWPLCHMIProject.serialize());
-    check(saved.iconAssets && Object.keys(saved.iconAssets).includes('motores/motor@48'), 'el .jwhmi guarda iconAssets de los iconos usados');
+    // Clave 'id@tamaño:SIMBOLO' (una por apariencia); los .jwhmi anteriores usan 'id@tamaño'.
+    const motorKey = Object.keys(saved.iconAssets || {}).find((k) => k.split(':')[0] === 'motores/motor@48');
+    check(Boolean(motorKey), 'el .jwhmi guarda iconAssets de los iconos usados');
     // Un icono que ya no está en el catálogo se abre desde su copia.
     const foreign = JSON.parse(JSON.stringify(saved));
-    const asset = foreign.iconAssets['motores/motor@48'];
+    const asset = foreign.iconAssets[motorKey];
     foreign.iconAssets = { 'propio/bomba_vieja@48': { ...asset, name: 'Bomba vieja', category: 'propio' } };
     foreign.fields = [ICON({ name: 'Vieja', id: 'ICON_VIEJA', variable: 'vieja', iconId: 'propio/bomba_vieja', iconSize: 48, x: 10, y: 10, iconState: 1 })];
     const reopened = await page.evaluate(async (data) => {
@@ -248,7 +251,7 @@ async function main() {
       const f = window.JWPLCHMIEditor.getAllFields().find((x) => x.type === 'ICON');
       return { w: window.JWPLCHMIEditor.getFieldBounds(f).width, again: Object.keys(window.JWPLCHMIProject.serialize().iconAssets || {}) };
     }, foreign);
-    check(reopened.w === 48 + 3 + 3 && reopened.again.includes('propio/bomba_vieja@48'), 'icono fuera del catálogo: se dibuja y se vuelve a guardar');
+    check(reopened.w === 48 + 3 + 3 && reopened.again.some((k) => k.split(':')[0] === 'propio/bomba_vieja@48'), 'icono fuera del catálogo: se dibuja y se vuelve a guardar');
     check((await header()).includes('static const JWPLC_UIIcon HMI_ICON_PROPIO_BOMBA_VIEJA_48('), 'y se genera desde la copia');
 
     console.log('PARIDAD LIENZO (LIVE) / FIRMWARE');
@@ -262,6 +265,9 @@ async function main() {
       await P.apply(s);
       await new Promise((r) => setTimeout(r, 300));
       const E = window.JWPLCHMIEditor;
+      // Iconos animados (motor y bomba en el estado 1): el lienzo anima en vivo y el
+      // firmware de prueba dibuja el cuadro 0. Se congela la animación en el cuadro 0.
+      E.getAllFields().filter((f) => f.type === 'ICON').forEach((f) => { f._animFrame = 0; f._lastAnimTick = Infinity; });
       E.setSelectedFieldKeys([]);
       E.render();
       await new Promise((r) => setTimeout(r, 200));

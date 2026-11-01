@@ -95,10 +95,10 @@ async function main() {
     check(short.fields[0].layerOrder > short.fields[1].layerOrder, 'layerOrder por orden del arreglo (el último queda encima)');
     check(validateProject(short).errors.length === 0, 'la forma corta valida sin errores');
     const ic = normalizeProject({ pages: ['P'], fields: [
-      { type: 'icon', iconId: 'pilotos/piloto', x: 4, y: 4, iconSize: 44 },
+      { type: 'icon', iconId: 'motores/motor_dos_sentidos', x: 4, y: 4, iconSize: 44 },
       { type: 'ICON', iconId: 'alarmas/alarma', x: 60, y: 4 }
     ] }).fields;
-    check(ic[0].iconSize === 48 && ic[0].iconVarType === 'uint8' && ic[0].variable === 'icon_1' && ic[0].layout === 'STACKED', 'ICON: tamaño más cercano, uint8 con 4 estados, variable y layout por defecto');
+    check(ic[0].iconSize === 48 && ic[0].iconVarType === 'uint8' && ic[0].variable === 'icon_1' && ic[0].layout === 'STACKED', 'ICON: tamaño más cercano, uint8 con 3 estados, variable y layout por defecto');
     check(ic[1].iconSize === 32 && ic[1].iconVarType === 'bool', 'ICON de 2 estados: bool y 32 px');
 
     console.log('4. Errores típicos');
@@ -111,7 +111,7 @@ async function main() {
         { type: 'CIRCLE', x: 1, y: 1 },
         { type: 'MENU', x: 0, y: 0, nodes: [{ type: 'EDIT_BOOL', label: 'X', variable: 'x', valueType: 'float' }] },
         { type: 'ICON', id: 'ICON_A', x: 4, y: 100, iconId: 'motor' },
-        { type: 'ICON', id: 'ICON_B', x: 60, y: 100, iconId: 'pilotos/piloto', iconVarType: 'bool', iconState: 5 },
+        { type: 'ICON', id: 'ICON_B', x: 60, y: 100, iconId: 'motores/motor_dos_sentidos', iconVarType: 'bool', iconState: 5 },
         { type: 'IMAGE', x: 100, y: 100 }
       ]
     }));
@@ -126,7 +126,7 @@ async function main() {
     check(has(bad, /tipo "CIRCLE" desconocido/), 'tipo desconocido');
     check(has(bad, /tipo float no válido para EDIT_BOOL/), 'MENU: reglas del Designer');
     check(has(bad, /ICON_A\)\.iconId: icono "motor" no está en el catálogo \(¿motores\/motor\?\)/), 'ICON: icono desconocido con sugerencia por nombre');
-    check(has(bad, /ICON_B\)\.iconVarType:.*usa "uint8"/, 'warnings') && has(bad, /ICON_B\)\.iconState/, 'warnings'), 'ICON: bool con 4 estados y estado fuera de rango (avisos)');
+    check(has(bad, /ICON_B\)\.iconVarType:.*usa "uint8"/, 'warnings') && has(bad, /ICON_B\)\.iconState/, 'warnings'), 'ICON: bool con 3 estados y estado fuera de rango (avisos)');
     check(has(bad, /tipo "IMAGE" desconocido.*\(¿ICON\?\)/), 'ICON: sinónimo IMAGE -> ICON');
 
     const geo = normalizeProject({ pages: ['P'], fields: [

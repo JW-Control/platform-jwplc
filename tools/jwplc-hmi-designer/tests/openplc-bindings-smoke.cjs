@@ -152,11 +152,16 @@ async function main() {
     console.log('DATOS');
     await page.evaluate(() => { const E = window.JWPLCHMIEditor; E.setSelectedFieldKeys([E.getAllFields().find((f) => f.type === 'VALUE').key]); });
     await page.waitForTimeout(700);
-    const data = await page.evaluate(() => ({
-      tabs: [...document.querySelectorAll('#fieldInspectorV2 [data-insp-main]')].filter((b) => b.offsetParent).length,
-      select: Boolean(document.querySelector('.jwplc-plc-select')?.offsetParent),
-      options: [...document.querySelectorAll('.jwplc-plc-select option')].map((o) => o.value)
-    }));
+    // El inspector de ICON (oculto con un VALUE seleccionado) también lleva su selector:
+    // se mira sólo el visible.
+    const data = await page.evaluate(() => {
+      const visible = [...document.querySelectorAll('.jwplc-plc-select')].filter((s) => s.offsetParent);
+      return {
+        tabs: [...document.querySelectorAll('#fieldInspectorV2 [data-insp-main]')].filter((b) => b.offsetParent).length,
+        select: visible.length === 1,
+        options: visible.length ? [...visible[0].options].map((o) => o.value) : []
+      };
+    });
     check(data.tabs === 0 && data.select && data.options.includes('CONTADOR'), `inspector sólo con «Variable PLC» (${JSON.stringify(data)})`);
     await page.screenshot({ path: path.join(OUT, 'enlaces_value.png') });
 
