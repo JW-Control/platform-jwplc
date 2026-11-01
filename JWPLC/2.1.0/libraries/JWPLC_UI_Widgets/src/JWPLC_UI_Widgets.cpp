@@ -1,6 +1,7 @@
 #include "JWPLC_UI_Widgets.h"
 
 #include <JWPLC_GlobalPeripherals.h>
+#include <stdlib.h>
 #include <string.h>
 
 // ================================================================ tema
@@ -977,4 +978,1083 @@ void JWPLC_UITrend::drawScale(JWPLC_TFTClass &tft)
         }
     }
     restoreFont(tft);
+}
+
+// ================================================================ teclado
+
+namespace
+{
+    const char kKeysLower[4][11] = {"1234567890", "qwertyuiop", "asdfghjkl@", "zxcvbnm.-_"};
+    const char kKeysUpper[4][11] = {"1234567890", "QWERTYUIOP", "ASDFGHJKL@", "ZXCVBNM.-_"};
+    const char kKeysSymbols[4][11] = {"1234567890", "!\"#$%&/()=", "?+*<>[]{}'", ";:,\\|^~`.@"};
+    const int16_t kFuncX[5] = {0, 48, 96, 192, 256};
+    const int16_t kFuncW[5] = {48, 48, 96, 64, 64};
+}
+
+void JWPLC_UIKeyboard::begin(int16_t y, const JWPLC_UITheme &theme)
+{
+    _y = y;
+    _theme = theme;
+    _full = true;
+}
+
+void JWPLC_UIKeyboard::open(const char title[], const char initial[], uint8_t maxLength, bool password)
+{
+    _title = title ? title : "";
+    _maxLen = maxLength == 0 ? 1 : (maxLength > MAX_TEXT ? MAX_TEXT : maxLength);
+    strncpy(_text, initial ? initial : "", _maxLen);
+    _text[_maxLen] = 0;
+    memcpy(_original, _text, sizeof(_original));
+    _password = password;
+    _page = PAGE_LOWER;
+    _row = 1;
+    _col = 0;
+    _open = true;
+    _full = true;
+}
+
+char JWPLC_UIKeyboard::keyChar(uint8_t row, uint8_t col) const
+{
+    if (row >= 4 || col >= COLS)
+    {
+        return 0;
+    }
+    if (_page == PAGE_UPPER)
+    {
+        return kKeysUpper[row][col];
+    }
+    if (_page == PAGE_SYMBOLS)
+    {
+        return kKeysSymbols[row][col];
+    }
+    return kKeysLower[row][col];
+}
+
+void JWPLC_UIKeyboard::funcRect(uint8_t index, int16_t &x, int16_t &w) const
+{
+    x = kFuncX[index];
+    w = kFuncW[index];
+}
+
+// Al pasar de una fila de caracteres a la de funciones (y al revés) se
+// conserva la posición horizontal.
+uint8_t JWPLC_UIKeyboard::colToFunc(uint8_t col) const
+{
+    const int16_t cx = (int16_t)(col * 32 + 16);
+    for (uint8_t f = 0; f < 5; f++)
+    {
+        if (cx >= kFuncX[f] && cx < kFuncX[f] + kFuncW[f])
+        {
+            return f;
+        }
+    }
+    return 4;
+}
+
+uint8_t JWPLC_UIKeyboard::funcToCol(uint8_t func) const
+{
+    return (uint8_t)((kFuncX[func] + kFuncW[func] / 2) / 32);
+}
+
+JWPLC_UIEditResult JWPLC_UIKeyboard::press()
+{
+    const size_t len = strlen(_text);
+    if (_row < 4)
+    {
+        if (len < _maxLen)
+        {
+            _text[len] = keyChar(_row, _col);
+            _text[len + 1] = 0;
+            _fieldDirty = true;
+            return UI_EDIT_CHANGED;
+        }
+        return UI_EDIT_NONE;
+    }
+    switch (_col)
+    {
+    case 0: // mayúsculas / minúsculas
+        _page = _page == PAGE_LOWER ? PAGE_UPPER : PAGE_LOWER;
+        return UI_EDIT_NONE;
+    case 1: // símbolos
+        _page = _page == PAGE_SYMBOLS ? PAGE_LOWER : PAGE_SYMBOLS;
+        return UI_EDIT_NONE;
+    case 2: // espacio
+        if (len < _maxLen)
+        {
+            _text[len] = ' ';
+            _text[len + 1] = 0;
+            _fieldDirty = true;
+            return UI_EDIT_CHANGED;
+        }
+        return UI_EDIT_NONE;
+    case 3: // borrar
+        if (len > 0)
+        {
+            _text[len - 1] = 0;
+            _fieldDirty = true;
+            return UI_EDIT_CHANGED;
+        }
+        return UI_EDIT_NONE;
+    default: // OK
+        _open = false;
+        return UI_EDIT_ACCEPTED;
+    }
+}
+
+JWPLC_UIEditResult JWPLC_UIKeyboard::handleKeys()
+{
+    if (!_open)
+    {
+        return UI_EDIT_NONE;
+    }
+    if (JWPLC_Buttons.pressed(BTN_ESC))
+    {
+        memcpy(_text, _original, sizeof(_text));
+        _open = false;
+        return UI_EDIT_CANCELLED;
+    }
+
+    // ▲ ▼ cambian de fila (con vuelta), conservando la columna.
+    const int32_t dRow = axisDelta(BTN_UP, BTN_DOWN);
+    if (dRow)
+    {
+        const uint8_t oldRow = _row;
+        int32_t r = ((int32_t)_row + dRow) % ROWS;
+        if (r < 0)
+        {
+            r += ROWS;
+        }
+        _row = (uint8_t)r;
+        if (oldRow < 4 && _row == 4)
+        {
+            _col = colToFunc(_col);
+        }
+        else if (oldRow == 4 && _row < 4)
+        {
+            _col = funcToCol(_col);
+        }
+    }
+
+    // ◄ ► cambian de tecla (con vuelta).
+    const int32_t dCol = axisDelta(BTN_LEFT, BTN_RIGHT);
+    if (dCol)
+    {
+        const int32_t n = _row == 4 ? funcCount() : COLS;
+        int32_t c = ((int32_t)_col + dCol) % n;
+        if (c < 0)
+        {
+            c += n;
+        }
+        _col = (uint8_t)c;
+    }
+
+    if (JWPLC_Buttons.pressed(BTN_OK))
+    {
+        return press();
+    }
+    return UI_EDIT_NONE;
+}
+
+void JWPLC_UIKeyboard::drawKey(JWPLC_TFTClass &tft, uint8_t row, uint8_t col)
+{
+    const bool sel = row == _row && col == _col;
+    int16_t x;
+    int16_t w;
+    if (row < 4)
+    {
+        x = (int16_t)(col * 32);
+        w = 32;
+    }
+    else
+    {
+        funcRect(col, x, w);
+    }
+    const int16_t y = (int16_t)(keysY() + row * KEY_H);
+    const uint16_t bg = sel ? _theme.accent : (row < 4 ? _theme.surfaceAlt : _theme.surface);
+    tft.fillRect(x, y, w, KEY_H, _theme.background);
+    tft.fillRoundRect((int16_t)(x + 1), y, (int16_t)(w - 2), (int16_t)(KEY_H - 2), 3, bg);
+
+    useGlcd(tft, 2);
+    tft.setTextDatum(JWPLC_TFTDatum::MIDDLE_CENTER);
+    tft.setTextColor(sel ? _theme.accentText : _theme.text, bg);
+    const int16_t cx = (int16_t)(x + w / 2);
+    const int16_t cy = (int16_t)(y + (KEY_H - 2) / 2 + 1);
+    if (row < 4)
+    {
+        const char s[2] = {keyChar(row, col), 0};
+        tft.drawString(s, cx, cy);
+    }
+    else
+    {
+        const char *label = "OK";
+        switch (col)
+        {
+        case 0: label = _page == PAGE_UPPER ? "abc" : "ABC"; break;
+        case 1: label = _page == PAGE_SYMBOLS ? "abc" : "#+="; break;
+        case 2: label = "espacio"; break;
+        case 3: label = "<-"; break;
+        default: break;
+        }
+        if (col == 2)
+        {
+            useGlcd(tft, 1);
+        }
+        tft.drawString(label, cx, cy);
+    }
+    restoreFont(tft);
+}
+
+void JWPLC_UIKeyboard::drawField(JWPLC_TFTClass &tft)
+{
+    const int16_t fy = _y;
+    tft.fillRect(0, fy, 320, FIELD_H, _theme.background);
+    tft.fillRoundRect(2, fy, 316, FIELD_H, 4, _theme.surface);
+
+    useBody(tft);
+    tft.setTextDatum(JWPLC_TFTDatum::MIDDLE_LEFT);
+    tft.setTextColor(_theme.textMuted, _theme.surface);
+    const int16_t titleW = tft.drawString(_title, 8, (int16_t)(fy + FIELD_H / 2));
+
+    // Texto en GLCD x2 (12 px por carácter); si no cabe se muestra el final.
+    const int16_t tx = (int16_t)(8 + (titleW > 0 ? titleW : 0) + 10);
+    const int16_t room = (int16_t)((316 - tx - 14) / 12);
+    const size_t len = strlen(_text);
+    const size_t first = (room > 0 && len > (size_t)room) ? len - (size_t)room : 0;
+    char shown[MAX_TEXT + 2];
+    size_t n = 0;
+    for (size_t i = first; i < len; i++)
+    {
+        shown[n++] = _password ? '*' : _text[i];
+    }
+    shown[n++] = '_'; // cursor
+    shown[n] = 0;
+    useGlcd(tft, 2);
+    tft.setTextColor(_theme.text, _theme.surface);
+    tft.drawString(shown, tx, (int16_t)(fy + FIELD_H / 2 + 1));
+    restoreFont(tft);
+    _fieldDirty = false;
+}
+
+void JWPLC_UIKeyboard::draw()
+{
+    draw(JWPLC_TFT);
+}
+
+void JWPLC_UIKeyboard::draw(JWPLC_TFTClass &tft)
+{
+    if (!_open)
+    {
+        return;
+    }
+    if (_full || _page != _drawnPage)
+    {
+        if (_full)
+        {
+            drawField(tft);
+        }
+        for (uint8_t r = 0; r < ROWS; r++)
+        {
+            const uint8_t n = r == 4 ? funcCount() : COLS;
+            for (uint8_t c = 0; c < n; c++)
+            {
+                drawKey(tft, r, c);
+            }
+        }
+    }
+    else if (_row != _drawnRow || _col != _drawnCol)
+    {
+        drawKey(tft, _drawnRow, _drawnCol);
+        drawKey(tft, _row, _col);
+    }
+    if (_fieldDirty)
+    {
+        drawField(tft);
+    }
+    _drawnRow = _row;
+    _drawnCol = _col;
+    _drawnPage = _page;
+    _full = false;
+}
+
+// ================================================================ QR
+// Codificador QR propio (modo byte, versiones 1 a 10, corrección L/M/Q/H).
+// Sigue ISO/IEC 18004: datos + Reed-Solomon por bloques, patrones fijos,
+// información de formato/versión y la máscara de menor penalización.
+
+namespace
+{
+    const int8_t kEccPerBlock[4][11] = {
+        {-1, 7, 10, 15, 20, 26, 18, 20, 24, 30, 18},   // L
+        {-1, 10, 16, 26, 18, 24, 16, 18, 22, 22, 26},  // M
+        {-1, 13, 22, 18, 26, 18, 24, 18, 22, 20, 24},  // Q
+        {-1, 17, 28, 22, 16, 22, 28, 26, 26, 24, 28}}; // H
+    const int8_t kNumBlocks[4][11] = {
+        {-1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 4},
+        {-1, 1, 1, 1, 2, 2, 4, 4, 4, 5, 5},
+        {-1, 1, 1, 2, 2, 4, 4, 6, 6, 8, 8},
+        {-1, 1, 1, 2, 4, 4, 4, 5, 6, 8, 8}};
+    // Bits de formato del nivel (L=01, M=00, Q=11, H=10).
+    const uint8_t kFormatBits[4] = {1, 0, 3, 2};
+
+    int qrRawModules(int ver)
+    {
+        int r = (16 * ver + 128) * ver + 64;
+        if (ver >= 2)
+        {
+            const int n = ver / 7 + 2;
+            r -= (25 * n - 10) * n - 55;
+            if (ver >= 7)
+            {
+                r -= 36;
+            }
+        }
+        return r;
+    }
+
+    int qrDataCodewords(int ver, int ecl)
+    {
+        return qrRawModules(ver) / 8 - kEccPerBlock[ecl][ver] * kNumBlocks[ecl][ver];
+    }
+
+    uint8_t gfMul(uint8_t x, uint8_t y)
+    {
+        int z = 0;
+        for (int i = 7; i >= 0; i--)
+        {
+            z = (z << 1) ^ ((z >> 7) * 0x11D);
+            z ^= ((y >> i) & 1) * x;
+        }
+        return (uint8_t)z;
+    }
+
+    // Divisor Reed-Solomon de grado `degree` (como en el estándar).
+    void rsDivisor(int degree, uint8_t out[])
+    {
+        memset(out, 0, (size_t)degree);
+        out[degree - 1] = 1;
+        uint8_t root = 1;
+        for (int i = 0; i < degree; i++)
+        {
+            for (int j = 0; j < degree; j++)
+            {
+                out[j] = gfMul(out[j], root);
+                if (j + 1 < degree)
+                {
+                    out[j] ^= out[j + 1];
+                }
+            }
+            root = gfMul(root, 0x02);
+        }
+    }
+
+    void rsRemainder(const uint8_t data[], int len, const uint8_t div[], int degree, uint8_t out[])
+    {
+        memset(out, 0, (size_t)degree);
+        for (int i = 0; i < len; i++)
+        {
+            const uint8_t f = data[i] ^ out[0];
+            memmove(out, out + 1, (size_t)(degree - 1));
+            out[degree - 1] = 0;
+            for (int j = 0; j < degree; j++)
+            {
+                out[j] ^= gfMul(div[j], f);
+            }
+        }
+    }
+}
+
+bool JWPLC_UIQR::getBit(const uint8_t grid[], int x, int y) const
+{
+    const int i = y * _size + x;
+    return (grid[i >> 3] >> (i & 7)) & 1;
+}
+
+void JWPLC_UIQR::setBit(uint8_t grid[], int x, int y, bool v)
+{
+    const int i = y * _size + x;
+    if (v)
+    {
+        grid[i >> 3] |= (uint8_t)(1 << (i & 7));
+    }
+    else
+    {
+        grid[i >> 3] &= (uint8_t)~(1 << (i & 7));
+    }
+}
+
+void JWPLC_UIQR::setFunction(int x, int y, bool dark)
+{
+    setBit(_modules, x, y, dark);
+    setBit(s_function, x, y, true);
+}
+
+void JWPLC_UIQR::drawFinder(int cx, int cy)
+{
+    for (int dy = -4; dy <= 4; dy++)
+    {
+        for (int dx = -4; dx <= 4; dx++)
+        {
+            const int x = cx + dx;
+            const int y = cy + dy;
+            if (x < 0 || y < 0 || x >= _size || y >= _size)
+            {
+                continue;
+            }
+            const int d = abs(dx) > abs(dy) ? abs(dx) : abs(dy);
+            setFunction(x, y, d != 2 && d != 4);
+        }
+    }
+}
+
+void JWPLC_UIQR::drawAlignment(int cx, int cy)
+{
+    for (int dy = -2; dy <= 2; dy++)
+    {
+        for (int dx = -2; dx <= 2; dx++)
+        {
+            const int d = abs(dx) > abs(dy) ? abs(dx) : abs(dy);
+            setFunction(cx + dx, cy + dy, d != 1);
+        }
+    }
+}
+
+void JWPLC_UIQR::drawFormat(int mask)
+{
+    const int data = (kFormatBits[_ecl] << 3) | mask;
+    int rem = data;
+    for (int i = 0; i < 10; i++)
+    {
+        rem = (rem << 1) ^ ((rem >> 9) * 0x537);
+    }
+    const int bits = ((data << 10) | rem) ^ 0x5412;
+
+    for (int i = 0; i <= 5; i++)
+    {
+        setFunction(8, i, (bits >> i) & 1);
+    }
+    setFunction(8, 7, (bits >> 6) & 1);
+    setFunction(8, 8, (bits >> 7) & 1);
+    setFunction(7, 8, (bits >> 8) & 1);
+    for (int i = 9; i < 15; i++)
+    {
+        setFunction(14 - i, 8, (bits >> i) & 1);
+    }
+    for (int i = 0; i < 8; i++)
+    {
+        setFunction(_size - 1 - i, 8, (bits >> i) & 1);
+    }
+    for (int i = 8; i < 15; i++)
+    {
+        setFunction(8, _size - 15 + i, (bits >> i) & 1);
+    }
+    setFunction(8, _size - 8, true); // módulo oscuro fijo
+}
+
+void JWPLC_UIQR::drawFunctionPatterns()
+{
+    for (int i = 0; i < _size; i++)
+    {
+        setFunction(6, i, i % 2 == 0);
+        setFunction(i, 6, i % 2 == 0);
+    }
+    drawFinder(3, 3);
+    drawFinder(_size - 4, 3);
+    drawFinder(3, _size - 4);
+
+    if (_version >= 2)
+    {
+        const int n = _version / 7 + 2;
+        const int step = (_version * 8 + n * 3 + 5) / (n * 4 - 4) * 2;
+        int pos[7];
+        pos[0] = 6;
+        for (int i = n - 1, p = _size - 7; i >= 1; i--, p -= step)
+        {
+            pos[i] = p;
+        }
+        for (int i = 0; i < n; i++)
+        {
+            for (int j = 0; j < n; j++)
+            {
+                if ((i == 0 && j == 0) || (i == 0 && j == n - 1) || (i == n - 1 && j == 0))
+                {
+                    continue;
+                }
+                drawAlignment(pos[i], pos[j]);
+            }
+        }
+    }
+
+    drawFormat(0); // reserva el área; se reescribe con la máscara elegida
+
+    if (_version >= 7)
+    {
+        int rem = _version;
+        for (int i = 0; i < 12; i++)
+        {
+            rem = (rem << 1) ^ ((rem >> 11) * 0x1F25);
+        }
+        const long bits = ((long)_version << 12) | rem;
+        for (int i = 0; i < 18; i++)
+        {
+            const bool b = (bits >> i) & 1;
+            const int a = _size - 11 + i % 3;
+            const int c = i / 3;
+            setFunction(a, c, b);
+            setFunction(c, a, b);
+        }
+    }
+}
+
+void JWPLC_UIQR::placeCodewords(const uint8_t data[], int len)
+{
+    int i = 0;
+    for (int right = _size - 1; right >= 1; right -= 2)
+    {
+        if (right == 6)
+        {
+            right = 5;
+        }
+        for (int vert = 0; vert < _size; vert++)
+        {
+            for (int j = 0; j < 2; j++)
+            {
+                const int x = right - j;
+                const bool upward = ((right + 1) & 2) == 0;
+                const int y = upward ? _size - 1 - vert : vert;
+                if (!getBit(s_function, x, y) && i < len * 8)
+                {
+                    setBit(_modules, x, y, (data[i >> 3] >> (7 - (i & 7))) & 1);
+                    i++;
+                }
+            }
+        }
+    }
+}
+
+void JWPLC_UIQR::applyMask(int mask)
+{
+    for (int y = 0; y < _size; y++)
+    {
+        for (int x = 0; x < _size; x++)
+        {
+            bool inv;
+            switch (mask)
+            {
+            case 0: inv = (x + y) % 2 == 0; break;
+            case 1: inv = y % 2 == 0; break;
+            case 2: inv = x % 3 == 0; break;
+            case 3: inv = (x + y) % 3 == 0; break;
+            case 4: inv = (x / 3 + y / 2) % 2 == 0; break;
+            case 5: inv = x * y % 2 + x * y % 3 == 0; break;
+            case 6: inv = (x * y % 2 + x * y % 3) % 2 == 0; break;
+            default: inv = ((x + y) % 2 + x * y % 3) % 2 == 0; break;
+            }
+            if (inv && !getBit(s_function, x, y))
+            {
+                setBit(_modules, x, y, !getBit(_modules, x, y));
+            }
+        }
+    }
+}
+
+// Penalización de ISO/IEC 18004 §8.8.2 (N1 = 3, N2 = 3, N3 = 40, N4 = 10).
+long JWPLC_UIQR::penalty() const
+{
+    long result = 0;
+    // N1 y N3 por filas y por columnas.
+    for (int pass = 0; pass < 2; pass++)
+    {
+        for (int a = 0; a < _size; a++)
+        {
+            int run = 0;
+            bool prev = false;
+            for (int b = 0; b < _size; b++)
+            {
+                const bool v = pass == 0 ? getBit(_modules, b, a) : getBit(_modules, a, b);
+                if (b > 0 && v == prev)
+                {
+                    run++;
+                }
+                else
+                {
+                    if (run >= 5)
+                    {
+                        result += 3 + (run - 5);
+                    }
+                    run = 1;
+                    prev = v;
+                }
+            }
+            if (run >= 5)
+            {
+                result += 3 + (run - 5);
+            }
+            // 1:1:3:1:1 con 4 módulos claros a un lado (fuera = claro).
+            for (int b = -4; b < _size; b++)
+            {
+                bool p[11];
+                for (int k = 0; k < 11; k++)
+                {
+                    const int c = b + k;
+                    p[k] = (c < 0 || c >= _size) ? false
+                                                  : (pass == 0 ? getBit(_modules, c, a) : getBit(_modules, a, c));
+                }
+                const bool core = p[4] && !p[5] && p[6] && p[7] && p[8] && !p[9] && p[10];
+                const bool core2 = p[0] && !p[1] && p[2] && p[3] && p[4] && !p[5] && p[6];
+                if (core && !p[0] && !p[1] && !p[2] && !p[3])
+                {
+                    result += 40;
+                }
+                if (core2 && !p[7] && !p[8] && !p[9] && !p[10])
+                {
+                    result += 40;
+                }
+            }
+        }
+    }
+    // N2: bloques 2x2 del mismo color.
+    int dark = 0;
+    for (int y = 0; y < _size; y++)
+    {
+        for (int x = 0; x < _size; x++)
+        {
+            const bool v = getBit(_modules, x, y);
+            dark += v;
+            if (x + 1 < _size && y + 1 < _size && v == getBit(_modules, x + 1, y) &&
+                v == getBit(_modules, x, y + 1) && v == getBit(_modules, x + 1, y + 1))
+            {
+                result += 3;
+            }
+        }
+    }
+    // N4: proporción de oscuros.
+    const long total = (long)_size * _size;
+    const long k = (labs(dark * 20L - total * 10L) + total - 1) / total - 1;
+    result += (k > 0 ? k : 0) * 10;
+    return result;
+}
+
+bool JWPLC_UIQR::encode(const uint8_t text[], int len, int ecl, int forcedMask)
+{
+    _ecl = ecl;
+    _version = 0;
+    for (int v = 1; v <= MAX_VERSION; v++)
+    {
+        const int cap = qrDataCodewords(v, ecl) * 8;
+        const int need = 4 + (v < 10 ? 8 : 16) + len * 8;
+        if (need <= cap)
+        {
+            _version = v;
+            break;
+        }
+    }
+    if (_version == 0)
+    {
+        _size = 0;
+        return false;
+    }
+    _size = _version * 4 + 17;
+
+    // --- datos: modo byte, longitud, texto, terminador y relleno
+    static uint8_t buf[MAX_CODEWORDS]; // estáticos: fuera de la pila de la tarea
+    const int dataLen = qrDataCodewords(_version, ecl);
+    memset(buf, 0, sizeof(buf));
+    int bit = 0;
+    auto put = [&](uint32_t val, int n) {
+        for (int i = n - 1; i >= 0; i--, bit++)
+        {
+            if ((val >> i) & 1)
+            {
+                buf[bit >> 3] |= (uint8_t)(0x80 >> (bit & 7));
+            }
+        }
+    };
+    put(4, 4);
+    put((uint32_t)len, _version < 10 ? 8 : 16);
+    for (int i = 0; i < len; i++)
+    {
+        put(text[i], 8);
+    }
+    const int cap = dataLen * 8;
+    put(0, (cap - bit) < 4 ? (cap - bit) : 4);
+    put(0, (8 - bit % 8) % 8);
+    for (uint8_t pad = 0xEC; bit < cap; pad ^= 0xEC ^ 0x11)
+    {
+        put(pad, 8);
+    }
+
+    // --- Reed-Solomon por bloques e intercalado
+    const int numBlocks = kNumBlocks[ecl][_version];
+    const int eccLen = kEccPerBlock[ecl][_version];
+    const int raw = qrRawModules(_version) / 8;
+    const int numShort = numBlocks - raw % numBlocks;
+    const int shortLen = raw / numBlocks;
+    uint8_t div[30];
+    rsDivisor(eccLen, div);
+    static uint8_t out[MAX_CODEWORDS];
+    static uint8_t ecc[MAX_BLOCKS][30];
+    int offs[MAX_BLOCKS];
+    for (int b = 0, k = 0; b < numBlocks; b++)
+    {
+        const int dl = shortLen - eccLen + (b < numShort ? 0 : 1);
+        offs[b] = k;
+        rsRemainder(buf + k, dl, div, eccLen, ecc[b]);
+        k += dl;
+    }
+    int o = 0;
+    for (int i = 0; i <= shortLen - eccLen; i++)
+    {
+        for (int b = 0; b < numBlocks; b++)
+        {
+            const int dl = shortLen - eccLen + (b < numShort ? 0 : 1);
+            if (i < dl)
+            {
+                out[o++] = buf[offs[b] + i];
+            }
+        }
+    }
+    for (int i = 0; i < eccLen; i++)
+    {
+        for (int b = 0; b < numBlocks; b++)
+        {
+            out[o++] = ecc[b][i];
+        }
+    }
+
+    // --- matriz
+    memset(_modules, 0, sizeof(_modules));
+    memset(s_function, 0, sizeof(s_function));
+    drawFunctionPatterns();
+    placeCodewords(out, o);
+
+    int best = forcedMask;
+    if (best < 0 || best > 7)
+    {
+        long bestPenalty = 0x7FFFFFFF;
+        for (int m = 0; m < 8; m++)
+        {
+            applyMask(m);
+            drawFormat(m);
+            const long p = penalty();
+            if (p < bestPenalty)
+            {
+                bestPenalty = p;
+                best = m;
+            }
+            applyMask(m); // deshace (XOR)
+        }
+    }
+    applyMask(best);
+    drawFormat(best);
+    _mask = (uint8_t)best;
+    return true;
+}
+
+uint8_t JWPLC_UIQR::s_function[(MAX_SIDE * MAX_SIDE + 7) / 8];
+
+bool JWPLC_UIQR::setText(const char text[], uint8_t level)
+{
+    if (text == nullptr)
+    {
+        _size = 0;
+        return false;
+    }
+    return encode((const uint8_t *)text, (int)strlen(text), level > QR_LEVEL_H ? QR_LEVEL_M : level, -1);
+}
+
+bool JWPLC_UIQR::module(uint8_t x, uint8_t y) const
+{
+    return x < _size && y < _size && getBit(_modules, x, y);
+}
+
+void JWPLC_UIQR::draw(int16_t x, int16_t y, uint8_t scale)
+{
+    if (_size == 0)
+    {
+        return;
+    }
+    if (scale == 0)
+    {
+        scale = 1;
+    }
+    JWPLC_TFTClass &tft = JWPLC_TFT;
+    // Margen blanco de 4 módulos y módulos oscuros por tramos de cada fila.
+    tft.fillRect(x, y, drawSize(scale), drawSize(scale), 0xFFFF);
+    const int16_t ox = (int16_t)(x + 4 * scale);
+    const int16_t oy = (int16_t)(y + 4 * scale);
+    for (int my = 0; my < _size; my++)
+    {
+        int mx = 0;
+        while (mx < _size)
+        {
+            if (!getBit(_modules, mx, my))
+            {
+                mx++;
+                continue;
+            }
+            int run = 1;
+            while (mx + run < _size && getBit(_modules, mx + run, my))
+            {
+                run++;
+            }
+            tft.fillRect((int16_t)(ox + mx * scale), (int16_t)(oy + my * scale),
+                         (int16_t)(run * scale), scale, 0x0000);
+            mx += run;
+        }
+    }
+}
+
+// ================================================================ barra
+
+void JWPLC_UIBar::begin(int16_t x, int16_t y, int16_t w, int16_t h,
+                        float minValue, float maxValue, const JWPLC_UITheme &theme)
+{
+    _x = x;
+    _y = y;
+    _w = w < 4 ? 4 : w;
+    _h = h < 4 ? 4 : h;
+    _min = minValue;
+    _max = maxValue > minValue ? maxValue : minValue + 1.0f;
+    _horizontal = _w >= _h;
+    _theme = theme;
+    _color = theme.accent;
+    _value = _min;
+    _full = true;
+}
+
+void JWPLC_UIBar::setThreshold(float value, uint16_t color)
+{
+    _hasThreshold = true;
+    _threshold = value;
+    _thrColor = color;
+    _full = true;
+}
+
+void JWPLC_UIBar::setValue(float value)
+{
+    _value = value;
+}
+
+int16_t JWPLC_UIBar::length(float v) const
+{
+    float r = (v - _min) / (_max - _min);
+    if (r < 0.0f)
+    {
+        r = 0.0f;
+    }
+    if (r > 1.0f)
+    {
+        r = 1.0f;
+    }
+    return (int16_t)(r * (float)inner() + 0.5f);
+}
+
+// Pinta el tramo [from, to) de la barra (desde el origen: izquierda o abajo).
+void JWPLC_UIBar::paint(JWPLC_TFTClass &tft, int16_t from, int16_t to, uint16_t color)
+{
+    if (to <= from)
+    {
+        return;
+    }
+    if (_horizontal)
+    {
+        tft.fillRect((int16_t)(_x + 1 + from), (int16_t)(_y + 1), (int16_t)(to - from), (int16_t)(_h - 2), color);
+    }
+    else
+    {
+        tft.fillRect((int16_t)(_x + 1), (int16_t)(_y + _h - 1 - to), (int16_t)(_w - 2), (int16_t)(to - from), color);
+    }
+}
+
+void JWPLC_UIBar::draw()
+{
+    draw(JWPLC_TFT);
+}
+
+void JWPLC_UIBar::draw(JWPLC_TFTClass &tft)
+{
+    const int16_t len = length(_value);
+    const bool over = _hasThreshold && _value >= _threshold;
+    const uint16_t fill = over ? _thrColor : _color;
+
+    if (_full || over != _drawnOver)
+    {
+        tft.drawRect(_x, _y, _w, _h, _theme.border);
+        paint(tft, 0, len, fill);
+        paint(tft, len, inner(), _theme.surface);
+    }
+    else if (len == _drawnLen)
+    {
+        return;
+    }
+    else if (len > _drawnLen)
+    {
+        paint(tft, _drawnLen, len, fill);
+    }
+    else
+    {
+        paint(tft, len, _drawnLen, _theme.surface);
+    }
+
+    // Marca del umbral: línea de 1 px a través de la barra.
+    if (_hasThreshold)
+    {
+        const int16_t t = length(_threshold);
+        const uint16_t c = t < len ? _theme.background : _thrColor;
+        if (_horizontal)
+        {
+            tft.drawFastVLine((int16_t)(_x + 1 + t), (int16_t)(_y + 1), (int16_t)(_h - 2), c);
+        }
+        else
+        {
+            tft.drawFastHLine((int16_t)(_x + 1), (int16_t)(_y + _h - 2 - t), (int16_t)(_w - 2), c);
+        }
+    }
+    _drawnLen = len;
+    _drawnOver = over;
+    _full = false;
+}
+
+// ================================================================ registro
+
+void JWPLC_UILog::begin(int16_t x, int16_t y, int16_t w, int16_t h, const JWPLC_UITheme &theme)
+{
+    _sprite.destroy();
+    _x = x;
+    _y = y;
+    _w = w;
+    _h = (int16_t)((h / LINE_H) * LINE_H); // filas completas
+    if (_h < LINE_H)
+    {
+        _h = LINE_H;
+    }
+    _theme = theme;
+    _palette[0] = theme.background;
+    _palette[1] = theme.text;
+    _paletteUsed = 2;
+    _pendingCount = 0;
+    _lines = 0;
+    _failed = false;
+    _full = true;
+}
+
+uint8_t JWPLC_UILog::colorIndex(uint16_t color)
+{
+    for (uint8_t i = 1; i < _paletteUsed; i++)
+    {
+        if (_palette[i] == color)
+        {
+            return i;
+        }
+    }
+    if (_paletteUsed < 16)
+    {
+        _palette[_paletteUsed] = color;
+        if (_sprite.created())
+        {
+            _sprite.setPaletteColor(_paletteUsed, color);
+        }
+        return _paletteUsed++;
+    }
+    return 1; // paleta llena: color de texto
+}
+
+void JWPLC_UILog::add(const char text[], uint16_t color)
+{
+    if (_pendingCount == MAX_PENDING)
+    {
+        // Sin draw() entre tantas líneas: se descarta la más antigua.
+        memmove(_pending[0], _pending[1], sizeof(_pending[0]) * (MAX_PENDING - 1));
+        memmove(_pendingColor, _pendingColor + 1, MAX_PENDING - 1);
+        _pendingCount--;
+    }
+    strncpy(_pending[_pendingCount], text ? text : "", sizeof(_pending[0]) - 1);
+    _pending[_pendingCount][sizeof(_pending[0]) - 1] = 0;
+    _pendingColor[_pendingCount] = colorIndex(color ? color : _theme.text);
+    _pendingCount++;
+}
+
+void JWPLC_UILog::add(const String &text, uint16_t color)
+{
+    add(text.c_str(), color);
+}
+
+void JWPLC_UILog::clear()
+{
+    if (_sprite.created())
+    {
+        _sprite.fill(0);
+    }
+    _pendingCount = 0;
+    _lines = 0;
+    _full = true;
+}
+
+void JWPLC_UILog::draw()
+{
+    draw(JWPLC_TFT);
+}
+
+void JWPLC_UILog::draw(JWPLC_TFTClass &tft)
+{
+    if (!_sprite.created() && !_failed)
+    {
+        if (_sprite.create(_w, _h, 4))
+        {
+            for (uint8_t i = 0; i < _paletteUsed; i++)
+            {
+                _sprite.setPaletteColor(i, _palette[i]);
+            }
+            _sprite.fill(0);
+        }
+        else
+        {
+            _failed = true;
+        }
+    }
+    if (_failed)
+    {
+        if (_full)
+        {
+            tft.fillRect(_x, _y, _w, _h, _theme.background);
+            useBody(tft);
+            tft.setTextDatum(JWPLC_TFTDatum::MIDDLE_CENTER);
+            tft.setTextColor(_theme.error, _theme.background);
+            tft.drawString("Sin RAM para el registro", (int16_t)(_x + _w / 2), (int16_t)(_y + _h / 2));
+            restoreFont(tft);
+            _full = false;
+        }
+        _pendingCount = 0;
+        return;
+    }
+    if (_pendingCount == 0 && !_full)
+    {
+        return;
+    }
+
+    const uint8_t rows = (uint8_t)(_h / LINE_H);
+    _sprite.setFont(JWPLC_FONT_16);
+    _sprite.setTextSize(1);
+    _sprite.setTextDatum(JWPLC_TFTDatum::TOP_LEFT);
+    for (uint8_t i = 0; i < _pendingCount; i++)
+    {
+        int16_t ly;
+        if (_lines < rows)
+        {
+            ly = (int16_t)(_lines * LINE_H);
+            _lines++;
+        }
+        else
+        {
+            // Scroll de región: lo anterior sube una línea y solo se dibuja
+            // la nueva en la fila de abajo.
+            _sprite.scroll(0, (int16_t)-LINE_H, 0);
+            ly = (int16_t)((rows - 1) * LINE_H);
+        }
+        _sprite.setTextColor(_pendingColor[i]);
+        _sprite.drawString(_pending[i], 4, (int16_t)(ly + 1));
+    }
+    _pendingCount = 0;
+    _sprite.push(_x, _y);
+    _full = false;
 }

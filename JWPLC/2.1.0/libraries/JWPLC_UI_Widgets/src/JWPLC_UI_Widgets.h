@@ -1,6 +1,6 @@
 #pragma once
 
-// JWPLC_UI_Widgets 0.2.0 (alpha.16): widgets de pantalla para el modo USER y
+// JWPLC_UI_Widgets 0.3.0 (alpha.16): widgets de pantalla para el modo USER y
 // para el Runtime de panel.
 //
 // Reglas comunes:
@@ -24,7 +24,7 @@
 #include <Arduino.h>
 #include <JWPLC_TFT.h>
 
-#define JWPLC_UI_WIDGETS_VERSION "0.2.0"
+#define JWPLC_UI_WIDGETS_VERSION "0.3.0"
 
 // ---------------------------------------------------------------- tema
 // Colores RGB565 compartidos por los widgets (y, más adelante, por el
@@ -330,5 +330,231 @@ private:
     bool _scale = false;
     uint8_t _scaleDecimals = 0;
     float _thrValue[MAX_THRESHOLDS] = {0};
+    bool _full = true;
+};
+
+// ---------------------------------------------------------------- teclado
+// Teclado en pantalla para nombres, textos y contraseñas. Ocupa todo el
+// ancho desde `y` hasta abajo: campo de texto, cuatro filas de 10 teclas y
+// una fila de funciones (mayúsculas, símbolos, espacio, borrar y OK).
+//
+//   teclado.begin(24);
+//   teclado.open("Nombre", "Bomba 1", 16);
+//   ...
+//   uint8_t r = teclado.handleKeys();     // en jwplcUIUpdate()
+//   if (r == UI_EDIT_ACCEPTED) Serial.println(teclado.text());
+//   teclado.draw();
+//
+// ◄ ► ▲ ▼ mueven la tecla marcada, OK la pulsa y ESC cancela. handleKeys()
+// devuelve las mismas constantes que el editor numérico.
+class JWPLC_UIKeyboard
+{
+public:
+    static const uint8_t MAX_TEXT = 32;
+
+    void begin(int16_t y = 24, const JWPLC_UITheme &theme = JWPLC_UI_THEME_DARK);
+
+    // password = true muestra «*» en lugar del texto.
+    void open(const char title[], const char initial[] = "", uint8_t maxLength = 16,
+              bool password = false);
+    void close() { _open = false; }
+    bool isOpen() const { return _open; }
+
+    JWPLC_UIEditResult handleKeys();
+    const char *text() const { return _text; }
+
+    void invalidate() { _full = true; }
+    void draw();
+
+private:
+    enum : uint8_t
+    {
+        PAGE_LOWER = 0,
+        PAGE_UPPER,
+        PAGE_SYMBOLS
+    };
+    static const uint8_t COLS = 10;
+    static const uint8_t ROWS = 5; // 4 de caracteres + funciones
+    static const int16_t KEY_H = 22;
+    static const int16_t FIELD_H = 24;
+
+    char keyChar(uint8_t row, uint8_t col) const;
+    uint8_t funcCount() const { return 5; }
+    void funcRect(uint8_t index, int16_t &x, int16_t &w) const;
+    uint8_t colToFunc(uint8_t col) const;
+    uint8_t funcToCol(uint8_t func) const;
+    JWPLC_UIEditResult press();
+    void draw(JWPLC_TFTClass &tft);
+    void drawKey(JWPLC_TFTClass &tft, uint8_t row, uint8_t col);
+    void drawField(JWPLC_TFTClass &tft);
+    int16_t keysY() const { return (int16_t)(_y + FIELD_H + 4); }
+
+    JWPLC_UITheme _theme = JWPLC_UI_THEME_DARK;
+    int16_t _y = 24;
+    const char *_title = "";
+    char _text[MAX_TEXT + 1] = {0};
+    char _original[MAX_TEXT + 1] = {0};
+    uint8_t _maxLen = 16;
+    bool _password = false;
+    bool _open = false;
+    uint8_t _page = PAGE_LOWER;
+    uint8_t _row = 1;
+    uint8_t _col = 0;
+    uint8_t _drawnRow = 0xFF;
+    uint8_t _drawnCol = 0xFF;
+    uint8_t _drawnPage = 0xFF;
+    bool _fieldDirty = true;
+    bool _full = true;
+};
+
+// ---------------------------------------------------------------- QR
+// Código QR (modo byte, versiones 1 a 10: hasta 271 caracteres en nivel L o
+// 213 en nivel M). setText() lo calcula una vez; draw() lo dibuja con su
+// margen blanco de 4 módulos, en negro sobre blanco para que lo lea
+// cualquier celular.
+//
+//   qr.setText("jwplc://vincular?id=JWPLC-0001&codigo=482913");
+//   qr.draw(100, 30, 3);   // 3 px por módulo
+//
+// Nivel de corrección: QR_LEVEL_L (7 %), QR_LEVEL_M (15 %, por defecto),
+// QR_LEVEL_Q (25 %), QR_LEVEL_H (30 %).
+enum JWPLC_UIQRLevel : uint8_t
+{
+    QR_LEVEL_L = 0,
+    QR_LEVEL_M,
+    QR_LEVEL_Q,
+    QR_LEVEL_H
+};
+
+class JWPLC_UIQR
+{
+public:
+    static const uint8_t MAX_VERSION = 10;
+
+    // Devuelve false si el texto no cabe en la versión 10 con ese nivel.
+    bool setText(const char text[], uint8_t level = QR_LEVEL_M);
+    void clear() { _size = 0; }
+
+    uint8_t version() const { return (uint8_t)_version; }
+    uint8_t size() const { return (uint8_t)_size; } // módulos por lado (0 = vacío)
+    bool module(uint8_t x, uint8_t y) const;       // true = oscuro
+
+    // Lado total en píxeles con el margen, para centrarlo.
+    int16_t drawSize(uint8_t scale) const { return (int16_t)((_size + 8) * scale); }
+    void draw(int16_t x, int16_t y, uint8_t scale = 3);
+
+private:
+    static const int MAX_SIDE = MAX_VERSION * 4 + 17;
+    static const int MAX_CODEWORDS = 346;
+    static const int MAX_BLOCKS = 8;
+    static uint8_t s_function[(MAX_SIDE * MAX_SIDE + 7) / 8];
+
+    bool encode(const uint8_t text[], int len, int ecl, int forcedMask);
+    bool getBit(const uint8_t grid[], int x, int y) const;
+    void setBit(uint8_t grid[], int x, int y, bool v);
+    void setFunction(int x, int y, bool dark);
+    void drawFinder(int cx, int cy);
+    void drawAlignment(int cx, int cy);
+    void drawFormat(int mask);
+    void drawFunctionPatterns();
+    void placeCodewords(const uint8_t data[], int len);
+    void applyMask(int mask);
+    long penalty() const;
+
+    uint8_t _modules[(MAX_SIDE * MAX_SIDE + 7) / 8] = {0};
+    int _size = 0;
+    int _version = 0;
+    int _ecl = 0;
+    uint8_t _mask = 0;
+};
+
+// ---------------------------------------------------------------- barra
+// Barra de valor analógico como la de los textos de aviso del LOGO!: valor
+// entre un mínimo y un máximo, horizontal o vertical, con marca de umbral
+// opcional. Solo redibuja el tramo que cambió.
+//
+//   barra.begin(10, 60, 200, 20, 0, 100);   // horizontal (ancho > alto)
+//   barra.setThreshold(80, ROJO);
+//   barra.setValue(nivel);
+//   barra.draw();
+class JWPLC_UIBar
+{
+public:
+    void begin(int16_t x, int16_t y, int16_t w, int16_t h,
+               float minValue, float maxValue,
+               const JWPLC_UITheme &theme = JWPLC_UI_THEME_DARK);
+
+    void setColor(uint16_t color) { _color = color; _full = true; }
+    // Por encima del umbral la barra se pinta en `color` (p. ej. rojo).
+    void setThreshold(float value, uint16_t color);
+    void setValue(float value);
+    float value() const { return _value; }
+
+    void invalidate() { _full = true; }
+    void draw();
+
+private:
+    void draw(JWPLC_TFTClass &tft);
+    int16_t length(float v) const;
+    void paint(JWPLC_TFTClass &tft, int16_t from, int16_t to, uint16_t color);
+    int16_t inner() const { return _horizontal ? (int16_t)(_w - 2) : (int16_t)(_h - 2); }
+
+    JWPLC_UITheme _theme = JWPLC_UI_THEME_DARK;
+    int16_t _x = 0, _y = 0, _w = 0, _h = 0;
+    float _min = 0, _max = 100;
+    float _value = 0;
+    bool _horizontal = true;
+    uint16_t _color = 0x2E8B;
+    bool _hasThreshold = false;
+    float _threshold = 0;
+    uint16_t _thrColor = 0xF800;
+    int16_t _drawnLen = -1;
+    bool _drawnOver = false;
+    bool _full = true;
+};
+
+// ---------------------------------------------------------------- registro
+// Registro de eventos con scroll de región: cada línea nueva entra por abajo,
+// lo anterior sube con JWPLC_TFTSprite.scroll() y solo se dibuja la línea
+// nueva. Usa un sprite de 4 bits (ancho × alto / 2 bytes: ~15 KB para
+// 316 × 96) que se reserva en el primer draw().
+//
+//   registro.begin(2, 26, 316, 120);
+//   registro.add("08:30:12  Arranque", JWPLC_UI_THEME_DARK.ok);
+//   registro.draw();
+class JWPLC_UILog
+{
+public:
+    static const uint8_t LINE_H = 17;
+    static const uint8_t MAX_PENDING = 8;
+
+    void begin(int16_t x, int16_t y, int16_t w, int16_t h,
+               const JWPLC_UITheme &theme = JWPLC_UI_THEME_DARK);
+
+    // Agrega una línea (se recorta al ancho). color = 0 usa theme.text.
+    void add(const char text[], uint16_t color = 0);
+    void add(const String &text, uint16_t color = 0);
+    void clear();
+
+    // false si no hubo RAM para el sprite (se muestra un aviso en el área).
+    bool ready() const { return _sprite.created(); }
+
+    void invalidate() { _full = true; }
+    void draw();
+
+private:
+    void draw(JWPLC_TFTClass &tft);
+    uint8_t colorIndex(uint16_t color);
+
+    JWPLC_UITheme _theme = JWPLC_UI_THEME_DARK;
+    JWPLC_TFTSprite _sprite;
+    int16_t _x = 0, _y = 0, _w = 0, _h = 0;
+    uint16_t _palette[16] = {0};
+    uint8_t _paletteUsed = 0;
+    char _pending[MAX_PENDING][48];
+    uint8_t _pendingColor[MAX_PENDING] = {0};
+    uint8_t _pendingCount = 0;
+    uint8_t _lines = 0; // líneas ya escritas (hasta llenar el área)
+    bool _failed = false;
     bool _full = true;
 };

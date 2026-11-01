@@ -1151,6 +1151,17 @@ void JWPLC_TFTSprite::fill(uint16_t color)
     if (_impl) spr(_impl)->fillSprite(color);
 }
 
+void JWPLC_TFTSprite::scroll(int16_t dx, int16_t dy, uint16_t fillColor)
+{
+    if (!_impl)
+    {
+        return;
+    }
+    TFT_eSprite *s = spr(_impl);
+    s->setScrollRect(0, 0, s->width(), s->height(), fillColor);
+    s->scroll(dx, dy);
+}
+
 void JWPLC_TFTSprite::fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color)
 {
     if (_impl) spr(_impl)->fillRect(x, y, w, h, color);
