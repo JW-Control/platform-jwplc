@@ -1,10 +1,10 @@
 # A16 RT2 — Módulos de expansión del Runtime por Modbus RTU (diseño)
 
 Rama: `v2.1.0-alpha.16/JWPLC-Sim/feature/runtime-expansion`, desde `…/feature/runtime-mvp` (PR #203).
-Estado: **propuesta para revisión del propietario**; todavía no hay código.
+Estado: **aprobado por el propietario el 01/11** con las respuestas de §8; en implementación.
 
 ```text
-A16_RT2_DISENO=IN_PROGRESS       este documento
+A16_RT2_DISENO=PASS              aprobado 01/11 (§8)
 A16_RT2_ESCLAVO=PENDING          librería + ejemplo con un JWPLC Basic como esclavo
 A16_RT2_MAESTRO=PENDING          Configuración > Expansión en el Runtime
 A16_RT2_SIM=PENDING              maestro y esclavo en JWPLC Sim (dos equipos en el mismo RS-485)
@@ -73,7 +73,10 @@ lectura.
 vigilancia 1 s, sin vínculo. El 247 queda reservado para módulos sin configurar; los asignados usan 1..246.
 
 **Volver a fábrica** en el esclavo: mantener ESC + OK al encenderlo y confirmar en su pantalla (en módulos sin
-pantalla, un puente o botón definido por el modelo).
+pantalla, un puente o botón definido por el modelo). Cruce con `JW_MatrixButtons` (matriz 2 × 3): ESC y OK están en la
+fila 1 (GPIO 2), así que se leen juntas sin teclas fantasma, y GPIO 2 en alto al arrancar no cambia el modo de
+arranque. **No** se usan teclas de la fila 0 (◄ ▲ ►, GPIO 12): GPIO 12 es el pin de arranque MTDI y en alto al encender
+cambia la tensión de la flash. La combinación se lee después de iniciar el escáner de la botonera y debe mantenerse 2 s.
 
 **Agregar módulo** (Runtime del maestro, conectado solo el nuevo):
 
@@ -95,9 +98,10 @@ existente sin reconfigurarlo.
   banderas. Hasta 7 módulos, como el Backplane.
 - La tarea del Runtime lleva el bus con el maestro cooperativo de `JWPLC_ModbusRTU`: por módulo FC15 → FC01 → FC02,
   uno por vuelta; 3 fallos = fuera de línea, sus entradas a 0; los caídos se sondean cada 1 s.
-- Direcciones en el programa: módulo 1 = I9–I16 y Q9–Q16, módulo 2 = I17–I24 y Q17–Q24, … hasta I64/Q64. Requiere
-  ampliar la codificación de fuentes del programa (hoy I y Q usan 16 valores cada una): imagen de programa versión 2,
-  con lectura de la versión 1.
+- Direcciones en el programa con **prefijo de módulo**: `1.I1`…`1.I8` y `1.Q1`…`1.Q8` para el módulo 1, hasta `7.I8`
+  y `7.Q8`. Las locales siguen como I1…I8 y Q1…Q8. Codificación: las entradas remotas usan las fuentes 0x40..0x77
+  (módulo = (s − 0x40) / 8 + 1) y el programa agrega 7 × 8 destinos para las Q remotas (56 B; la imagen sigue entrando
+  en su ranura de 1536 B). Imagen de programa versión 2, que también lee la versión 1.
 - Al arrancar se verifica cada vínculo (firma y UID). Si falta o es otro equipo: aviso con código ERR (`X1`…`X7` = módulo
   sin respuesta, `XU1`… = equipo distinto) y evento. No se reconfigura nada automáticamente.
 - El estado seguro lo aplica el **esclavo** por su cuenta al vencer la vigilancia; el maestro solo lo configura y lo
@@ -115,13 +119,13 @@ EXPANSION
 
 MODULO 1 (detalle)
   Modelo / firmware / MAC / DI-DO
-  Direcciones         I9-I16  Q9-Q16
-  Estado seguro       Q9 OFF  Q10 mantener ...   (solo lectura si está bloqueado por sketch)
+  Direcciones         1.I1-1.I8  1.Q1-1.Q8
+  Estado seguro       1.Q1 OFF  1.Q2 mantener ...   (solo lectura si está bloqueado por sketch)
   Vigilancia          1,0 s
   Quitar modulo
 ```
 
-En el editor, el selector de fuentes agrega I9… y Q9… solo para módulos vinculados; Diagnóstico muestra por módulo
+En el editor, el selector de fuentes agrega 1.I1… y la columna de salidas 1.Q1… solo para módulos vinculados; Diagnóstico muestra por módulo
 en línea / fuera de línea, fallos y tiempo de ciclo del bus.
 
 ## 7. Esclavo
@@ -134,12 +138,15 @@ en línea / fuera de línea, fallos y tiempo de ciclo del bus.
 - FRAM del esclavo: la estructura de alpha.3 (`JwplcRemoteIoConfigV1`) pasa a v2 con trama, estado seguro, vigilancia,
   vínculo y CRC.
 
-## 8. Preguntas abiertas para el propietario
+## 8. Decisiones del propietario (01/11)
 
-1. ¿ID 247 como dirección de fábrica (y 1..246 para los asignados) está bien?
-2. ¿Estado seguro por salida con tres opciones (OFF / ON / mantener) o solo OFF / ON?
-3. ¿Volver a fábrica con ESC + OK al encender está bien para el JWPLC Basic esclavo?
-4. ¿Las I/Q remotas se numeran seguidas (I9…) como en el LOGO!, o con prefijo de módulo (por ejemplo «1.I1»)?
+1. ID 247 de fábrica; 1..246 para los módulos asignados. **Sí.**
+2. Estado seguro por salida: **OFF, ON y mantener.**
+3. Volver a fábrica con ESC + OK al encender: **sí**, sin cruzarse con `JW_MatrixButtons` (ver §4).
+4. I/Q remotas **con prefijo de módulo** (`1.I1`).
+
+Además: las filas y baldosas vuelven a sprites de 4 bits (los de 16 bits no mejoraron el corte en la placa y usaban
+23 KB más de RAM). Runtime v0.1.3.
 
 ## 9. Validación prevista
 
