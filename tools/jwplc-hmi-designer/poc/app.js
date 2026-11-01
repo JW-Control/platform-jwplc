@@ -3943,11 +3943,14 @@
     rightCtx.clearRect(0, 0, rulerW, targetMidH);
 
     // Standard ticks: Top & Bottom
-    topCtx.strokeStyle = '#4e6475';
+    const isLightMode = document.documentElement.classList.contains('theme-light');
+    const tickColor = isLightMode ? '#64748b' : '#4e6475';
+    const numColor = isLightMode ? '#334155' : '#647c8f';
+    topCtx.strokeStyle = tickColor;
     topCtx.lineWidth = 1;
     topCtx.beginPath();
 
-    bottomCtx.strokeStyle = '#4e6475';
+    bottomCtx.strokeStyle = tickColor;
     bottomCtx.lineWidth = 1;
     bottomCtx.beginPath();
 
@@ -3973,11 +3976,11 @@
     bottomCtx.stroke();
 
     // Standard ticks: Left & Right
-    leftCtx.strokeStyle = '#4e6475';
+    leftCtx.strokeStyle = tickColor;
     leftCtx.lineWidth = 1;
     leftCtx.beginPath();
 
-    rightCtx.strokeStyle = '#4e6475';
+    rightCtx.strokeStyle = tickColor;
     rightCtx.lineWidth = 1;
     rightCtx.beginPath();
 
@@ -4003,12 +4006,12 @@
 
     // Static interval coordinates (skip if close to cursor)
     topCtx.font = rulerFont;
-    topCtx.fillStyle = '#647c8f';
+    topCtx.fillStyle = numColor;
     topCtx.textAlign = 'center';
     topCtx.textBaseline = 'top';
 
     bottomCtx.font = rulerFont;
-    bottomCtx.fillStyle = '#647c8f';
+    bottomCtx.fillStyle = numColor;
     bottomCtx.textAlign = 'center';
     bottomCtx.textBaseline = 'bottom';
 
@@ -4020,12 +4023,12 @@
     }
 
     leftCtx.font = rulerFont;
-    leftCtx.fillStyle = '#647c8f';
+    leftCtx.fillStyle = numColor;
     leftCtx.textAlign = 'right';
     leftCtx.textBaseline = 'middle';
 
     rightCtx.font = rulerFont;
-    rightCtx.fillStyle = '#647c8f';
+    rightCtx.fillStyle = numColor;
     rightCtx.textAlign = 'left';
     rightCtx.textBaseline = 'middle';
 
@@ -8223,6 +8226,11 @@
       this.classList.toggle('active', toggle.checked);
       toggle.dispatchEvent(new Event('change', { bubbles: true }));
     }
+  });
+
+  window.addEventListener('jwplc:themechange', () => {
+    drawRulers();
+    renderAll();
   });
 
 // --- End PanZoom ---

@@ -1,0 +1,682 @@
+/* ==========================================================================
+   JWPLC HMI Designer — Modo Claro (Tema de Fondo Blanco)
+   Contrato de UI industrial de alta legibilidad para JWPLC HMI Designer.
+   Se activa mediante la clase .theme-light en <html> o <body>.
+   ========================================================================== */
+
+html.theme-light,
+body.theme-light {
+  color-scheme: light;
+  background: #f1f5f9;
+  color: #0f172a;
+  --bg: #f1f5f9;
+  --panel: #ffffff;
+  --panel-2: #f8fafc;
+  --panel-3: #f1f5f9;
+  --line: #cbd5e1;
+  --line-soft: #e2e8f0;
+  --text: #0f172a;
+  --muted: #64748b;
+  --orange: #ea580c;
+  --orange-soft: rgba(234, 88, 12, 0.12);
+  --cyan: #0284c7;
+  --green: #16a34a;
+  --warn: #d97706;
+  --danger: #dc2626;
+}
+
+/* --- Elementos base de formulario en modo claro --- */
+body.theme-light button,
+body.theme-light select,
+body.theme-light input {
+  color: #0f172a;
+  background: #ffffff;
+  border-color: #cbd5e1;
+}
+
+body.theme-light button:hover:not(:disabled),
+body.theme-light select:hover,
+body.theme-light input:hover {
+  border-color: #94a3b8;
+}
+
+body.theme-light button:focus-visible,
+body.theme-light select:focus-visible,
+body.theme-light input:focus-visible {
+  outline: 1.5px solid var(--orange);
+  outline-offset: 1px;
+}
+
+body.theme-light button:disabled {
+  opacity: 0.45;
+  background: #f8fafc;
+  border-color: #e2e8f0;
+  color: #94a3b8;
+}
+
+/* --- Topbar / Cabecera --- */
+body.theme-light .topbar {
+  background: #ffffff;
+  border-bottom: 1px solid #cbd5e1;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+body.theme-light .brand h1 {
+  color: #0f172a;
+}
+
+body.theme-light .brand p {
+  color: #64748b;
+}
+
+body.theme-light .brand-dot {
+  color: #cbd5e1;
+}
+
+body.theme-light .brand-spec {
+  color: #0284c7;
+}
+
+body.theme-light .brand-badge {
+  color: #c2410c;
+  background: rgba(234, 88, 12, 0.08);
+  border-color: rgba(234, 88, 12, 0.28);
+}
+
+body.theme-light .toolbar button {
+  color: #334155;
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+body.theme-light .toolbar button:hover:not(:disabled) {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+body.theme-light .toolbar button:active:not(:disabled) {
+  background: #e2e8f0;
+}
+
+body.theme-light .toolbar button:disabled {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+  color: #94a3b8;
+}
+
+body.theme-light .toolbar .tb-icon-btn {
+  color: #475569;
+}
+
+body.theme-light .toolbar .separator {
+  background: #cbd5e1;
+}
+
+body.theme-light .toolbar button.primary-action {
+  background: linear-gradient(180deg, #ffedd5 0%, #fed7aa 100%);
+  border-color: #f97316;
+  color: #9a3412;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 1px 2px rgba(234, 88, 12, 0.15);
+}
+
+body.theme-light .toolbar button.primary-action:hover:not(:disabled) {
+  background: linear-gradient(180deg, #fdba74 0%, #fb923c 100%);
+  border-color: #ea580c;
+  color: #7c2d12;
+  box-shadow: 0 2px 8px rgba(234, 88, 12, 0.25);
+}
+
+body.theme-light #liveConnectButton {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #334155;
+}
+
+body.theme-light #liveConnectButton::before {
+  background: #94a3b8;
+  box-shadow: none;
+}
+
+body.theme-light #liveConnectButton:hover:not(:disabled)::before {
+  background: #0284c7;
+  box-shadow: 0 0 6px rgba(2, 132, 199, 0.45);
+}
+
+/* --- Panel Izquierdo / Árbol de Objetos --- */
+body.theme-light .left-panel {
+  background: #ffffff;
+  border-right: 1px solid #cbd5e1;
+}
+
+body.theme-light h2 {
+  color: #334155;
+}
+
+body.theme-light .heading-chevron,
+body.theme-light .heading-icon {
+  stroke: #64748b;
+}
+
+body.theme-light .count-badge {
+  color: #64748b;
+}
+
+body.theme-light .preview-badge {
+  background: rgba(2, 132, 199, 0.08);
+  color: #0284c7;
+  border-color: rgba(2, 132, 199, 0.25);
+}
+
+body.theme-light .sidebar-preview-frame {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.06);
+}
+
+body.theme-light .sidebar-preview-frame:hover {
+  border-color: #ea580c;
+  box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.06), 0 2px 10px rgba(234, 88, 12, 0.2);
+}
+
+body.theme-light #sidebarMiniPreviewCanvas {
+  background: #000000;
+  border-color: #94a3b8;
+  box-shadow: 0 0 0 1px #e2e8f0, 0 2px 6px rgba(0, 0, 0, 0.12);
+}
+
+body.theme-light .objects-tree::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+}
+
+body.theme-light .object-item {
+  color: #334155;
+}
+
+body.theme-light .object-item:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+body.theme-light .object-item.active {
+  background: #e0f2fe;
+  border-color: #7dd3fc;
+  color: #0369a1;
+  font-weight: 600;
+}
+
+body.theme-light .object-icon {
+  color: #64748b;
+}
+
+body.theme-light .object-item.active .object-icon {
+  color: #0284c7;
+}
+
+body.theme-light .object-btn {
+  color: #64748b;
+}
+
+body.theme-light .object-btn:hover {
+  color: #0f172a;
+  background: rgba(0, 0, 0, 0.06);
+}
+
+body.theme-light .object-item.is-dragging {
+  background: #e2e8f0;
+  opacity: 0.5;
+}
+
+/* --- Panel Central / Editor y Pestañas --- */
+body.theme-light .editor-panel {
+  background: #f8fafc;
+}
+
+body.theme-light .tabs {
+  background: #f1f5f9;
+  border-bottom: 1px solid #cbd5e1;
+}
+
+body.theme-light .tab {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #475569;
+}
+
+body.theme-light .tab:hover {
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+body.theme-light .tab.active {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  border-bottom-color: #ffffff;
+  color: #0f172a;
+  box-shadow: inset 0 -2px 0 var(--orange);
+  font-weight: 600;
+}
+
+body.theme-light .editor-caption {
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  color: #64748b;
+}
+
+body.theme-light .gate {
+  color: #16a34a;
+}
+
+body.theme-light .page-tab-edit-icon {
+  color: #64748b;
+}
+
+body.theme-light .page-tab-edit-icon:hover {
+  color: #0284c7;
+}
+
+body.theme-light .page-tab-rename-input {
+  background: #ffffff;
+  border-color: #0284c7;
+  color: #0f172a;
+  box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.2);
+}
+
+/* --- Viewport del Lienzo (Canvas Viewport) con fondo claro cuadriculado --- */
+body.theme-light .canvas-viewport {
+  background:
+    linear-gradient(45deg, rgba(0, 0, 0, 0.035) 25%, transparent 25%, transparent 75%, rgba(0, 0, 0, 0.035) 75%),
+    linear-gradient(45deg, rgba(0, 0, 0, 0.035) 25%, transparent 25%, transparent 75%, rgba(0, 0, 0, 0.035) 75%),
+    #e2e8f0;
+  background-size: 24px 24px;
+  background-position: 0 0, 12px 12px;
+}
+
+/* Marco / Bisel de la Pantalla TFT ST7789 */
+body.theme-light #displayCanvas {
+  border: 1px solid #94a3b8;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.16), 0 0 0 1px #cbd5e1;
+}
+
+body.theme-light .canvas-crosshair-x {
+  border-left-color: rgba(15, 23, 42, 0.35);
+}
+
+body.theme-light .canvas-crosshair-y {
+  border-top-color: rgba(15, 23, 42, 0.35);
+}
+
+/* Barra flotante superior de herramientas */
+body.theme-light .canvas-toolbar {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.12);
+}
+
+body.theme-light .canvas-tool {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #334155;
+}
+
+body.theme-light .canvas-tool:hover:not(:disabled) {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+body.theme-light .canvas-tool.active {
+  background: rgba(234, 88, 12, 0.12);
+  border-color: var(--orange);
+  color: var(--orange);
+  box-shadow: 0 0 0 1px rgba(234, 88, 12, 0.25);
+}
+
+body.theme-light .toolbar-divider {
+  background: #e2e8f0;
+}
+
+/* Desplegables de herramientas de texto y variables */
+body.theme-light .variable-dropdown-menu,
+body.theme-light .text-dropdown-menu {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.16), 0 2px 8px rgba(15, 23, 42, 0.08);
+}
+
+body.theme-light .var-menu-header {
+  color: #64748b;
+  border-bottom-color: #e2e8f0;
+}
+
+body.theme-light .var-menu-footer {
+  color: #64748b;
+  border-top-color: #e2e8f0;
+}
+
+body.theme-light .var-dropdown-item,
+body.theme-light .text-dropdown-item {
+  color: #334155;
+}
+
+body.theme-light .var-dropdown-item:hover,
+body.theme-light .text-dropdown-item:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+body.theme-light .var-dropdown-item.active,
+body.theme-light .text-dropdown-item.active {
+  background: rgba(234, 88, 12, 0.12);
+  border-color: rgba(234, 88, 12, 0.4);
+  color: #c2410c;
+}
+
+body.theme-light .var-dropdown-item .var-item-icon,
+body.theme-light .text-dropdown-item .var-item-icon {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #0284c7;
+}
+
+body.theme-light .var-dropdown-item:hover .var-item-icon,
+body.theme-light .text-dropdown-item:hover .var-item-icon {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+  color: #0369a1;
+}
+
+body.theme-light .var-dropdown-item .var-item-text strong,
+body.theme-light .text-dropdown-item .var-item-text strong {
+  color: #0f172a;
+}
+
+body.theme-light .var-dropdown-item .var-item-text span,
+body.theme-light .text-dropdown-item .var-item-text span {
+  color: #64748b;
+}
+
+/* Barra flotante vertical derecha */
+body.theme-light .right-vertical-toolbar {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.12);
+}
+
+body.theme-light .canvas-status {
+  background: #ffffff;
+  border-top: 1px solid #cbd5e1;
+  color: #64748b;
+}
+
+/* --- Panel Derecho / Inspector de Propiedades --- */
+body.theme-light .right-panel {
+  background: #ffffff;
+  border-left: 1px solid #cbd5e1;
+}
+
+body.theme-light details {
+  border-top: 1px solid #e2e8f0;
+}
+
+body.theme-light summary {
+  color: #1e293b;
+}
+
+body.theme-light summary::before {
+  color: #64748b;
+}
+
+body.theme-light .field-label {
+  color: #475569;
+}
+
+body.theme-light .field-input {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #0f172a;
+}
+
+body.theme-light .field-input:focus {
+  border-color: var(--orange);
+}
+
+body.theme-light .readout {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+body.theme-light .readout span {
+  color: #64748b;
+}
+
+body.theme-light .readout strong {
+  color: #0f172a;
+}
+
+body.theme-light .metrics-inline {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #64748b;
+}
+
+body.theme-light .metrics-inline strong {
+  color: #0f172a;
+}
+
+body.theme-light .contract-mini code {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #0f172a;
+}
+
+/* Inspector de Barra y Tarjetas Visuales (Alpha11/Alpha15) */
+body.theme-light .bar-card,
+body.theme-light .bar-inspector-wrap,
+body.theme-light .bar-visual-btn {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+body.theme-light .bar-visual-btn:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+}
+
+body.theme-light .bar-visual-btn.active {
+  background: rgba(234, 88, 12, 0.12);
+  border-color: var(--orange);
+  color: #c2410c;
+  font-weight: 600;
+}
+
+/* Inspector de Color / Color Editor */
+body.theme-light .color-editor-head {
+  color: #475569;
+}
+
+body.theme-light .color-editor-head strong {
+  color: #0f172a;
+}
+
+body.theme-light .color-editor-sv,
+body.theme-light .color-editor-hue {
+  border-color: #cbd5e1;
+}
+
+body.theme-light .color-editor-fields label {
+  color: #475569;
+}
+
+body.theme-light .color-editor-fields input {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+/* Inspector de Páginas / Barra de Navegación */
+body.theme-light .hmi-nav-pages-list {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+body.theme-light .hmi-nav-page-row {
+  border-bottom-color: #e2e8f0;
+}
+
+body.theme-light .hmi-nav-page-num {
+  color: #64748b;
+}
+
+body.theme-light .hmi-nav-page-name {
+  color: #334155;
+}
+
+body.theme-light .hmi-nav-page-row:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+body.theme-light .hmi-nav-page-row.is-active {
+  background: rgba(234, 88, 12, 0.12);
+}
+
+body.theme-light .hmi-nav-page-row.is-active .hmi-nav-page-name {
+  color: #c2410c;
+  font-weight: 700;
+}
+
+body.theme-light .hmi-nav-short-input {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #0284c7;
+}
+
+body.theme-light .nav-state-btn.is-static {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #334155;
+}
+
+/* Inspector de Menú / Leyenda de Estados */
+body.theme-light .menu-legend-row[data-legend-key]:hover,
+body.theme-light .menu-legend-row[data-menu-legend-row]:hover,
+body.theme-light .menu-legend-row[data-menu-frame-row]:hover,
+body.theme-light .menu-legend-row[data-bar-legend]:hover,
+body.theme-light .menu-legend-row[data-shape-legend]:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+/* --- Panel Inferior / Código C++ Generado --- */
+body.theme-light .code-panel {
+  background: #ffffff;
+  border-top: 1px solid #cbd5e1;
+}
+
+body.theme-light .bottom-tabs {
+  background: #f8fafc;
+  border-bottom: 1px solid #cbd5e1;
+}
+
+body.theme-light .bottom-summary {
+  color: #64748b;
+}
+
+body.theme-light .code-panel pre {
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+  color: #0f172a;
+}
+
+/* --- Barra de Estado Inferior --- */
+body.theme-light .statusbar {
+  background: #f8fafc;
+  border-top: 1px solid #cbd5e1;
+  color: #64748b;
+}
+
+body.theme-light .statusbar > span + span {
+  border-left: 1px solid #e2e8f0;
+}
+
+body.theme-light #selectedObjectStatus,
+body.theme-light #selectedGeometryStatus,
+body.theme-light #zoomStatus {
+  color: #334155;
+}
+
+/* --- Cuadros de Diálogo (JWPLCDialog) --- */
+body.theme-light .jw-dialog-backdrop {
+  background: rgba(15, 23, 42, 0.45);
+}
+
+body.theme-light .jw-dialog {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #0f172a;
+  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.18);
+}
+
+body.theme-light .jw-dialog-head {
+  color: #ea580c;
+}
+
+body.theme-light .jw-dialog-input {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+body.theme-light .jw-dialog-input:focus {
+  border-color: #ea580c;
+  box-shadow: 0 0 0 2px rgba(234, 88, 12, 0.2);
+}
+
+body.theme-light .jw-dialog-actions button {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #334155;
+}
+
+body.theme-light .jw-dialog-actions button:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+body.theme-light .jw-dialog-actions button.is-primary {
+  background: #ea580c;
+  border-color: #c2410c;
+  color: #ffffff;
+}
+
+body.theme-light .jw-dialog-actions button.is-primary:hover {
+  background: #c2410c;
+}
+
+/* --- Menú overflow responsive adaptativo --- */
+body.theme-light .responsive-overflow-menu {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  box-shadow: 0 12px 34px rgba(15, 23, 42, 0.15);
+}
+
+/* --- Botón de cambio de tema en la barra de herramientas --- */
+#themeToggleButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+#themeToggleButton svg {
+  display: block;
+  pointer-events: none;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+#themeToggleButton:hover:not(:disabled) svg {
+  transform: rotate(20deg) scale(1.1);
+}
