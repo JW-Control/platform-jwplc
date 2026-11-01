@@ -6,7 +6,8 @@ Diseño de referencia: `DISENO_RUNTIME_ESTILO_LOGO8.md` §7.2, puntos 4, 9, 10 y
 Revisión del propietario (01/11, misma noche):
 
 - **Vinculación:** debe conservar la propuesta de la maqueta: código que expira, barra de vigencia y confirmación física con OK. El ejemplo `Widgets_QR` se rehízo así.
-- **Registro de eventos y barra:** ya existen en la línea del HMI Designer (`…/feature/hmi-designer`, commit `1007dc6`). El registro está en `JWPLC_UI_EventLog`, con `JWPLC_Display.logEvent()`, FRAM en 0x1E00, SD y plantilla en el Designer; la barra es el campo BAR, con `JWPLC_UIBarField` y `JWPLC_Display.setBar()`. Se retiraron `JWPLC_UIBar`, `JWPLC_UILog` y sus ejemplos, que los duplicaban. El Runtime usará los del Designer.
+- **Registro de eventos y barra:** ya existen en la línea del HMI Designer (`…/feature/hmi-designer`, commit `1007dc6`). El registro está en `JWPLC_UI_EventLog`, con `JWPLC_Display.logEvent()`, FRAM en 0x1E00, SD y plantilla en el Designer; la barra es el campo BAR, con `JWPLC_UIBarField` y `JWPLC_Display.setBar()`. Se retiraron `JWPLC_UIBar`, `JWPLC_UILog` y sus ejemplos, que los duplicaban. El Runtime usará los del Designer. El color por umbral de la barra ya está aprobado para el BAR del Designer en esta alpha (`A15_INDUSTRIAL_ARQUITECTURA_PLAN_20261018.md`, G.9: «umbrales de color en VALUE y BAR») y todavía no está implementado.
+- **Vinculación, ajuste:** el recuadro de mensajes se recortaba arriba porque lo pisaba el texto de vigencia; se subieron el código, la barra y el texto. El QR lleva un enlace `http://` completo para que la cámara del celular abra la página del equipo sola.
 
 ```text
 A16_UI2_TECLADO=PASS_SIM            [ejecutado] Widgets_Teclado en JWPLC Sim: borra, escribe «Bomba 2», clave «a1» oculta, resumen
