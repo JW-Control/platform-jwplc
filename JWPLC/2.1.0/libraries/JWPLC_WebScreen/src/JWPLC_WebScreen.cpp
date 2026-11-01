@@ -24,6 +24,9 @@ JWPLC_WebScreenClass JWPLC_WebScreen;
 // La TFT arranca con la copia en RAM cuando esta librería está enlazada.
 extern "C" bool jwplcTFTMirrorWanted() { return true; }
 
+// Para Red del Runtime: puerto del servidor (0 si no arrancó).
+extern "C" uint16_t jwplcWebScreenPort();
+
 namespace
 {
 const uint32_t VIEWER_WINDOW_MS = 3000;
@@ -344,6 +347,7 @@ bool JWPLC_WebScreenClass::begin(uint16_t port)
 }
 
 bool JWPLC_WebScreenClass::isRunning() const { return g_running; }
+extern "C" uint16_t jwplcWebScreenPort() { return g_running ? g_port : 0; }
 uint16_t JWPLC_WebScreenClass::port() const { return g_port; }
 
 bool JWPLC_WebScreenClass::viewerConnected() const
