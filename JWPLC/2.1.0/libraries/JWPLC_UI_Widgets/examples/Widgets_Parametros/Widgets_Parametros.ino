@@ -11,21 +11,21 @@
   Uso: OK sale de IDLE. En la lista, OK edita el parámetro y ESC vuelve a
   IDLE. En el editor, OK pide confirmación y ESC descarta.
 
-  Todo se dibuja con dirty refresh dentro de los callbacks USER, que ya
-  corren con el bus SPI tomado por JWPLC_Display.
+  JWPLC_TFT es la pantalla. Todo se dibuja con dirty refresh dentro de los
+  callbacks USER, que ya corren con el bus SPI tomado por JWPLC_Display.
 */
 
 #include <JWPLC_UI_Widgets.h>
 
 struct Parametro
 {
-    const char *nombre;
+    char nombre[16];
     int32_t valor;    // entero escalado: 125 con 1 decimal = 12.5
     int32_t minimo;
     int32_t maximo;
     uint8_t digitos;
     uint8_t decimales;
-    const char *unidad;
+    char unidad[4];
 };
 
 static Parametro g_param[] = {
@@ -40,110 +40,106 @@ static Parametro g_param[] = {
 };
 static const uint16_t N_PARAM = sizeof(g_param) / sizeof(g_param[0]);
 
-enum Estado : uint8_t
+enum : uint8_t
 {
     EST_LISTA,
     EST_EDITOR,
     EST_DIALOGO
 };
 
+static JWPLC_UITheme T = JWPLC_UI_THEME_DARK;
+
 static JWPLC_UIList g_lista;
 static JWPLC_UIDigitEditor g_editor;
 static JWPLC_UIDialog g_dialogo;
 static JWPLC_UIToast g_aviso;
 
-static Estado g_estado = EST_LISTA;
+static uint8_t g_estado = EST_LISTA;
 static bool g_pieDibujado = false;
 static volatile bool g_pedirIdle = false;
-static char g_mensaje[48];
+static String g_mensaje;
 
-static const JWPLC_UITheme &T = JWPLC_UI_THEME_DARK;
-
-static void formatear(const Parametro &p, int32_t v, char *out, size_t n)
+// Valor escalado con sus decimales y unidad: 125 con 1 decimal -> "12.5 s".
+static String formatear(uint16_t i, int32_t v)
 {
-    const bool neg = v < 0;
-    const uint32_t a = (uint32_t)(neg ? -v : v);
-    if (p.decimales == 0)
+    const uint8_t dec = g_param[i].decimales;
+    String txt = String(v < 0 ? -v : v);
+    while (dec && txt.length() <= dec)
     {
-        snprintf(out, n, "%s%lu %s", neg ? "-" : "", (unsigned long)a, p.unidad);
-        return;
+        txt = "0" + txt;
     }
-    uint32_t div = 1;
-    for (uint8_t i = 0; i < p.decimales; i++)
+    if (dec)
     {
-        div *= 10;
+        const uint16_t ent = txt.length() - dec;
+        txt = txt.substring(0, ent) + "." + txt.substring(ent);
     }
-    snprintf(out, n, "%s%lu.%0*lu %s", neg ? "-" : "", (unsigned long)(a / div),
-             (int)p.decimales, (unsigned long)(a % div), p.unidad);
+    return String(v < 0 ? "-" : "") + txt + " " + g_param[i].unidad;
 }
 
-static void filaParametro(uint16_t i, char *izq, size_t nIzq, char *der, size_t nDer, void *)
+static void filaParametro(uint16_t i, JWPLC_UIRow fila)
 {
-    snprintf(izq, nIzq, "%s", g_param[i].nombre);
-    formatear(g_param[i], g_param[i].valor, der, nDer);
+    fila.left(g_param[i].nombre);
+    fila.right(formatear(i, g_param[i].valor));
 }
 
-static void dibujarEncabezado(JWPLC_TFTClass &tft, const char *titulo)
+static void dibujarEncabezado(const char titulo[])
 {
-    tft.fillRect(0, 0, 320, 22, T.header);
-    tft.setFont(JWPLC_FONT_GLCD);
-    tft.setTextSize(2);
-    tft.setTextDatum(JWPLC_TFTDatum::MIDDLE_LEFT);
-    tft.setTextColor(T.headerText, T.header);
-    tft.drawString(titulo, 8, 11);
-    tft.setTextSize(1);
-    tft.setTextDatum(JWPLC_TFTDatum::TOP_LEFT);
+    JWPLC_TFT.fillRect(0, 0, 320, 22, T.header);
+    JWPLC_TFT.setFont(JWPLC_FONT_GLCD);
+    JWPLC_TFT.setTextSize(2);
+    JWPLC_TFT.setTextDatum(DATUM_MIDDLE_LEFT);
+    JWPLC_TFT.setTextColor(T.headerText, T.header);
+    JWPLC_TFT.drawString(titulo, 8, 11);
+    JWPLC_TFT.setTextSize(1);
+    JWPLC_TFT.setTextDatum(DATUM_TOP_LEFT);
 }
 
-static void dibujarPie(JWPLC_TFTClass &tft)
+static void dibujarPie()
 {
-    tft.fillRect(0, 148, 320, 22, T.background);
-    tft.setFont(JWPLC_FONT_GLCD);
-    tft.setTextSize(1);
-    tft.setTextColor(T.textMuted, T.background);
-    tft.setCursor(8, 155);
+    JWPLC_TFT.fillRect(0, 148, 320, 22, T.background);
+    JWPLC_TFT.setFont(JWPLC_FONT_GLCD);
+    JWPLC_TFT.setTextSize(1);
+    JWPLC_TFT.setTextColor(T.textMuted, T.background);
+    JWPLC_TFT.setCursor(8, 155);
     if (g_estado == EST_LISTA)
     {
-        tft.print("UP/DOWN elegir   OK editar   ESC salir");
+        JWPLC_TFT.print("UP/DOWN elegir   OK editar   ESC salir");
     }
     else
     {
-        tft.print("<> digito   UP/DOWN valor   OK   ESC");
+        JWPLC_TFT.print("<> digito   UP/DOWN valor   OK   ESC");
     }
     g_pieDibujado = true;
 }
 
-static void abrirEditor(JWPLC_TFTClass &tft)
+static void abrirEditor()
 {
-    const Parametro &p = g_param[g_lista.selected()];
+    const uint16_t i = g_lista.selected();
     g_estado = EST_EDITOR;
 
-    tft.fillRect(0, 24, 320, 124, T.background);
-    tft.fillRoundRect(10, 30, 300, 112, 6, T.surface);
-    tft.setFont(JWPLC_FONT_GLCD);
-    tft.setTextSize(2);
-    tft.setTextDatum(JWPLC_TFTDatum::MIDDLE_LEFT);
-    tft.setTextColor(T.text, T.surface);
-    tft.drawString(p.nombre, 22, 46);
+    JWPLC_TFT.fillRect(0, 24, 320, 124, T.background);
+    JWPLC_TFT.fillRoundRect(10, 30, 300, 112, 6, T.surface);
+    JWPLC_TFT.setFont(JWPLC_FONT_GLCD);
+    JWPLC_TFT.setTextSize(2);
+    JWPLC_TFT.setTextDatum(DATUM_MIDDLE_LEFT);
+    JWPLC_TFT.setTextColor(T.text, T.surface);
+    JWPLC_TFT.drawString(g_param[i].nombre, 22, 46);
 
-    char rango[40];
-    char a[16];
-    char b[16];
-    formatear(p, p.minimo, a, sizeof(a));
-    formatear(p, p.maximo, b, sizeof(b));
-    snprintf(rango, sizeof(rango), "Min %s  Max %s", a, b);
-    tft.setTextSize(1);
-    tft.setTextColor(T.textMuted, T.surface);
-    tft.drawString(rango, 22, 124);
-    tft.setTextDatum(JWPLC_TFTDatum::TOP_LEFT);
+    const String rango = "Min " + formatear(i, g_param[i].minimo) +
+                         "  Max " + formatear(i, g_param[i].maximo);
+    JWPLC_TFT.setTextSize(1);
+    JWPLC_TFT.setTextColor(T.textMuted, T.surface);
+    JWPLC_TFT.drawString(rango.c_str(), 22, 124);
+    JWPLC_TFT.setTextDatum(DATUM_TOP_LEFT);
 
-    g_editor.begin(0, 72, p.digitos, p.decimales, p.unidad, T);
-    g_editor.setRange(p.minimo, p.maximo);
-    g_editor.setValue(p.valor);
-    // Centrado según el ancho real del editor.
-    g_editor.begin((int16_t)(160 - g_editor.width() / 2 - 12), 72, p.digitos, p.decimales, p.unidad, T);
-    g_editor.setRange(p.minimo, p.maximo);
-    g_editor.setValue(p.valor);
+    // Primero con x = 0 para conocer el ancho real (con signo si el rango
+    // admite negativos) y luego centrado.
+    g_editor.begin(0, 72, g_param[i].digitos, g_param[i].decimales, g_param[i].unidad, T);
+    g_editor.setRange(g_param[i].minimo, g_param[i].maximo);
+    const int16_t x = 160 - g_editor.width() / 2 - 12;
+    g_editor.begin(x, 72, g_param[i].digitos, g_param[i].decimales, g_param[i].unidad, T);
+    g_editor.setRange(g_param[i].minimo, g_param[i].maximo);
+    g_editor.setValue(g_param[i].valor);
     g_pieDibujado = false;
 }
 
@@ -159,9 +155,8 @@ extern "C" void jwplcUIEnter()
     // Teclas pulsadas en IDLE: no deben actuar sobre esta pantalla.
     JWPLC_Display.clearPendingInput();
 
-    auto &tft = JWPLC_Display.tft();
-    tft.fillScreen(T.background);
-    dibujarEncabezado(tft, "Parametros");
+    JWPLC_TFT.fillScreen(T.background);
+    dibujarEncabezado("Parametros");
 
     g_lista.begin(0, 24, 320, 124, 20, T);
     g_lista.setRows(N_PARAM, filaParametro);
@@ -173,86 +168,75 @@ extern "C" void jwplcUIEnter()
 
 extern "C" void jwplcUIUpdate()
 {
-    auto &tft = JWPLC_Display.tft();
-
-    switch (g_estado)
+    if (g_estado == EST_LISTA)
     {
-    case EST_LISTA:
         g_lista.handleKeys();
         if (JWPLC_Buttons.pressed(BTN_OK))
         {
-            abrirEditor(tft);
-            break;
+            abrirEditor();
         }
-        if (JWPLC_Buttons.pressed(BTN_ESC))
+        else if (JWPLC_Buttons.pressed(BTN_ESC))
         {
             g_pedirIdle = true; // goIdle() se llama desde loop(), fuera del batch
         }
-        break;
-
-    case EST_EDITOR:
+    }
+    else if (g_estado == EST_EDITOR)
     {
-        const JWPLC_UIDigitEditor::Result r = g_editor.handleKeys();
-        if (r == JWPLC_UIDigitEditor::ACCEPTED)
+        const uint8_t r = g_editor.handleKeys();
+        if (r == UI_EDIT_ACCEPTED)
         {
-            const Parametro &p = g_param[g_lista.selected()];
-            char v[16];
-            formatear(p, g_editor.value(), v, sizeof(v));
-            snprintf(g_mensaje, sizeof(g_mensaje), "%s = %s", p.nombre, v);
+            const uint16_t i = g_lista.selected();
+            g_mensaje = String(g_param[i].nombre) + " = " + formatear(i, g_editor.value());
             g_estado = EST_DIALOGO;
-            g_dialogo.open("Guardar cambio?", g_mensaje, true, T);
-            break;
+            g_dialogo.open("Guardar cambio?", g_mensaje.c_str(), true, T);
         }
-        if (r == JWPLC_UIDigitEditor::CANCELLED)
+        else if (r == UI_EDIT_CANCELLED)
         {
             volverALista();
             g_aviso.show("Edicion descartada", 1500, T.warn);
-            break;
         }
-        g_editor.draw(tft);
-        break;
-    }
-
-    case EST_DIALOGO:
-    {
-        const JWPLC_UIDialog::Result r = g_dialogo.handleKeys();
-        if (r == JWPLC_UIDialog::YES)
+        else
         {
-            Parametro &p = g_param[g_lista.selected()];
-            p.valor = g_editor.value();
-            Serial.printf("GUARDADO %s\n", g_mensaje);
+            g_editor.draw();
+        }
+    }
+    else if (g_estado == EST_DIALOGO)
+    {
+        const uint8_t r = g_dialogo.handleKeys();
+        if (r == UI_DIALOG_YES)
+        {
+            g_param[g_lista.selected()].valor = g_editor.value();
+            Serial.println("GUARDADO " + g_mensaje);
             volverALista();
             g_aviso.show("Guardado", 1500, T.ok);
         }
-        else if (r == JWPLC_UIDialog::NO)
+        else if (r == UI_DIALOG_NO)
         {
             volverALista();
             g_aviso.show("Sin cambios", 1500, T.warn);
         }
         else
         {
-            g_dialogo.draw(tft);
+            g_dialogo.draw();
         }
-        break;
-    }
     }
 
     if (g_estado == EST_LISTA && g_lista.rowCount())
     {
-        g_lista.draw(tft);
+        g_lista.draw();
     }
 
     // El pie muestra la ayuda o, por un momento, el aviso.
     if (g_aviso.visible())
     {
-        if (g_aviso.draw(tft))
+        if (g_aviso.draw())
         {
             g_pieDibujado = false;
         }
     }
     if (!g_aviso.visible() && !g_pieDibujado && g_estado != EST_DIALOGO)
     {
-        dibujarPie(tft);
+        dibujarPie();
     }
 }
 

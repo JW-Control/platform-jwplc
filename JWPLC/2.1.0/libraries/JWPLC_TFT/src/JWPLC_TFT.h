@@ -102,6 +102,21 @@ enum class JWPLC_TFTDatum : uint8_t
     BASELINE_RIGHT = 11
 };
 
+// Las mismas posiciones como constantes globales, para escribir en el sketch
+// tft.setTextDatum(DATUM_MIDDLE_LEFT) sin «::» (regla del propietario, 01/11).
+static constexpr JWPLC_TFTDatum DATUM_TOP_LEFT = JWPLC_TFTDatum::TOP_LEFT;
+static constexpr JWPLC_TFTDatum DATUM_TOP_CENTER = JWPLC_TFTDatum::TOP_CENTER;
+static constexpr JWPLC_TFTDatum DATUM_TOP_RIGHT = JWPLC_TFTDatum::TOP_RIGHT;
+static constexpr JWPLC_TFTDatum DATUM_MIDDLE_LEFT = JWPLC_TFTDatum::MIDDLE_LEFT;
+static constexpr JWPLC_TFTDatum DATUM_MIDDLE_CENTER = JWPLC_TFTDatum::MIDDLE_CENTER;
+static constexpr JWPLC_TFTDatum DATUM_MIDDLE_RIGHT = JWPLC_TFTDatum::MIDDLE_RIGHT;
+static constexpr JWPLC_TFTDatum DATUM_BOTTOM_LEFT = JWPLC_TFTDatum::BOTTOM_LEFT;
+static constexpr JWPLC_TFTDatum DATUM_BOTTOM_CENTER = JWPLC_TFTDatum::BOTTOM_CENTER;
+static constexpr JWPLC_TFTDatum DATUM_BOTTOM_RIGHT = JWPLC_TFTDatum::BOTTOM_RIGHT;
+static constexpr JWPLC_TFTDatum DATUM_BASELINE_LEFT = JWPLC_TFTDatum::BASELINE_LEFT;
+static constexpr JWPLC_TFTDatum DATUM_BASELINE_CENTER = JWPLC_TFTDatum::BASELINE_CENTER;
+static constexpr JWPLC_TFTDatum DATUM_BASELINE_RIGHT = JWPLC_TFTDatum::BASELINE_RIGHT;
+
 class JWPLC_TFTSprite;
 
 class JWPLC_TFTClass : public Print
