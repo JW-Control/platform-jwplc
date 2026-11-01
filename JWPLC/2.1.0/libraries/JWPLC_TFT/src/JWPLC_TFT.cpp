@@ -12,6 +12,12 @@ extern "C"
 #include "jwplc_spi_bus.h"
 }
 
+#include "JWPLC_TFT_Mirror.h"
+
+// JWPLC_WebScreen la redefine para que el espejo de la pantalla arranque con la
+// TFT y capture desde el primer dibujo. Sin esa librería no se reserva memoria.
+extern "C" bool __attribute__((weak)) jwplcTFTMirrorWanted() { return false; }
+
 #ifndef JWPLC_TFT_BACKEND_SETUP
 #error "JWPLC_TFT: no se cargo el setup privado del backend"
 #endif
@@ -153,6 +159,10 @@ bool JWPLC_TFTClass::begin(uint32_t timeoutMs)
 
     jwplcSPI_prepareForTFT();
 
+    if (jwplcTFTMirrorWanted())
+    {
+        jwplcMirrorStart();
+    }
     g_backend.init();
     g_backend.setRotation(ACTIVE_ROTATION);
     g_backend.fillScreen(JWPLC_TFT_BLACK);

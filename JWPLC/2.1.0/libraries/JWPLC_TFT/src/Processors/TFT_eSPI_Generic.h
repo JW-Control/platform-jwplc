@@ -185,4 +185,29 @@
 #endif
 
 
+////////////////////////////////////////////////////////////////////////////////////////
+// JWPLC: espejo de la pantalla para JWPLC_WebScreen (JWPLC_TFT_Mirror.h). Esta ruta
+// la usa JWPLC Sim; en la placa va la del procesador ESP32 (mismo decodificador).
+////////////////////////////////////////////////////////////////////////////////////////
+#include "../JWPLC_TFT_Mirror.h"
+#if !defined (TFT_PARALLEL_8_BIT) && !defined (SPI_18BIT_DRIVER) && !defined (RPI_DISPLAY_TYPE) && \
+    !defined (__AVR__) && defined (TFT_DC) && (TFT_DC >= 0)
+  #undef DC_C
+  #undef DC_D
+  #define DC_C do { digitalWrite(TFT_DC, LOW); jwplcMirrorDC = 0; } while (0)
+  #define DC_D do { digitalWrite(TFT_DC, HIGH); jwplcMirrorDC = 1; } while (0)
+  #undef tft_Write_8
+  #define tft_Write_8(C) do { const uint8_t jwMirrorB = (uint8_t)(C); spi.transfer(jwMirrorB); \
+                              if (jwplcMirrorOn) jwplcMirrorWrite(jwMirrorB, 8); } while (0)
+  // transfer16 saca primero el byte alto: en el orden del cable es (alto, bajo).
+  #undef tft_Write_16
+  #define tft_Write_16(C) do { const uint16_t jwMirrorW = (uint16_t)(C); spi.transfer16(jwMirrorW); \
+                               if (jwplcMirrorOn) jwplcMirrorWrite((uint32_t)(jwMirrorW >> 8) | ((uint32_t)(jwMirrorW & 0xFF) << 8), 16); } while (0)
+  #undef tft_Write_16S
+  #define tft_Write_16S(C) tft_Write_16((uint16_t)(((C) >> 8) | ((C) << 8)))
+  #undef tft_Write_16N
+  #define tft_Write_16N tft_Write_16
+  #define JWPLC_TFT_MIRROR_HOOKS 1
+#endif
+
 #endif // Header end

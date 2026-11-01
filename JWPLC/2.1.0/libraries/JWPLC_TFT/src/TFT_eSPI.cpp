@@ -889,6 +889,10 @@ void TFT_eSPI::setRotation(uint8_t m)
   addr_row = 0xFFFF;
   addr_col = 0xFFFF;
 
+#ifdef JWPLC_TFT_MIRROR_HOOKS
+  jwplcMirrorGeometry(colstart, rowstart, _width, _height); // JWPLC: espejo de la pantalla
+#endif
+
   // Reset the viewport to the whole screen
   resetViewport();
 }

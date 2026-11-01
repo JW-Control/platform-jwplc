@@ -35,7 +35,7 @@ Ramas de Kenyi con el nombre viejo, contenidas en `…/main` (se borran cuando �
 ## 3. Librerías en modo fuente (regenerar `.a` al cierre)
 
 `JWPLC_TFT` 0.5.0 (incluye TFT_eSPI), `JWPLC_Display` 1.1.0, `JWPLC_UI_Widgets` 0.5.0, `JWPLC_Runtime` 0.2.0,
-`JWPLC_Expansion` 0.1.0. Al cierre: regenerar sus `.a` y benchmark de compilación en la PC del propietario.
+`JWPLC_Expansion` 0.1.0, `JWPLC_WebScreen` 0.1.0 y `JW_MatrixButtons` 1.0.6 (teclas virtuales). Al cierre: regenerar sus `.a` y benchmark de compilación en la PC del propietario.
 
 ## 4. Qué funciona en la máquina
 
@@ -46,6 +46,8 @@ Ramas de Kenyi con el nombre viejo, contenidas en `…/main` (se borran cuando �
   de un esclavo bloqueado por sketch (gate `JWSIM_EXPANSION_RTU`). `XU` no se puede probar (misma MAC en el sim).
 - Widgets, tendencia, teclado y QR.
 - HMI Designer: medidor circular (ejemplo 08), iconos animados (08) y registro de eventos (09).
+- Pantalla en el navegador por Ethernet (`JWPLC_WebScreen`, gate `JWSIM_WEBSCREEN`):
+  [A16_PANTALLA_WEB_20261101.md](A16_PANTALLA_WEB_20261101.md), con el guion de la demo del 03/11.
 
 ## 5. Qué existe aislado o detrás de un flag
 
