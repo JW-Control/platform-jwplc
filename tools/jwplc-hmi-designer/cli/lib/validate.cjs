@@ -201,7 +201,9 @@ function validateField(field, i, project, report) {
   }
   if (field.type === 'BAR') {
     if (Number(field.barMax) <= Number(field.barMin)) report.error(`${where}.barMax`, `barMax (${field.barMax}) debe ser mayor que barMin (${field.barMin})`);
-    const caps = { barPreset: 'LINEAR', barFillMode: 'SOLID', barOrientation: 'HORIZONTAL' };
+    // El firmware dibuja la barra LINEAR sólida horizontal y el medidor CIRCULAR.
+    if (field.barPreset !== undefined && !['LINEAR', 'CIRCULAR'].includes(field.barPreset)) report.warn(`${where}.barPreset`, 'el firmware sólo dibuja LINEAR o CIRCULAR; se generará LINEAR');
+    const caps = { barFillMode: 'SOLID', barOrientation: 'HORIZONTAL' };
     for (const [key, ok] of Object.entries(caps)) {
       if (field[key] !== undefined && field[key] !== ok) report.warn(`${where}.${key}`, `el firmware sólo dibuja ${key} = ${ok}; se generará así`);
     }

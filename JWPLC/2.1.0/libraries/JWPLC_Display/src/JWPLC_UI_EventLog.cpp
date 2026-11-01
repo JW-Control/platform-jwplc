@@ -558,9 +558,12 @@ namespace JWPLCUIEventLog
             }
 
             // Botón de cierre
-            tft.fillRect(bx + 80, by + 108, 120, 16, c.selectBackground);
+            // 20 caracteres GLCD = 120 px + 6 px de margen a cada lado, centrado.
+            const int16_t btnW = 132;
+            const int16_t btnX = bx + (bw - btnW) / 2;
+            tft.fillRect(btnX, by + 108, btnW, 16, c.selectBackground);
             tft.setTextColor(c.selectText, c.selectBackground);
-            tft.setCursor(bx + 92, by + 112);
+            tft.setCursor(btnX + 6, by + 112);
             tft.print("[ OK / ESC: CERRAR ]");
             return;
         }
@@ -654,6 +657,14 @@ namespace JWPLCUIEventLog
 
         // Pie de página con ayuda de teclas
         const int16_t footerY = y0 + h - border - FOOTER_HEIGHT;
+
+        // Hueco entre la última fila y el pie (alto no múltiplo de ROW_HEIGHT):
+        // se limpia para no dejar restos del detalle al cerrarlo.
+        const int16_t rowsEnd = y0 + border + HEADER_HEIGHT + (int16_t)(visRows * ROW_HEIGHT);
+        if (footerY > rowsEnd)
+        {
+            tft.fillRect(x0 + border, rowsEnd, w - 2 * border, footerY - rowsEnd, c.rowBackground);
+        }
         tft.fillRect(x0 + border, footerY, w - 2 * border, FOOTER_HEIGHT, 0x10A2);
         tft.setTextColor(0xFFFF, 0x10A2);
         tft.setCursor(x0 + border + 8, footerY + 3);
