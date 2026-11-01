@@ -13,6 +13,7 @@
 #define JWPLC_TFT_HAS_CLIP 1
 #define JWPLC_TFT_HAS_WIDE_LINE 1
 #define JWPLC_TFT_HAS_SPRITE 1
+#define JWPLC_TFT_HAS_FONT16 1
 
 enum class JWPLC_TFTPanel : uint8_t
 {
@@ -79,6 +80,10 @@ extern const JWPLC_TFTFont JWPLC_FONT_MONO_18;
 extern const JWPLC_TFTFont JWPLC_FONT_MONO_BOLD_18;
 extern const JWPLC_TFTFont JWPLC_FONT_MONO_24;
 extern const JWPLC_TFTFont JWPLC_FONT_MONO_BOLD_24;
+
+// Fuente de 16 px con trazo de 1 px (Font 2 de TFT_eSPI): para listas y textos
+// junto a títulos en GLCD x2. Solo se enlaza si el sketch la usa.
+extern const JWPLC_TFTFont JWPLC_FONT_16;
 
 // Punto de anclaje de drawString(). Valores idénticos a TFT_eSPI.
 enum class JWPLC_TFTDatum : uint8_t
