@@ -276,6 +276,7 @@
           loadScript('./designer-event-log.js?v=1793802700');
           loadScript('./designer-icons.js?v=1793806000');
           loadScript('./designer-idle.js?v=1793801300');
+          loadScript('./designer-runtime.js?v=1793810000');
           loadScript('./designer-field-visibility.js?v=1793802300', () => {
             loadScript('./designer-pages.js?v=1793802300', () => {
               loadScript('./designer-flasher.js?v=1793801500', () => {

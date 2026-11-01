@@ -107,7 +107,8 @@ void setHMI(const JWPLC_UIField fields[], uint8_t count, uint8_t pages)
     releaseHMI();
     g_fields = fields;
     g_count = fields ? count : 0;
-    g_pages = (fields && count) ? (pages ? pages : 1) : 0;
+    // Una página puede tener solo gráfica estática (sin campos).
+    g_pages = pages ? pages : (g_count ? 1 : 0);
 }
 
 bool hasHMI()

@@ -19,7 +19,7 @@
 #pragma once
 
 #include <Arduino.h>
-#include <JWPLC_UI.h>
+#include <JWPLC_Display.h>
 
 #define JWPLC_RUNTIME_VERSION_MAJOR 0
 #define JWPLC_RUNTIME_VERSION_MINOR 2

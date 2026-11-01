@@ -21,6 +21,8 @@ const TESTS = [
   { file: 'icon-catalog.test.cjs', what: 'catálogo de iconos al día y dentro de los límites del firmware' },
   { file: 'codegen-golden.cjs', what: 'headers generados == golden' },
   { file: 'value-format-parity.cjs', what: 'formato de VALUE: firmware real == Designer (sin g++ sólo casos fijos)' },
+  { file: 'runtime-core.test.cjs', what: 'proyecto Runtime: símbolos rt_*, conversión del header y compilación contra JWPLC_Runtime.h', needs: null },
+  { file: 'runtime-smoke.cjs', what: 'proyecto Runtime en el Designer: tipo de proyecto, Variable del Runtime, header y guardado' },
   { file: 'inspector-smoke.cjs', what: 'inspector TEXT/VALUE/BOOL/BAR + paridad BAR' },
   { file: 'menu-smoke.cjs', what: 'MENU en el Designer + paridad con el firmware' },
   { file: 'icon-smoke.cjs', what: 'ICON en el Designer (panel, inspector, guardar) + paridad con el firmware' },
