@@ -6,7 +6,7 @@ Diseño de referencia: `DISENO_RUNTIME_ESTILO_LOGO8.md` §7.2 (puntos 5, 6, 8 y 
 ```text
 A16_UI1_API=PASS                 [ejecutado] compila en JWPLC Sim (native) contra el package de esta rama
 A16_UI1_SIM_EJEMPLO=PASS         [ejecutado] Widgets_Parametros en JWPLC Sim: lista, scroll, editor, diálogo, aviso y vuelta a IDLE (capturas)
-A16_UI1_SIM_REGRESSION=IN_PROGRESS  [ejecutado] jwplc-sim rama feature/alpha16-api-tft-widgets (9edf699): parity PASS y pruebas de los 2 ejemplos nuevos PASS. Pendiente: fusionarla y, al cierre, fijar sim_ref
+A16_UI1_SIM_REGRESSION=IN_PROGRESS  [ejecutado] jwplc-sim rama feature/alpha16-api-tft-widgets (feature/alpha16-api-tft-widgets): parity PASS y pruebas de los 2 ejemplos nuevos PASS. Pendiente: fusionarla y, al cierre, fijar sim_ref
 A16_UI1_EJEMPLO_COMPILA=PENDING  [no verificado] Arduino IDE con la placa local
 A16_UI1_FISICO=PENDING           ver checklist físico
 ```
@@ -30,7 +30,7 @@ Está en modo fuente desde el inicio (sin `precompiled`).
 | `JWPLC_UIDialog` | Diálogo modal Sí/No o Aceptar | ◄ ► OK ESC |
 | `JWPLC_UIToast` | Aviso temporal en una franja reservada (pie) | — |
 
-Todos usan dirty refresh: la lista redibuja solo las dos filas que cambian de selección (o la vista al hacer scroll), el editor solo los dígitos que cambian y el diálogo solo sus botones. Se llaman desde los callbacks USER, que ya corren dentro del batch de `JWPLC_Display`, y dejan `JWPLC_FONT_GLCD` activa al terminar.
+Todos usan la fuente GLCD 5×7 escalada (tamaño 2; 1 para ayudas), la misma de la IDLE, por pedido del propietario (01/11). Todos usan dirty refresh: la lista redibuja solo las dos filas que cambian de selección (o la vista al hacer scroll), el editor solo los dígitos que cambian y el diálogo solo sus botones. Se llaman desde los callbacks USER, que ya corren dentro del batch de `JWPLC_Display`, y dejan `JWPLC_FONT_GLCD` activa al terminar.
 
 ## Ejemplo `Widgets_Parametros`
 
