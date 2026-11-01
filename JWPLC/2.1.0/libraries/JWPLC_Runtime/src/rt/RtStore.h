@@ -11,7 +11,7 @@
 //   0x0100  programa, ranura A (1536 B)
 //   0x0700  programa, ranura B (1536 B)
 //   0x0D00  retentivos (64 x 4 B + CRC)
-//   0x0E80  eventos (32 x 16 B, anillo) y su índice en 0x1080
+//   0x0E80  libre (antes eventos; ahora van al historial de JWPLC_Display, 0x1E00)
 //   0x1100  módulos de expansión vinculados (7 x 16 B + CRC)
 //   0x1180  configuración de esclavo (JWPLC_Expansion), si el equipo es módulo
 #pragma once
@@ -63,7 +63,14 @@ enum EventCode : uint8_t
     EV_X_OFFLINE,
     EV_X_ONLINE,
     EV_X_WRONG,     // otro equipo en el ID del módulo
+    EV_COUNT,
+    EV_OTHER = 0xFF, // evento del sketch o del HMI (código propio en Event.other)
 };
+
+// Los eventos van al historial común de JWPLC_Display (JWPLC_UI_EventLog):
+// RAM 64, FRAM 16 en 0x1E00 y copia a /EVENTOS.CSV. El Runtime anota con
+// códigos RT_EVENT_BASE + EventCode; el encendido es el 100 del sistema.
+static const uint16_t RT_EVENT_BASE = 400;
 
 struct Event
 {
@@ -75,13 +82,14 @@ struct Event
     uint8_t hour;
     uint8_t minute;
     uint8_t second;
-    uint32_t uptimeS; // segundos desde el arranque
-    uint32_t reserved;
+    uint32_t uptimeS; // segundos desde el arranque (si no hay hora)
+    uint16_t other;   // código del historial si code == EV_OTHER
+    uint16_t reserved;
 };
 
-static const uint8_t EVENT_SLOTS = 32;
-
 const char *eventText(uint8_t code);
+// Texto de un evento leído del historial (también los del sketch/HMI).
+const char *eventText(const Event &e);
 
 // Módulo de expansión vinculado (16 bytes). Módulo n = posición n - 1.
 static const uint8_t XL_USED = 0x01;
@@ -120,8 +128,8 @@ public:
     bool loadLinks(XLink links[NUM_X]);
     bool saveLinks(const XLink links[NUM_X]);
 
-    void addEvent(const Event &e);
-    uint8_t eventCount() const { return _evCount; }
+    void addEvent(uint8_t code, uint8_t arg);
+    uint8_t eventCount() const;
     // i = 0 es el más reciente.
     bool event(uint8_t i, Event &out) const;
     void clearEvents();
@@ -135,13 +143,10 @@ public:
 
 private:
     bool readConfigCopy(uint32_t addr, Config &c);
-    void loadEvents();
+    void startEvents();
 
     Config _cfg;
     bool _framOk = false;
-    Event _ev[EVENT_SLOTS];
-    uint8_t _evHead = 0;  // próxima posición a escribir
-    uint8_t _evCount = 0;
 };
 
 } // namespace jwrt

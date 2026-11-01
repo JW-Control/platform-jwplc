@@ -97,20 +97,30 @@ namespace
         }
     }
 
-    const JWPLC_UIEventDescriptor *findDescriptor(uint16_t code)
+    static const JWPLC_UIEventDescriptor *g_extra = nullptr;
+    static size_t g_extraCount = 0;
+
+    const JWPLC_UIEventDescriptor *findIn(const JWPLC_UIEventDescriptor *table, size_t count, uint16_t code)
     {
-        if (g_config.descriptors == nullptr || g_config.descriptorCount == 0)
+        if (table == nullptr)
         {
             return nullptr;
         }
-        for (size_t i = 0; i < g_config.descriptorCount; ++i)
+        for (size_t i = 0; i < count; ++i)
         {
-            if (g_config.descriptors[i].code == code)
+            if (table[i].code == code)
             {
-                return &g_config.descriptors[i];
+                return &table[i];
             }
         }
         return nullptr;
+    }
+
+    // Primero los del proyecto (Designer) y luego los extra (Runtime).
+    const JWPLC_UIEventDescriptor *findDescriptor(uint16_t code)
+    {
+        const JWPLC_UIEventDescriptor *d = findIn(g_config.descriptors, g_config.descriptorCount, code);
+        return d != nullptr ? d : findIn(g_extra, g_extraCount, code);
     }
 
     uint32_t currentTimestamp()
@@ -302,10 +312,18 @@ namespace JWPLCUIEventLog
 {
     bool begin(const JWPLC_UIEventLog &config)
     {
+        const bool wasConfigured = g_configured;
+        const uint8_t oldCapacity = g_config.ramCapacity;
         g_config = config;
         if (g_config.ramCapacity == 0 || g_config.ramCapacity > MAX_CAPACITY)
         {
             g_config.ramCapacity = JWPLC_EVENT_MAX_RAM_DEFAULT;
+        }
+        if (wasConfigured)
+        {
+            // Ya en marcha (p. ej. lo empezó el Runtime): se conservan los eventos
+            // y la capacidad del anillo; solo cambia lo que se ve.
+            g_config.ramCapacity = oldCapacity;
         }
 
         // Colores por defecto si están en 0
@@ -320,11 +338,18 @@ namespace JWPLCUIEventLog
         if (g_config.colors.sevWarn == 0)          g_config.colors.sevWarn = 0xFD20;
         if (g_config.colors.sevCrit == 0)          g_config.colors.sevCrit = 0xF800;
 
-        g_count = 0;
-        g_head = 0;
         g_selectedIndex = 0;
         g_scrollOffset = 0;
         g_inDetail = false;
+        g_fullRedraw = true;
+        g_dirty = true;
+        if (wasConfigured)
+        {
+            return true;
+        }
+
+        g_count = 0;
+        g_head = 0;
         g_configured = true;
         g_datalogStarted = false;
 
@@ -336,7 +361,40 @@ namespace JWPLCUIEventLog
         return true;
     }
 
-    void logEvent(uint16_t code, uint8_t transition, uint8_t category, uint8_t severity, const char *customText)
+    bool startStore()
+    {
+        if (g_configured)
+        {
+            return true;
+        }
+        JWPLC_UIEventLog cfg;
+        memset(&cfg, 0, sizeof(cfg));
+        cfg.page = JWPLC_EVENT_NO_PAGE;
+        cfg.ramCapacity = JWPLC_EVENT_MAX_RAM_DEFAULT;
+        cfg.enableFram = true;
+        cfg.enableSd = true;
+        cfg.sdFileName = "/EVENTOS.CSV";
+        return begin(cfg);
+    }
+
+    bool started()
+    {
+        return g_configured;
+    }
+
+    void setExtraDescriptors(const JWPLC_UIEventDescriptor *descriptors, size_t count)
+    {
+        g_extra = descriptors;
+        g_extraCount = descriptors != nullptr ? count : 0;
+    }
+
+    const char *label(uint16_t code)
+    {
+        const JWPLC_UIEventDescriptor *d = findDescriptor(code);
+        return d != nullptr ? d->label : nullptr;
+    }
+
+    void addRecord(uint16_t code, uint8_t transition, uint8_t category, uint8_t severity, uint8_t arg, const char *customText)
     {
         if (!g_configured)
         {
@@ -359,6 +417,7 @@ namespace JWPLCUIEventLog
         rec.transition = transition;
         rec.source = JWPLC_EVENT_SRC_USER;
         rec.severity = severity;
+        rec.arg = arg;
 
         // Inserción en buffer circular RAM
         g_records[g_head] = rec;
@@ -379,6 +438,16 @@ namespace JWPLCUIEventLog
         {
             JWPLCUI::requestRefresh();
         }
+    }
+
+    void logEvent(uint16_t code, uint8_t transition, uint8_t category, uint8_t severity, const char *customText)
+    {
+        addRecord(code, transition, category, severity, 0, customText);
+    }
+
+    void logEventArg(uint16_t code, uint8_t transition, uint8_t category, uint8_t severity, uint8_t arg)
+    {
+        addRecord(code, transition, category, severity, arg, nullptr);
     }
 
     size_t count()
@@ -402,6 +471,16 @@ namespace JWPLCUIEventLog
     {
         g_count = 0;
         g_head = 0;
+        // También la FRAM: si no, los eventos borrados vuelven al reiniciar.
+        if (g_config.enableFram && JWPLC_FRAM.size() != 0)
+        {
+            uint8_t header[16] = {0};
+            const uint32_t magic = JWPLC_EVENT_FRAM_MAGIC;
+            memcpy(header, &magic, 4);
+            g_framHeadSlot = 0;
+            JWPLC_FRAM.writeEnable(true);
+            JWPLC_FRAM.write(JWPLC_EVENT_FRAM_ADDR, header, sizeof(header));
+        }
         g_selectedIndex = 0;
         g_scrollOffset = 0;
         g_inDetail = false;

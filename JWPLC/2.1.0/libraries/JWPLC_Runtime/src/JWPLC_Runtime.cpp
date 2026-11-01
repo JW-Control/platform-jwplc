@@ -58,22 +58,8 @@ uint8_t weekday(uint16_t y, uint8_t m, uint8_t d)
 
 void logEvent(uint8_t code, uint8_t arg)
 {
-    Event e;
-    memset(&e, 0, sizeof(e));
-    e.code = code;
-    e.arg = arg;
-    e.uptimeS = millis() / 1000;
-    const JWPLC_RTCState *rtc = jwplcGetRTCState();
-    if (rtc && rtc->valid && rtc->year >= 2000)
-    {
-        e.year = (uint8_t)(rtc->year - 2000);
-        e.month = rtc->month;
-        e.day = rtc->day;
-        e.hour = rtc->hour;
-        e.minute = rtc->minute;
-        e.second = rtc->second;
-    }
-    core.store.addEvent(e);
+    // Historial común con el HMI (JWPLC_UI_EventLog); la hora la pone el historial.
+    core.store.addEvent(code, arg);
 }
 
 void setResult(bool ok, const char text[])

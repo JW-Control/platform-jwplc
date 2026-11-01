@@ -66,9 +66,24 @@ Tiempo 0…9999 en base s (centésimas), m o h, mostrado como el LOGO! («12:50s
 - La pantalla (`jwplcUIEnter/Update/Exit`) corre con el bus SPI tomado, así que **no** toca FRAM, SD ni Ethernet: manda
   un comando y muestra «Procesando…» hasta la respuesta (regla 1 del CLAUDE.md).
 - FRAM: configuración en dos copias, programa en dos ranuras A/B con CRC y verificación (la anterior queda de respaldo),
-  retentivos con CRC y anillo de 32 eventos.
+  retentivos con CRC. Los eventos van al registro común de `JWPLC_UI_EventLog` (ver abajo).
 - Las escrituras de FRAM activan WREN antes de cada `JWPLC_FRAM.write()` (la API de bajo nivel no lo hace; sin eso la
   FRAM real no guarda nada). Lo detectó la prueba de persistencia en el simulador.
+
+## Registro de eventos unificado (01/11/2026)
+
+`RT_EVENTLOG_UNIFICADO=PASS_SIM` `[ejecutado]` Diagnóstico > Eventos muestra Encendido, RUN y «+ Lote completo» con
+fecha del RTC; `[no verificado]` en placa.
+
+- El Runtime ya no tiene anillo propio en FRAM: anota con `JWPLCUIEventLog::logEventArg(400 + código, …)` en el
+  registro de `JWPLC_Display` (RAM 64, FRAM 16 en `0x1E00`, copia a `/EVENTOS.CSV` si hay microSD). El encendido es
+  el código 100 que anota la librería; un HMI del Designer y el Runtime comparten el mismo historial.
+- `JWPLC_UI_EventLog`: `startStore()` arranca el registro sin página propia (el Runtime no usa el Designer),
+  `begin()` del Designer es idempotente y conserva los eventos, `setExtraDescriptors()` añade los textos y
+  severidades del Runtime (401…418), `label()` y el registro guardan un byte `arg` (n.º de aviso o esclavo).
+- La zona `0x0E80` del mapa del Runtime (antes el anillo de 32 eventos) queda libre. En FRAM caben 16 eventos en vez de 32;
+  la RAM guarda 64 mientras el equipo está encendido.
+- `Borrar eventos` vacía también la FRAM. El CSV de `/jwplc/eventos.csv` se sigue exportando igual.
 
 ## Cambios en `JWPLC_UI_Widgets` (0.4.0)
 
@@ -92,6 +107,5 @@ Tiempo 0…9999 en base s (centésimas), m o h, mostrado como el LOGO! («12:50s
 ## Pendiente (siguientes hitos)
 
 - Servidor web y vinculación real del celular (F9).
-- Mover el registro de eventos a `JWPLC_UI_EventLog` cuando se fusione la línea del HMI Designer.
 - Retirar `JWPLC_LogicRuntime` y `JWPLC_LogicRuntime_UI` (tras validar este MVP).
 - Al cierre de la alpha: decidir si `JWPLC_Runtime` se publica precompilada y regenerar su `.a`.

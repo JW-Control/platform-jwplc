@@ -1,6 +1,8 @@
 #include "RtStore.h"
 
 #include <JWPLC_GlobalPeripherals.h>
+#include <JWPLC_UI_EventLog.h>
+#include <JW_RTC.h>
 #include <string.h>
 
 namespace jwrt
@@ -28,8 +30,6 @@ static const uint32_t ADDR_CFG1 = 0x0000;
 static const uint32_t ADDR_CFG2 = 0x0040;
 static const uint32_t ADDR_SLOT[2] = {0x0100, 0x0700};
 static const uint32_t ADDR_RETAIN = 0x0D00;
-static const uint32_t ADDR_EVENTS = 0x0E80;
-static const uint32_t ADDR_EVHEAD = 0x1080;
 static const uint32_t ADDR_LINKS = 0x1100;
 
 struct ImageHeader
@@ -43,7 +43,6 @@ struct ImageHeader
 
 static_assert(sizeof(ImageHeader) + sizeof(Program) <= 0x600, "el programa no entra en la ranura");
 static_assert(sizeof(Config) == 40, "Config debe ocupar 40 bytes");
-static_assert(sizeof(Event) == 16, "Event debe ocupar 16 bytes");
 static_assert(sizeof(XLink) == 16, "XLink debe ocupar 16 bytes");
 static_assert(ADDR_LINKS + NUM_X * sizeof(XLink) + 4 <= 0x1180, "la tabla de módulos pisa al esclavo");
 
@@ -131,7 +130,7 @@ bool Store::begin()
     {
         _cfg = b;
     }
-    loadEvents();
+    startEvents();
     return true;
 }
 
@@ -291,63 +290,126 @@ void Store::clearRetained()
     saveRetained(zero);
 }
 
-void Store::loadEvents()
+// --------------------------------------------------------------- eventos
+static JWPLC_UIEventDescriptor g_rtDesc[EV_COUNT];
+
+static uint8_t rtSeverity(uint8_t code)
 {
-    _evHead = 0;
-    _evCount = 0;
-    memset(_ev, 0, sizeof(_ev));
-    uint8_t meta[2] = {0, 0};
-    if (!JWPLC_FRAM.read(ADDR_EVHEAD, meta, 2) || meta[0] >= EVENT_SLOTS || meta[1] > EVENT_SLOTS)
+    switch (code)
     {
-        return;
+    case EV_ALARM_ON:
+        return JWPLC_EVENT_SEV_CRIT;
+    case EV_PIN_FAIL:
+    case EV_X_OFFLINE:
+    case EV_X_WRONG:
+        return JWPLC_EVENT_SEV_WARN;
+    default:
+        return JWPLC_EVENT_SEV_INFO;
     }
-    if (!JWPLC_FRAM.read(ADDR_EVENTS, (uint8_t *)_ev, sizeof(_ev)))
-    {
-        memset(_ev, 0, sizeof(_ev));
-        return;
-    }
-    _evHead = meta[0];
-    _evCount = meta[1];
 }
 
-void Store::addEvent(const Event &e)
+static uint8_t rtCategory(uint8_t code)
 {
-    _ev[_evHead] = e;
-    const uint8_t pos = _evHead;
-    _evHead = (uint8_t)((_evHead + 1) % EVENT_SLOTS);
-    if (_evCount < EVENT_SLOTS)
+    switch (code)
     {
-        _evCount++;
+    case EV_ALARM_ON:
+    case EV_ALARM_OFF:
+        return JWPLC_EVENT_CAT_ALARM;
+    case EV_RUN:
+    case EV_STOP:
+    case EV_PARAM:
+        return JWPLC_EVENT_CAT_PROCESS;
+    default:
+        return JWPLC_EVENT_CAT_SYSTEM;
     }
-    if (_framOk)
+}
+
+void Store::startEvents()
+{
+    // Descriptores del Runtime (texto, severidad y categoría) para el historial común.
+    for (uint8_t c = 1; c < EV_COUNT; c++)
     {
-        framWrite(ADDR_EVENTS + pos * sizeof(Event), (const uint8_t *)&e, sizeof(e));
-        const uint8_t meta[2] = {_evHead, _evCount};
-        framWrite(ADDR_EVHEAD, meta, 2);
+        g_rtDesc[c].code = (uint16_t)(RT_EVENT_BASE + c);
+        g_rtDesc[c].label = eventText(c);
+        g_rtDesc[c].severity = rtSeverity(c);
+        g_rtDesc[c].category = rtCategory(c);
     }
+    JWPLCUIEventLog::setExtraDescriptors(&g_rtDesc[1], EV_COUNT - 1);
+    // Restaura los últimos 16 de la FRAM y anota el encendido (código 100).
+    JWPLCUIEventLog::startStore();
+}
+
+void Store::addEvent(uint8_t code, uint8_t arg)
+{
+    if (code == EV_POWER_ON)
+    {
+        return; // lo anota el historial al arrancar (código 100)
+    }
+    const uint8_t transition = (code == EV_ALARM_OFF || code == EV_X_ONLINE) ? JWPLC_EVENT_TRANS_NORMAL
+                                                                             : JWPLC_EVENT_TRANS_ACTIVE;
+    JWPLCUIEventLog::logEventArg((uint16_t)(RT_EVENT_BASE + code), transition, rtCategory(code), rtSeverity(code), arg);
+}
+
+uint8_t Store::eventCount() const
+{
+    const size_t n = JWPLCUIEventLog::count();
+    return n > 255 ? 255 : (uint8_t)n;
 }
 
 bool Store::event(uint8_t i, Event &out) const
 {
-    if (i >= _evCount)
+    JWPLC_UIEventRecord rec;
+    if (!JWPLCUIEventLog::getRecord(i, rec))
     {
         return false;
     }
-    out = _ev[(_evHead + EVENT_SLOTS - 1 - i) % EVENT_SLOTS];
+    memset(&out, 0, sizeof(out));
+    if (rec.code == JWPLC_EVT_SYS_BOOT)
+    {
+        out.code = EV_POWER_ON;
+    }
+    else if (rec.code > RT_EVENT_BASE && rec.code < RT_EVENT_BASE + EV_COUNT)
+    {
+        out.code = (uint8_t)(rec.code - RT_EVENT_BASE);
+    }
+    else
+    {
+        out.code = EV_OTHER;
+        out.other = rec.code;
+    }
+    out.arg = rec.arg;
+    JW_RTC::DateTime dt;
+    if (!(rec.timestamp & 0x80000000UL) && JW_RTC::fromUnix(rec.timestamp, dt) && dt.year >= 2000)
+    {
+        out.year = (uint8_t)(dt.year - 2000);
+        out.month = dt.month;
+        out.day = dt.day;
+        out.hour = dt.hour;
+        out.minute = dt.minute;
+        out.second = dt.second;
+    }
+    else
+    {
+        out.uptimeS = rec.timestamp & 0x7FFFFFFFUL;
+    }
     return true;
 }
 
 void Store::clearEvents()
 {
-    _evHead = 0;
-    _evCount = 0;
-    memset(_ev, 0, sizeof(_ev));
-    if (_framOk)
-    {
-        const uint8_t meta[2] = {0, 0};
-        framWrite(ADDR_EVHEAD, meta, 2);
-    }
+    JWPLCUIEventLog::clear();
 }
+
+const char *eventText(const Event &e)
+{
+    if (e.code != EV_OTHER)
+    {
+        return eventText(e.code);
+    }
+    const char *t = JWPLCUIEventLog::label(e.other);
+    return t != nullptr ? t : "Evento";
+}
+
 
 // ---------------------------------------------------------------- microSD
 
@@ -491,14 +553,14 @@ bool Store::sdExportEvents(char path[], size_t size)
         return false;
     }
     f.println("fecha;hora;evento;dato;segundos_desde_arranque");
-    for (uint8_t i = _evCount; i > 0; i--)
+    for (uint8_t i = eventCount(); i > 0; i--)
     {
         Event e;
         event((uint8_t)(i - 1), e);
         char line[80];
         snprintf(line, sizeof(line), "%04u-%02u-%02u;%02u:%02u:%02u;%s;%u;%lu",
                  (unsigned)(e.year ? 2000 + e.year : 0), e.month, e.day, e.hour, e.minute, e.second,
-                 eventText(e.code), e.arg, (unsigned long)e.uptimeS);
+                 eventText(e), e.arg, (unsigned long)e.uptimeS);
         f.println(line);
     }
     f.close();

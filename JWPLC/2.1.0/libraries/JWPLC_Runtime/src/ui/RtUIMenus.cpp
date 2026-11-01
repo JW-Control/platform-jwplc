@@ -1030,7 +1030,7 @@ void evRow(uint16_t i, JWPLC_UIRow r)
     }
     else
     {
-        snprintf(l, sizeof(l), "%s", eventText(e.code));
+        snprintf(l, sizeof(l), "%s", eventText(e));
     }
     r.left(l);
     char t[24];

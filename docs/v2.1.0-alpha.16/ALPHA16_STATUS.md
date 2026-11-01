@@ -67,13 +67,13 @@ H1–H4 en [ALPHA16_PLAN.md](ALPHA16_PLAN.md). Runtime:
 [A16_RUNTIME_MVP_20261101.md](A16_RUNTIME_MVP_20261101.md) y
 [A16_RT2_EXPANSION_DISENO_20261101.md](A16_RT2_EXPANSION_DISENO_20261101.md).
 
-1. Runtime: registro de eventos en `JWPLC_UI_EventLog` (en lugar del propio).
+1. Runtime: registro de eventos en `JWPLC_UI_EventLog` (`…/feature/runtime-eventlog`, PASS_SIM).
 2. Validación en placa del MVP y de la expansión con dos JWPLC Basic (propietario).
 3. Retirar `JWPLC_LogicRuntime`/`_UI` y actualizar `CLAUDE.md` tras el punto 2.
 4. Enlazar páginas del HMI Designer con variables del Runtime.
 5. Servidor web y vinculación del celular (F9), al final.
 
-`NEXT_GATE=RT_EVENTLOG_UNIFICADO` · `HARDWARE=PENDIENTE_PROPIETARIO`
+`NEXT_GATE=RT_PLACA_MVP` · `HARDWARE=PENDIENTE_PROPIETARIO`
 
 ## 8. Para retomar
 
