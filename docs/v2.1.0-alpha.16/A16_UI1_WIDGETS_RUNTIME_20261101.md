@@ -6,7 +6,7 @@ Diseño de referencia: `DISENO_RUNTIME_ESTILO_LOGO8.md` §7.2 (puntos 5, 6, 8 y 
 ```text
 A16_UI1_API=PASS                 [ejecutado] compila en JWPLC Sim (native) contra el package de esta rama
 A16_UI1_SIM_EJEMPLO=PASS         [ejecutado] Widgets_Parametros en JWPLC Sim: lista, scroll, editor, diálogo, aviso y vuelta a IDLE (capturas)
-A16_UI1_SIM_REGRESSION=PENDING   prueba del ejemplo y paridad en jwplc-sim; sim_ref de los workflows
+A16_UI1_SIM_REGRESSION=IN_PROGRESS  [ejecutado] jwplc-sim rama feature/alpha16-api-tft-widgets (9edf699): parity PASS y pruebas de los 2 ejemplos nuevos PASS. Pendiente: fusionarla y, al cierre, fijar sim_ref
 A16_UI1_EJEMPLO_COMPILA=PENDING  [no verificado] Arduino IDE con la placa local
 A16_UI1_FISICO=PENDING           ver checklist físico
 ```
@@ -43,6 +43,10 @@ Prueba en JWPLC Sim (01/11), estímulo: OK, ▼ ▼, OK, ▲, ◄, ▲, OK, OK (
 - C1 Preset pasa de 250 a 261 pzs y la consola muestra `GUARDADO C1 Preset = 261 pzs`.
 - La lista hace scroll hasta «Ciclo PWM» y la barra lateral se mueve.
 - ESC vuelve a IDLE.
+
+## JWPLC Sim
+
+La prueba del ejemplo, la de `Display_Graficos_Sprite` (PR #199) y la actualización de paridad (`JWPLC_UI_Widgets` nueva; TFT_eSPI sale del autoload) están en `JW-Control/jwplc-sim`, rama `feature/alpha16-api-tft-widgets`, con `package.lock` en esta rama. El CI de platform solo corre `SIM_REGRESSION` en los PR hacia `release/v2.1.x`, así que `sim_ref` (`ci-jwplc-package-smoke.yml` y `release-jwplc-package.yml`, hoy `19a1a40d`) se sube al cierre de la alpha, al commit de jwplc-sim que quede fusionado.
 
 ## Pendiente (siguientes entregas de F0')
 
