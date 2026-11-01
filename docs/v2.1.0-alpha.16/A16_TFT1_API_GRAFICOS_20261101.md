@@ -10,7 +10,7 @@ A16_TFT1_EJEMPLO_COMPILA=PASS            [ejecutado por el propietario, 01/11] A
 A16_TFT1_LIB_A_REGENERADA=DEFERRED       al cierre del alpha, desde la copia de src/ (ajustar el script)
 A16_TFT1_ABI_COMPAT=DEFERRED             al cierre, con el mismo script (sin cambios de layout en JWPLC_TFTClass)
 A16_TFT1_FISICO=IN_PROGRESS              [ejecutado por el propietario, 01/11] render correcto (foto); fallo: ◄ ► pulsados en IDLE movían la selección al entrar. Corregido en el ejemplo, falta repetir 1–5
-A16_TFT1_SIM_REGRESSION=PENDING          [ejecutado] g++ -fsyntax-only con las banderas de jwplc-sim (JWSIM, -UESP32) contra su HAL: JWPLC_TFT.cpp OK y TFT_eSPI.cpp vacía. [no verificado] gates de jwplc-sim con JWPLC_PACKAGE_DIR
+A16_TFT1_SIM_REGRESSION=PASS             [ejecutado] jwplc-sim (Linux, native) con package.lock local en esta rama: Display_Graficos_Sprite enlaza y corre; JWSIM_G4_TFT_HMI da las mismas capturas que alpha.15 (la página RTC difiere 170 px de la referencia también con alpha.15: preexistente)
 ```
 
 ## Qué se añade
@@ -52,12 +52,15 @@ Como `JWPLC_TFT` cambia en este alpha, se compila desde fuente (regla del proyec
 
 ## JWPLC Sim
 
-`jwplc-sim` compila todo `src/` de cada librería del package (ignora `precompiled`) y trae su propia TFT_eSPI 2.5.43 con el procesador Generic (`third_party`), compilada con `-UESP32` junto con `JWPLC_TFT.cpp`. Con la copia en `src/` eso rompía la simulación por dos lados: `TFT_eSPI.cpp` de `src/` entraba con el procesador ESP32 (registros físicos, `soc/spi_reg.h`) y duplicaba símbolos, y `JWPLC_TFT.cpp` sin `ESP32` buscaba `Processors/TFT_eSPI_Generic.h`, que no se había copiado. Arreglo en el package, sin tocar el simulador:
+`jwplc-sim` compila todo `src/` de cada librería del package (ignora `precompiled`) y, hasta alpha.15, enlazaba aparte su propia TFT_eSPI 2.5.43 con el procesador Generic porque `JWPLC_TFT.cpp` hacía `#include <TFT_eSPI.h>`. Con la copia en `src/`, `JWPLC_TFT.cpp` encuentra el header local, el simulador ya no enlaza la suya y la copia de `src/` entraba con el procesador ESP32 (registros físicos). Arreglo en el package, sin tocar el simulador:
 
-- `TFT_eSPI.cpp` de `src/` queda vacía cuando `JWSIM` está definido (el simulador ya compila la suya).
-- Se añade `Processors/TFT_eSPI_Generic.h` (sin cambios), para que `JWPLC_TFT.cpp` compile en el PC.
+- Con `JWSIM` definido, `TFT_eSPI.cpp` de `src/` quita `ESP32`/`ARDUINO_ARCH_ESP32` y se compila con el procesador Generic (`SPI.transfer` + `digitalWrite`), como la copia del simulador.
+- Se añaden `Processors/TFT_eSPI_Generic.h` y `Processors/TFT_eSPI_Generic.inc` (el `.c` original renombrado).
 
-Para probar con el simulador sin publicar nada: en el clon local de `jwplc-sim`, cambiar `JWPLC_PACKAGE_REF`/`JWPLC_PACKAGE_COMMIT` de `package.lock` a esta rama y su SHA (sin commitear). `JWPLC_PACKAGE_DIR` solo acepta un checkout cuyo árbol coincida con el tag fijado.
+Prueba en el simulador (01/11), con `package.lock` apuntando a esta rama sólo en el clon local:
+
+- `Display_Graficos_Sprite` con ◄ ◄ en IDLE y luego OK: sin el arreglo de teclas entra con «SR» seleccionado; con el arreglo entra con «&» y ◄ ► mueven la selección.
+- `JWSIM_G4_TFT_HMI`: capturas idénticas a las de alpha.15 en reposo, página 0 y vuelta a reposo. La página RTC difiere de la referencia en 170 px también con alpha.15, así que no viene de este cambio.
 
 ## Teclas pendientes al entrar desde IDLE
 

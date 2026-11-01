@@ -11,8 +11,8 @@ Cambios respecto al original (los mismos que aplica `tools/alpha15/regenerate_li
 | `Processors/TFT_eSPI_ESP32.c`, `Extensions/*.cpp`, `Fonts/glcdfont.c` | Renombrados a `.inc`: Arduino compila todo `.c/.cpp` de `src/`, y estos solo deben entrar vía `#include` |
 | `TFT_eSPI.h` | `glcdfont.inc`; sin `User_Setups/User_Custom_Fonts.h` |
 | `Fonts/GFXFF/gfxfont.h` | Solo las 24 FreeFonts que exporta `JWPLC_TFT` |
-| `TFT_eSPI.cpp` (JWSIM) | Unidad vacía con `JWSIM` definido: JWPLC Sim compila su propia copia con el procesador Generic |
-| `Processors/TFT_eSPI_Generic.h` | Copiado sin cambios: `JWPLC_TFT.cpp` lo necesita en JWPLC Sim (`-UESP32`) |
+| `TFT_eSPI.cpp` (JWSIM) | Con `JWSIM` quita `ESP32` y usa el procesador Generic: así corre en JWPLC Sim |
+| `Processors/TFT_eSPI_Generic.{h,inc}` | Copiados para JWPLC Sim (el `.c` renombrado a `.inc`) |
 
 Solo se copian el procesador ESP32 (y la cabecera Generic para el simulador) y el driver ST7789; los `#include` de otras plataformas quedan en ramas `#if` que no se toman.
 
