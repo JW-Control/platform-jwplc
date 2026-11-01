@@ -9,7 +9,7 @@ A16_TFT1_MODO_FUENTE=IN_PROGRESS         JWPLC_TFT sin precompiled=full; TFT_eSP
 A16_TFT1_EJEMPLO_COMPILA=PASS            [ejecutado por el propietario, 01/11] Arduino IDE, jwplc_local:esp32:jwplcbasic: 438653 B flash (10 %), 29660 B RAM global
 A16_TFT1_LIB_A_REGENERADA=DEFERRED       al cierre del alpha, desde la copia de src/ (ajustar el script)
 A16_TFT1_ABI_COMPAT=DEFERRED             al cierre, con el mismo script (sin cambios de layout en JWPLC_TFTClass)
-A16_TFT1_FISICO=IN_PROGRESS              [ejecutado por el propietario, 01/11] render correcto (foto); fallo: ◄ ► pulsados en IDLE movían la selección al entrar. Corregido en el ejemplo, falta repetir 1–5
+A16_TFT1_FISICO=PASS                     [ejecutado por el propietario, 01/11] render correcto (foto) y, tras el arreglo, ◄ ► pulsados en IDLE ya no mueven la selección al entrar
 A16_TFT1_SIM_REGRESSION=PASS             [ejecutado] jwplc-sim (Linux, native) con package.lock local en esta rama: Display_Graficos_Sprite enlaza y corre; JWSIM_G4_TFT_HMI da las mismas capturas que alpha.15 (la página RTC difiere 170 px de la referencia también con alpha.15: preexistente)
 ```
 
