@@ -1,9 +1,12 @@
 #pragma once
 
-// JWPLC_UI_Widgets 0.1.0 (alpha.16): widgets de pantalla para el modo USER y
+// JWPLC_UI_Widgets 0.2.0 (alpha.16): widgets de pantalla para el modo USER y
 // para el Runtime de panel.
 //
 // Reglas comunes:
+// - API solo con «.» (regla del propietario, 01/11): sin «::», «*» ni «&» en
+//   el sketch. Los resultados son constantes globales (UI_EDIT_ACCEPTED,
+//   UI_DIALOG_YES...) y draw() dibuja en JWPLC_TFT sin argumentos.
 // - Dibujan solo lo que cambió (dirty refresh). La primera llamada a draw()
 //   después de begin()/invalidate() dibuja todo el widget.
 // - draw() se llama desde jwplcUIUpdate()/jwplcUIEnter(), que ya corren dentro
@@ -21,7 +24,7 @@
 #include <Arduino.h>
 #include <JWPLC_TFT.h>
 
-#define JWPLC_UI_WIDGETS_VERSION "0.1.0"
+#define JWPLC_UI_WIDGETS_VERSION "0.2.0"
 
 // ---------------------------------------------------------------- tema
 // Colores RGB565 compartidos por los widgets (y, más adelante, por el
@@ -46,22 +49,45 @@ struct JWPLC_UITheme
 extern const JWPLC_UITheme JWPLC_UI_THEME_DARK;
 
 // ---------------------------------------------------------------- lista
-// Lista con scroll: la aplicación entrega el texto de cada fila con un
-// callback (columna izquierda y columna derecha alineada a la derecha), así
-// no hace falta guardar las filas en RAM.
+// Fila que la lista entrega a la función de la aplicación para que escriba
+// sus dos columnas:
+//
+//   void filaParametro(uint16_t i, JWPLC_UIRow fila)
+//   {
+//       fila.left(nombres[i]);
+//       fila.right(String(valores[i]) + " s");
+//   }
+class JWPLC_UIRow
+{
+public:
+    void left(const char *text);   // columna izquierda
+    void left(const String &text);
+    void right(const char *text);  // columna derecha, alineada a la derecha
+    void right(const String &text);
+
+private:
+    friend class JWPLC_UIList;
+    JWPLC_UIRow(char *leftBuf, size_t leftSize, char *rightBuf, size_t rightSize)
+        : _left(leftBuf), _leftSize(leftSize), _right(rightBuf), _rightSize(rightSize) {}
+    char *_left;
+    size_t _leftSize;
+    char *_right;
+    size_t _rightSize;
+};
+
+typedef void (*JWPLC_UIRowText)(uint16_t index, JWPLC_UIRow row);
+
+// Lista con scroll: la aplicación entrega el texto de cada fila con una
+// función (ver JWPLC_UIRow), así no hace falta guardar las filas en RAM.
 class JWPLC_UIList
 {
 public:
-    typedef void (*RowText)(uint16_t index,
-                            char *left, size_t leftSize,
-                            char *right, size_t rightSize,
-                            void *context);
 
     void begin(int16_t x, int16_t y, int16_t w, int16_t h,
                uint8_t rowHeight = 20,
                const JWPLC_UITheme &theme = JWPLC_UI_THEME_DARK);
 
-    void setRows(uint16_t count, RowText rowText, void *context = nullptr);
+    void setRows(uint16_t count, JWPLC_UIRowText rowText);
     uint16_t rowCount() const { return _count; }
 
     // ▲ ▼ mueven la selección (circular al pulsar, sin vuelta al mantener).
@@ -73,19 +99,19 @@ public:
 
     void invalidate();               // redibuja todo en el próximo draw()
     void invalidateRow(uint16_t index); // p. ej. al cambiar un valor
-    void draw(JWPLC_TFTClass &tft);
+    void draw();
 
     uint8_t visibleRows() const { return _visible; }
     uint16_t firstVisible() const { return _top; }
 
 private:
+    void draw(JWPLC_TFTClass &tft);
     void drawRow(JWPLC_TFTClass &tft, uint16_t index);
     void drawScrollBar(JWPLC_TFTClass &tft);
     void ensureVisible();
 
-    const JWPLC_UITheme *_theme = &JWPLC_UI_THEME_DARK;
-    RowText _rowText = nullptr;
-    void *_context = nullptr;
+    JWPLC_UITheme _theme = JWPLC_UI_THEME_DARK;
+    JWPLC_UIRowText _rowText = nullptr;
     int16_t _x = 0, _y = 0, _w = 0, _h = 0;
     uint8_t _rowH = 20;
     uint8_t _visible = 0;
@@ -103,17 +129,18 @@ private:
 // ◄ ► eligen el dígito, ▲ ▼ lo cambian con acarreo (al mantener, el paso se
 // acelera), OK acepta y ESC cancela y restaura el valor original.
 // El valor es un entero escalado: 12.5 s con 1 decimal se guarda como 125.
+// Resultado de JWPLC_UIDigitEditor.handleKeys().
+enum JWPLC_UIEditResult : uint8_t
+{
+    UI_EDIT_NONE = 0,
+    UI_EDIT_CHANGED,   // el valor cambió (sigue la edición)
+    UI_EDIT_ACCEPTED,  // OK
+    UI_EDIT_CANCELLED  // ESC: el valor vuelve al original
+};
+
 class JWPLC_UIDigitEditor
 {
 public:
-    enum Result : uint8_t
-    {
-        NONE = 0,
-        CHANGED,
-        ACCEPTED,
-        CANCELLED
-    };
-
     static const uint8_t MAX_DIGITS = 9;
 
     void begin(int16_t x, int16_t y,
@@ -126,15 +153,16 @@ public:
     int32_t value() const { return _value; }
     uint8_t cursor() const { return _cursor; } // 0 = dígito de las unidades
 
-    Result handleKeys();
+    JWPLC_UIEditResult handleKeys();
 
     void invalidate();
-    void draw(JWPLC_TFTClass &tft);
+    void draw();
 
     int16_t width() const;
     int16_t height() const { return CELL_H; }
 
 private:
+    void draw(JWPLC_TFTClass &tft);
     static const int16_t CELL_W = 18;
     static const int16_t CELL_H = 30;
     static const int16_t GAP = 2;
@@ -143,7 +171,7 @@ private:
     void format(char *cells) const; // un carácter por posición, signo incluido
     int16_t cellX(uint8_t pos) const;
 
-    const JWPLC_UITheme *_theme = &JWPLC_UI_THEME_DARK;
+    JWPLC_UITheme _theme = JWPLC_UI_THEME_DARK;
     const char *_unit = nullptr;
     int16_t _x = 0, _y = 0;
     uint8_t _digits = 1;
@@ -160,30 +188,32 @@ private:
 // ---------------------------------------------------------------- diálogo
 // Diálogo modal centrado: Sí/No o solo Aceptar. Al cerrarse, la aplicación
 // debe invalidar lo que quedó debajo (p. ej. list.invalidate()).
+// Resultado de JWPLC_UIDialog.handleKeys().
+enum JWPLC_UIDialogResult : uint8_t
+{
+    UI_DIALOG_NONE = 0,
+    UI_DIALOG_YES, // OK sobre Sí/Aceptar
+    UI_DIALOG_NO   // OK sobre No, o ESC
+};
+
 class JWPLC_UIDialog
 {
 public:
-    enum Result : uint8_t
-    {
-        NONE = 0,
-        YES,
-        NO
-    };
-
     void open(const char *title, const char *message, bool yesNo = true,
               const JWPLC_UITheme &theme = JWPLC_UI_THEME_DARK);
     void close() { _open = false; }
     bool isOpen() const { return _open; }
 
     // ◄ ► eligen, OK confirma, ESC equivale a No. Cierra el diálogo al
-    // devolver YES o NO.
-    Result handleKeys();
-    void draw(JWPLC_TFTClass &tft);
+    // devolver UI_DIALOG_YES o UI_DIALOG_NO.
+    JWPLC_UIDialogResult handleKeys();
+    void draw();
 
 private:
+    void draw(JWPLC_TFTClass &tft);
     void drawButtons(JWPLC_TFTClass &tft);
 
-    const JWPLC_UITheme *_theme = &JWPLC_UI_THEME_DARK;
+    JWPLC_UITheme _theme = JWPLC_UI_THEME_DARK;
     const char *_title = "";
     const char *_message = "";
     bool _yesNo = true;
@@ -205,14 +235,100 @@ public:
 
     // Dibuja el aviso al mostrarlo y borra la franja al vencer. Devuelve true
     // en el ciclo en que se borró, para que la pantalla redibuje esa franja.
-    bool draw(JWPLC_TFTClass &tft);
+    bool draw();
 
 private:
-    const JWPLC_UITheme *_theme = &JWPLC_UI_THEME_DARK;
+    JWPLC_UITheme _theme = JWPLC_UI_THEME_DARK;
     int16_t _x = 0, _y = 0, _w = 0, _h = 0;
     char _text[40] = {0};
     uint16_t _color = 0;
     uint32_t _until = 0;
     bool _visible = false;
     bool _pendingDraw = false;
+};
+
+// ---------------------------------------------------------------- tendencia
+// Gráfica de tendencia con barrido (como un registrador): un cursor avanza de
+// izquierda a derecha y cada muestra nueva dibuja solo su columna y borra un
+// hueco por delante. Nunca se redibuja toda la gráfica por muestra.
+// El historial lo reserva el widget al dibujar o recibir la primera muestra:
+// un byte por columna y canal (unos 300 B por canal a ancho completo).
+//
+//   tendencia.begin(0, 44, 320, 104, 0, 100);
+//   tendencia.showScale(0);
+//   tendencia.addChannel(NARANJA);
+//   tendencia.addThreshold(85, ROJO);
+//   ...
+//   tendencia.push(temperatura);   // una muestra por canal
+//   tendencia.draw();
+class JWPLC_UITrend
+{
+public:
+    static const uint8_t MAX_CHANNELS = 3;
+    static const uint8_t MAX_THRESHOLDS = 2;
+
+    ~JWPLC_UITrend();
+
+    void begin(int16_t x, int16_t y, int16_t w, int16_t h,
+               float minValue, float maxValue,
+               const JWPLC_UITheme &theme = JWPLC_UI_THEME_DARK);
+
+    // Escala vertical a la izquierda con los valores de la rejilla (0, 25,
+    // 50, 75 y 100 % del rango) y de los umbrales. Ocupa 26 px del ancho.
+    void showScale(uint8_t decimals = 0);
+
+    // Canales en el orden de push(); el primero se dibuja encima.
+    bool addChannel(uint16_t color);
+    uint8_t channelCount() const { return _channels; }
+
+    // Línea horizontal punteada (umbral o consigna).
+    bool addThreshold(float value, uint16_t color);
+
+    // Una muestra por canal, en el orden en que se agregaron.
+    void push(float value1);
+    void push(float value1, float value2);
+    void push(float value1, float value2, float value3);
+    float lastValue(uint8_t channel) const;
+
+    void clear();      // borra el historial
+    void invalidate(); // redibuja marco, rejilla e historial en el próximo draw()
+    void draw();
+
+    // Columnas del área de trazado (= muestras visibles en una pantalla).
+    int16_t plotWidth() const { return (int16_t)(_w - 2 - (_scale ? SCALE_W : 0)); }
+
+private:
+    static const int16_t SCALE_W = 26;
+    static const uint8_t GAP = 6;     // columnas que se borran por delante
+    static const uint8_t NO_DATA = 0xFF;
+
+    void draw(JWPLC_TFTClass &tft);
+    bool ensureStorage();
+    void releaseStorage();
+    void pushValues(const float *values, uint8_t count);
+    uint8_t toPixel(float v) const;
+    void drawScale(JWPLC_TFTClass &tft);
+    void scaleLabel(JWPLC_TFTClass &tft, float value, uint8_t pix, uint16_t color);
+    int16_t plotX() const { return (int16_t)(_x + (_scale ? SCALE_W : 0)); }
+    void eraseColumn(JWPLC_TFTClass &tft, int16_t col);
+    void drawColumn(JWPLC_TFTClass &tft, int16_t col);
+    int16_t plotH() const { return (int16_t)(_h - 2); }
+
+    JWPLC_UITheme _theme = JWPLC_UI_THEME_DARK;
+    int16_t _x = 0, _y = 0, _w = 0, _h = 0;
+    float _min = 0, _max = 100;
+    uint8_t _channels = 0;
+    uint16_t _color[MAX_CHANNELS] = {0};
+    uint8_t *_data[MAX_CHANNELS] = {nullptr};
+    uint8_t *_storage = nullptr;
+    float _last[MAX_CHANNELS] = {0};
+    uint8_t _thresholds = 0;
+    uint8_t _thrPix[MAX_THRESHOLDS] = {0};
+    uint16_t _thrColor[MAX_THRESHOLDS] = {0};
+    int16_t _pos = 0;      // próxima columna a escribir
+    uint16_t _pending = 0; // muestras sin dibujar
+    bool _scale = false;
+    uint8_t _scaleDecimals = 0;
+    float _thrValue[MAX_THRESHOLDS] = {0};
+    bool _full = true;
 };

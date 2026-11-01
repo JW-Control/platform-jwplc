@@ -105,6 +105,11 @@ existentes) e incluya MENU integrado con la botonera.
    emitir una llamada C++, verificar que existe en `JWPLC/2.1.0/libraries/*/src/*.h`
    y en el `.a` (`nm -C`).
 8. No reintroducir `delay()` ni dependencia de Serial para que la botonera funcione.
+9. **API del sketch solo con «.»** (regla del propietario, 01/11/2026). El usuario no escribe `::`, `*` ni `&`:
+   resultados y opciones como constantes globales (`UI_EDIT_ACCEPTED`, `DATUM_MIDDLE_LEFT`, `BTN_OK`), objetos
+   globales con métodos (`JWPLC_TFT.fillRect(...)`), memoria interna en la librería en vez de buffers del usuario
+   y textos como `const char[]`/`String`. Los punteros y referencias quedan dentro de la librería. Los ejemplos
+   cumplen la regla.
 
 ---
 

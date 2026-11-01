@@ -10,8 +10,8 @@
 
   Uso: OK entra a USER. ◄ ► mueven el bloque seleccionado.
 
-  Los callbacks jwplcUIEnter/jwplcUIUpdate ya se ejecutan con el bus de la
-  TFT adquirido por JWPLC_Display: no llames beginBatch()/endBatch() aquí, y
+  JWPLC_TFT es la pantalla. Los callbacks jwplcUIEnter/jwplcUIUpdate ya se
+  ejecutan con el bus de la TFT adquirido por JWPLC_Display: no llames beginBatch()/endBatch() aquí, y
   si usas setClipRect() termina siempre con resetClip().
 */
 
@@ -43,7 +43,7 @@ struct Bloque
 {
     int16_t x;
     int16_t y;
-    const char *nombre;
+    char nombre[4];
 };
 
 static const Bloque BLOQUES[] = {
@@ -83,20 +83,21 @@ static void dibujarMapa()
     g_mapa.drawWideLine(185, 65, 200, 65, 2, P_CABLE_OFF);
 
     g_mapa.setFont(JWPLC_FONT_GLCD);
-    g_mapa.setTextDatum(JWPLC_TFTDatum::MIDDLE_CENTER);
+    g_mapa.setTextDatum(DATUM_MIDDLE_CENTER);
 
     for (uint8_t i = 0; i < 3; ++i)
     {
-        const Bloque &b = BLOQUES[i];
+        const int16_t x = BLOQUES[i].x;
+        const int16_t y = BLOQUES[i].y;
         const bool sel = (i == g_seleccion);
-        g_mapa.fillRoundRect(b.x, b.y, 60, 30, 3, P_BLOQUE);
-        g_mapa.drawRoundRect(b.x, b.y, 60, 30, 3, sel ? P_SELECCION : P_BORDE);
+        g_mapa.fillRoundRect(x, y, 60, 30, 3, P_BLOQUE);
+        g_mapa.drawRoundRect(x, y, 60, 30, 3, sel ? P_SELECCION : P_BORDE);
         if (sel)
         {
-            g_mapa.drawRoundRect(b.x + 1, b.y + 1, 58, 28, 3, P_SELECCION);
+            g_mapa.drawRoundRect(x + 1, y + 1, 58, 28, 3, P_SELECCION);
         }
         g_mapa.setTextColor(sel ? P_SELECCION : P_TEXTO);
-        g_mapa.drawString(b.nombre, b.x + 30, b.y + 15);
+        g_mapa.drawString(BLOQUES[i].nombre, x + 30, y + 15);
     }
 }
 
@@ -107,18 +108,17 @@ extern "C" void jwplcUIEnter()
     // que ◄ ► pulsados en IDLE no muevan la selección de esta pantalla.
     JWPLC_Display.clearPendingInput();
 
-    auto &tft = JWPLC_Display.tft();
-    tft.fillScreen(JWPLC_TFT_BLACK);
+    JWPLC_TFT.fillScreen(JWPLC_TFT_BLACK);
 
-    tft.setFont(JWPLC_FONT_GLCD);
-    tft.setTextSize(1);
-    tft.setTextColor(JWPLC_TFT_WHITE, JWPLC_TFT_BLACK);
-    tft.setCursor(10, 8);
-    tft.print("Sprite 4 bits + lineas gruesas");
+    JWPLC_TFT.setFont(JWPLC_FONT_GLCD);
+    JWPLC_TFT.setTextSize(1);
+    JWPLC_TFT.setTextColor(JWPLC_TFT_WHITE, JWPLC_TFT_BLACK);
+    JWPLC_TFT.setCursor(10, 8);
+    JWPLC_TFT.print("Sprite 4 bits + lineas gruesas");
 
     // Polilínea en pantalla con bordes suavizados sobre negro.
     const int16_t marco[] = {4, 24, 316, 24, 316, 156, 4, 156, 4, 24};
-    tft.drawPolyline(marco, 5, 2, 0x7BEF, JWPLC_TFT_BLACK);
+    JWPLC_TFT.drawPolyline(marco, 5, 2, 0x7BEF, JWPLC_TFT_BLACK);
 
     if (!g_spriteOk)
     {
@@ -131,8 +131,8 @@ extern "C" void jwplcUIEnter()
 
     if (!g_spriteOk)
     {
-        tft.setCursor(10, 80);
-        tft.print("Sin RAM para el sprite");
+        JWPLC_TFT.setCursor(10, 80);
+        JWPLC_TFT.print("Sin RAM para el sprite");
     }
 
     g_entrada = true;
@@ -163,13 +163,12 @@ extern "C" void jwplcUIUpdate()
 
     dibujarMapa();
 
-    auto &tft = JWPLC_Display.tft();
 
     // El recorte garantiza que el sprite no pise el marco aunque se
     // empuje desplazado (por ejemplo, al hacer scroll del mapa).
-    tft.setClipRect(MAPA_X, MAPA_Y, MAPA_W, MAPA_H);
+    JWPLC_TFT.setClipRect(MAPA_X, MAPA_Y, MAPA_W, MAPA_H);
     g_mapa.push(MAPA_X, MAPA_Y);
-    tft.resetClip();
+    JWPLC_TFT.resetClip();
 
     g_dibujado = g_seleccion;
     g_entrada = false;
