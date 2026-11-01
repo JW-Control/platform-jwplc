@@ -2,7 +2,7 @@
 
 #include <SPI.h>
 #include <new>
-#include <TFT_eSPI.h>
+#include "TFT_eSPI.h" // copia vendorizada en src/ (modo fuente alpha.16)
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"

@@ -5,9 +5,10 @@ Diseño de referencia: `DISENO_RUNTIME_ESTILO_LOGO8.md` §7.2, en la carpeta del
 
 ```text
 A16_TFT1_API_HEADER=PASS                 [ejecutado] g++ -fsyntax-only contra stub de TFT_eSPI 2.5.43
-A16_TFT1_LIB_A_REGENERADA=PENDING        [no verificado] requiere tools/alpha15/regenerate_libJWPLC_TFT.sh build --install en la PC del equipo
-A16_TFT1_ABI_COMPAT=PENDING              lo verifica el mismo script (sin cambios de layout en JWPLC_TFTClass)
-A16_TFT1_EJEMPLO_COMPILA=PENDING         Display_Graficos_Sprite con jwplc_local:esp32:jwplcbasic
+A16_TFT1_MODO_FUENTE=IN_PROGRESS         JWPLC_TFT sin precompiled=full; TFT_eSPI 2.5.43 reducida en src/ (ver src/TFT_eSPI_VENDOR.md)
+A16_TFT1_EJEMPLO_COMPILA=PENDING         [no verificado] Display_Graficos_Sprite en la PC del equipo (Arduino IDE con la placa local); la nube no tiene toolchain ESP32
+A16_TFT1_LIB_A_REGENERADA=DEFERRED       al cierre del alpha, desde la copia de src/ (ajustar el script)
+A16_TFT1_ABI_COMPAT=DEFERRED             al cierre, con el mismo script (sin cambios de layout en JWPLC_TFTClass)
 A16_TFT1_FISICO=PENDING                  ver checklist físico
 A16_TFT1_SIM_REGRESSION=PENDING          CI; el stub de JWPLC_TFT en jwplc-sim puede necesitar la API nueva
 ```
@@ -40,15 +41,14 @@ Los defines `JWPLC_TFT_HAS_CLIP`, `JWPLC_TFT_HAS_WIDE_LINE` y `JWPLC_TFT_HAS_SPR
 | 4 bits | ~21.9 KB (recomendada para el mapa FBD) |
 | 1 bit | ~5.5 KB |
 
-## Pendiente en la PC del equipo (antes de fusionar)
+## Modo fuente durante alpha.16
 
-```bash
-tools/alpha15/regenerate_libJWPLC_TFT.sh setup     # si no está hecho
-tools/alpha15/regenerate_libJWPLC_TFT.sh build --install
-tools/alpha15/regenerate_libJWPLC_TFT.sh compile JWPLC/2.1.0/libraries/JWPLC_Display/examples/Display_Graficos_Sprite
-```
+Como `JWPLC_TFT` cambia en este alpha, se compila desde fuente (regla del proyecto, recordada por el propietario el 01/11):
 
-Mientras el `.a` no se regenere, el header y el binario de la rama están **desalineados**. No se fusiona antes de ese paso.
+- `library.properties` ya no tiene `precompiled=full`. El `.a` de alpha.15 queda en `src/esp32/` y se ignora.
+- El backend es una copia reducida de TFT_eSPI 2.5.43 dentro de `src/`, con el parche DISPON y el guard de `tft_setup.h` del script de regeneración. Así el usuario sigue sin instalar TFT_eSPI. Detalle en `src/TFT_eSPI_VENDOR.md`.
+- **Probar en la PC del equipo:** abrir `Display_Graficos_Sprite` con la placa local (JWPLC 2.1.0 apuntando a este árbol) y compilar. La primera compilación de `JWPLC_TFT` tarda más, porque ya no viene precompilada.
+- **Al cierre:** regenerar `libJWPLC_TFT.a` desde esta copia, con el chequeo ABI y el benchmark de compilación, y volver a `precompiled=full`.
 
 ## Checklist físico
 
