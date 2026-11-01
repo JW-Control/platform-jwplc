@@ -193,8 +193,6 @@ void JWPLC_UIList::drawRow(JWPLC_TFTClass &tft, uint16_t index)
 
     const bool sel = index == _selected;
     const uint16_t bg = sel ? _theme.accent : ((index & 1) ? _theme.surfaceAlt : _theme.surface);
-    tft.fillRect(_x, rowY, rowW, (int16_t)(_rowH - 1), bg);
-    tft.drawFastHLine(_x, (int16_t)(rowY + _rowH - 1), rowW, _theme.background);
 
     char left[32] = {0};
     char right[24] = {0};
@@ -203,19 +201,58 @@ void JWPLC_UIList::drawRow(JWPLC_TFTClass &tft, uint16_t index)
         _rowText(index, JWPLC_UIRow(left, sizeof(left), right, sizeof(right)));
     }
 
-    const int16_t midY = (int16_t)(rowY + (_rowH - 1) / 2);
-    useBody(tft);
-    tft.setTextPadding(0);
-    tft.setTextColor(sel ? _theme.accentText : _theme.text, bg);
-    tft.setTextDatum(JWPLC_TFTDatum::MIDDLE_LEFT);
-    tft.drawString(left, (int16_t)(_x + 6), midY);
+    if (index - _top < HASH_ROWS)
+    {
+        _rowHash[index - _top] = rowHash(index, left, right);
+    }
+
+    // 0.5.0: la fila se arma en un sprite de 4 bits y se envía de una vez,
+    // así no se ve el relleno antes del texto (el "barrido" al desplazarse).
+    // Si no hay memoria para el sprite se dibuja directo como antes.
+    static JWPLC_TFTSprite rowSprite;
+    const int16_t sh = (int16_t)(_rowH - 1);
+    if (rowSprite.created() && (rowSprite.width() != rowW || rowSprite.height() != sh))
+    {
+        rowSprite.destroy(); // otra lista con otra medida
+    }
+    if (!rowSprite.created() && !rowSprite.create(rowW, sh, 4))
+    {
+        tft.fillRect(_x, rowY, rowW, sh, bg);
+        tft.drawFastHLine(_x, (int16_t)(rowY + _rowH - 1), rowW, _theme.background);
+        const int16_t midY = (int16_t)(rowY + (_rowH - 1) / 2);
+        useBody(tft);
+        tft.setTextPadding(0);
+        tft.setTextColor(sel ? _theme.accentText : _theme.text, bg);
+        tft.setTextDatum(JWPLC_TFTDatum::MIDDLE_LEFT);
+        tft.drawString(left, (int16_t)(_x + 6), midY);
+        if (right[0])
+        {
+            tft.setTextColor(sel ? _theme.accentText : _theme.textMuted, bg);
+            tft.setTextDatum(JWPLC_TFTDatum::MIDDLE_RIGHT);
+            tft.drawString(right, (int16_t)(_x + rowW - 6), midY);
+        }
+        restoreFont(tft);
+        return;
+    }
+    // Paleta: 0 fondo de fila, 1 texto izquierdo, 2 texto derecho.
+    rowSprite.setPaletteColor(0, bg);
+    rowSprite.setPaletteColor(1, sel ? _theme.accentText : _theme.text);
+    rowSprite.setPaletteColor(2, sel ? _theme.accentText : _theme.textMuted);
+    rowSprite.fillRect(0, 0, rowW, sh, 0);
+    rowSprite.setFont(JWPLC_FONT_16);
+    rowSprite.setTextSize(1);
+    const int16_t midY = (int16_t)((_rowH - 1) / 2);
+    rowSprite.setTextColor(1, 0);
+    rowSprite.setTextDatum(JWPLC_TFTDatum::MIDDLE_LEFT);
+    rowSprite.drawString(left, 6, midY);
     if (right[0])
     {
-        tft.setTextColor(sel ? _theme.accentText : _theme.textMuted, bg);
-        tft.setTextDatum(JWPLC_TFTDatum::MIDDLE_RIGHT);
-        tft.drawString(right, (int16_t)(_x + rowW - 6), midY);
+        rowSprite.setTextColor(2, 0);
+        rowSprite.setTextDatum(JWPLC_TFTDatum::MIDDLE_RIGHT);
+        rowSprite.drawString(right, (int16_t)(rowW - 6), midY);
     }
-    restoreFont(tft);
+    rowSprite.push(_x, rowY);
+    tft.drawFastHLine(_x, (int16_t)(rowY + _rowH - 1), rowW, _theme.background);
 }
 
 void JWPLC_UIList::drawScrollBar(JWPLC_TFTClass &tft)
@@ -242,6 +279,44 @@ void JWPLC_UIList::draw()
     draw(JWPLC_TFT);
 }
 
+uint32_t JWPLC_UIList::rowHash(uint16_t index, const char *left, const char *right) const
+{
+    uint32_t h = 2166136261UL ^ (index == _selected ? 0x9E3779B9UL : 0);
+    for (const char *p = left; *p; p++)
+    {
+        h = (h ^ (uint8_t)*p) * 16777619UL;
+    }
+    h = (h ^ 0xFF) * 16777619UL;
+    for (const char *p = right; *p; p++)
+    {
+        h = (h ^ (uint8_t)*p) * 16777619UL;
+    }
+    return h;
+}
+
+void JWPLC_UIList::refreshChanged()
+{
+    if (_full || !_rowText)
+    {
+        return; // el próximo draw() redibuja todo
+    }
+    for (uint16_t i = 0; i < _visible && i < HASH_ROWS; i++)
+    {
+        const uint16_t index = (uint16_t)(_top + i);
+        if (index >= _count)
+        {
+            break;
+        }
+        char left[32] = {0};
+        char right[24] = {0};
+        _rowText(index, JWPLC_UIRow(left, sizeof(left), right, sizeof(right)));
+        if (rowHash(index, left, right) != _rowHash[i])
+        {
+            drawRow(JWPLC_TFT, index);
+        }
+    }
+}
+
 void JWPLC_UIList::draw(JWPLC_TFTClass &tft)
 {
     if (_full || _top != _drawnTop)
@@ -256,6 +331,8 @@ void JWPLC_UIList::draw(JWPLC_TFTClass &tft)
         {
             tft.fillRect(_x, (int16_t)(_y + used), _w, (int16_t)(_h - used), _theme.background);
         }
+        // Franja de 2 px entre las filas y la barra de scroll.
+        tft.fillRect((int16_t)(_x + _w - 5), _y, 2, (int16_t)(_visible * _rowH), _theme.background);
         drawScrollBar(tft);
     }
     else
@@ -548,20 +625,22 @@ void JWPLC_UIDialog::drawButtons(JWPLC_TFTClass &tft)
     const char *labels[2] = {_yesNo ? "Si" : "Aceptar", "No"};
     useGlcd(tft, 2);
     tft.setTextDatum(JWPLC_TFTDatum::MIDDLE_CENTER);
+    // "Aceptar" en GLCD x2 mide 84 px: el botón único es más ancho.
+    const int16_t bw = count == 1 ? (int16_t)(BTN_W + 30) : BTN_W;
     for (uint8_t i = 0; i < count; i++)
     {
         const int16_t bx = count == 1
-                               ? (int16_t)(DLG_X + (DLG_W - BTN_W) / 2)
+                               ? (int16_t)(DLG_X + (DLG_W - bw) / 2)
                                : (int16_t)(DLG_X + DLG_W / 2 + (i == 0 ? -BTN_W - 8 : 8));
         const bool sel = i == _choice;
         const uint16_t bg = sel ? _theme.accent : _theme.surfaceAlt;
-        tft.fillRoundRect(bx, by, BTN_W, BTN_H, 4, bg);
+        tft.fillRoundRect(bx, by, bw, BTN_H, 4, bg);
         if (!sel)
         {
-            tft.drawRoundRect(bx, by, BTN_W, BTN_H, 4, _theme.border);
+            tft.drawRoundRect(bx, by, bw, BTN_H, 4, _theme.border);
         }
         tft.setTextColor(sel ? _theme.accentText : _theme.text, bg);
-        tft.drawString(labels[i], (int16_t)(bx + BTN_W / 2), (int16_t)(by + BTN_H / 2));
+        tft.drawString(labels[i], (int16_t)(bx + bw / 2), (int16_t)(by + BTN_H / 2));
     }
     restoreFont(tft);
 }
