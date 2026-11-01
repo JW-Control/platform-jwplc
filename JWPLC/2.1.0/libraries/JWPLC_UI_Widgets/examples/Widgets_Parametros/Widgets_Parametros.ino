@@ -86,11 +86,12 @@ static void filaParametro(uint16_t i, char *izq, size_t nIzq, char *der, size_t 
 static void dibujarEncabezado(JWPLC_TFTClass &tft, const char *titulo)
 {
     tft.fillRect(0, 0, 320, 22, T.surface);
-    tft.setFont(JWPLC_FONT_SANS_BOLD_9);
+    tft.setFont(JWPLC_FONT_GLCD);
+    tft.setTextSize(2);
     tft.setTextDatum(JWPLC_TFTDatum::MIDDLE_LEFT);
     tft.setTextColor(T.text, T.surface);
     tft.drawString(titulo, 8, 11);
-    tft.setFont(JWPLC_FONT_GLCD);
+    tft.setTextSize(1);
     tft.setTextDatum(JWPLC_TFTDatum::TOP_LEFT);
 }
 
@@ -119,7 +120,8 @@ static void abrirEditor(JWPLC_TFTClass &tft)
 
     tft.fillRect(0, 24, 320, 124, T.background);
     tft.fillRoundRect(10, 30, 300, 112, 6, T.surface);
-    tft.setFont(JWPLC_FONT_SANS_BOLD_9);
+    tft.setFont(JWPLC_FONT_GLCD);
+    tft.setTextSize(2);
     tft.setTextDatum(JWPLC_TFTDatum::MIDDLE_LEFT);
     tft.setTextColor(T.text, T.surface);
     tft.drawString(p.nombre, 22, 46);
@@ -129,11 +131,10 @@ static void abrirEditor(JWPLC_TFTClass &tft)
     char b[16];
     formatear(p, p.minimo, a, sizeof(a));
     formatear(p, p.maximo, b, sizeof(b));
-    snprintf(rango, sizeof(rango), "Rango %s ... %s", a, b);
-    tft.setFont(JWPLC_FONT_SANS_9);
+    snprintf(rango, sizeof(rango), "Min %s  Max %s", a, b);
+    tft.setTextSize(1);
     tft.setTextColor(T.textMuted, T.surface);
     tft.drawString(rango, 22, 124);
-    tft.setFont(JWPLC_FONT_GLCD);
     tft.setTextDatum(JWPLC_TFTDatum::TOP_LEFT);
 
     g_editor.begin(0, 72, p.digitos, p.decimales, p.unidad, T);

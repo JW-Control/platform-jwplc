@@ -39,6 +39,13 @@ namespace
         tft.setTextSize(1);
     }
 
+    // Todos los widgets usan la GLCD 5x7 escalada, la misma de la IDLE.
+    void useGlcd(JWPLC_TFTClass &tft, uint8_t size)
+    {
+        tft.setFont(JWPLC_FONT_GLCD);
+        tft.setTextSize(size);
+    }
+
     int32_t pow10i(uint8_t n)
     {
         int32_t p = 1;
@@ -165,7 +172,7 @@ void JWPLC_UIList::drawRow(JWPLC_TFTClass &tft, uint16_t index)
     }
 
     const int16_t midY = (int16_t)(rowY + (_rowH - 1) / 2);
-    tft.setFont(JWPLC_FONT_SANS_9);
+    useGlcd(tft, 2);
     tft.setTextPadding(0);
     tft.setTextColor(sel ? _theme->accentText : _theme->text, bg);
     tft.setTextDatum(JWPLC_TFTDatum::MIDDLE_LEFT);
@@ -376,7 +383,7 @@ void JWPLC_UIDigitEditor::draw(JWPLC_TFTClass &tft)
     format(cells);
     const uint8_t signCells = _min < 0 ? 1 : 0;
 
-    tft.setFont(JWPLC_FONT_MONO_BOLD_12);
+    useGlcd(tft, 2);
     tft.setTextDatum(JWPLC_TFTDatum::MIDDLE_CENTER);
     tft.setTextPadding(0);
 
@@ -392,11 +399,11 @@ void JWPLC_UIDigitEditor::draw(JWPLC_TFTClass &tft)
         }
         if (_unit && _unit[0])
         {
-            tft.setFont(JWPLC_FONT_SANS_9);
+            useGlcd(tft, 2);
             tft.setTextColor(_theme->textMuted, _theme->surface);
             tft.setTextDatum(JWPLC_TFTDatum::MIDDLE_LEFT);
             tft.drawString(_unit, (int16_t)(_x + w + 8), (int16_t)(_y + CELL_H / 2));
-            tft.setFont(JWPLC_FONT_MONO_BOLD_12);
+            useGlcd(tft, 2);
             tft.setTextDatum(JWPLC_TFTDatum::MIDDLE_CENTER);
         }
     }
@@ -440,7 +447,7 @@ void JWPLC_UIDigitEditor::draw(JWPLC_TFTClass &tft)
 
 namespace
 {
-    const int16_t DLG_W = 240;
+    const int16_t DLG_W = 280;
     const int16_t DLG_H = 104;
     const int16_t DLG_X = (320 - DLG_W) / 2;
     const int16_t DLG_Y = (170 - DLG_H) / 2;
@@ -497,7 +504,7 @@ void JWPLC_UIDialog::drawButtons(JWPLC_TFTClass &tft)
     const int16_t by = (int16_t)(DLG_Y + DLG_H - BTN_H - 10);
     const uint8_t count = _yesNo ? 2 : 1;
     const char *labels[2] = {_yesNo ? "Si" : "Aceptar", "No"};
-    tft.setFont(JWPLC_FONT_SANS_BOLD_9);
+    useGlcd(tft, 2);
     tft.setTextDatum(JWPLC_TFTDatum::MIDDLE_CENTER);
     for (uint8_t i = 0; i < count; i++)
     {
@@ -529,12 +536,17 @@ void JWPLC_UIDialog::draw(JWPLC_TFTClass &tft)
         tft.drawRoundRect(DLG_X, DLG_Y, DLG_W, DLG_H, 6, _theme->accent);
         tft.drawFastHLine((int16_t)(DLG_X + 8), (int16_t)(DLG_Y + 26), (int16_t)(DLG_W - 16), _theme->border);
 
-        tft.setFont(JWPLC_FONT_SANS_BOLD_9);
+        useGlcd(tft, 2);
         tft.setTextDatum(JWPLC_TFTDatum::MIDDLE_LEFT);
         tft.setTextColor(_theme->text, _theme->surface);
         tft.drawString(_title, (int16_t)(DLG_X + 10), (int16_t)(DLG_Y + 14));
 
-        tft.setFont(JWPLC_FONT_SANS_9);
+        // Mensaje en tamaño 2 si cabe; si no, en tamaño 1.
+        useGlcd(tft, 2);
+        if (tft.textWidth(_message) > DLG_W - 16)
+        {
+            useGlcd(tft, 1);
+        }
         tft.setTextDatum(JWPLC_TFTDatum::MIDDLE_CENTER);
         tft.setTextColor(_theme->text, _theme->surface);
         tft.drawString(_message, (int16_t)(DLG_X + DLG_W / 2), (int16_t)(DLG_Y + 44));
@@ -586,7 +598,7 @@ bool JWPLC_UIToast::draw(JWPLC_TFTClass &tft)
     {
         tft.fillRoundRect(_x, _y, _w, _h, 4, _theme->surface);
         tft.fillRect(_x, _y, 4, _h, _color);
-        tft.setFont(JWPLC_FONT_SANS_9);
+        useGlcd(tft, 2);
         tft.setTextDatum(JWPLC_TFTDatum::MIDDLE_LEFT);
         tft.setTextColor(_theme->text, _theme->surface);
         tft.drawString(_text, (int16_t)(_x + 12), (int16_t)(_y + _h / 2));

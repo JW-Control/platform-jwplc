@@ -133,7 +133,7 @@ public:
 
 private:
     static const int16_t CELL_W = 18;
-    static const int16_t CELL_H = 32;
+    static const int16_t CELL_H = 30;
     static const int16_t GAP = 2;
     static const int16_t POINT_W = 8;
 
