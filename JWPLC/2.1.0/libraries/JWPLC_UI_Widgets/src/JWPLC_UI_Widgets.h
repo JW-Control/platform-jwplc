@@ -101,6 +101,10 @@ public:
     void invalidateRow(uint16_t index); // p. ej. al cambiar un valor
     void draw();
 
+    // Vuelve a pedir el texto de las filas visibles y redibuja solo las que
+    // cambiaron (valores en vivo sin parpadeo del resto de la lista).
+    void refreshChanged();
+
     uint8_t visibleRows() const { return _visible; }
     uint16_t firstVisible() const { return _top; }
 
@@ -122,6 +126,9 @@ private:
     uint16_t _drawnTop = 0xFFFF;
     uint16_t _dirtyRow = 0xFFFF;
     bool _full = true;
+    static const uint8_t HASH_ROWS = 12;
+    uint32_t _rowHash[HASH_ROWS] = {0};
+    uint32_t rowHash(uint16_t index, const char *left, const char *right) const;
 };
 
 // ---------------------------------------------------------------- editor
@@ -203,6 +210,8 @@ public:
               const JWPLC_UITheme &theme = JWPLC_UI_THEME_DARK);
     void close() { _open = false; }
     bool isOpen() const { return _open; }
+    // Deja el cursor en "No" (para confirmar acciones que borran o detienen).
+    void selectNo() { _choice = _yesNo ? 1 : 0; }
 
     // ◄ ► eligen, OK confirma, ESC equivale a No. Cierra el diálogo al
     // devolver UI_DIALOG_YES o UI_DIALOG_NO.
