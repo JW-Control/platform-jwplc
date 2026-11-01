@@ -48,6 +48,14 @@ namespace
         tft.setTextSize(size);
     }
 
+    // Textos de lista, mensajes y avisos: 16 px con trazo de 1 px, para que
+    // se distingan de los títulos en GLCD x2.
+    void useBody(JWPLC_TFTClass &tft)
+    {
+        tft.setFont(JWPLC_FONT_16);
+        tft.setTextSize(1);
+    }
+
     int32_t pow10i(uint8_t n)
     {
         int32_t p = 1;
@@ -174,7 +182,7 @@ void JWPLC_UIList::drawRow(JWPLC_TFTClass &tft, uint16_t index)
     }
 
     const int16_t midY = (int16_t)(rowY + (_rowH - 1) / 2);
-    useGlcd(tft, 2);
+    useBody(tft);
     tft.setTextPadding(0);
     tft.setTextColor(sel ? _theme->accentText : _theme->text, bg);
     tft.setTextDatum(JWPLC_TFTDatum::MIDDLE_LEFT);
@@ -545,12 +553,7 @@ void JWPLC_UIDialog::draw(JWPLC_TFTClass &tft)
         tft.setTextColor(_theme->headerText, _theme->header);
         tft.drawString(_title, (int16_t)(DLG_X + 10), (int16_t)(DLG_Y + 14));
 
-        // Mensaje en tamaño 2 si cabe; si no, en tamaño 1.
-        useGlcd(tft, 2);
-        if (tft.textWidth(_message) > DLG_W - 16)
-        {
-            useGlcd(tft, 1);
-        }
+        useBody(tft);
         tft.setTextDatum(JWPLC_TFTDatum::MIDDLE_CENTER);
         tft.setTextColor(_theme->text, _theme->surface);
         tft.drawString(_message, (int16_t)(DLG_X + DLG_W / 2), (int16_t)(DLG_Y + 44));
@@ -602,7 +605,7 @@ bool JWPLC_UIToast::draw(JWPLC_TFTClass &tft)
     {
         tft.fillRoundRect(_x, _y, _w, _h, 4, _theme->surface);
         tft.fillRect(_x, _y, 4, _h, _color);
-        useGlcd(tft, 2);
+        useBody(tft);
         tft.setTextDatum(JWPLC_TFTDatum::MIDDLE_LEFT);
         tft.setTextColor(_theme->text, _theme->surface);
         tft.drawString(_text, (int16_t)(_x + 12), (int16_t)(_y + _h / 2));

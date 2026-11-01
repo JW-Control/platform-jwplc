@@ -30,7 +30,7 @@ Está en modo fuente desde el inicio (sin `precompiled`).
 | `JWPLC_UIDialog` | Diálogo modal Sí/No o Aceptar | ◄ ► OK ESC |
 | `JWPLC_UIToast` | Aviso temporal en una franja reservada (pie) | — |
 
-Todos usan la fuente GLCD 5×7 escalada (tamaño 2; 1 para ayudas), la misma de la IDLE, por pedido del propietario (01/11). Todos usan dirty refresh: la lista redibuja solo las dos filas que cambian de selección (o la vista al hacer scroll), el editor solo los dígitos que cambian y el diálogo solo sus botones. Se llaman desde los callbacks USER, que ya corren dentro del batch de `JWPLC_Display`, y dejan `JWPLC_FONT_GLCD` activa al terminar.
+Fuentes (decisión del propietario, 01/11): títulos, botones y dígitos en GLCD 5×7 ×2, la de la IDLE; filas, mensajes y avisos en `JWPLC_FONT_16` (Font 2 de TFT_eSPI convertida a GFXfont, trazo de 1 px, ~0,7 KB, nueva en `JWPLC_TFT`), elegida frente a GLCD ×2 y Spleen 8×16 tras una comparación en el simulador. Barra de título con el gris de la IDLE (0x39E7). Todos usan dirty refresh: la lista redibuja solo las dos filas que cambian de selección (o la vista al hacer scroll), el editor solo los dígitos que cambian y el diálogo solo sus botones. Se llaman desde los callbacks USER, que ya corren dentro del batch de `JWPLC_Display`, y dejan `JWPLC_FONT_GLCD` activa al terminar.
 
 ## Ejemplo `Widgets_Parametros`
 

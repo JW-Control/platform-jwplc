@@ -14,8 +14,9 @@
 //     JWPLC_UIDialog        ◄ ► OK ESC
 //   Si la pantalla usa ESC, configurar
 //   JWPLC_Display.setIdleReturnMode(IDLE_RETURN_DISABLED).
-// - El texto usa la fuente GLCD o las FreeFonts de JWPLC_TFT y, al terminar,
-//   se deja JWPLC_FONT_GLCD activa (JWPLC_Display dibuja en GLCD).
+// - Fuentes: títulos, botones y dígitos en GLCD x2 (la de la IDLE); filas,
+//   mensajes y avisos en JWPLC_FONT_16 (trazo de 1 px). Al terminar se deja
+//   JWPLC_FONT_GLCD activa (JWPLC_Display dibuja en GLCD).
 
 #include <Arduino.h>
 #include <JWPLC_TFT.h>
