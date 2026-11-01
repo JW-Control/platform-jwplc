@@ -38,6 +38,8 @@ struct JWPLC_UITheme
     uint16_t ok;         // estado correcto, avisos de éxito
     uint16_t warn;       // advertencias
     uint16_t error;      // errores
+    uint16_t header;     // barra de título (gris del título «JWPLC Basic» de la IDLE)
+    uint16_t headerText; // texto de la barra de título
 };
 
 extern const JWPLC_UITheme JWPLC_UI_THEME_DARK;

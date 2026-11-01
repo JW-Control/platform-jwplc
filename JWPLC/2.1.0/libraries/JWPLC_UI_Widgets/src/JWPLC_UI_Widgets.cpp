@@ -17,6 +17,8 @@ const JWPLC_UITheme JWPLC_UI_THEME_DARK = {
     0x07E0, // ok
     0xFD20, // warn
     0xF800, // error
+    0x39E7, // header (C_TITLE_BG de JWPLC_IdleScreen)
+    0xFFFF, // headerText
 };
 
 namespace
@@ -533,12 +535,14 @@ void JWPLC_UIDialog::draw(JWPLC_TFTClass &tft)
     if (_full)
     {
         tft.fillRoundRect(DLG_X, DLG_Y, DLG_W, DLG_H, 6, _theme->surface);
+        // Barra de título con el gris del título de la IDLE.
+        tft.fillRoundRect(DLG_X, DLG_Y, DLG_W, 27, 6, _theme->header);
+        tft.fillRect(DLG_X, (int16_t)(DLG_Y + 20), DLG_W, 7, _theme->header);
         tft.drawRoundRect(DLG_X, DLG_Y, DLG_W, DLG_H, 6, _theme->accent);
-        tft.drawFastHLine((int16_t)(DLG_X + 8), (int16_t)(DLG_Y + 26), (int16_t)(DLG_W - 16), _theme->border);
 
         useGlcd(tft, 2);
         tft.setTextDatum(JWPLC_TFTDatum::MIDDLE_LEFT);
-        tft.setTextColor(_theme->text, _theme->surface);
+        tft.setTextColor(_theme->headerText, _theme->header);
         tft.drawString(_title, (int16_t)(DLG_X + 10), (int16_t)(DLG_Y + 14));
 
         // Mensaje en tamaño 2 si cabe; si no, en tamaño 1.
