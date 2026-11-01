@@ -26,6 +26,7 @@ void Engine::reset()
     memset(_timing, 0, sizeof(_timing));
     _q = 0;
     _m = 0;
+    memset(_xq, 0, sizeof(_xq));
     _alarms = 0;
 }
 
@@ -78,6 +79,10 @@ bool Engine::readSrc(uint8_t src) const
     if (src >= SRC_M && src < SRC_M + NUM_M)
     {
         return (_m >> (src - SRC_M)) & 1;
+    }
+    if (srcIsRemote(src))
+    {
+        return (_xi[srcModule(src)] >> ((src - SRC_XI) % X_IO)) & 1;
     }
     if (srcIsBlock(src) && srcBlock(src) < _p.count)
     {
@@ -454,8 +459,32 @@ void Engine::scan(uint8_t inputs, uint32_t nowMs, const ClockNow &clock)
         }
         m |= (uint8_t)(v << i);
     }
+    for (uint8_t x = 0; x < NUM_X; x++)
+    {
+        uint8_t bits = 0;
+        for (uint8_t i = 0; i < X_IO; i++)
+        {
+            const uint8_t s = _p.xq[x][i];
+            bool v = s != SRC_OPEN && readSrc(s);
+            if (s != SRC_OPEN && ((_p.xqNeg[x] >> i) & 1))
+            {
+                v = !v;
+            }
+            bits |= (uint8_t)(v << i);
+        }
+        _xq[x] = bits;
+    }
     _q = q;
     _m = m;
+}
+
+bool Engine::outputValue(uint8_t o) const
+{
+    if (o < NUM_Q)
+    {
+        return (_q >> o) & 1;
+    }
+    return o < NUM_OUT && ((_xq[(o - NUM_Q) / X_IO] >> ((o - NUM_Q) % X_IO)) & 1);
 }
 
 uint32_t Engine::elapsedMs(uint8_t b, uint32_t nowMs) const

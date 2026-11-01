@@ -40,7 +40,43 @@ const int16_t QH = 13;
 const int16_t Q_PITCH = 16;
 const int16_t MAP_H = BODY_H; // alto del sprite
 
-const uint8_t ITEM_Q = 100;  // índice de selección de Q1..Q8 = 100..107
+const uint8_t ITEM_Q = 100;  // selección de la salida o: ITEM_Q + o (Q1..Q8 y 1.Q1..7.Q8)
+
+// Salidas visibles en la columna Q: las locales y las de cada módulo
+// vinculado (o con algo conectado, para no perderlo de vista).
+uint8_t g_outs[NUM_OUT];
+uint8_t g_outRow[NUM_OUT];
+uint8_t g_outN = 0;
+
+bool moduleVisible(const Program &p, uint8_t x)
+{
+    if (core.expansion.used(x))
+    {
+        return true;
+    }
+    for (uint8_t i = 0; i < X_IO; i++)
+    {
+        if (p.xq[x][i] != SRC_OPEN)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+void computeOuts(const Program &p)
+{
+    g_outN = 0;
+    memset(g_outRow, 0xFF, sizeof(g_outRow));
+    for (uint8_t o = 0; o < NUM_OUT; o++)
+    {
+        if (o < NUM_Q || moduleVisible(p, (uint8_t)((o - NUM_Q) / X_IO)))
+        {
+            g_outRow[o] = g_outN;
+            g_outs[g_outN++] = o;
+        }
+    }
+}
 
 // ---------------------------------------------------------------- estado del editor
 bool g_monitor = false;
@@ -114,6 +150,7 @@ void computeLayout()
 {
     const Program &p = prog();
     memset(&L, 0, sizeof(L));
+    computeOuts(p);
     // Columna = 1 + columna de la fuente más a la derecha (lazos: se corta).
     for (uint8_t pass = 0; pass < p.count + 1; pass++)
     {
@@ -244,7 +281,7 @@ void computeLayout()
             colBottom[c] = (int16_t)(bodyY(b) + bodyH(b) + 8);
         }
     }
-    int16_t h = qY(NUM_Q - 1) + QH + 4;
+    int16_t h = qY((uint8_t)(g_outN - 1)) + QH + 4;
     for (uint8_t c = 0; c < L.numCols; c++)
     {
         if (colBottom[c] > h)
@@ -487,16 +524,18 @@ void drawOutputs()
 {
     const Program &p = prog();
     const int16_t x = (int16_t)(qX() - g_sx);
-    for (uint8_t i = 0; i < NUM_Q; i++)
+    for (uint8_t row = 0; row < g_outN; row++)
     {
-        const int16_t y = (int16_t)(qY(i) - g_sy);
+        const uint8_t i = g_outs[row];
+        const int16_t y = (int16_t)(qY(row) - g_sy);
         if (y > MAP_H || y + QH < 0 || x > SCREEN_W)
         {
             continue;
         }
-        const uint8_t s = p.q[i];
+        const uint8_t s = outSource(p, i);
+        const bool neg = outNeg(p, i);
         const bool connected = s != SRC_OPEN;
-        const bool on = g_live && ((core.engine.outputs() >> i) & 1);
+        const bool on = g_live && core.engine.outputValue(i);
         const int16_t cy = (int16_t)(y + QH / 2);
         if (connected)
         {
@@ -514,9 +553,9 @@ void drawOutputs()
             }
             else
             {
-                drawTag(s, x, cy, (p.qNeg >> i) & 1);
+                drawTag(s, x, cy, neg);
             }
-            if ((p.qNeg >> i) & 1)
+            if (neg)
             {
                 drawNeg(x, cy);
             }
@@ -528,9 +567,11 @@ void drawOutputs()
         {
             g_spr.drawRect((int16_t)(x + 1), (int16_t)(y + 1), QW - 2, QH - 2, P_SEL);
         }
-        char t[4];
-        snprintf(t, sizeof(t), "Q%u", i + 1);
-        sprText(t, (int16_t)(x + 9), (int16_t)(y + 3), on ? P_BG : (connected ? P_TEXT : P_MUTED));
+        char t[8];
+        outName(i, t, sizeof(t));
+        // "Q1" centrado; "1.Q1" ocupa casi todo el recuadro.
+        sprText(t, (int16_t)(x + (QW - (int16_t)strlen(t) * 6) / 2 + 1), (int16_t)(y + 3),
+                on ? P_BG : (connected ? P_TEXT : P_MUTED));
     }
 }
 
@@ -573,7 +614,8 @@ void itemRect(uint8_t item, int16_t &x, int16_t &y, int16_t &w, int16_t &h)
     if (item >= ITEM_Q)
     {
         x = qX();
-        y = qY((uint8_t)(item - ITEM_Q));
+        const uint8_t row = g_outRow[item - ITEM_Q];
+        y = qY(row == 0xFF ? 0 : row);
         w = QW;
         h = QH;
     }
@@ -657,9 +699,9 @@ uint8_t moveVertical(int8_t dir)
     {
         consider(b);
     }
-    for (uint8_t i = 0; i < NUM_Q; i++)
+    for (uint8_t r = 0; r < g_outN; r++)
     {
-        consider((uint8_t)(ITEM_Q + i));
+        consider((uint8_t)(ITEM_Q + g_outs[r]));
     }
     return best;
 }
@@ -688,13 +730,14 @@ uint8_t moveHorizontal(int8_t dir)
         }
         if (col == L.numCols)
         {
-            for (uint8_t i = 0; i < NUM_Q; i++)
+            for (uint8_t r = 0; r < g_outN; r++)
             {
-                const int16_t d = (int16_t)abs(itemCenterY((uint8_t)(ITEM_Q + i)) - cy);
+                const uint8_t it = (uint8_t)(ITEM_Q + g_outs[r]);
+                const int16_t d = (int16_t)abs(itemCenterY(it) - cy);
                 if (d < bestD)
                 {
                     bestD = d;
-                    best = (uint8_t)(ITEM_Q + i);
+                    best = it;
                 }
             }
         }
@@ -724,8 +767,10 @@ public:
         if (g_sel >= ITEM_Q)
         {
             char s[8];
-            sourceName(p.q[g_sel - ITEM_Q], s, sizeof(s));
-            snprintf(t, sizeof(t), "Q%u <- %s", g_sel - ITEM_Q + 1, s);
+            char q[8];
+            sourceName(outSource(p, (uint8_t)(g_sel - ITEM_Q)), s, sizeof(s));
+            outName((uint8_t)(g_sel - ITEM_Q), q, sizeof(q));
+            snprintf(t, sizeof(t), "%s <- %s", q, s);
         }
         else if (g_sel < p.count)
         {
@@ -757,6 +802,10 @@ public:
         if (g_sel < ITEM_Q && g_sel >= prog().count)
         {
             g_sel = prog().count ? (uint8_t)(prog().count - 1) : ITEM_Q;
+        }
+        if (g_sel >= ITEM_Q && (g_sel - ITEM_Q >= NUM_OUT || g_outRow[g_sel - ITEM_Q] == 0xFF))
+        {
+            g_sel = ITEM_Q; // el módulo de esa salida ya no está
         }
         ensureVisible();
         drawStatusBar(g_monitor ? "MONITOR" : "EDITAR");
@@ -831,6 +880,10 @@ public:
             lastLive = millis();
             uint32_t s = core.engine.outputs() | ((uint32_t)core.engine.inputs() << 8) |
                          ((uint32_t)core.engine.markers() << 16);
+            for (uint8_t x = 0; x < NUM_X; x++)
+            {
+                s = s * 31 + core.engine.remoteInputs(x) * 257u + core.engine.remoteOutputs(x);
+            }
             const Program &p = prog();
             for (uint8_t b = 0; b < p.count; b++)
             {
@@ -1344,7 +1397,7 @@ void openBlock(uint8_t b)
 // ---------------------------------------------------------------- elegir fuente
 uint8_t g_pickTarget = 0; // bloque o ITEM_Q + i
 uint8_t g_pickPin = 0;
-uint8_t g_pickSrc[3 + NUM_I + NUM_M + NUM_Q + MAX_BLOCKS + 1];
+uint8_t g_pickSrc[3 + NUM_I + NUM_X * X_IO + NUM_M + NUM_Q + MAX_BLOCKS + 1];
 uint8_t g_pickCount = 0;
 const uint8_t PICK_NEW = 0xFE;
 
@@ -1356,6 +1409,17 @@ void buildPick()
     for (uint8_t i = 0; i < NUM_I; i++)
     {
         g_pickSrc[g_pickCount++] = (uint8_t)(SRC_I + i);
+    }
+    // Entradas de los módulos vinculados: 1.I1..
+    for (uint8_t x = 0; x < NUM_X; x++)
+    {
+        if (core.expansion.used(x))
+        {
+            for (uint8_t i = 0; i < X_IO; i++)
+            {
+                g_pickSrc[g_pickCount++] = (uint8_t)(SRC_XI + x * X_IO + i);
+            }
+        }
     }
     for (uint8_t b = 0; b < core.draft.count; b++)
     {
@@ -1411,6 +1475,12 @@ void pickRow(uint16_t i, JWPLC_UIRow r)
     {
         desc = "marca";
     }
+    else if (srcIsRemote(s))
+    {
+        static char d[20];
+        snprintf(d, sizeof(d), "entrada modulo %u", srcModule(s) + 1);
+        desc = d;
+    }
     else if (s >= SRC_Q && s < SRC_Q + NUM_Q)
     {
         desc = "salida (scan anterior)";
@@ -1430,7 +1500,7 @@ void assignSource(uint8_t s)
     pushUndo();
     if (g_pickTarget >= ITEM_Q)
     {
-        core.draft.q[g_pickTarget - ITEM_Q] = s;
+        setOutSource(core.draft, (uint8_t)(g_pickTarget - ITEM_Q), s);
     }
     else
     {
@@ -1450,7 +1520,7 @@ void newForPin(uint8_t type)
     }
     if (g_pickTarget >= ITEM_Q)
     {
-        core.draft.q[g_pickTarget - ITEM_Q] = (uint8_t)(SRC_B + nb);
+        setOutSource(core.draft, (uint8_t)(g_pickTarget - ITEM_Q), (uint8_t)(SRC_B + nb));
     }
     else
     {
@@ -1485,7 +1555,7 @@ void openSourcePicker(uint8_t target, uint8_t pin)
     uint8_t cur = SRC_OPEN;
     if (target >= ITEM_Q)
     {
-        cur = core.draft.q[target - ITEM_Q];
+        cur = outSource(core.draft, (uint8_t)(target - ITEM_Q));
     }
     else
     {
@@ -1502,7 +1572,9 @@ void openSourcePicker(uint8_t target, uint8_t pin)
     static char title[24];
     if (target >= ITEM_Q)
     {
-        snprintf(title, sizeof(title), "Q%u <-", target - ITEM_Q + 1);
+        char q[8];
+        outName((uint8_t)(target - ITEM_Q), q, sizeof(q));
+        snprintf(title, sizeof(title), "%s <-", q);
     }
     else
     {

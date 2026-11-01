@@ -6,6 +6,7 @@
 #pragma once
 
 #include "RtEngine.h"
+#include "RtExpansion.h"
 #include "RtStore.h"
 
 namespace jwrt
@@ -38,6 +39,14 @@ enum Command : uint8_t
     CMD_TEST_Q,         // a.aux = mapa de Q en modo prueba (solo en STOP)
     CMD_TEST_END,
     CMD_NET_REFRESH,
+    // Expansión (solo en STOP salvo X_PROBE de un módulo vinculado).
+    CMD_X_PROBE,        // a.aux = ID, a.flags = 1 trama de fábrica -> core.expansion.lastProbe
+    CMD_X_ADD,          // a.aux = ID nuevo, a.p1 = estado seguro (valor | mantener << 8 | vigilancia << 16)
+    CMD_X_SCAN,         // -> core.xFound
+    CMD_X_LINK,         // a.aux = ID
+    CMD_X_SAFE,         // a.block = módulo, a.p1 como CMD_X_ADD
+    CMD_X_REMOVE,       // a.block = módulo
+    CMD_X_BUS,          // a.p1 = código de baudrate, a.p2 = trama
 };
 
 struct CommandArgs
@@ -57,6 +66,10 @@ struct Core
 {
     Engine engine;
     Store store;
+    Expansion expansion;
+    XFound xFound[X_FOUND_MAX];
+    volatile uint8_t xFoundCount = 0;
+    volatile int8_t xLastModule = -1; // módulo agregado o vinculado por la última orden
     Program draft;          // copia de trabajo del editor (solo la UI)
 
     volatile uint8_t mode = MODE_STOP;

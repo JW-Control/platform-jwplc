@@ -143,6 +143,10 @@ void sourceName(uint8_t src, char out[], size_t size)
     {
         snprintf(out, size, "M%u", (unsigned)(src - SRC_M + 1));
     }
+    else if (srcIsRemote(src))
+    {
+        snprintf(out, size, "%u.I%u", (unsigned)(srcModule(src) + 1), (unsigned)((src - SRC_XI) % X_IO + 1));
+    }
     else if (srcIsBlock(src))
     {
         snprintf(out, size, "B%02u", (unsigned)(srcBlock(src) + 1));
@@ -295,7 +299,45 @@ bool deleteBlock(Program &p, uint8_t idx)
     {
         p.m[i] = remapSource(p.m[i], idx);
     }
+    for (uint8_t x = 0; x < NUM_X; x++)
+    {
+        for (uint8_t i = 0; i < X_IO; i++)
+        {
+            p.xq[x][i] = remapSource(p.xq[x][i], idx);
+        }
+    }
     return true;
+}
+
+void setOutSource(Program &p, uint8_t o, uint8_t src)
+{
+    if (o < NUM_Q)
+    {
+        p.q[o] = src;
+    }
+    else if (o < NUM_OUT)
+    {
+        p.xq[(o - NUM_Q) / X_IO][(o - NUM_Q) % X_IO] = src;
+    }
+}
+
+void setOutNeg(Program &p, uint8_t o, bool neg)
+{
+    uint8_t *bits = o < NUM_Q ? &p.qNeg : &p.xqNeg[(o - NUM_Q) / X_IO];
+    const uint8_t bit = (uint8_t)(1u << (o < NUM_Q ? o : (o - NUM_Q) % X_IO));
+    *bits = neg ? (uint8_t)(*bits | bit) : (uint8_t)(*bits & ~bit);
+}
+
+void outName(uint8_t o, char out[], size_t size)
+{
+    if (o < NUM_Q)
+    {
+        snprintf(out, size, "Q%u", (unsigned)(o + 1));
+    }
+    else
+    {
+        snprintf(out, size, "%u.Q%u", (unsigned)((o - NUM_Q) / X_IO + 1), (unsigned)((o - NUM_Q) % X_IO + 1));
+    }
 }
 
 void demoProgram(Program &p)
