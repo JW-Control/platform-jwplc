@@ -13,6 +13,10 @@
   Last update by Bodmer 20/03/20
  ****************************************************/
 
+// JWPLC: JWPLC Sim (JWSIM) compila su propia copia de TFT_eSPI 2.5.43 con el
+// procesador Generic (third_party de jwplc-sim). Esta unidad queda vacía allí
+// para no duplicar símbolos ni compilar el procesador ESP32 en el PC.
+#if !defined(JWSIM)
 #include "TFT_eSPI.h"
 #if !defined(ST7789_DRIVER) || !defined(JWPLC_TFT_DEFER_DISPON)
 #error "JWPLC_TFT: tft_setup.h no llegó a TFT_eSPI (DISPON diferido)"
@@ -6159,3 +6163,4 @@ void TFT_eSPI::getSetup(setup_t &tft_settings)
 #endif
 ////////////////////////////////////////////////////////////////////////////////////////
 
+#endif // !JWSIM

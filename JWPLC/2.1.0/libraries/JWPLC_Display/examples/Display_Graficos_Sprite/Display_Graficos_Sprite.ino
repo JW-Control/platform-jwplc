@@ -102,6 +102,11 @@ static void dibujarMapa()
 
 extern "C" void jwplcUIEnter()
 {
+    // El Display no consume los latches de la aplicación (regla Alpha8): las
+    // teclas pulsadas en IDLE siguen pendientes. Se descartan al entrar para
+    // que ◄ ► pulsados en IDLE no muevan la selección de esta pantalla.
+    JWPLC_Display.clearPendingInput();
+
     auto &tft = JWPLC_Display.tft();
     tft.fillScreen(JWPLC_TFT_BLACK);
 
