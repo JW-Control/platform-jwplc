@@ -65,7 +65,8 @@ struct JWPLC_UIEventRecord
     uint8_t transition;  // JWPLCEventTransition
     uint8_t source;      // JWPLCEventSource
     uint8_t severity;    // JWPLCEventSeverity
-    uint8_t reserved[6]; // Relleno a 16 bytes exactos
+    uint8_t arg;         // Dato del evento (módulo, bloque…); 0 = sin dato
+    uint8_t reserved[5]; // Relleno a 16 bytes exactos
 };
 #pragma pack(pop)
 
@@ -111,10 +112,24 @@ struct JWPLC_UIEventLog
 
 class JWPLC_TFTClass;
 
+// Página que nunca está activa: historial sin pantalla propia (p. ej. el Runtime).
+static constexpr uint8_t JWPLC_EVENT_NO_PAGE = 0xFF;
+
 namespace JWPLCUIEventLog
 {
+    // Primera llamada: restaura la FRAM y anota el arranque. Las siguientes solo
+    // cambian la configuración (página, geometría, colores, descriptores) y
+    // conservan los eventos: así el Runtime y el HMI comparten un historial.
     bool begin(const JWPLC_UIEventLog &config);
+    // Historial sin página (lo usa el Runtime antes que el HMI, o sin él).
+    bool startStore();
+    bool started();
+    // Descriptores de otra librería (el Runtime): se buscan tras los del proyecto.
+    void setExtraDescriptors(const JWPLC_UIEventDescriptor *descriptors, size_t count);
+    // Texto del código (descriptor del proyecto o extra); nullptr si no hay.
+    const char *label(uint16_t code);
     void logEvent(uint16_t code, uint8_t transition = 1, uint8_t category = 3, uint8_t severity = 0, const char *customText = nullptr);
+    void logEventArg(uint16_t code, uint8_t transition, uint8_t category, uint8_t severity, uint8_t arg);
     size_t count();
     bool getRecord(size_t index, JWPLC_UIEventRecord &outRecord);
     void clear();
