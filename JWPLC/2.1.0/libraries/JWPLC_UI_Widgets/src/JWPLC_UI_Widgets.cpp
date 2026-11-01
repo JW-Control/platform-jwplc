@@ -193,8 +193,6 @@ void JWPLC_UIList::drawRow(JWPLC_TFTClass &tft, uint16_t index)
 
     const bool sel = index == _selected;
     const uint16_t bg = sel ? _theme.accent : ((index & 1) ? _theme.surfaceAlt : _theme.surface);
-    tft.fillRect(_x, rowY, rowW, (int16_t)(_rowH - 1), bg);
-    tft.drawFastHLine(_x, (int16_t)(rowY + _rowH - 1), rowW, _theme.background);
 
     char left[32] = {0};
     char right[24] = {0};
@@ -208,19 +206,53 @@ void JWPLC_UIList::drawRow(JWPLC_TFTClass &tft, uint16_t index)
         _rowHash[index - _top] = rowHash(index, left, right);
     }
 
-    const int16_t midY = (int16_t)(rowY + (_rowH - 1) / 2);
-    useBody(tft);
-    tft.setTextPadding(0);
-    tft.setTextColor(sel ? _theme.accentText : _theme.text, bg);
-    tft.setTextDatum(JWPLC_TFTDatum::MIDDLE_LEFT);
-    tft.drawString(left, (int16_t)(_x + 6), midY);
+    // 0.5.0: la fila se arma en un sprite de 4 bits y se envía de una vez,
+    // así no se ve el relleno antes del texto (el "barrido" al desplazarse).
+    // Si no hay memoria para el sprite se dibuja directo como antes.
+    static JWPLC_TFTSprite rowSprite;
+    const int16_t sh = (int16_t)(_rowH - 1);
+    if (rowSprite.created() && (rowSprite.width() != rowW || rowSprite.height() != sh))
+    {
+        rowSprite.destroy(); // otra lista con otra medida
+    }
+    if (!rowSprite.created() && !rowSprite.create(rowW, sh, 4))
+    {
+        tft.fillRect(_x, rowY, rowW, sh, bg);
+        tft.drawFastHLine(_x, (int16_t)(rowY + _rowH - 1), rowW, _theme.background);
+        const int16_t midY = (int16_t)(rowY + (_rowH - 1) / 2);
+        useBody(tft);
+        tft.setTextPadding(0);
+        tft.setTextColor(sel ? _theme.accentText : _theme.text, bg);
+        tft.setTextDatum(JWPLC_TFTDatum::MIDDLE_LEFT);
+        tft.drawString(left, (int16_t)(_x + 6), midY);
+        if (right[0])
+        {
+            tft.setTextColor(sel ? _theme.accentText : _theme.textMuted, bg);
+            tft.setTextDatum(JWPLC_TFTDatum::MIDDLE_RIGHT);
+            tft.drawString(right, (int16_t)(_x + rowW - 6), midY);
+        }
+        restoreFont(tft);
+        return;
+    }
+    // Paleta: 0 fondo de fila, 1 texto izquierdo, 2 texto derecho.
+    rowSprite.setPaletteColor(0, bg);
+    rowSprite.setPaletteColor(1, sel ? _theme.accentText : _theme.text);
+    rowSprite.setPaletteColor(2, sel ? _theme.accentText : _theme.textMuted);
+    rowSprite.fillRect(0, 0, rowW, sh, 0);
+    rowSprite.setFont(JWPLC_FONT_16);
+    rowSprite.setTextSize(1);
+    const int16_t midY = (int16_t)((_rowH - 1) / 2);
+    rowSprite.setTextColor(1, 0);
+    rowSprite.setTextDatum(JWPLC_TFTDatum::MIDDLE_LEFT);
+    rowSprite.drawString(left, 6, midY);
     if (right[0])
     {
-        tft.setTextColor(sel ? _theme.accentText : _theme.textMuted, bg);
-        tft.setTextDatum(JWPLC_TFTDatum::MIDDLE_RIGHT);
-        tft.drawString(right, (int16_t)(_x + rowW - 6), midY);
+        rowSprite.setTextColor(2, 0);
+        rowSprite.setTextDatum(JWPLC_TFTDatum::MIDDLE_RIGHT);
+        rowSprite.drawString(right, (int16_t)(rowW - 6), midY);
     }
-    restoreFont(tft);
+    rowSprite.push(_x, rowY);
+    tft.drawFastHLine(_x, (int16_t)(rowY + _rowH - 1), rowW, _theme.background);
 }
 
 void JWPLC_UIList::drawScrollBar(JWPLC_TFTClass &tft)
@@ -299,6 +331,8 @@ void JWPLC_UIList::draw(JWPLC_TFTClass &tft)
         {
             tft.fillRect(_x, (int16_t)(_y + used), _w, (int16_t)(_h - used), _theme.background);
         }
+        // Franja de 2 px entre las filas y la barra de scroll.
+        tft.fillRect((int16_t)(_x + _w - 5), _y, 2, (int16_t)(_visible * _rowH), _theme.background);
         drawScrollBar(tft);
     }
     else

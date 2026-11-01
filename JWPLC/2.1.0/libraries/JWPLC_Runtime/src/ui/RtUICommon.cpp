@@ -277,7 +277,10 @@ public:
 
     void enter() override
     {
-        clearBody();
+        // La lista pinta todo su área (filas, resto y barra): no se borra antes
+        // para que no se vea un barrido. Solo las 2 líneas sobre la lista.
+        JWPLC_TFT.fillRect(0, BAR_H, SCREEN_W, BODY_Y + 1 - BAR_H, T.background);
+        JWPLC_TFT.fillRect(0, BODY_Y + BODY_H, SCREEN_W, FOOT_Y - BODY_Y - BODY_H, T.background);
         drawStatusBar(spec.title);
         list.begin(0, BODY_Y + 1, SCREEN_W, BODY_H - 1, 20, T);
         list.setRows(spec.count ? spec.count() : 0, spec.row);
