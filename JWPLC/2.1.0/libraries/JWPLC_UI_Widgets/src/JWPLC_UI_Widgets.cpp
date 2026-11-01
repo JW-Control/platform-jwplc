@@ -206,10 +206,8 @@ void JWPLC_UIList::drawRow(JWPLC_TFTClass &tft, uint16_t index)
         _rowHash[index - _top] = rowHash(index, left, right);
     }
 
-    // 0.5.0: la fila se arma en un sprite de 16 bits (12 KB) y se envía de una
-    // vez, así no se ve el relleno antes del texto. Es de 16 bits porque uno
-    // de 4 bits se convierte píxel a píxel al enviarlo y en la placa tarda lo
-    // bastante para verse un corte diagonal (tearing) al mover la selección.
+    // 0.5.0: la fila se arma en un sprite de 4 bits y se envía de una vez,
+    // así no se ve el relleno antes del texto (el "barrido" al desplazarse).
     // Si no hay memoria para el sprite se dibuja directo como antes.
     static JWPLC_TFTSprite rowSprite;
     const int16_t sh = (int16_t)(_rowH - 1);
@@ -217,7 +215,7 @@ void JWPLC_UIList::drawRow(JWPLC_TFTClass &tft, uint16_t index)
     {
         rowSprite.destroy(); // otra lista con otra medida
     }
-    if (!rowSprite.created() && !rowSprite.create(rowW, sh, 16))
+    if (!rowSprite.created() && !rowSprite.create(rowW, sh, 4))
     {
         tft.fillRect(_x, rowY, rowW, sh, bg);
         tft.drawFastHLine(_x, (int16_t)(rowY + _rowH - 1), rowW, _theme.background);
@@ -236,16 +234,20 @@ void JWPLC_UIList::drawRow(JWPLC_TFTClass &tft, uint16_t index)
         restoreFont(tft);
         return;
     }
-    rowSprite.fillRect(0, 0, rowW, sh, bg);
+    // Paleta: 0 fondo de fila, 1 texto izquierdo, 2 texto derecho.
+    rowSprite.setPaletteColor(0, bg);
+    rowSprite.setPaletteColor(1, sel ? _theme.accentText : _theme.text);
+    rowSprite.setPaletteColor(2, sel ? _theme.accentText : _theme.textMuted);
+    rowSprite.fillRect(0, 0, rowW, sh, 0);
     rowSprite.setFont(JWPLC_FONT_16);
     rowSprite.setTextSize(1);
     const int16_t midY = (int16_t)((_rowH - 1) / 2);
-    rowSprite.setTextColor(sel ? _theme.accentText : _theme.text, bg);
+    rowSprite.setTextColor(1, 0);
     rowSprite.setTextDatum(JWPLC_TFTDatum::MIDDLE_LEFT);
     rowSprite.drawString(left, 6, midY);
     if (right[0])
     {
-        rowSprite.setTextColor(sel ? _theme.accentText : _theme.textMuted, bg);
+        rowSprite.setTextColor(2, 0);
         rowSprite.setTextDatum(JWPLC_TFTDatum::MIDDLE_RIGHT);
         rowSprite.drawString(right, (int16_t)(rowW - 6), midY);
     }

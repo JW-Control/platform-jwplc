@@ -22,7 +22,7 @@ void tileRect(uint8_t i, int16_t &x, int16_t &y)
     y = (int16_t)(BODY_Y + 2 + (i / 3) * (TILE_H + 4));
 }
 
-// Se dibuja en el sprite de la baldosa.
+// Se dibuja en el sprite de la baldosa; c es un índice de su paleta.
 void drawIcon(JWPLC_TFTSprite &g, uint8_t i, int16_t cx, int16_t cy, uint16_t c)
 {
     switch (i)
@@ -85,8 +85,8 @@ public:
     uint8_t drawnSel = 0xFF;
     int8_t drawnMode = -1;
 
-    // La baldosa se arma en un sprite de 16 bits (10,6 KB) y se envía de una
-    // vez, para que al mover la selección no se vea el relleno antes del icono.
+    // La baldosa se arma en un sprite de 4 bits y se envía de una vez, para
+    // que al mover la selección no se vea el relleno antes del icono.
     void drawTile(uint8_t i, bool selected)
     {
         int16_t x, y;
@@ -94,23 +94,27 @@ public:
         const uint16_t bg = selected ? C_TILE_SEL : T.surface;
         const uint16_t fg = selected ? C_ON : T.text;
         static JWPLC_TFTSprite g;
-        if (!g.created() && !g.create(TILE_W, TILE_H, 16))
+        if (!g.created() && !g.create(TILE_W, TILE_H, 4))
         {
             return; // sin memoria: la baldosa no se dibuja (no debería pasar)
         }
-        const uint16_t border = selected ? C_ON : T.border;
-        g.fill(T.background);
-        g.fillRoundRect(0, 0, TILE_W, TILE_H, 5, bg);
-        g.drawRoundRect(0, 0, TILE_W, TILE_H, 5, border);
+        // Paleta: 0 fondo de pantalla (esquinas), 1 baldosa, 2 borde, 3 icono y texto.
+        g.setPaletteColor(0, T.background);
+        g.setPaletteColor(1, bg);
+        g.setPaletteColor(2, selected ? C_ON : T.border);
+        g.setPaletteColor(3, fg);
+        g.fill(0);
+        g.fillRoundRect(0, 0, TILE_W, TILE_H, 5, 1);
+        g.drawRoundRect(0, 0, TILE_W, TILE_H, 5, 2);
         if (selected)
         {
-            g.drawRoundRect(1, 1, TILE_W - 2, TILE_H - 2, 4, border);
+            g.drawRoundRect(1, 1, TILE_W - 2, TILE_H - 2, 4, 2);
         }
-        drawIcon(g, i, TILE_W / 2, 16, fg);
+        drawIcon(g, i, TILE_W / 2, 16, 3);
         g.setFont(JWPLC_FONT_16);
         g.setTextSize(1);
         g.setTextDatum(DATUM_TOP_CENTER);
-        g.setTextColor(fg, bg);
+        g.setTextColor(3, 1);
         g.drawString(TILE_NAMES[i], TILE_W / 2, 32);
         g.push(x, y);
     }
