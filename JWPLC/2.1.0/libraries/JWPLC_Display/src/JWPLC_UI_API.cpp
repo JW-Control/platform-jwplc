@@ -332,6 +332,28 @@ JWPLC_UIField JWPLC_UIBarField(
         range);
 }
 
+JWPLC_UIField JWPLC_UICircularField(
+    uint8_t id,
+    JWPLC_UIRect rect,
+    JWPLC_UIText text,
+    JWPLC_UIRange range,
+    JWPLC_UICircularStyle circularStyle,
+    uint8_t page,
+    JWPLC_UIColors colors)
+{
+    JWPLC_UIField field(
+        JWPLC_UIFieldMeta(id, page, JWPLC_UI_FIELD_CIRCULAR),
+        rect,
+        text,
+        JWPLC_UIStyle(circularStyle.labelTextSize, 1, circularStyle.frame, JWPLC_UI_LAYOUT_STACKED),
+        colors,
+        JWPLC_UIValueFormat(),
+        JWPLC_UIBoolText(),
+        range);
+    field.circularStyle = circularStyle;
+    return field;
+}
+
 JWPLC_UIField JWPLC_UIValueField(
     uint8_t id,
     int16_t x,
@@ -402,6 +424,25 @@ JWPLC_UIField JWPLC_UIBarField(
         page);
 }
 
+JWPLC_UIField JWPLC_UICircularField(
+    uint8_t id,
+    int16_t x,
+    int16_t y,
+    int16_t diameter,
+    const char *label,
+    JWPLC_UIRange range,
+    uint16_t sweep,
+    uint8_t page)
+{
+    return JWPLC_UICircularField(
+        id,
+        JWPLC_UIRect(x, y, diameter, diameter),
+        JWPLC_UIText(label),
+        range,
+        JWPLC_UICircularStyle(sweep),
+        page);
+}
+
 // Hooks del MENU (Alpha15). JWPLC_UI_Menu.cpp aporta las versiones strong y
 // sólo se enlaza si el sketch registra menús (setMenus / JWPLC_UIMenu*).
 extern "C" void __attribute__((weak)) jwplcUIMenuServiceInput(void) {}
@@ -410,12 +451,19 @@ extern "C" void __attribute__((weak)) jwplcUIMenuInvalidateAll(void) {}
 extern "C" void __attribute__((weak)) jwplcUIMenuDrawStatic(JWPLC_TFTClass *tft) { (void)tft; }
 extern "C" void __attribute__((weak)) jwplcUIMenuDrawDirty(JWPLC_TFTClass *tft) { (void)tft; }
 
+// Hooks de EVENT_LOG (Alpha16). JWPLC_UI_EventLog.cpp aporta las versiones strong.
+extern "C" void __attribute__((weak)) jwplcUIEventLogServiceInput(void) {}
+extern "C" void __attribute__((weak)) jwplcUIEventLogPrepareEnter(void) {}
+extern "C" void __attribute__((weak)) jwplcUIEventLogInvalidateAll(void) {}
+extern "C" void __attribute__((weak)) jwplcUIEventLogDrawStatic(JWPLC_TFTClass *tft) { (void)tft; }
+extern "C" void __attribute__((weak)) jwplcUIEventLogDrawDirty(JWPLC_TFTClass *tft) { (void)tft; }
+
 // Implementaciones strong de los hooks internos. Este TU solo se enlaza cuando
 // la HMI se usa: JWPLC_UI.cpp depende de los constructores definidos arriba.
 extern "C" void jwplcUIRuntimeServiceInput(void)
 {
-    // El MENU de la página atiende primero sus teclas (UP/DOWN/LEFT/RIGHT/OK y
-    // ESC fuera de la raíz); lo que no consume sigue al selector de páginas.
+    // EVENT_LOG y MENU atienden sus teclas con prioridad antes del selector de páginas.
+    jwplcUIEventLogServiceInput();
     jwplcUIMenuServiceInput();
     JWPLCUIPages::serviceNavigation();
     JWPLCUI::pollClockFields();
@@ -437,6 +485,7 @@ extern "C" bool jwplcUIRuntimeRefreshNeeded(void)
 
 extern "C" void jwplcUIRuntimeInvalidateAll(bool redrawStatic)
 {
+    jwplcUIEventLogInvalidateAll();
     jwplcUIMenuInvalidateAll();
     JWPLCUI::invalidateAll(redrawStatic);
 }
@@ -445,6 +494,7 @@ extern "C" void jwplcUIRuntimePrepareEnter(void)
 {
     JWPLCUI::prepareEnter();
     jwplcUIMenuPrepareEnter();
+    jwplcUIEventLogPrepareEnter();
     JWPLCUIPages::prepareEnter();
 }
 
@@ -477,6 +527,7 @@ extern "C" void jwplcUIRuntimeDrawStatic(JWPLC_TFTClass *tft)
         JWPLCUI::drawPixelMapsStatic(*tft);
         JWPLCUI::drawStatic(*tft);
         jwplcUIMenuDrawStatic(tft);
+        jwplcUIEventLogDrawStatic(tft);
     }
 }
 
@@ -486,6 +537,7 @@ extern "C" void jwplcUIRuntimeDrawDirty(JWPLC_TFTClass *tft)
     {
         JWPLCUI::drawDirty(*tft);
         jwplcUIMenuDrawDirty(tft);
+        jwplcUIEventLogDrawDirty(tft);
         JWPLCUIPages::drawModeChange(*tft);
         JWPLCUIPages::drawIndicator(*tft);
     }

@@ -475,6 +475,7 @@ void JW_MatrixButtons::updateMatrix()
   }
 
   mapButtons();
+  applyVirtual_();
 
   _evN = 0;
   emitEdgesAndRepeats();
@@ -500,6 +501,7 @@ void JW_MatrixButtons::updateDirect()
     debounceUpdate(_directDeb[id], raw);
     _btnStable[id] = _directDeb[id].stable;
   }
+  applyVirtual_();
 
   _evN = 0;
   emitEdgesAndRepeats();
@@ -611,6 +613,33 @@ void JW_MatrixButtons::debounceUpdate(DebouncedKey &k, bool rawNow)
   if ((now - k.lastChange) >= _debounceMs)
   {
     k.stable = rawNow;
+  }
+}
+
+void JW_MatrixButtons::setVirtualDown(uint8_t id, bool down)
+{
+  if (id >= 32)
+    return;
+  if (down)
+    _virtualMask |= (1UL << id);
+  else
+    _virtualMask &= ~(1UL << id);
+}
+
+bool JW_MatrixButtons::virtualDown(uint8_t id) const
+{
+  return id < 32 && (_virtualMask & (1UL << id)) != 0;
+}
+
+void JW_MatrixButtons::applyVirtual_()
+{
+  const uint32_t mask = _virtualMask;
+  if (!mask)
+    return;
+  for (uint8_t i = 0; i < _btnCount && i < 32; i++)
+  {
+    if (mask & (1UL << i))
+      _btnStable[i] = true;
   }
 }
 

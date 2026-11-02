@@ -23,6 +23,10 @@ public:
   bool pushImage(int16_t x, int16_t y, int16_t w, int16_t h, const uint16_t *pixels, uint32_t = 50);
   bool drawFastHLine(int16_t x, int16_t y, int16_t w, uint16_t c, uint32_t = 50) { for (int i = 0; i < w; ++i) pixel(x + i, y, c); return true; }
   bool drawFastVLine(int16_t x, int16_t y, int16_t h, uint16_t c, uint32_t = 50) { for (int i = 0; i < h; ++i) pixel(x, y + i, c); return true; }
+  // Lote de dibujo (el medidor circular dibuja píxel a píxel dentro de un lote).
+  bool beginBatch(uint32_t = 50) { return true; }
+  void endBatch() {}
+  void drawPixel(int16_t x, int16_t y, uint16_t c) { pixel(x, y, c); }
   int16_t width() const { return W; }
   int16_t height() const { return H; }
   void getTextBounds(const char *s, int16_t x, int16_t y, int16_t *x1, int16_t *y1, uint16_t *w, uint16_t *h);

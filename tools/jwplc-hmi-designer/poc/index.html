@@ -3,8 +3,11 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>JWPLC HMI Designer — 2.1.0-alpha.15</title>
+  <title>JWPLC HMI Designer</title>
+  <meta name="jwplc-designer-version" content="2.1.0-alpha.16" />
   <link rel="stylesheet" href="./styles.css?v=1793801300" />
+  <link rel="stylesheet" href="./designer-light-theme.css?v=1793802700" />
+  <script src="./designer-theme.js?v=1793802700"></script>
 </head>
 <body>
   <header class="topbar">
@@ -13,7 +16,7 @@
       <div class="brand-copy">
         <div class="brand-title-row">
           <h1>JWPLC HMI Designer</h1>
-          <span class="brand-badge">2.1.0-alpha.15</span>
+          <span class="brand-badge">2.1.0-alpha.16</span>
         </div>
         <p><span class="brand-sub-label">HMI declarativa</span><span class="brand-dot">·</span><span class="brand-spec">ST7789 320×170</span></p>
       </div>
@@ -58,6 +61,24 @@
           <rect x="8" y="8" width="8" height="8" rx="1.5"/>
         </svg>
         <span class="sr-only">Ajustar selección</span>
+      </button>
+      <span class="separator"></span>
+      <button id="themeToggleButton" class="tb-icon-btn" title="Cambiar a Modo Claro (fondo blanco)">
+        <svg class="theme-icon-sun" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="5"/>
+          <line x1="12" y1="1" x2="12" y2="3"/>
+          <line x1="12" y1="21" x2="12" y2="23"/>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+          <line x1="1" y1="12" x2="3" y2="12"/>
+          <line x1="21" y1="12" x2="23" y2="12"/>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+        </svg>
+        <svg class="theme-icon-moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:none;">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+        <span class="sr-only">Cambiar tema</span>
       </button>
     </nav>
   </header>
@@ -110,7 +131,7 @@
       <div class="tabs page-tabs">
         <button class="tab active">Principal</button>
         <button class="tab add-tab" disabled>＋</button>
-        <span class="gate">v2.1.0-alpha.15</span>
+        <span class="gate">v2.1.0-alpha.16</span>
       </div>
 
       <div class="editor-caption">
@@ -171,6 +192,15 @@
                   <span>Árbol de submenús · ver y editar variables con la botonera</span>
                 </div>
               </button>
+              <button type="button" class="tool var-dropdown-item" data-tool="eventLogField">
+                <div class="var-item-icon">
+                  <svg width="18" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>
+                </div>
+                <div class="var-item-text">
+                  <strong>Historial de Eventos (EVENT_LOG)</strong>
+                  <span>Lista de 10 filas · alarmas, fallas y transiciones con buffer RAM/SD/FRAM</span>
+                </div>
+              </button>
               <button type="button" class="tool var-dropdown-item" data-tool="barField">
                 <div class="var-item-icon">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -178,7 +208,7 @@
                   </svg>
                 </div>
                 <div class="var-item-text">
-                  <strong>Barra de Nivel (BAR)</strong>
+                  <strong>Indicadores de Nivel (BAR)</strong>
                   <span>0–100% · Gráfico de tanque o progreso analógico</span>
                 </div>
               </button>
@@ -2078,11 +2108,12 @@
   <script src="./designer-fonts-data.js?v=1793801300"></script>
   <script src="./designer-fonts.js?v=1793801300"></script>
   <script src="./designer-value-format.js?v=1793801300"></script>
-  <script src="./designer-codegen-core.js?v=1793801300"></script>
+  <script src="./designer-codegen-core.js?v=1793802700"></script>
+  <script src="./designer-runtime-core.js?v=1793810000"></script>
   <script src="./designer-icon-catalog.js?v=1793801700"></script>
   <script src="./designer-icons-core.js?v=1793801900"></script>
   <script src="./designer-dialog.js?v=1793801300"></script>
-  <script src="./app.js?v=1793802300"></script>
+  <script src="./app.js?v=1793802700"></script>
   <script src="./ux-foundation.js?v=1793802000"></script>
   <script src="./designer-codegen.js?v=1793801800"></script>
 

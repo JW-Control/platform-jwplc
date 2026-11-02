@@ -1,9 +1,0 @@
-{
-  "format": "JWPLC_HMI_BINDINGS",
-  "version": 1,
-  "bindings": [
-    { "hmi": "rele_q0_0", "plc": "RELE" },
-    { "hmi": "contador", "plc": "CONTADOR" },
-    { "hmi": "nivel", "plc": "CONTADOR" }
-  ]
-}

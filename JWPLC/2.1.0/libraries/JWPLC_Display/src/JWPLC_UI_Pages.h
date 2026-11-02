@@ -33,6 +33,10 @@ namespace JWPLCUIPages
 
     // Alpha15: visibilidad y esquina superior izquierda del indicador (36×12).
     void setIndicator(bool visible, int16_t x, int16_t y);
+
+    // Rectángulo del indicador NN/TT si se dibuja (navegación con varias páginas).
+    // Lo usan los widgets que ponen texto en la esquina superior derecha.
+    bool indicatorRect(int16_t &x, int16_t &y, int16_t &w, int16_t &h);
 }
 
 #endif // JWPLC_UI_PAGES_H

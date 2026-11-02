@@ -3,7 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>JWPLC HMI Designer — 2.1.0-alpha.15</title>
+  <title>JWPLC HMI Designer</title>
+  <meta name="jwplc-designer-version" content="2.1.0-alpha.16" />
   <meta name="theme-color" content="#101a21" />
   <link rel="icon" href="./icons/icon-16.png?v=alpha11-taskbar-raster-v3" type="image/png" sizes="16x16" />
   <link rel="icon" href="./icons/icon-20.png?v=alpha11-taskbar-raster-v3" type="image/png" sizes="20x20" />
@@ -15,6 +16,7 @@
   <link rel="manifest" href="./manifest.webmanifest?v=alpha11-taskbar-raster-v3" />
   <link rel="preload" href="./styles.css" as="style" />
   <link rel="preload" href="./desktop-responsive.css" as="style" />
+  <link rel="preload" href="./designer-light-theme.css" as="style" />
   <style>
     html, body { margin: 0; min-height: 100%; background: #101a21; color: #dce9f1; font-family: Segoe UI, sans-serif; }
     .boot { min-height: 100vh; display: grid; place-items: center; }
@@ -31,6 +33,15 @@
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         let html = await response.text();
 
+        const savedTheme = (() => {
+          try {
+            const p = new URLSearchParams(window.location.search).get('theme');
+            if (p === 'light' || p === 'dark') return p;
+            return localStorage.getItem('jwplc_hmi_theme') || 'dark';
+          } catch (_) { return 'dark'; }
+        })();
+        const bootBg = savedTheme === 'light' ? '#f1f5f9' : '#101a21';
+
         // El documento final se mantiene oculto hasta que estilos y scripts estén
         // completamente cargados. Evita el flash blanco/HTML sin estilos.
         html = html.replace(
@@ -46,7 +57,7 @@
           '<link rel="manifest" href="./manifest.webmanifest?v=alpha11-taskbar-raster-v3" />' +
           '<link rel="stylesheet" href="./desktop-responsive.css?v=1793801300" />' +
           '<link rel="stylesheet" href="./desktop-responsive-compat.css?v=1793801300" />' +
-          '<style id="jwplcBootGuard">html{background:#101a21!important}body{opacity:0!important}</style>' +
+          '<style id="jwplcBootGuard">html{background:' + bootBg + '!important}body{opacity:0!important}</style>' +
           '</head>'
         );
 

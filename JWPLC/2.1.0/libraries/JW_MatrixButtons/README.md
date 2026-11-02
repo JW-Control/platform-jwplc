@@ -1,6 +1,8 @@
 # JW_MatrixButtons
 
-**Versión actual:** 1.0.5
+**Versión actual:** 1.0.6 (2.1.0-alpha.16: teclas virtuales con `setVirtualDown(id, pulsada)` / `virtualDown(id)`,
+que usan la botonera de `JWPLC_WebScreen` y el simulador; cuentan como pulsadas sin antirrebote, con eventos y
+repetición normales)
 
 Librería reusable para leer botones en Arduino/ESP32 con **debounce**, eventos `PRESS / RELEASE / REPEAT`, lectura de estado y helpers para navegación tipo HMI/PLC.
 

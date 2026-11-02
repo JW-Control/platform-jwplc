@@ -62,7 +62,8 @@
         : openplc ? `HMI del proyecto OpenPLC ${name}. Clic para abrir el menú.`
           : `Sketch vinculado: ${name}. Clic para cambiar la vinculación.`;
     }
-    const title = name ? `${name} · JWPLC HMI Designer — 2.1.0-alpha.15` : 'JWPLC HMI Designer — 2.1.0-alpha.15';
+    // La versión va en la insignia junto al nombre, no en el título de la ventana.
+    const title = name ? `${name} · JWPLC HMI Designer` : 'JWPLC HMI Designer';
     if (document.title !== title) document.title = title;
   }
 

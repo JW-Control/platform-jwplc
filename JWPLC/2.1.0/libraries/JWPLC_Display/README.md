@@ -1280,12 +1280,20 @@ auto &tft =
     JWPLC_Display.tft();
 ```
 
+## Novedades de 2.1.0-alpha.16
+
+- **Medidor circular** e **iconos animados e industriales** (baliza por pisos, piloto de 2 a 8 estados, motores,
+  pistones) desde el HMI Designer: ejemplo `08.HMI_Medidores_Animados`.
+- **Registro de eventos** en FRAM y microSD: `JWPLC_Display.setEventLog(config)` y
+  `JWPLC_Display.logEvent(código, transición, categoría, severidad, descripción)`; ejemplo `09.HMI_Registro_Eventos`.
+- La pantalla de reposo marca con «F» las entradas forzadas (OpenPLC y *Simular entradas I* del Runtime).
+
 ## Versión
 
 Documentado para:
 
 ```text
-JWPLC ESP32 v2.1.0-alpha.14
-JWPLC_Display 1.1.0
+JWPLC ESP32 v2.1.0-alpha.16
+JWPLC_Display 1.1.0 (precompilada: src/esp32/libJWPLC_Display.a)
 ```
 

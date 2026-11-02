@@ -266,6 +266,8 @@
     const fields = (api?.getAllFields?.() || []).map((field) => {
       const copy = { ...field };
       delete copy.key;
+      // Estado de la animación del lienzo (_animFrame, _lastAnimTick): no se guarda.
+      Object.keys(copy).forEach((k) => { if (k.startsWith('_')) delete copy[k]; });
       return copy;
     });
 
@@ -285,6 +287,8 @@
       navigationBar: api?.getNavBarConfig?.() || null,
       // A15-7: entrada/salida de la pantalla IDLE (designer-idle.js).
       display: window.JWPLCHMIIdle?.get?.() || null,
+      // Alpha16: arduino | runtime (designer-runtime.js).
+      projectType: window.JWPLCHMIRuntime?.get?.() || 'arduino',
       pages,
       fields,
       // Alpha16: copia de los iconos usados (se abre igual si cambia el catálogo).
@@ -358,6 +362,7 @@
     }
     // Proyectos sin `display` toman los valores por defecto.
     window.JWPLCHMIIdle?.set?.(normalized.display || null);
+    window.JWPLCHMIRuntime?.set?.(normalized.projectType || 'arduino');
 
     if (pages[0]?.name && pages[0].name !== 'Principal') {
       api.renamePage?.(0, pages[0].name);
