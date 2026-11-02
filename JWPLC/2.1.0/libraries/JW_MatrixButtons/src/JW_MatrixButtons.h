@@ -101,6 +101,11 @@ public:
   bool pressed(uint8_t id) const;
   bool released(uint8_t id) const;
 
+  // Tecla virtual (p. ej. la botonera de JWPLC_WebScreen): mientras está en
+  // true cuenta como pulsada, sin antirrebote, con eventos y repetición normales.
+  void setVirtualDown(uint8_t id, bool down);
+  bool virtualDown(uint8_t id) const;
+
   // Limpieza de estados/eventos pendientes.
   void clearPendingPresses() const;
   void clearPendingReleases() const;
@@ -176,6 +181,7 @@ private:
 
   // Estado lógico por botón.
   bool _btnStable[MAX_BTNS];
+  volatile uint32_t _virtualMask = 0;
   bool _btnPrev[MAX_BTNS];
   uint32_t _btnPressStart[MAX_BTNS];
 
@@ -242,6 +248,7 @@ private:
   void updateDirect();
 
   void mapButtons();
+  void applyVirtual_();
   void pushEvent(uint8_t id, EvType type, int16_t mult, uint32_t held);
   void emitEdgesAndRepeats();
 

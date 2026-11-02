@@ -1,8 +1,9 @@
 #pragma once
 
-// Configuracion de mantenimiento para regenerar el backend JWPLC_TFT.
-// Los builds normales del package usan src/esp32/libJWPLC_TFT.a y no
-// requieren TFT_eSPI instalado ni User_Setup.h del usuario.
+// Configuracion del backend JWPLC_TFT. En modo fuente (alpha.16) la copia de
+// TFT_eSPI 2.5.43 de src/ la toma con __has_include(<tft_setup.h>); al cierre
+// del alpha se regenera src/esp32/libJWPLC_TFT.a y se vuelve a precompiled=full.
+// El usuario no necesita TFT_eSPI instalado ni User_Setup.h propio.
 
 #define USER_SETUP_INFO "JWPLC_TFT Basic v2"
 #define JWPLC_TFT_BACKEND_SETUP 1

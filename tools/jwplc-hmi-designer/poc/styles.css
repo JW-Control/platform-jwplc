@@ -1788,7 +1788,7 @@ body.bottom-collapsed .bottom-tabs { border-bottom: 0; }
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 8px 4px;
+  padding: 6px 4px 5px;
   background: #13222e;
   border: 1px solid #283d4d;
   border-radius: 6px;
@@ -1875,11 +1875,11 @@ body.bottom-collapsed .bottom-tabs { border-bottom: 0; }
   height: 4px;
 }
 .bar-top-slider-wrap {
-  padding: 8px 10px;
+  padding: 6px 10px 7px;
   background: #13222e;
   border: 1px solid #213543;
   border-radius: 6px;
-  margin: 0 0 10px;
+  margin: 0 0 8px;
 }
 .bar-top-slider-header {
   display: flex;
@@ -2191,6 +2191,10 @@ body.bottom-collapsed .bottom-tabs { border-bottom: 0; }
   border-color: #4a6c84;
   color: #fff;
   transform: translateY(-1px);
+}
+.bar-visual-btn:active {
+  transform: scale(0.95);
+  background: #234358;
 }
 .bar-visual-btn.active {
   background: rgba(255, 154, 67, 0.16);
@@ -2870,3 +2874,34 @@ label.insp-needs-fw { opacity: 0.45; cursor: not-allowed; }
 .hmi-nav-color-btn.active { outline: 2px solid #ff9a43; outline-offset: 1px; }
 .hmi-nav-color-editor { margin-top: 8px; border-top: 1px solid #1a2c39; padding-top: 6px; }
 .hmi-nav-color-editor .insp-note { margin: 0 0 6px; }
+
+/* Alpha16 · EVENT_LOG: Selector de colores compacto y optimizado */
+.evt-color-table { display: flex; flex-direction: column; gap: 4px; }
+.evt-color-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 4px 8px; background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 4px;
+  min-height: 26px; transition: background 0.15s, border-color 0.15s;
+}
+.evt-color-row:hover { background: rgba(255, 255, 255, 0.06); border-color: rgba(255, 255, 255, 0.12); }
+.evt-color-name { font-size: 11px; color: #b8cddc; font-weight: 500; user-select: none; }
+.evt-color-ctrl { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; margin: 0; padding: 0; }
+.evt-color-ctrl input[type="color"] {
+  -webkit-appearance: none; -moz-appearance: none; appearance: none;
+  width: 24px; height: 18px; padding: 0; margin: 0;
+  border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px;
+  background: none; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+}
+.evt-color-ctrl input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+.evt-color-ctrl input[type="color"]::-webkit-color-swatch { border: none; border-radius: 2px; }
+.evt-color-ctrl input[type="color"]::-moz-color-swatch { border: none; border-radius: 2px; }
+
+/* Animaciones de iconos (Alpha16) */
+@keyframes iconSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.anim-spinner-icon {
+  animation: iconSpin var(--anim-spin-duration, 0.6s) linear infinite;
+  transform-origin: center;
+}

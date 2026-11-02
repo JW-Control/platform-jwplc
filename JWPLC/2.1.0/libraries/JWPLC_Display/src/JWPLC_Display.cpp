@@ -1,4 +1,5 @@
 #include "JWPLC_Display.h"
+#include "JWPLC_UI_EventLog.h"
 #include "JWPLC_IdleScreen.h"
 #include "JWPLC_UI_RuntimeHooks.h"
 #include "JWPLC_Display_H3E1_Profile.h"
@@ -503,7 +504,17 @@ static void updateAutomaticBusLed()
 
     if (newState != g_busLedState || codeChanged)
     {
+        const JWPLCIdleScreen::StatusLedState oldBusState = g_busLedState;
         g_busLedState = newState;
+
+        if (newState == JWPLCIdleScreen::STATUS_LED_RED && oldBusState != JWPLCIdleScreen::STATUS_LED_RED)
+        {
+            JWPLCUIEventLog::logEvent(JWPLC_EVT_SYS_MODBUS_ERR, JWPLC_EVENT_TRANS_ACTIVE, JWPLC_EVENT_CAT_SYSTEM, JWPLC_EVENT_SEV_WARN, "Error en bus RS485/Modbus");
+        }
+        else if (newState == JWPLCIdleScreen::STATUS_LED_GREEN && oldBusState == JWPLCIdleScreen::STATUS_LED_RED)
+        {
+            JWPLCUIEventLog::logEvent(JWPLC_EVT_SYS_MODBUS_OK, JWPLC_EVENT_TRANS_NORMAL, JWPLC_EVENT_CAT_SYSTEM, JWPLC_EVENT_SEV_INFO, "Bus RS485 normalizado");
+        }
 
         if (g_displayMode == DISPLAY_MODE_IDLE)
         {
@@ -554,7 +565,17 @@ static void updateAutomaticEthLed()
 
     if (newState != g_ethLedState || codeChanged)
     {
+        const JWPLCIdleScreen::StatusLedState oldEthState = g_ethLedState;
         g_ethLedState = newState;
+
+        if (oldEthState == JWPLCIdleScreen::STATUS_LED_GREEN && newState != JWPLCIdleScreen::STATUS_LED_GREEN)
+        {
+            JWPLCUIEventLog::logEvent(JWPLC_EVT_SYS_ETH_DOWN, JWPLC_EVENT_TRANS_ACTIVE, JWPLC_EVENT_CAT_SYSTEM, JWPLC_EVENT_SEV_WARN, "Enlace Ethernet caido");
+        }
+        else if (oldEthState != JWPLCIdleScreen::STATUS_LED_GREEN && newState == JWPLCIdleScreen::STATUS_LED_GREEN)
+        {
+            JWPLCUIEventLog::logEvent(JWPLC_EVT_SYS_ETH_UP, JWPLC_EVENT_TRANS_NORMAL, JWPLC_EVENT_CAT_SYSTEM, JWPLC_EVENT_SEV_INFO, "Enlace Ethernet restablecido");
+        }
 
         if (g_displayMode == DISPLAY_MODE_IDLE)
         {
@@ -1230,3 +1251,46 @@ void JWPLC_DisplayClass::setEthLed(bool state) { JWPLCDisplay::setEthLed(state);
 bool JWPLC_DisplayClass::ethLed() const { return JWPLCDisplay::ethLed(); }
 void JWPLC_DisplayClass::setEthLedAuto(bool enabled) { JWPLCDisplay::setEthLedAuto(enabled); }
 bool JWPLC_DisplayClass::ethLedAuto() const { return JWPLCDisplay::ethLedAuto(); }
+
+bool JWPLC_DisplayClass::setEventLog(const JWPLC_UIEventLog &config)
+{
+    return JWPLCUIEventLog::begin(config);
+}
+
+void JWPLC_DisplayClass::logEvent(uint16_t code, uint8_t transition, uint8_t category, uint8_t severity, const char *desc)
+{
+    JWPLCUIEventLog::logEvent(code, transition, category, severity, desc);
+}
+
+size_t JWPLC_DisplayClass::eventCount() const
+{
+    return JWPLCUIEventLog::count();
+}
+
+void JWPLC_DisplayClass::clearEvents()
+{
+    JWPLCUIEventLog::clear();
+}
+
+namespace JWPLCDisplay
+{
+    bool setEventLog(const JWPLC_UIEventLog &config)
+    {
+        return JWPLCUIEventLog::begin(config);
+    }
+
+    void logEvent(uint16_t code, uint8_t transition, uint8_t category, uint8_t severity, const char *desc)
+    {
+        JWPLCUIEventLog::logEvent(code, transition, category, severity, desc);
+    }
+
+    size_t eventCount()
+    {
+        return JWPLCUIEventLog::count();
+    }
+
+    void clearEvents()
+    {
+        JWPLCUIEventLog::clear();
+    }
+}

@@ -27,4 +27,5 @@
 
 # Salidas de «Exportar binario compilado» del Arduino IDE dentro de los gates
 # (el hook savehex del package copia .bin/.elf/.map/sdkconfig a <sketch>/build/).
-/tools/jwplc-hmi-designer/gates/**/build/
+
+/tools/jwplc-hmi-designer/tests/golden/*.actual.h

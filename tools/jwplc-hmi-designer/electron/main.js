@@ -803,7 +803,7 @@ const createWindow = async () => {
     backgroundColor: "#101a21",
     icon: iconPath,
     autoHideMenuBar: true,
-    title: "JWPLC HMI Designer — 2.1.0-alpha.15",
+    title: "JWPLC HMI Designer",
     webPreferences: {
       preload: preloadPath,
       contextIsolation: true,

@@ -175,6 +175,12 @@ public:
     void setEthLedAuto(bool enabled);
     bool ethLedAuto() const;
 
+    // Event Log (Alpha16)
+    bool setEventLog(const struct JWPLC_UIEventLog &config);
+    void logEvent(uint16_t code, uint8_t transition = 1, uint8_t category = 3, uint8_t severity = 0, const char *desc = nullptr);
+    size_t eventCount() const;
+    void clearEvents();
+
 private:
     bool setNumericValue(uint8_t fieldId, double value);
 };

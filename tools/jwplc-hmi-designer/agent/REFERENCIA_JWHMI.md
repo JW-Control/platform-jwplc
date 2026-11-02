@@ -158,7 +158,7 @@ Estado ON/OFF. Declara `bool`. Muestra un texto por estado o un piloto (círculo
 
 ### `BAR`
 
-Barra de nivel horizontal (JWPLC_UIBarField). Declara `float`. El firmware dibuja sólo la barra lineal sólida.
+Indicador de nivel: barra lineal (`barPreset: LINEAR`) o medidor circular (`barPreset: CIRCULAR`, JWPLC_UICircularField). Declara `float`.
 
 | Propiedad | Tipo / valores | Por defecto | Descripción |
 |---|---|---|---|
@@ -190,6 +190,17 @@ Barra de nivel horizontal (JWPLC_UIBarField). Declara `float`. El firmware dibuj
 | `barValue` | número | `50` | Valor de muestra en el lienzo. |
 | `barWidth` | entero 20..320 | `110` | Ancho total del campo (px). |
 | `trackColor` | color | `0x0000` | Fondo de la pista (parte vacía). |
+| `barPreset` | `"LINEAR"` · `"CIRCULAR"` · `"GRADIENT"` | `"LINEAR"` | LINEAR = barra (JWPLC_UIBarField); CIRCULAR = medidor circular (JWPLC_UICircularField, propiedades circle*). GRADIENT cae a LINEAR. |
+| `circleRadius` | entero 10..80 | `26` | CIRCULAR: radio (px); el campo ocupa 2·radio de lado. |
+| `circleThickness` | entero 2..25 | `5` | CIRCULAR: grosor del arco (px). |
+| `circleSweep` | `360` · `270` · `240` · `180` | `360` | CIRCULAR: recorrido del arco (grados). |
+| `circleDirection` | `"CW"` · `"CCW"` | `"CW"` | CIRCULAR: sentido de llenado. |
+| `circleStartAngle` | `"TOP"` · `"RIGHT"` · `"BOTTOM"` · `"LEFT"` | `"TOP"` | CIRCULAR: dónde empieza el arco. |
+| `circleStyle` | `"CONTINUOUS"` · `"SEGMENTED"` | `"CONTINUOUS"` | CIRCULAR: arco continuo o por segmentos. |
+| `circleCenterMode` | `"NONE"` · `"PERCENT"` · `"VALUE"` | `"PERCENT"` | CIRCULAR: texto del centro (nada, porcentaje o valor). |
+| `circleTextSize` | entero 1..4 | `1` | CIRCULAR: escala del texto del centro. |
+| `circleTextColor` | color | `0xFFFF` | CIRCULAR: color del texto del centro. |
+| `circleTrackColor` | color | `0x0000` | CIRCULAR: color de la parte vacía del arco. |
 
 ### `ICON`
 
@@ -217,6 +228,15 @@ Icono con estado (motor, piloto, válvula…; JWPLC_UIIconField): una imagen por
 | `iconVarType` | `"bool"` · `"uint8"` | `"bool"` | Tipo de la variable: bool usa los estados 0 y 1; uint8 todos (0..N-1). Por defecto bool con 2 estados y uint8 con más. |
 | `iconState` | entero 0..7 | `0` | Estado de muestra en el lienzo. |
 | `transparentBackground` | bool | `false` | Sin fondo: no pinta el recuadro ni detrás de la etiqueta, y lo transparente en todos los estados deja ver la gráfica estática (RECT, RAW_TEXT…). Lo que cambia entre estados usa backgroundColor. |
+| `stateCount` | entero 2..8 |  | Sólo `pilotos/piloto` con `uint8`: cantidad de estados (2..8). |
+| `stateColors` | arreglo |  | Sólo `pilotos/piloto`: color RGB565 de cada estado (`[apagado, encendido, …]`). |
+| `stateNames` | arreglo |  | Nombres de los estados (comentario del header y leyenda del inspector). Si falta, los del catálogo. |
+| `bodyColor` | color |  | Color del cuerpo del icono (en lugar del del catálogo). |
+| `animIntervalMs` | entero 20..2000 |  | Iconos animados: ms entre cuadros (por defecto el del catálogo). |
+| `tierCount` | entero 1..4 |  | Sólo `pilotos/baliza`: cantidad de pisos. |
+| `tierColors` | arreglo |  | Sólo `pilotos/baliza`: color RGB565 de cada piso, de abajo arriba. |
+| `balizaMode` | `"bitmask"` · `"independent"` |  | Sólo `pilotos/baliza`: `bitmask` = una variable uint8_t (bit n = piso n); `independent` = una variable bool por piso. |
+| `tierVariables` | arreglo |  | Sólo `pilotos/baliza` con `independent`: nombre de la variable bool de cada piso. |
 
 #### Iconos del catálogo (`iconId`)
 
@@ -224,19 +244,23 @@ El estado `k` de la variable muestra la imagen `k` (bool: 0 = false, 1 = true). 
 
 | `iconId` | Nombre | Tamaños (px) | Estados (0..N-1) |
 |---|---|---|---|
-| `motores/motor` | Motor | 24, 32, 48, 64 | Parado · En marcha · Falla |
+| `motores/motor` | Motor trifásico | 24, 32, 48, 64 | Parado · En marcha · Falla |
+| `motores/motorreductor` | Motorreductor | 24, 32, 48, 64 | Parado · En marcha · Falla |
 | `motores/motor_dos_sentidos` | Motor dos sentidos | 24, 32, 48 | Parado · Adelante · Atrás |
 | `bombas/bomba` | Bomba | 24, 32, 48, 64 | Parado · En marcha · Falla |
 | `bombas/ventilador` | Ventilador | 24, 32, 48, 64 | Parado · En marcha · Falla |
 | `bombas/compresor` | Compresor | 24, 32, 48 | Parado · En marcha · Falla |
-| `pilotos/piloto` | Piloto | 24, 32, 48 | Apagado · Verde · Amarillo · Rojo |
-| `pilotos/baliza` | Torre de señalización | 24, 32, 48 | Apagada · Verde · Amarilla · Roja |
+| `pilotos/piloto` | Piloto luminoso | 24, 32, 48 | Apagado · Encendido |
+| `pilotos/baliza` | Torre de señalización | 24, 32, 48 | Apagada · Verde · Ámbar · Ámbar+Verde · Rojo · Rojo+Verde · Rojo+Ámbar · Rojo+Ámbar+Verde · Azul · Azul+Verde · Azul+Ámbar · Azul+Ámbar+Verde · Azul+Rojo · Azul+Rojo+Verde · Azul+Rojo+Ámbar · Azul+Rojo+Ámbar+Verde |
 | `valvulas/valvula` | Válvula | 24, 32, 48, 64 | Cerrada · Abierta · Falla |
 | `valvulas/valvula_motorizada` | Válvula motorizada | 24, 32, 48 | Cerrada · Abierta · Falla |
 | `valvulas/valvula_solenoide` | Electroválvula | 24, 32, 48 | Cerrada · Abierta · Falla |
+| `equipos/piston` | Pistón neumático | 24, 32, 48, 64 | Retraído · En movimiento · Extendido · Falla |
+| `equipos/piston_vertical` | Pistón vertical | 24, 32, 48, 64 | Retraído · En movimiento · Extendido · Falla |
 | `equipos/tanque` | Tanque (nivel) | 24, 32, 48, 64 | Vacío · Bajo · Medio · Lleno |
 | `equipos/silo` | Silo / tolva | 24, 32, 48, 64 | Vacío · Con material · Falla |
 | `equipos/resistencia` | Resistencia / calefactor | 24, 32, 48 | Apagada · Encendida |
+| `equipos/agitador` | Agitador / mezclador | 24, 32, 48, 64 | Parado · En marcha · Falla |
 | `equipos/transportador` | Cinta transportadora | 24, 32, 48, 64 | Parado · En marcha · Falla |
 | `sensores/proximidad` | Sensor de proximidad | 24, 32, 48 | Sin detección · Detección |
 | `sensores/termometro` | Temperatura | 24, 32, 48 | Baja · Normal · Alta |
@@ -293,6 +317,28 @@ El estado `k` de la variable muestra la imagen `k` (bool: 0 = false, 1 = true). 
 Colores del MENU (`colors`), por defecto:
 
 `text` = `0xFFFF` · `background` = `0x0000` · `value` = `0x07FF` · `selectText` = `0x0000` · `selectBackground` = `0x07FF` · `editText` = `0x0000` · `editBackground` = `0xFD20` · `title` = `0x0000` · `titleBackground` = `0xFFFF` · `frame` = `0xFFFF`
+
+### `EVENT_LOG`
+
+Historial y registro de eventos (Alpha16). 10 filas de altura fija con registro en RAM/FRAM/SD.
+
+| Propiedad | Tipo / valores | Por defecto | Descripción |
+|---|---|---|---|
+| `type` **(obligatoria)** | texto |  | Tipo de objeto. |
+| `name` | texto |  | Nombre visible en la lista de objetos del Designer (no llega al C++). |
+| `id` | identificador C++ |  | Identificador C++ del objeto (único en el proyecto). Si falta se genera FIELD_<TIPO>_<n>. |
+| `page` | entero 0..15 | `0` | Página (id) donde se dibuja. |
+| `layerOrder` | entero 0..9999 |  | Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima). |
+| `x` **(obligatoria)** | entero 0..319 |  | Esquina superior izquierda, X (px). |
+| `y` **(obligatoria)** | entero 0..169 |  | Esquina superior izquierda, Y (px). |
+| `width` | entero 40..320 | `320` | Ancho (px). |
+| `height` | entero 30..170 | `170` | Alto (px). |
+| `frame` | bool | `true` | Marco exterior alrededor del historial. |
+| `ramCapacity` | entero 16..128 | `64` | Capacidad del buffer en RAM. |
+| `enableFram` | bool | `true` | Persistencia de los últimos 16 eventos en FRAM ante corte de luz. |
+| `enableSd` | bool | `true` | Exportación no bloqueante a microSD. |
+| `sdFileName` | texto | `"/EVENTOS.CSV"` | Nombre del archivo CSV en microSD. |
+| `descriptors` | arreglo | `[]` | Descriptores de eventos conocidos del proyecto. |
 
 ### `RAW_TEXT`
 

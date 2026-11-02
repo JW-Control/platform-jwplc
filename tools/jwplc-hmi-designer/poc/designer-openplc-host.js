@@ -72,6 +72,16 @@
     if (input.id === 'barPlcVariable') return { kind: 'bar', field, object: field, wants: { hmi: 'number', rw: false } };
     if (field.type === 'BOOL') return { kind: 'field', field, object: field, wants: { hmi: 'bool', rw: false } };
     if (field.type === 'VALUE' || field.type === 'BAR') return { kind: 'field', field, object: field, wants: { hmi: 'number', rw: false } };
+    if (input.matches('[data-tier-prop="variable"]')) {
+      const tierIndex = Number(input.dataset.tierIndex) || 0;
+      if (!Array.isArray(field.tierBindings)) field.tierBindings = [];
+      if (!field.tierBindings[tierIndex]) field.tierBindings[tierIndex] = {};
+      return { kind: 'tier', field, object: field.tierBindings[tierIndex], tierIndex, wants: { hmi: 'bool', rw: false } };
+    }
+    if (field.type === 'ICON') {
+      const isUint = field.iconVarType === 'uint8';
+      return { kind: 'field', field, object: field, wants: { hmi: isUint ? 'number' : 'bool', rw: false } };
+    }
     return {
       kind: 'field', field, object: field, wants: null,
       note: field.type === 'TEXT'
@@ -126,12 +136,36 @@
   function bind(input, target, variableName) {
     if (!variableName) {
       delete target.object.plcBinding;
+      if (target.kind === 'tier') {
+        if (target.field.tierVariables) target.field.tierVariables[target.tierIndex] = '';
+      }
       editor()?.commitHistory?.();
       schedule();
       return;
     }
     const variable = variables.find((v) => v.name === variableName);
     if (!variable) return;
+
+    if (target.kind === 'tier') {
+      const name = uniqueName(sanitize(variable.name), target.object);
+      fire(input, name);
+      target.object.plcBinding = { var: variable.name, access: target.wants?.rw ? 'RW' : 'R' };
+      if (!Array.isArray(target.field.tierVariables)) target.field.tierVariables = [];
+      target.field.tierVariables[target.tierIndex] = name;
+      editor()?.commitHistory?.();
+      schedule();
+      return;
+    }
+
+    // ICON: ajuste de iconVarType según la variable PLC (bool vs uint8_t).
+    if (target.field.type === 'ICON' && variable.hmiTypes.length) {
+      if (variable.hmiTypes.includes('bool') && !INTEGER_TYPES.has(variable.iecType)) {
+        target.field.iconVarType = 'bool';
+      } else if (INTEGER_TYPES.has(variable.iecType)) {
+        target.field.iconVarType = 'uint8';
+      }
+      window.JWPLCHMIIcons?.sync?.();
+    }
 
     // MENU: tipo del nodo según la variable PLC (puede redibujar el inspector).
     if (target.kind === 'node' && variable.hmiTypes.length) {
@@ -145,7 +179,7 @@
     const object = fresh?.object || target.object;
     const name = uniqueName(sanitize(variable.name), object);
     const liveInput = target.kind === 'field'
-      ? document.getElementById('fieldVariable')
+      ? (target.field.type === 'ICON' ? document.querySelector('#iconInspectorSection input[data-icon-prop="variable"]') : document.getElementById('fieldVariable'))
       : target.kind === 'bar'
         ? document.getElementById('barPlcVariable')
         : document.querySelector('[data-menu-node-editor] input[data-node-prop="variable"]');
@@ -163,6 +197,8 @@
       ...document.querySelectorAll('.insp-panel[data-insp-panel="data"] input[data-proxy="fieldVariable"]'),
       ...document.querySelectorAll('#barPlcVariable'),
       ...document.querySelectorAll('[data-menu-node-editor] input[data-node-prop="variable"]'),
+      ...document.querySelectorAll('#iconInspectorSection input[data-icon-prop="variable"]'),
+      ...document.querySelectorAll('#iconInspectorSection input[data-tier-prop="variable"]'),
     ];
   }
 

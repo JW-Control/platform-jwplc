@@ -116,7 +116,7 @@ const TYPES = {
   },
   BAR: {
     group: 'campo',
-    desc: 'Barra de nivel horizontal (JWPLC_UIBarField). Declara `float`. El firmware dibuja sólo la barra lineal sólida.',
+    desc: 'Indicador de nivel: barra lineal (`barPreset: LINEAR`) o medidor circular (`barPreset: CIRCULAR`, JWPLC_UICircularField). Declara `float`.',
     props: {
       ...FIELD,
       layout: { ...FIELD.layout, default: 'STACKED' },
@@ -132,7 +132,7 @@ const TYPES = {
       valueColor: { ...FIELD.valueColor, desc: 'Color del relleno.' },
       // Lo que sigue lo normaliza designer-bar.js (applyFirmwareCaps): el firmware no lo dibuja.
       capacity: int(1, 39, 'Uso interno.', { default: 1, internal: true }),
-      barPreset: oneOf(['LINEAR', 'CIRCULAR', 'GRADIENT'], 'Sólo LINEAR (el resto cae a LINEAR).', { default: 'LINEAR', internal: true }),
+      barPreset: oneOf(['LINEAR', 'CIRCULAR', 'GRADIENT'], 'LINEAR = barra (JWPLC_UIBarField); CIRCULAR = medidor circular (JWPLC_UICircularField, propiedades circle*). GRADIENT cae a LINEAR.', { default: 'LINEAR' }),
       barFillMode: oneOf(['SOLID', 'GRADIENT'], 'Sólo SOLID.', { default: 'SOLID', internal: true }),
       barOrientation: oneOf(['HORIZONTAL', 'VERTICAL'], 'Sólo HORIZONTAL.', { default: 'HORIZONTAL', internal: true }),
       barStyle: { kind: 'string', desc: 'Sólo SOLID.', default: 'SOLID', internal: true },
@@ -146,18 +146,18 @@ const TYPES = {
       alignV: { kind: 'string', desc: 'Lo fija el Designer.', default: 'TOP', internal: true },
       alignH: { kind: 'string', desc: 'Lo fija el Designer.', default: 'LEFT', internal: true },
       valueColorEnd: color('Sin uso (degradado).', { default: 0x07E0, internal: true }),
-      circleRadius: { kind: 'number', desc: 'Sin uso (circular).', default: 26, internal: true },
-      circleThickness: { kind: 'number', desc: 'Sin uso.', default: 5, internal: true },
-      circleSweep: { kind: 'number', desc: 'Sin uso.', default: 360, internal: true },
-      circleDirection: { kind: 'string', desc: 'Sin uso.', default: 'CW', internal: true },
-      circleStartAngle: { kind: 'string', desc: 'Sin uso.', default: 'TOP', internal: true },
-      circleStyle: { kind: 'string', desc: 'Sin uso.', default: 'CONTINUOUS', internal: true },
-      circleCenterMode: { kind: 'string', desc: 'Sin uso.', default: 'PERCENT', internal: true },
-      circleColorMode: { kind: 'string', desc: 'Sin uso.', default: 'SOLID', internal: true },
-      circleShowPercent: { kind: 'bool', desc: 'Sin uso.', default: true, internal: true },
-      circleTextSize: { kind: 'number', desc: 'Sin uso.', default: 1, internal: true },
-      circleTextColor: color('Sin uso.', { default: 0xFFFF, internal: true }),
-      circleTrackColor: color('Sin uso.', { default: 0x0000, internal: true }),
+      circleRadius: int(10, 80, 'CIRCULAR: radio (px); el campo ocupa 2·radio de lado.', { default: 26 }),
+      circleThickness: int(2, 25, 'CIRCULAR: grosor del arco (px).', { default: 5 }),
+      circleSweep: oneOf([360, 270, 240, 180], 'CIRCULAR: recorrido del arco (grados).', { default: 360 }),
+      circleDirection: oneOf(['CW', 'CCW'], 'CIRCULAR: sentido de llenado.', { default: 'CW' }),
+      circleStartAngle: oneOf(['TOP', 'RIGHT', 'BOTTOM', 'LEFT'], 'CIRCULAR: dónde empieza el arco.', { default: 'TOP' }),
+      circleStyle: oneOf(['CONTINUOUS', 'SEGMENTED'], 'CIRCULAR: arco continuo o por segmentos.', { default: 'CONTINUOUS' }),
+      circleCenterMode: oneOf(['NONE', 'PERCENT', 'VALUE'], 'CIRCULAR: texto del centro (nada, porcentaje o valor).', { default: 'PERCENT' }),
+      circleColorMode: { kind: 'string', desc: 'Sólo SOLID.', default: 'SOLID', internal: true },
+      circleShowPercent: { kind: 'bool', desc: 'Proyectos anteriores (hoy circleCenterMode).', default: true, internal: true },
+      circleTextSize: int(1, 4, 'CIRCULAR: escala del texto del centro.', { default: 1 }),
+      circleTextColor: color('CIRCULAR: color del texto del centro.', { default: 0xFFFF }),
+      circleTrackColor: color('CIRCULAR: color de la parte vacía del arco.', { default: 0x0000 }),
       linearPctColor: color('Sin uso.', { default: 0xFFFF, internal: true }),
       transparentBackground: { kind: 'bool', desc: 'Sin uso.', internal: true }
     }
@@ -176,6 +176,17 @@ const TYPES = {
       valueColor: color('Sin uso (los colores salen del icono).', { default: 0xFFFF, internal: true }),
       backgroundColor: color('Fondo del campo; también el de los píxeles transparentes del icono.', { default: 0x0000 }),
       transparentBackground: bool('Sin fondo: no pinta el recuadro ni detrás de la etiqueta, y lo transparente en todos los estados deja ver la gráfica estática (RECT, RAW_TEXT…). Lo que cambia entre estados usa backgroundColor.', { default: false }),
+      // Apariencia personalizada (pestaña Apariencia del inspector). Si falta, el icono usa los colores del catálogo.
+      stateCount: int(2, 8, 'Sólo `pilotos/piloto` con `uint8`: cantidad de estados (2..8).'),
+      stateColors: { kind: 'array', desc: 'Sólo `pilotos/piloto`: color RGB565 de cada estado (`[apagado, encendido, …]`).' },
+      stateNames: { kind: 'array', desc: 'Nombres de los estados (comentario del header y leyenda del inspector). Si falta, los del catálogo.' },
+      bodyColor: color('Color del cuerpo del icono (en lugar del del catálogo).'),
+      customColors: { kind: 'object', desc: 'Colores por rol del icono (`{rol: color}`), en lugar de los del catálogo.', internal: true },
+      animIntervalMs: int(20, 2000, 'Iconos animados: ms entre cuadros (por defecto el del catálogo).'),
+      tierCount: int(1, 4, 'Sólo `pilotos/baliza`: cantidad de pisos.'),
+      tierColors: { kind: 'array', desc: 'Sólo `pilotos/baliza`: color RGB565 de cada piso, de abajo arriba.' },
+      balizaMode: oneOf(['bitmask', 'independent'], 'Sólo `pilotos/baliza`: `bitmask` = una variable uint8_t (bit n = piso n); `independent` = una variable bool por piso.'),
+      tierVariables: { kind: 'array', desc: 'Sólo `pilotos/baliza` con `independent`: nombre de la variable bool de cada piso.' },
       valueSize: int(1, 4, 'Uso interno.', { default: 1, internal: true }),
       align: { ...FIELD.align, default: 'LEFT', internal: true },
       unit: str('Sin uso.', { default: '', internal: true }),
@@ -197,6 +208,22 @@ const TYPES = {
       cornerRadius: int(0, 20, 'Uso interno.', { default: 0, internal: true }),
       colors: { kind: 'object', desc: 'Colores: text, background, value, selectText, selectBackground, editText, editBackground, title, titleBackground, frame. Los que falten toman su valor por defecto.', default: null },
       nodes: { kind: 'array', desc: 'Nodos del árbol (ver «Nodos de MENU»). Se pueden anidar con `children` en lugar de `parent`.', required: true }
+    }
+  },
+  EVENT_LOG: {
+    group: 'menu',
+    desc: 'Historial y registro de eventos (Alpha16). 10 filas de altura fija con registro en RAM/FRAM/SD.',
+    props: {
+      ...BASE,
+      ...POS,
+      width: int(40, SCREEN.width, 'Ancho (px).', { default: 320 }),
+      height: int(30, SCREEN.height, 'Alto (px).', { default: 170 }),
+      frame: bool('Marco exterior alrededor del historial.', { default: true }),
+      ramCapacity: int(16, 128, 'Capacidad del buffer en RAM.', { default: 64 }),
+      enableFram: bool('Persistencia de los últimos 16 eventos en FRAM ante corte de luz.', { default: true }),
+      enableSd: bool('Exportación no bloqueante a microSD.', { default: true }),
+      sdFileName: str('Nombre del archivo CSV en microSD.', { default: '/EVENTOS.CSV' }),
+      descriptors: { kind: 'array', desc: 'Descriptores de eventos conocidos del proyecto.', default: [] }
     }
   },
   RAW_TEXT: {

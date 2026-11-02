@@ -105,6 +105,11 @@ existentes) e incluya MENU integrado con la botonera.
    emitir una llamada C++, verificar que existe en `JWPLC/2.1.0/libraries/*/src/*.h`
    y en el `.a` (`nm -C`).
 8. No reintroducir `delay()` ni dependencia de Serial para que la botonera funcione.
+9. **API del sketch solo con «.»** (regla del propietario, 01/11/2026). El usuario no escribe `::`, `*` ni `&`:
+   resultados y opciones como constantes globales (`UI_EDIT_ACCEPTED`, `DATUM_MIDDLE_LEFT`, `BTN_OK`), objetos
+   globales con métodos (`JWPLC_TFT.fillRect(...)`), memoria interna en la librería en vez de buffers del usuario
+   y textos como `const char[]`/`String`. Los punteros y referencias quedan dentro de la librería. Los ejemplos
+   cumplen la regla.
 
 ---
 
@@ -114,7 +119,7 @@ existentes) e incluya MENU integrado con la botonera.
   mensajes de avance, comentarios de código y mensajes de commit. Los nombres de API, símbolos y
   salidas de herramientas se citan tal cual.
 - Carpeta por alpha: `docs/v2.1.0-alpha.N/`, con `N` = número de publicación
-  reservado en `RAMAS_Y_TAGS.md` (propuesta 27/10, pendiente de aprobación).
+  reservado en `RAMAS_Y_TAGS.md` (aprobado por el propietario el 27/10).
 - Archivos fijos por alpha: `ALPHA<N>_PLAN.md` y `ALPHA<N>_STATUS.md`
   (plantilla `knowledge/global/templates/LIVING_STATUS_TEMPLATE.md`).
 - Gates: `A<N>_<id>_<TEMA>_<YYYYMMDD>.md` (ej. `A15_1_CODEGEN_COMPILE_20261020.md`).
@@ -213,8 +218,9 @@ raw.githubusercontent.com y github.com releases):
 ```bash
 tools/alpha15/regenerate_libJWPLC_TFT.sh setup              # una vez: arduino-cli + tools + TFT_eSPI
 tools/alpha15/regenerate_libJWPLC_TFT.sh compile <sketch>    # compila con jwplc_local:esp32:jwplcbasic
-tools/alpha15/regenerate_libJWPLC_TFT.sh build [--install]   # regenera libJWPLC_TFT.a + chequeo ABI
-tools/alpha15/regenerate_libJWPLC_Display.sh build [--install]  # SÓLO al cierre: libJWPLC_Display.a + chequeo ABI
+tools/alpha15/regenerate_libJWPLC_TFT.sh build [--install]   # obsoleto desde alpha.16 (TFT_eSPI va en src/): usar tools/alpha16
+tools/alpha15/regenerate_libJWPLC_Display.sh build [--install]  # obsoleto desde alpha.16: usar tools/alpha16
+tools/alpha16/regenerate_precompiled.sh build [--install] [LIB...]  # SÓLO al cierre: .a de TFT/Display/MatrixButtons + ABI
 ```
 
 Los gates físicos (subir a la placa, mirar la TFT) los ejecuta el equipo en taller y se

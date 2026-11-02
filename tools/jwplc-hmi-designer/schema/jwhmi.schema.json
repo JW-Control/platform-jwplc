@@ -102,6 +102,7 @@
             "BAR",
             "ICON",
             "MENU",
+            "EVENT_LOG",
             "RAW_TEXT",
             "LINE",
             "RECT",
@@ -1072,7 +1073,7 @@
                 "default": 1
               },
               "barPreset": {
-                "description": "Sólo LINEAR (el resto cae a LINEAR).",
+                "description": "LINEAR = barra (JWPLC_UIBarField); CIRCULAR = medidor circular (JWPLC_UICircularField, propiedades circle*). GRADIENT cae a LINEAR.",
                 "enum": [
                   "LINEAR",
                   "CIRCULAR",
@@ -1178,57 +1179,83 @@
                 "default": 2016
               },
               "circleRadius": {
-                "description": "Sin uso (circular).",
-                "type": "number",
+                "description": "CIRCULAR: radio (px); el campo ocupa 2·radio de lado.",
+                "type": "integer",
+                "minimum": 10,
+                "maximum": 80,
                 "default": 26
               },
               "circleThickness": {
-                "description": "Sin uso.",
-                "type": "number",
+                "description": "CIRCULAR: grosor del arco (px).",
+                "type": "integer",
+                "minimum": 2,
+                "maximum": 25,
                 "default": 5
               },
               "circleSweep": {
-                "description": "Sin uso.",
-                "type": "number",
+                "description": "CIRCULAR: recorrido del arco (grados).",
+                "enum": [
+                  360,
+                  270,
+                  240,
+                  180
+                ],
                 "default": 360
               },
               "circleDirection": {
-                "description": "Sin uso.",
-                "type": "string",
+                "description": "CIRCULAR: sentido de llenado.",
+                "enum": [
+                  "CW",
+                  "CCW"
+                ],
                 "default": "CW"
               },
               "circleStartAngle": {
-                "description": "Sin uso.",
-                "type": "string",
+                "description": "CIRCULAR: dónde empieza el arco.",
+                "enum": [
+                  "TOP",
+                  "RIGHT",
+                  "BOTTOM",
+                  "LEFT"
+                ],
                 "default": "TOP"
               },
               "circleStyle": {
-                "description": "Sin uso.",
-                "type": "string",
+                "description": "CIRCULAR: arco continuo o por segmentos.",
+                "enum": [
+                  "CONTINUOUS",
+                  "SEGMENTED"
+                ],
                 "default": "CONTINUOUS"
               },
               "circleCenterMode": {
-                "description": "Sin uso.",
-                "type": "string",
+                "description": "CIRCULAR: texto del centro (nada, porcentaje o valor).",
+                "enum": [
+                  "NONE",
+                  "PERCENT",
+                  "VALUE"
+                ],
                 "default": "PERCENT"
               },
               "circleColorMode": {
-                "description": "Sin uso.",
+                "description": "Sólo SOLID.",
                 "type": "string",
                 "default": "SOLID"
               },
               "circleShowPercent": {
-                "description": "Sin uso.",
+                "description": "Proyectos anteriores (hoy circleCenterMode).",
                 "type": "boolean",
                 "default": true
               },
               "circleTextSize": {
-                "description": "Sin uso.",
-                "type": "number",
+                "description": "CIRCULAR: escala del texto del centro.",
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 4,
                 "default": 1
               },
               "circleTextColor": {
-                "description": "Sin uso. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "description": "CIRCULAR: color del texto del centro. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
                 "oneOf": [
                   {
                     "type": "integer",
@@ -1243,7 +1270,7 @@
                 "default": 65535
               },
               "circleTrackColor": {
-                "description": "Sin uso. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "description": "CIRCULAR: color de la parte vacía del arco. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
                 "oneOf": [
                   {
                     "type": "integer",
@@ -1493,6 +1520,65 @@
                 "description": "Sin fondo: no pinta el recuadro ni detrás de la etiqueta, y lo transparente en todos los estados deja ver la gráfica estática (RECT, RAW_TEXT…). Lo que cambia entre estados usa backgroundColor.",
                 "type": "boolean",
                 "default": false
+              },
+              "stateCount": {
+                "description": "Sólo `pilotos/piloto` con `uint8`: cantidad de estados (2..8).",
+                "type": "integer",
+                "minimum": 2,
+                "maximum": 8
+              },
+              "stateColors": {
+                "description": "Sólo `pilotos/piloto`: color RGB565 de cada estado (`[apagado, encendido, …]`).",
+                "type": "array"
+              },
+              "stateNames": {
+                "description": "Nombres de los estados (comentario del header y leyenda del inspector). Si falta, los del catálogo.",
+                "type": "array"
+              },
+              "bodyColor": {
+                "description": "Color del cuerpo del icono (en lugar del del catálogo). RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ]
+              },
+              "customColors": {
+                "description": "Colores por rol del icono (`{rol: color}`), en lugar de los del catálogo.",
+                "type": "object"
+              },
+              "animIntervalMs": {
+                "description": "Iconos animados: ms entre cuadros (por defecto el del catálogo).",
+                "type": "integer",
+                "minimum": 20,
+                "maximum": 2000
+              },
+              "tierCount": {
+                "description": "Sólo `pilotos/baliza`: cantidad de pisos.",
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 4
+              },
+              "tierColors": {
+                "description": "Sólo `pilotos/baliza`: color RGB565 de cada piso, de abajo arriba.",
+                "type": "array"
+              },
+              "balizaMode": {
+                "description": "Sólo `pilotos/baliza`: `bitmask` = una variable uint8_t (bit n = piso n); `independent` = una variable bool por piso.",
+                "enum": [
+                  "bitmask",
+                  "independent"
+                ]
+              },
+              "tierVariables": {
+                "description": "Sólo `pilotos/baliza` con `independent`: nombre de la variable bool de cada piso.",
+                "type": "array"
               },
               "capacity": {
                 "description": "Uso interno.",
@@ -1774,6 +1860,120 @@
               "x",
               "y",
               "nodes"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "EVENT_LOG"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "type": {
+                "const": "EVENT_LOG"
+              },
+              "name": {
+                "description": "Nombre visible en la lista de objetos del Designer (no llega al C++).",
+                "type": "string"
+              },
+              "id": {
+                "description": "Identificador C++ del objeto (único en el proyecto). Si falta se genera FIELD_<TIPO>_<n>.",
+                "type": "string",
+                "pattern": "^([A-Za-z_][A-Za-z0-9_]*)?$"
+              },
+              "page": {
+                "description": "Página (id) donde se dibuja.",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 15,
+                "default": 0
+              },
+              "layerOrder": {
+                "description": "Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9999
+              },
+              "hidden": {
+                "description": "Oculto en el lienzo y fuera del header.",
+                "type": "boolean"
+              },
+              "locked": {
+                "description": "Bloqueado en el lienzo (no se puede mover con el ratón).",
+                "type": "boolean"
+              },
+              "cornerRadius": {
+                "description": "Lo agrega el Designer al abrir (sólo lo usan RECT y MENU).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 85
+              },
+              "x": {
+                "description": "Esquina superior izquierda, X (px).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 319
+              },
+              "y": {
+                "description": "Esquina superior izquierda, Y (px).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 169
+              },
+              "width": {
+                "description": "Ancho (px).",
+                "type": "integer",
+                "minimum": 40,
+                "maximum": 320,
+                "default": 320
+              },
+              "height": {
+                "description": "Alto (px).",
+                "type": "integer",
+                "minimum": 30,
+                "maximum": 170,
+                "default": 170
+              },
+              "frame": {
+                "description": "Marco exterior alrededor del historial.",
+                "type": "boolean",
+                "default": true
+              },
+              "ramCapacity": {
+                "description": "Capacidad del buffer en RAM.",
+                "type": "integer",
+                "minimum": 16,
+                "maximum": 128,
+                "default": 64
+              },
+              "enableFram": {
+                "description": "Persistencia de los últimos 16 eventos en FRAM ante corte de luz.",
+                "type": "boolean",
+                "default": true
+              },
+              "enableSd": {
+                "description": "Exportación no bloqueante a microSD.",
+                "type": "boolean",
+                "default": true
+              },
+              "sdFileName": {
+                "description": "Nombre del archivo CSV en microSD.",
+                "type": "string",
+                "default": "/EVENTOS.CSV"
+              },
+              "descriptors": {
+                "description": "Descriptores de eventos conocidos del proyecto.",
+                "type": "array"
+              }
+            },
+            "required": [
+              "type",
+              "x",
+              "y"
             ]
           }
         },

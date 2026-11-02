@@ -119,19 +119,19 @@
   section.innerHTML = `
     <div class="inspector-title"><h2>Proyecto · Pantalla y arranque</h2></div>
     <div class="insp-body">
-      <div class="bar-card">
+      <div class="bar-card" data-idle-card="flow" style="order: 1;">
         <div class="bar-card-section-title">Flujo de pantallas</div>
         <div class="idle-flow" data-idle-flow></div>
       </div>
-      <div class="bar-card">
+      <div class="bar-card" data-idle-card="start" style="order: 2;">
         <div class="bar-card-section-title">Al encender</div>
         <div class="bar-visual-grid-2">
-          <button type="button" class="bar-visual-btn" data-idle-set="start" data-value="IDLE">${screenSvg('IDLE')}<span>Pantalla IDLE</span></button>
+          <button type="button" class="bar-visual-btn" data-idle-set="start" data-value="IDLE">${screenSvg('IDLE')}<span>Pantalla IDLE (Estado)</span></button>
           <button type="button" class="bar-visual-btn" data-idle-set="start" data-value="HMI">${screenSvg('HMI')}<span>Primera página del HMI</span></button>
         </div>
       </div>
-      <div class="bar-card">
-        <div class="bar-card-section-title">Entrar al HMI desde la IDLE</div>
+      <div class="bar-card" data-idle-card="wake" style="order: 3;">
+        <div class="bar-card-section-title" data-idle-title="wake">Entrar al HMI desde la IDLE</div>
         <div class="bar-visual-grid-3">
           <button type="button" class="bar-visual-btn" data-idle-set="wake" data-value="ANY"><strong class="insp-mono">✱</strong><span>Cualquier tecla</span></button>
           <button type="button" class="bar-visual-btn" data-idle-set="wake" data-value="BUTTON"><strong class="insp-mono">⌗</strong><span>Una tecla</span></button>
@@ -142,23 +142,24 @@
           <div data-idle-keypad-host="wake"></div>
         </div>
         <div class="insp-note" data-idle-show="wake:NONE">El sketch entra con <code>JWPLC_Display.enterUserUI()</code>.</div>
+        <div class="insp-note" data-idle-wake-hint hidden></div>
       </div>
-      <div class="bar-card">
-        <div class="bar-card-section-title">Volver a la IDLE</div>
+      <div class="bar-card" data-idle-card="back" style="order: 4;">
+        <div class="bar-card-section-title" data-idle-title="back">Volver a la IDLE</div>
         <div class="bar-visual-grid-3">
           <button type="button" class="bar-visual-btn" data-idle-set="back" data-value="ESC"><strong class="insp-mono">ESC</strong><span>Con ESC</span></button>
           <button type="button" class="bar-visual-btn" data-idle-set="back" data-value="TIMEOUT"><strong class="insp-mono">⏱</strong><span>Por inactividad</span></button>
           <button type="button" class="bar-visual-btn" data-idle-set="back" data-value="NONE"><strong class="insp-mono">⊘</strong><span>Nunca</span></button>
         </div>
-        <div class="insp-note" data-idle-show="back:ESC" data-idle-pages-note>ESC retrocede paso a paso: edición → submenú → contenido de la página → selector (NN/TT negro) → IDLE. Sólo vuelve a la IDLE desde el selector.</div>
+        <div class="insp-note" data-idle-show="back:ESC" data-idle-pages-note>ESC retrocede paso a paso en el HMI: edición → submenú → selector de páginas (NN/TT) → y finalmente sale a la IDLE.</div>
         <div data-idle-show="back:TIMEOUT">
           <span class="bar-visual-group-title">Sin tocar teclas durante</span>
           <div class="insp-chip-row">${TIMEOUTS_S.map((s) => `<button type="button" class="insp-chip" data-idle-set="timeoutS" data-value="${s}">${s < 60 ? `${s} s` : `${s / 60} min`}</button>`).join('')}</div>
           <div class="insp-note">Vuelve en cualquier sección (selector o contenido). En este modo ESC no vuelve a la IDLE: sólo retrocede dentro del HMI.</div>
         </div>
-        <div class="insp-note" data-idle-show="back:NONE">Sólo se vuelve con un ítem «⏎ Ir al inicio» de un MENU (Árbol y datos) o desde el sketch con <code>JWPLC_Display.goIdle()</code>.</div>
+        <div class="insp-note" data-idle-show="back:NONE" data-idle-back-none-note></div>
       </div>
-      <div class="bar-card">
+      <div class="bar-card" data-idle-card="code" style="order: 5;">
         <div class="bar-card-header"><span class="bar-card-title">Se genera en jwplcHMISetup()</span></div>
         <pre class="insp-contract" data-idle-code></pre>
       </div>
@@ -181,24 +182,86 @@
         host.innerHTML = keypad(group, selected);
       }
     });
+
+    const isStartHmi = config.start === 'HMI';
+    const wakeCard = section.querySelector('[data-idle-card="wake"]');
+    const backCard = section.querySelector('[data-idle-card="back"]');
+    const wakeTitle = section.querySelector('[data-idle-title="wake"]');
+    const backTitle = section.querySelector('[data-idle-title="back"]');
+    const wakeHint = section.querySelector('[data-idle-wake-hint]');
+    const backNoneNote = section.querySelector('[data-idle-back-none-note]');
+
+    // Reordenamiento contextual de tarjetas según el punto de arranque:
+    if (isStartHmi) {
+      if (backCard) backCard.style.order = '3';
+      if (wakeCard) wakeCard.style.order = '4';
+      if (backTitle) backTitle.textContent = 'Salir a la pantalla de estado (IDLE)';
+      if (wakeTitle) wakeTitle.textContent = 'Reingresar al HMI desde la IDLE';
+      if (wakeHint) {
+        const isBackNone = config.back === 'NONE';
+        wakeHint.hidden = !isBackNone;
+        if (isBackNone) {
+          wakeHint.innerHTML = 'Aplica sólo si el sketch pasa a la pantalla IDLE mediante <code>JWPLC_Display.goIdle()</code>.';
+        }
+      }
+      if (backNoneNote) {
+        backNoneNote.innerHTML = 'El HMI permanece siempre activo en pantalla. La pantalla de diagnóstico del PLC no se mostrará automáticamente (salvo si el sketch llama a <code>JWPLC_Display.goIdle()</code> o desde un menú).';
+      }
+    } else {
+      if (wakeCard) wakeCard.style.order = '3';
+      if (backCard) backCard.style.order = '4';
+      if (wakeTitle) wakeTitle.textContent = 'Entrar al HMI desde la IDLE';
+      if (backTitle) backTitle.textContent = 'Volver a la IDLE';
+      if (wakeHint) wakeHint.hidden = true;
+      if (backNoneNote) {
+        backNoneNote.innerHTML = 'Sólo se vuelve a la IDLE con un ítem «⏎ Ir al inicio» de un MENU (Árbol y datos) o desde el sketch con <code>JWPLC_Display.goIdle()</code>.';
+      }
+    }
+
     // Con una sola página no hay selector: ESC vuelve desde la raíz del contenido.
     const pages = editor()?.getPages?.().length || 1;
     const escNote = section.querySelector('[data-idle-pages-note]');
     if (!escNote.hidden) {
       escNote.textContent = pages > 1
-        ? 'ESC retrocede paso a paso: edición → submenú → contenido de la página → selector (NN/TT negro) → IDLE. Sólo vuelve a la IDLE desde el selector.'
-        : 'ESC retrocede paso a paso: edición → submenú → raíz → IDLE (con una sola página no hay selector NN/TT).';
+        ? 'ESC retrocede paso a paso en el HMI: edición → submenú → selector de páginas (NN/TT) → y finalmente sale a la IDLE.'
+        : 'ESC retrocede paso a paso: edición → submenú → raíz → y finalmente sale a la IDLE (con una sola página no hay selector NN/TT).';
     }
 
-    const enter = { ANY: 'cualquier tecla', BUTTON: `tecla ${buttonName(config.wakeButton)}`, NONE: 'enterUserUI()' }[config.wake];
-    const back = { ESC: 'ESC', TIMEOUT: `${config.timeoutS} s sin teclas`, NONE: 'ítem «Ir al inicio»' }[config.back];
-    section.querySelector('[data-idle-flow]').innerHTML = `
-      <div class="idle-node${config.start === 'IDLE' ? ' is-start' : ''}">${screenSvg('IDLE')}<span>IDLE</span></div>
-      <div class="idle-edges">
-        <div class="idle-edge">${enter} <b>→</b></div>
-        <div class="idle-edge"><b>←</b> ${back}</div>
-      </div>
-      <div class="idle-node${config.start === 'HMI' ? ' is-start' : ''}">${screenSvg('HMI')}<span>HMI</span></div>`;
+    // Diagrama "Flujo de pantallas":
+    // El nodo inicial (marcado como inicio) siempre va a la izquierda para lectura natural de izquierda a derecha.
+    const enterText = { ANY: 'cualquier tecla', BUTTON: `tecla ${buttonName(config.wakeButton)}`, NONE: 'enterUserUI()' }[config.wake];
+    const backText = { ESC: 'con ESC', TIMEOUT: `${config.timeoutS} s inactivo`, NONE: 'sólo sketch / menú' }[config.back];
+
+    if (isStartHmi) {
+      // HMI (inicio) ---> IDLE ---> HMI
+      const toIdleEdge = config.back === 'NONE'
+        ? '<div class="idle-edge is-off">sin retorno auto <b>→</b></div>'
+        : `<div class="idle-edge">${backText} <b>→</b></div>`;
+      const toHmiEdge = `<div class="idle-edge"><b>←</b> ${enterText}</div>`;
+
+      section.querySelector('[data-idle-flow]').innerHTML = `
+        <div class="idle-node is-start">${screenSvg('HMI')}<span>HMI</span></div>
+        <div class="idle-edges">
+          ${toIdleEdge}
+          ${toHmiEdge}
+        </div>
+        <div class="idle-node">${screenSvg('IDLE')}<span>IDLE</span></div>`;
+    } else {
+      // IDLE (inicio) ---> HMI ---> IDLE
+      const toHmiEdge = `<div class="idle-edge">${enterText} <b>→</b></div>`;
+      const toIdleEdge = config.back === 'NONE'
+        ? '<div class="idle-edge is-off"><b>←</b> sin retorno auto</div>'
+        : `<div class="idle-edge"><b>←</b> ${backText}</div>`;
+
+      section.querySelector('[data-idle-flow]').innerHTML = `
+        <div class="idle-node is-start">${screenSvg('IDLE')}<span>IDLE</span></div>
+        <div class="idle-edges">
+          ${toHmiEdge}
+          ${toIdleEdge}
+        </div>
+        <div class="idle-node">${screenSvg('HMI')}<span>HMI</span></div>`;
+    }
+
     section.querySelector('[data-idle-code]').textContent = setupLines().replace(MARKER, '').replace(/^ {4}/gm, '').trimEnd();
   }
 
