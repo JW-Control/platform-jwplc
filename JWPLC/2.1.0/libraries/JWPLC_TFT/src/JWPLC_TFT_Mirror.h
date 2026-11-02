@@ -38,3 +38,6 @@ const uint8_t *jwplcMirrorRow(uint16_t y);
 uint16_t jwplcMirrorPaletteCount();
 uint16_t jwplcMirrorPaletteColor(uint16_t index);
 uint32_t jwplcMirrorWrites(); // crece con cada tramo escrito (para esperar a que termine un redibujo)
+// Columnas [x0, x1) de la fila y escritas en la versión ver, si su última
+// versión es exactamente ver (la página ya tiene el resto de la fila).
+bool jwplcMirrorRowSpan(uint16_t y, uint32_t ver, uint16_t *x0, uint16_t *x1);

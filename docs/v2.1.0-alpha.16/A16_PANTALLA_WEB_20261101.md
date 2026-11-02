@@ -85,6 +85,26 @@ Segunda ronda (commit `bff48db`), cambio de página:
 canvas 78 ms, máximo 89 ms. `JWSIM_WEBSCREEN=PASS`; ejemplos de `JWPLC_WebScreen` y `JWPLC_Display` 19/19 PASS.
 `[no verificado]` en placa: el ACK retrasado de Windows no se reproduce en el simulador.
 
+## Optimizaciones (02/11, tras validar la latencia en placa)
+
+`[visto]` en placa (propietario): el PR #215 dejó la pantalla «drásticamente mejor». Rama
+`v2.1.0-alpha.16/JWPLC-Sim/feature/pantalla-web-optimizaciones`:
+
+- **Conexión abierta (keep-alive).** La conexión queda abierta entre pedidos; el cuadro va con
+  `Transfer-Encoding: chunked` (cada trozo de ~1 KB lleva su largo). Se cierra tras 1 s sin pedido o si otra
+  conexión trae un pedido (recarga). Una tecla sigue cancelando la espera larga, y eso abre otra conexión.
+- **Tramos de fila (`JWS2`).** `JWPLC_TFT_Mirror` guarda por fila las columnas escritas en su última versión
+  (`jwplcMirrorRowSpan()`); si la página ya tiene la versión anterior, solo viajan esas columnas. Registro:
+  `u16 y, u16 x, u16 ancho, pares RLE`. Con `v=0`, o si la página se saltó una versión, la fila entera.
+- **Página en caché.** `ETag` (hash de la página) + `Cache-Control: no-cache`: al recargar el navegador pregunta
+  y el equipo responde `304` sin cuerpo. Sin pedido de `favicon.ico`.
+
+`[ejecutado]` JWPLC Sim, `02.Runtime_En_Vivo`, 12 pulsaciones en el MENU desde la página: 82 344 → 31 896 B
+(−61 %), respuesta máxima 6862 → 2658 B; latencia tecla → canvas igual (mediana 70 → 65-72 ms: en el host el TCP
+local no cuesta). Recarga con `If-None-Match` → `304`. `JWSIM_WEBSCREEN=PASS` (0 píxeles distintos),
+`JWPLC_WebScreen` y `JWPLC_Display` 19/19 PASS.
+`[no verificado]` en placa: el ahorro de abrir y cerrar TCP en el W5500 solo se ve en el equipo.
+
 ## Pendiente
 
 - Compilación ESP32 y prueba en placa (propietario).

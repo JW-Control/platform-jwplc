@@ -19,6 +19,12 @@ uint8_t *g_buf = nullptr;
 volatile uint32_t g_rowVer[MAX_SIDE];
 volatile uint32_t g_ver = 1;
 volatile uint32_t g_writes = 0;
+// Tramo [x0, x1) escrito en cada fila durante la versión g_spanVer (la última
+// en que cambió). Con él, una página que ya tiene la versión anterior recibe
+// solo las columnas que cambiaron. g_spanVer = 0 mientras se reinicia el tramo.
+volatile uint32_t g_spanVer[MAX_SIDE];
+volatile uint16_t g_spanX0[MAX_SIDE];
+volatile uint16_t g_spanX1[MAX_SIDE];
 
 // Geometría lógica actual (setRotation) y desplazamiento CGRAM.
 int32_t g_w = TFT_WIDTH;
@@ -137,7 +143,30 @@ void putRun(uint8_t idx, uint32_t n)
                 // La versión se lee después de escribir: si el servidor tomó su
                 // versión en medio, la fila queda >= ella y sale en la siguiente.
                 __sync_synchronize();
-                g_rowVer[ly] = g_ver;
+                const uint32_t v = g_ver;
+                if (g_spanVer[ly] != v)
+                {
+                    // Primera escritura de la fila en esta versión: tramo nuevo.
+                    g_spanVer[ly] = 0;
+                    __sync_synchronize();
+                    g_spanX0[ly] = (uint16_t)lx0;
+                    g_spanX1[ly] = (uint16_t)lx1;
+                    __sync_synchronize();
+                    g_spanVer[ly] = v;
+                }
+                else
+                {
+                    if ((uint16_t)lx0 < g_spanX0[ly])
+                    {
+                        g_spanX0[ly] = (uint16_t)lx0;
+                    }
+                    if ((uint16_t)lx1 > g_spanX1[ly])
+                    {
+                        g_spanX1[ly] = (uint16_t)lx1;
+                    }
+                }
+                __sync_synchronize();
+                g_rowVer[ly] = v;
             }
         }
         s_x += (int32_t)span;
@@ -270,6 +299,7 @@ void jwplcMirrorGeometry(int32_t colstart, int32_t rowstart, int32_t width, int3
             g_ver = g_ver + 1;
             for (uint16_t y = 0; y < MAX_SIDE; y++)
             {
+                g_spanVer[y] = 0; // fila entera
                 g_rowVer[y] = g_ver;
             }
         }
@@ -294,6 +324,7 @@ bool jwplcMirrorStart()
     indexOf(0x0000); // índice 0 = negro (búfer recién borrado)
     for (uint16_t y = 0; y < MAX_SIDE; y++)
     {
+        g_spanVer[y] = 0;
         g_rowVer[y] = g_ver;
     }
     jwplcMirrorOn = true;
@@ -312,3 +343,26 @@ const uint8_t *jwplcMirrorRow(uint16_t y)
 uint16_t jwplcMirrorPaletteCount() { return g_palN; }
 uint16_t jwplcMirrorPaletteColor(uint16_t index) { return index < 256 ? g_pal[index] : 0; }
 uint32_t jwplcMirrorWrites() { return g_writes; }
+
+bool jwplcMirrorRowSpan(uint16_t y, uint32_t ver, uint16_t *x0, uint16_t *x1)
+{
+    if (y >= MAX_SIDE || ver == 0)
+    {
+        return false;
+    }
+    // Lectura con doble comprobación: si la TFT reinicia el tramo en medio,
+    // g_spanVer cambia y se envía la fila entera.
+    const uint32_t a = g_spanVer[y];
+    __sync_synchronize();
+    const uint16_t s0 = g_spanX0[y];
+    const uint16_t s1 = g_spanX1[y];
+    __sync_synchronize();
+    const uint32_t b = g_spanVer[y];
+    if (a != ver || b != ver || g_rowVer[y] != ver || s1 <= s0 || s1 > (uint16_t)g_w)
+    {
+        return false;
+    }
+    *x0 = s0;
+    *x1 = s1;
+    return true;
+}

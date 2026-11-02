@@ -1,8 +1,10 @@
 // JWPLC_WebScreen.cpp: servidor HTTP mínimo por el W5500 con la pantalla en vivo.
 //
-// Una tarea propia (núcleo 0, prioridad baja) atiende una conexión a la vez:
-//   "/"   la página (JWPLC_WebScreen_Page.h)
-//   "/f"  las filas de la TFT que cambiaron desde la versión que tiene la página
+// Una tarea propia (núcleo 0, prioridad baja) atiende una conexión a la vez y
+// la mantiene abierta entre pedidos (HTTP/1.1 keep-alive):
+//   "/"   la página (JWPLC_WebScreen_Page.h), con ETag: recargar no la reenvía
+//   "/f"  los tramos de fila de la TFT que cambiaron desde la versión que tiene
+//         la página (cuerpo por trozos: Transfer-Encoding: chunked)
 //   "/k"  tecla virtual (JWPLC_Buttons.setVirtualDown)
 // Cada operación del W5500 toma el bus SPI compartido por su cuenta (acceso
 // seguro de JWPLC_Ethernet); la copia de la pantalla está en RAM, así que
@@ -13,6 +15,7 @@
 #include <JWPLC_GlobalPeripherals.h>
 #include <JWPLC_TFT_Mirror.h>
 #include <string.h>
+#include <strings.h>
 
 #include "JWPLC_W5500_SafeAccess.h"
 #include "JWPLC_WebScreen_Page.h"
@@ -32,6 +35,9 @@ namespace
 const uint32_t VIEWER_WINDOW_MS = 3000;
 const uint32_t KEY_AUTO_RELEASE_MS = 4000; // la página repite "pulsada" cada 1 s
 const uint32_t REQUEST_TIMEOUT_MS = 800;
+// Conexión abierta entre pedidos: la página pide el cuadro siguiente al instante,
+// así que 1 s sin pedido = la página se fue (o abrió otra conexión).
+const uint32_t KEEPALIVE_IDLE_MS = 1000;
 // Espera larga: si nada cambió, la respuesta sale en cuanto cambia una fila
 // (o a los LONG_POLL_MS). Así la página no pregunta a ciegas cada N ms.
 const uint32_t LONG_POLL_MS = 400;
@@ -56,17 +62,73 @@ volatile bool g_viewed = false;
 uint32_t g_keyDownAt[BTN_COUNT];
 bool g_keyDown[BTN_COUNT];
 
-uint8_t g_out[OUT_CHUNK + 700]; // un trozo + una fila RLE completa (2 + 320 x 2)
+uint8_t g_out[OUT_CHUNK + 700]; // un trozo + una fila RLE completa (6 + 320 x 2)
 size_t g_outLen = 0;
 
-// Envía trozos exactos de OUT_CHUNK y deja el resto en el búfer.
+// Respuesta en curso: la cabecera HTTP espera en g_hdr y sale en el mismo
+// segmento que el primer trozo del cuerpo. Con chunked, cada trozo lleva su
+// largo en hexadecimal (así la conexión sigue abierta sin conocer el total).
+char g_hdr[224];
+size_t g_hdrLen = 0;
+bool g_chunked = false;
+uint8_t g_tx[sizeof(g_hdr) + OUT_CHUNK + 16];
+
+// Bytes de cuerpo por segmento: OUT_CHUNK en total contando cabecera y marcas.
+size_t pieceSize()
+{
+    return OUT_CHUNK - g_hdrLen - (g_chunked ? 12 : 0);
+}
+
+// Un segmento: cabecera pendiente + trozo (+ fin del cuerpo si last).
+void emit(EthernetClient &c, const uint8_t *data, size_t n, bool last)
+{
+    size_t t = 0;
+    if (g_hdrLen)
+    {
+        memcpy(g_tx, g_hdr, g_hdrLen);
+        t = g_hdrLen;
+        g_hdrLen = 0;
+    }
+    if (g_chunked)
+    {
+        if (n)
+        {
+            t += (size_t)snprintf((char *)g_tx + t, 8, "%X\r\n", (unsigned)n);
+            memcpy(g_tx + t, data, n);
+            t += n;
+            g_tx[t++] = '\r';
+            g_tx[t++] = '\n';
+        }
+        if (last)
+        {
+            memcpy(g_tx + t, "0\r\n\r\n", 5);
+            t += 5;
+        }
+    }
+    else if (n)
+    {
+        memcpy(g_tx + t, data, n);
+        t += n;
+    }
+    if (t)
+    {
+        c.write(g_tx, t);
+    }
+}
+
+// Envía trozos completos y deja el resto en el búfer.
 void flushChunks(EthernetClient &c)
 {
     size_t sent = 0;
-    while (g_outLen - sent >= OUT_CHUNK)
+    for (;;)
     {
-        c.write(g_out + sent, OUT_CHUNK);
-        sent += OUT_CHUNK;
+        const size_t piece = pieceSize();
+        if (g_outLen - sent < piece)
+        {
+            break;
+        }
+        emit(c, g_out + sent, piece, false);
+        sent += piece;
     }
     if (sent)
     {
@@ -75,14 +137,12 @@ void flushChunks(EthernetClient &c)
     }
 }
 
+// Envía todo lo que queda y cierra el cuerpo.
 void flushOut(EthernetClient &c)
 {
     flushChunks(c);
-    if (g_outLen)
-    {
-        c.write(g_out, g_outLen);
-        g_outLen = 0;
-    }
+    emit(c, g_out, g_outLen, true);
+    g_outLen = 0;
 }
 
 void put8(uint8_t v) { g_out[g_outLen++] = v; }
@@ -121,30 +181,73 @@ uint32_t argValue(const char *query, const char *name, uint32_t fallback)
     return fallback;
 }
 
-// La cabecera va al búfer de salida: sale en el mismo segmento que el cuerpo.
-void putHeader(const char *status, const char *type)
-{
-    const int n = snprintf((char *)g_out + g_outLen, sizeof(g_out) - g_outLen,
-                           "HTTP/1.1 %s\r\nContent-Type: %s\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n",
-                           status, type);
-    if (n > 0)
-    {
-        g_outLen += (size_t)n;
-    }
-}
+const long BODY_CHUNKED = -1;
+const long BODY_NONE = -2; // 204 y 304: sin cuerpo ni Content-Length
 
-void sendHeader(EthernetClient &c, const char *status, const char *type)
+// Prepara la cabecera; sale con el primer trozo.
+void beginResponse(const char *status, const char *type, long length, const char *extra = "")
 {
     g_outLen = 0;
-    putHeader(status, type);
+    g_chunked = length == BODY_CHUNKED;
+    char len[40];
+    if (g_chunked)
+    {
+        snprintf(len, sizeof(len), "Transfer-Encoding: chunked\r\n");
+    }
+    else if (length == BODY_NONE)
+    {
+        len[0] = 0;
+    }
+    else
+    {
+        snprintf(len, sizeof(len), "Content-Length: %ld\r\n", length);
+    }
+    const int n = snprintf(g_hdr, sizeof(g_hdr),
+                           "HTTP/1.1 %s\r\nContent-Type: %s\r\n%s%sConnection: keep-alive\r\n\r\n",
+                           status, type, len, extra);
+    g_hdrLen = n > 0 ? (size_t)n : 0;
+}
+
+// Respuesta corta de texto (errores, 204).
+void sendText(EthernetClient &c, const char *status, const char *text = "")
+{
+    const size_t n = strlen(text);
+    beginResponse(status, "text/plain", (long)n, "Cache-Control: no-store\r\n");
+    memcpy(g_out, text, n);
+    g_outLen = n;
     flushOut(c);
 }
 
-void sendPage(EthernetClient &c)
+// ETag de la página: cambia solo si cambia el firmware (otra página).
+const char *pageTag()
 {
-    g_outLen = 0;
-    putHeader("200 OK", "text/html; charset=utf-8");
+    static char tag[12] = {0};
+    if (!tag[0])
+    {
+        uint32_t h = 2166136261u;
+        for (size_t i = 0; i < sizeof(JWPLC_WEBSCREEN_PAGE) - 1; i++)
+        {
+            h = (h ^ (uint8_t)JWPLC_WEBSCREEN_PAGE[i]) * 16777619u;
+        }
+        snprintf(tag, sizeof(tag), "\"%08lx\"", (unsigned long)h);
+    }
+    return tag;
+}
+
+void sendPage(EthernetClient &c, const char *ifNoneMatch)
+{
+    char extra[64];
+    // no-cache: el navegador guarda la página y pregunta con If-None-Match;
+    // si no cambió, responde 304 sin cuerpo (recarga instantánea).
+    snprintf(extra, sizeof(extra), "Cache-Control: no-cache\r\nETag: %s\r\n", pageTag());
+    if (ifNoneMatch && strstr(ifNoneMatch, pageTag()))
+    {
+        beginResponse("304 Not Modified", "text/html; charset=utf-8", BODY_NONE, extra);
+        flushOut(c);
+        return;
+    }
     const size_t len = sizeof(JWPLC_WEBSCREEN_PAGE) - 1;
+    beginResponse("200 OK", "text/html; charset=utf-8", (long)len, extra);
     size_t i = 0;
     while (i < len)
     {
@@ -203,8 +306,7 @@ void sendFrame(EthernetClient &c, const char *query)
     }
     if (!jwplcMirrorActive())
     {
-        sendHeader(c, "503 Service Unavailable", "text/plain");
-        c.write((const uint8_t *)"sin memoria para la pantalla", 28);
+        sendText(c, "503 Service Unavailable", "sin memoria para la pantalla");
         return;
     }
     const uint32_t since = argValue(query, "v", 0);
@@ -243,12 +345,11 @@ void sendFrame(EthernetClient &c, const char *query)
     const uint16_t palN = jwplcMirrorPaletteCount();
     const uint16_t from = known <= palN ? known : 0;
 
-    g_outLen = 0;
-    putHeader("200 OK", "application/octet-stream");
+    beginResponse("200 OK", "application/octet-stream", BODY_CHUNKED, "Cache-Control: no-store\r\n");
     put8('J');
     put8('W');
     put8('S');
-    put8('1');
+    put8('2');
     put32(snap);
     put16(w);
     put16(h);
@@ -275,13 +376,21 @@ void sendFrame(EthernetClient &c, const char *query)
         {
             break;
         }
+        // Si la página ya tiene el resto de la fila, solo el tramo que cambió.
+        uint16_t x = 0, end = w;
+        if (since == 0 || !jwplcMirrorRowSpan(y, since, &x, &end))
+        {
+            x = 0;
+            end = w;
+        }
         put16(y);
-        uint16_t x = 0;
-        while (x < w)
+        put16(x);
+        put16((uint16_t)(end - x));
+        while (x < end)
         {
             const uint8_t ix = row[x];
             uint16_t run = 1;
-            while (x + run < w && run < 256 && row[x + run] == ix)
+            while (x + run < end && run < 256 && row[x + run] == ix)
             {
                 run++;
             }
@@ -304,11 +413,12 @@ void sendKey(EthernetClient &c, const char *query)
     const bool down = argValue(query, "d", 0) != 0;
     if (!g_keysAllowed || b >= BTN_COUNT)
     {
-        sendHeader(c, "403 Forbidden", "text/plain");
+        sendText(c, "403 Forbidden");
         return;
     }
     applyKey(b, down);
-    sendHeader(c, "204 No Content", "text/plain");
+    beginResponse("204 No Content", "text/plain", BODY_NONE, "Cache-Control: no-store\r\n");
+    flushOut(c);
 }
 
 void releaseStaleKeys()
@@ -324,47 +434,106 @@ void releaseStaleKeys()
     }
 }
 
-void serve(EthernetClient &c)
+// ¿Hay otra conexión con un pedido esperando? (la página se recargó o abrió otra)
+bool otherClientWaiting(const EthernetClient &c)
+{
+    EthernetClient o;
+    {
+        jwplc_w5500_candidate::BusScope bus(20);
+        if (bus)
+        {
+            o = g_server->available();
+        }
+    }
+    return o && o.getSocketNumber() != c.getSocketNumber();
+}
+
+// Atiende un pedido de la conexión. false = cerrarla (se fue, error o espera
+// sin pedido). Entre pedidos espera hasta waitMs al siguiente.
+bool serve(EthernetClient &c, uint32_t waitMs)
 {
     char req[200];
-    size_t n = 0;
-    const uint32_t t0 = millis();
-    bool lineDone = false;
-    // Solo interesa la primera línea ("GET /ruta?consulta HTTP/1.1"); el resto se descarta.
-    while (millis() - t0 < REQUEST_TIMEOUT_MS && c.connected())
+    char line[200];
+    char inm[24];
+    size_t n = 0, ln = 0;
+    bool first = true, done = false;
+    req[0] = 0;
+    inm[0] = 0;
+    uint32_t t0 = millis();
+    uint32_t lastOther = t0;
+    bool started = false;
+    // Primera línea ("GET /ruta?consulta HTTP/1.1") e If-None-Match; lo demás se descarta.
+    while (!done)
     {
+        const uint32_t limit = started ? REQUEST_TIMEOUT_MS : waitMs;
+        if (millis() - t0 >= limit || !c.connected())
+        {
+            return false;
+        }
         const int avail = c.available();
         if (avail <= 0)
         {
+            if (!started && millis() - lastOther >= 20)
+            {
+                lastOther = millis();
+                if (otherClientWaiting(c))
+                {
+                    return false;
+                }
+            }
             vTaskDelay(pdMS_TO_TICKS(2));
             continue;
         }
+        if (!started)
+        {
+            started = true;
+            t0 = millis();
+        }
         uint8_t buf[128];
         const int got = c.read(buf, avail < (int)sizeof(buf) ? (size_t)avail : sizeof(buf));
-        for (int i = 0; i < got; i++)
+        for (int i = 0; i < got && !done; i++)
         {
-            if (!lineDone)
+            const char ch = (char)buf[i];
+            if (ch == '\r')
             {
-                if (buf[i] == '\r' || buf[i] == '\n')
-                {
-                    lineDone = true;
-                }
-                else if (n < sizeof(req) - 1)
-                {
-                    req[n++] = (char)buf[i];
-                }
+                continue;
             }
-        }
-        if (lineDone && c.available() <= 0)
-        {
-            break;
+            if (ch != '\n')
+            {
+                if (ln < sizeof(line) - 1)
+                {
+                    line[ln++] = ch;
+                }
+                continue;
+            }
+            line[ln] = 0;
+            if (first)
+            {
+                memcpy(req, line, ln + 1);
+                n = ln;
+                first = false;
+            }
+            else if (ln == 0)
+            {
+                done = true; // línea vacía: fin de la cabecera
+            }
+            else if (strncasecmp(line, "If-None-Match:", 14) == 0)
+            {
+                const char *v = line + 14;
+                while (*v == ' ')
+                {
+                    v++;
+                }
+                strncpy(inm, v, sizeof(inm) - 1);
+                inm[sizeof(inm) - 1] = 0;
+            }
+            ln = 0;
         }
     }
-    req[n] = 0;
-    if (!lineDone || strncmp(req, "GET ", 4) != 0)
+    if (n == 0 || strncmp(req, "GET ", 4) != 0)
     {
-        sendHeader(c, "400 Bad Request", "text/plain");
-        return;
+        sendText(c, "400 Bad Request");
+        return false;
     }
     char *path = req + 4;
     char *sp = strchr(path, ' ');
@@ -379,7 +548,7 @@ void serve(EthernetClient &c)
     }
     if (strcmp(path, "/") == 0 || strcmp(path, "/index.html") == 0)
     {
-        sendPage(c);
+        sendPage(c, inm);
     }
     else if (strcmp(path, "/f") == 0)
     {
@@ -391,8 +560,9 @@ void serve(EthernetClient &c)
     }
     else
     {
-        sendHeader(c, "404 Not Found", "text/plain");
+        sendText(c, "404 Not Found");
     }
+    return true;
 }
 
 void webTask(void *)
@@ -425,7 +595,13 @@ void webTask(void *)
         }
         if (client)
         {
-            serve(client);
+            // Misma conexión para los pedidos siguientes (sin abrir y cerrar TCP por cuadro).
+            uint32_t wait = REQUEST_TIMEOUT_MS;
+            while (serve(client, wait) && JWPLC_Ethernet.isReady())
+            {
+                releaseStaleKeys();
+                wait = KEEPALIVE_IDLE_MS;
+            }
             client.stop();
             continue; // la página pide seguido: atender sin esperar
         }

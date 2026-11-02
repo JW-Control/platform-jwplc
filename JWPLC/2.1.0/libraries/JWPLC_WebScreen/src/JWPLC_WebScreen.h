@@ -9,8 +9,9 @@
 // físicas. La IP sale en la pantalla de reposo o en Red del Runtime.
 //
 // Memoria: 54 KB de RAM para la copia de la pantalla, reservados al arrancar
-// la TFT. Red: la página pide solo las filas que cambiaron (~10 veces por
-// segundo); con la pantalla quieta casi no hay tráfico.
+// la TFT. Red: una sola conexión abierta; la página recibe solo los tramos
+// de fila que cambiaron, en cuanto cambian; con la pantalla quieta casi no
+// hay tráfico.
 #pragma once
 
 #include <Arduino.h>
