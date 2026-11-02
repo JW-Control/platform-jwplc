@@ -58,6 +58,19 @@ físicas siguen funcionando; la página solo agrega teclas virtuales. Pensado pa
    Diagnóstico > Eventos → cortar la luz y volver: sigue en RUN con el contador.
 5. **Plan B**: si la red falla, cámara del celular apuntando a la TFT.
 
+## Latencia (02/11, tras la primera prueba en placa)
+
+En la placa la página marcaba 12 cuadros/s y se notaba retraso: la página preguntaba cada 60 ms y cada tecla era
+otra conexión que esperaba detrás del cuadro en curso. Rama `v2.1.0-alpha.16/JWPLC-Sim/feature/pantalla-web-latencia`:
+
+- `/f?w=1`: espera larga. Si nada cambió, el equipo responde en cuanto cambia una fila (máx. 400 ms).
+- `/f?e=<tecla><1|0>`: la tecla viaja en la petición del cuadro; la página cancela la espera para mandarla.
+- `/k` queda por compatibilidad.
+
+`[ejecutado]` JWPLC Sim, `02.Runtime_En_Vivo`, 12 pulsaciones en la página (tecla → cambio en el canvas): mediana
+112 → 69 ms, máximo 151 → 100 ms; con la pantalla quieta, 12 → ~2 peticiones/s. `JWSIM_WEBSCREEN=PASS`.
+`[no verificado]` en placa: el W5500 real suma el tiempo de envío de los cuadros grandes (entrar al MENU o al editor).
+
 ## Pendiente
 
 - Compilación ESP32 y prueba en placa (propietario).
