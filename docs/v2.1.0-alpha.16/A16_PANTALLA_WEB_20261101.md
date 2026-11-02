@@ -69,7 +69,21 @@ otra conexión que esperaba detrás del cuadro en curso. Rama `v2.1.0-alpha.16/J
 
 `[ejecutado]` JWPLC Sim, `02.Runtime_En_Vivo`, 12 pulsaciones en la página (tecla → cambio en el canvas): mediana
 112 → 69 ms, máximo 151 → 100 ms; con la pantalla quieta, 12 → ~2 peticiones/s. `JWSIM_WEBSCREEN=PASS`.
-`[no verificado]` en placa: el W5500 real suma el tiempo de envío de los cuadros grandes (entrar al MENU o al editor).
+`[visto]` en placa (propietario): menos retraso dentro de una página, pero el cambio de página seguía muy lento.
+
+Segunda ronda (commit `bff48db`), cambio de página:
+
+- Causa `[inferido]`: el W5500 tiene 2 KB de buffer de envío y `EthernetClient::write` espera el ACK para seguir.
+  Con trozos de 1400 B sólo cabía un segmento en vuelo y Windows retrasa el ACK (hasta 200 ms) cuando le llega uno
+  solo; una pantalla completa (~9,5 KB) pagaba esa espera varias veces. Además se enviaba dos veces: la primera
+  respuesta salía a medio dibujar y la segunda repetía casi todas las filas.
+- Arreglo: trozos de 1000 B (dos segmentos en vuelo: Windows confirma al instante), cabecera HTTP en el mismo
+  segmento que el cuerpo, espera corta a que el dibujo termine (`jwplcMirrorWrites()`, 8 ms sin escrituras, máx.
+  150 ms) y versión de fila tomada después de escribirla (`JWPLC_TFT_Mirror`).
+
+`[ejecutado]` JWPLC Sim: entrar al MENU es una sola respuesta de 9514 B (antes, dos de ~9,5 KB); mediana tecla →
+canvas 78 ms, máximo 89 ms. `JWSIM_WEBSCREEN=PASS`; ejemplos de `JWPLC_WebScreen` y `JWPLC_Display` 19/19 PASS.
+`[no verificado]` en placa: el ACK retrasado de Windows no se reproduce en el simulador.
 
 ## Pendiente
 
