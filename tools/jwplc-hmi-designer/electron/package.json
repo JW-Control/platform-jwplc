@@ -2,7 +2,7 @@
   "name": "jwplc-hmi-designer-electron",
   "version": "2.1.0-alpha.16",
   "private": true,
-  "description": "Wrapper nativo Electron para JWPLC HMI Designer 2.1.0-alpha.15",
+  "description": "Wrapper nativo Electron para JWPLC HMI Designer 2.1.0-alpha.16",
   "author": "JW Control",
   "main": "bootstrap.js",
   "type": "module",
