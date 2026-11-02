@@ -350,10 +350,10 @@ La integración usa un VSIX de usuario:
 %USERPROFILE%\.arduinoIDE\plugins
 ```
 
-Versión final Alpha11:
+Versión vigente (alpha.16, ícono del Designer en la barra del editor):
 
 ```text
-jwplc-hmi-launcher-0.1.6.vsix
+jwplc-hmi-launcher-0.1.8.vsix
 ```
 
 Objetivo validado:

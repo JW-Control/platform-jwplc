@@ -37,6 +37,8 @@ formas**.
 - **`JW_MatrixButtons` 1.0.6:** teclas virtuales, para que la pantalla web y el simulador pulsen la botonera.
 - **HMI Designer 2.1.0-alpha.16:** iconos animados (baliza por pisos, piloto de 2 a 8 estados, motores, pistones),
   medidor circular, plantilla de historial de eventos, modo claro y proyecto «Runtime».
+  Su instalador agrega la extensión del Arduino IDE 2 (`jwplc-hmi-launcher` 0.1.8): el botón de arriba a la
+  derecha del editor usa ahora el ícono del Designer en lugar del cuadro naranja «JW».
 - **OpenPLC Editor 4.2.8-jwplc.9:** Designer 2.1.0-alpha.16 incluido y panel lateral HMI a la derecha del área de
   trabajo. VPP 2.1.0-alpha.16 sin la pantalla «Pantalla HMI» en *Configuration*.
 - **JWPLC Sim** (simulador del JWPLC Basic, `JW-Control/jwplc-sim`): un proyecto de OpenPLC compila con la cadena
@@ -79,7 +81,7 @@ formas**.
 | Componente | Versión | Commit |
 |---|---|---|
 | Package `jwplc:esp32` | 2.1.0-alpha.16 | `release/v2.1.x` al publicar |
-| HMI Designer | 2.1.0-alpha.16 | platform-jwplc `94edd7d` |
+| HMI Designer | 2.1.0-alpha.16 | instaladores: árbol de la Release (extensión 0.1.8); dentro del editor: platform-jwplc `94edd7d` |
 | VPP JWPLC Basic | 2.1.0-alpha.16 | platform-jwplc `94edd7d` |
 | OpenPLC Editor – JWPLC Edition | 4.2.8-jwplc.9 | openplc-editor `2ef069b` (tag `jwplc-editor-v4.2.8-jwplc.9`) |
 | JWPLC Sim (gate `SIM_REGRESSION`) | — | jwplc-sim `a81f302` |
