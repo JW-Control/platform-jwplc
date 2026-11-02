@@ -4,8 +4,8 @@
   Qué vas a aprender
   - A contar eventos: cada pieza que pasa por un sensor suma 1.
   - A comparar la cuenta con una meta y actuar al llegar.
-  - A juntar lo aprendido: flancos (lección 07), funciones (lección 09) y
-    una regla de marcha (lección 08).
+  - A juntar lo aprendido: flancos (lección 07), struct con su función
+    (lección 09) y una regla de marcha (lección 08).
 
   El caso: llenar cajas en una cinta
   - La cinta avanza y cada pieza que cae en la caja pasa frente a un sensor.
@@ -36,17 +36,25 @@ const uint32_t ANTIRREBOTE_MS = 20;
 
 uint16_t piezas = 0;
 uint32_t ultimaLectura = 0;
-bool sensorAntes = false;
-bool resetAntes = false;
 
-// Devuelve true solo en la vuelta en que la señal pasa de apagada a activa.
-// "antes" va con & porque la función lo actualiza para la próxima vuelta.
-bool flancoSubida(bool ahora, bool &antes)
+// Detector de flanco de subida (como en la lección 07), dentro de un struct:
+// cada detector recuerda su lectura anterior. subida() devuelve true solo en
+// la vuelta en que la señal pasa de apagada a activa.
+struct Flanco
 {
-    bool flanco = ahora && !antes;
-    antes = ahora;
-    return flanco;
-}
+    bool antes = false;
+
+    bool subida(bool ahora)
+    {
+        bool flanco = ahora && !antes;
+        antes = ahora;
+        return flanco;
+    }
+};
+
+// Un detector para cada señal.
+Flanco flancoSensor;
+Flanco flancoReset;
 
 void setup()
 {
@@ -65,7 +73,7 @@ void loop()
     bool cajaLlena = piezas >= PIEZAS_POR_CAJA;
 
     // Solo se cuentan piezas mientras la caja no esté llena.
-    if (flancoSubida(digitalRead(I0_0) == HIGH, sensorAntes) && !cajaLlena)
+    if (flancoSensor.subida(digitalRead(I0_0) == HIGH) && !cajaLlena)
     {
         piezas++;
         Serial.print("Piezas: ");
@@ -77,7 +85,7 @@ void loop()
         }
     }
 
-    if (flancoSubida(digitalRead(I0_1) == HIGH, resetAntes))
+    if (flancoReset.subida(digitalRead(I0_1) == HIGH))
     {
         piezas = 0;
         Serial.println("RESET: caja nueva");

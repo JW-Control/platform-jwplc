@@ -16,6 +16,10 @@ public:
 
     bool ready() const;
     uint32_t lastScanMs() const;
+
+    // Escribe Q0_0..Q0_7 de una vez (bit 0 = Q0_0). Equivale a
+    // JWPLC_writeOutputs(bits), con la forma objeto.funcion() del package.
+    void setOutputs(uint8_t bits) const;
 };
 
 class JWPLC_TimeView

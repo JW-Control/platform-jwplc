@@ -24,7 +24,8 @@ static bool tecla(uint8_t id)
     return JWPLC_Buttons.pressed(id);
 }
 
-static void ponerTexto(char *destino, size_t tam, const char *texto)
+// Copia un texto en una variable TEXT del HMI (arreglo char) sin pasarse de su tamaño.
+static void ponerTexto(char destino[], size_t tam, const char texto[])
 {
     strncpy(destino, texto, tam - 1);
     destino[tam - 1] = '\0';
@@ -49,7 +50,7 @@ static uint32_t aleatorio(uint32_t minimo, uint32_t maximo)
 
 struct Receta
 {
-    const char *nombre;
+    char nombre[16];
     uint16_t temperatura; // °C
     uint32_t segundos;
 };
@@ -68,7 +69,7 @@ static uint32_t ultimoSegundo = 0;
 
 static void mostrarReceta()
 {
-    const Receta &r = RECETAS[recetaIdx];
+    const Receta r = RECETAS[recetaIdx];
     recetaNum = recetaIdx + 1;
     ponerTexto(receta, sizeof(receta), r.nombre);
     recetaTemp = r.temperatura;
@@ -143,7 +144,7 @@ static void mostrarTrofeo(bool visible)
 
 // uint8_t y no EstadoJuego: el IDE de Arduino coloca los prototipos de las
 // funciones antes que el enum y no compilaría.
-static void terminar(uint8_t estado, const char *texto)
+static void terminar(uint8_t estado, const char texto[])
 {
     juego = (EstadoJuego)estado;
     luz = false;
@@ -223,7 +224,7 @@ static uint32_t motorUltimo = 0;
 
 static void mostrarPaso()
 {
-    static const char *const TEXTOS[] = {"x1", "x10", "x100"};
+    static const char TEXTOS[][5] = {"x1", "x10", "x100"};
     ponerTexto(paso, sizeof(paso), TEXTOS[pasoIdx]);
 }
 
@@ -265,10 +266,9 @@ static void logicaMotor(uint32_t ahora)
 
 static void logicaMenu()
 {
-    uint8_t nodo;
-    if (!JWPLC_Display.menuChanged(MENU_AJUSTES, &nodo))
+    if (!JWPLC_Display.menuChanged(MENU_AJUSTES))
         return;
-    if (nodo == MENU_AJUSTES_BORRAR_RECORD && borrarRecord)
+    if (JWPLC_Display.menuNode() == MENU_AJUSTES_BORRAR_RECORD && borrarRecord)
     {
         record = 0;
         tiempoReaccion = 0;

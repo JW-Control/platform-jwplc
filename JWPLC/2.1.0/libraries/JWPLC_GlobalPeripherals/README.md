@@ -113,6 +113,8 @@ bool q0 = JWPLC_IO.output(0);
 
 uint8_t entradas = JWPLC_IO.inputs();
 uint8_t salidas = JWPLC_IO.outputs();
+
+JWPLC_IO.setOutputs(entradas);   // escribe Q0_0..Q0_7 de una vez (alpha.17)
 ```
 
 Los índices válidos de `input()` y `output()` para JWPLC Basic son `0..7`.
@@ -384,6 +386,7 @@ administrados por el JWPLC Basic y no deben reconfigurarse en un sketch normal.
 | `output(index)` | `bool` | Estado de una salida 0..7 |
 | `ready()` | `bool` | Indica si el snapshot de I/O está disponible |
 | `lastScanMs()` | `uint32_t` | Momento del último scan registrado |
+| `setOutputs(bits)` | — | Escribe Q0_0..Q0_7 de una vez, bit 0 = Q0_0 (alpha.17; equivale a `JWPLC_writeOutputs()`) |
 
 ### JWPLC_Time — Básico / Intermedio
 

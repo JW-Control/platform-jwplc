@@ -37,12 +37,9 @@ que empiece tu `setup()`.
 
 Por eso, en un sketch normal **no debes llamar `JWPLC_TFT.begin()`**.
 
-Si usas `JWPLC_Display`, puedes obtener el mismo objeto gráfico con:
-
-```cpp
-auto &tft =
-    JWPLC_Display.tft();
-```
+Con `JWPLC_Display` se dibuja con este mismo objeto, `JWPLC_TFT`, dentro de los
+callbacks `jwplcUIEnter()`/`jwplcUIUpdate()`. (`JWPLC_Display.tft()` devuelve
+el mismo objeto; no hace falta usarlo.)
 
 ## Inicio rápido
 
@@ -720,13 +717,9 @@ antes de calcular layouts dinámicos.
 
 ### Acceso desde JWPLC_Display
 
-```cpp
-auto &tft =
-    JWPLC_Display.tft();
-```
-
-Es el camino recomendado cuando tu aplicación ya usa `JWPLC_Display` y sólo
-necesita algunas primitivas gráficas adicionales.
+Con `JWPLC_Display` se usa el mismo objeto global `JWPLC_TFT` dentro de sus
+callbacks; `JWPLC_Display.tft()` devuelve ese objeto y queda solo por
+compatibilidad.
 
 ### Colores personalizados
 
@@ -750,7 +743,7 @@ FreeRTOS tiene el control del SPI. Esto evita que dos tareas crean
 simultáneamente que poseen una operación gráfica pendiente.
 
 Los ejemplos y las funciones de dibujo continúan igual. Para una pantalla
-de aplicación usa normalmente `JWPLC_Display.tft()` y evita dibujar
+de aplicación usa normalmente `JWPLC_TFT` y evita dibujar
 desde varios tasks sin coordinar sus accesos. El backend y los pines
 físicos siguen administrados por el package.
 
@@ -770,19 +763,9 @@ auto &tft =
     JWPLC_Display.display();
 ```
 
-Para código nuevo se recomienda:
-
-```cpp
-JWPLC_Display.tft();
-```
-
-Código antiguo que esperaba explícitamente otro tipo gráfico debe migrar a
-`JWPLC_TFTClass&` o, preferiblemente:
-
-```cpp
-auto &tft =
-    JWPLC_Display.tft();
-```
+Para código nuevo se recomienda dibujar con el objeto global `JWPLC_TFT`
+(`JWPLC_TFT.fillRect(...)`, `JWPLC_TFT.print(...)`), sin `::`, `*` ni `&` en el
+sketch. Código antiguo con `auto &tft = JWPLC_Display.tft();` sigue compilando.
 
 ## Novedades de 0.4.0 y 0.5.0 (2.1.0-alpha.16)
 

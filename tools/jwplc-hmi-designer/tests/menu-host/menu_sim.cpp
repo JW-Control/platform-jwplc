@@ -241,6 +241,7 @@ int main(int argc, char **argv)
     uint8_t changedNode = 0xFF;
     check(JWPLCUI::menuChanged(0, &changedNode) && changedNode == N_CONSIGNA, "menuChanged informa el nodo editado");
     check(!JWPLCUI::menuChanged(0, &changedNode), "menuChanged se consume");
+    check(JWPLCUI::menuNode() == N_CONSIGNA, "menuNode() recuerda el último nodo editado (alpha.17)");
     key(BTN_OK);
     key(BTN_DOWN, 200);
     key(BTN_OK);

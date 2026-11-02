@@ -45,6 +45,8 @@ namespace
 
     MenuRuntime g_menus[JWPLC_UI_MENU_MAX_MENUS];
     uint8_t g_menuCount = 0;
+    // Nodo del último menuChanged() que devolvió true (alpha.17, menuNode()).
+    uint8_t g_lastMenuNode = 0;
 
     // ------------------------------------------------------------------
     // Árbol
@@ -926,12 +928,18 @@ namespace JWPLCUI
                 continue;
             if (m.changedNode == 0)
                 return false;
+            g_lastMenuNode = (uint8_t)(m.changedNode - 1);
             if (nodeIndex != nullptr)
-                *nodeIndex = (uint8_t)(m.changedNode - 1);
+                *nodeIndex = g_lastMenuNode;
             m.changedNode = 0;
             return true;
         }
         return false;
+    }
+
+    uint8_t menuNode()
+    {
+        return g_lastMenuNode;
     }
 
     bool menuEditing()
@@ -963,6 +971,11 @@ size_t JWPLC_DisplayClass::menuCount() const
 bool JWPLC_DisplayClass::menuChanged(uint8_t menuId, uint8_t *nodeIndex)
 {
     return JWPLCUI::menuChanged(menuId, nodeIndex);
+}
+
+uint8_t JWPLC_DisplayClass::menuNode() const
+{
+    return JWPLCUI::menuNode();
 }
 
 bool JWPLC_DisplayClass::menuEditing() const

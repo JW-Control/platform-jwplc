@@ -1,14 +1,11 @@
 /*
   Display_UserUI_Callbacks
 
-  Ejemplo de pantalla USER usando los callbacks cortos actuales y
-  JWPLC_Display.tft().
+  Pantalla USER dibujada con los callbacks del Display y el objeto
+  JWPLC_TFT (dibujo directo, colores JWPLC_TFT_*).
 
-  Este ejemplo sí incluye JWPLC_Display.h porque usa dibujo directo con
-  JWPLC_TFTClass y constantes de color JWPLC_TFT_*.
-
-  Valida:
-  - JWPLC_Display.tft()
+  Muestra:
+  - JWPLC_TFT.fillRect() / .setCursor() / .print()
   - jwplcUIEnter()
   - jwplcUIUpdate()
   - jwplcUIExit()
@@ -21,46 +18,42 @@ unsigned long lastSerialMs = 0;
 
 static void drawDynamicValues(unsigned long now)
 {
-    auto &tft = JWPLC_Display.tft();
-
     // Redibujar solo la zona que cambia.
-    tft.fillRect(10, 100, 250, 45, JWPLC_TFT_BLACK);
+    JWPLC_TFT.fillRect(10, 100, 250, 45, JWPLC_TFT_BLACK);
 
-    tft.setTextColor(JWPLC_TFT_WHITE);
-    tft.setTextSize(1);
+    JWPLC_TFT.setTextColor(JWPLC_TFT_WHITE);
+    JWPLC_TFT.setTextSize(1);
 
-    tft.setCursor(10, 100);
-    tft.print("Refresh: ");
-    tft.print(refreshCounter);
+    JWPLC_TFT.setCursor(10, 100);
+    JWPLC_TFT.print("Refresh: ");
+    JWPLC_TFT.print(refreshCounter);
 
-    tft.setCursor(10, 116);
-    tft.print("Millis: ");
-    tft.print(now);
+    JWPLC_TFT.setCursor(10, 116);
+    JWPLC_TFT.print("Millis: ");
+    JWPLC_TFT.print(now);
 
-    tft.setCursor(10, 132);
-    tft.print("Retorna a IDLE en 8s");
+    JWPLC_TFT.setCursor(10, 132);
+    JWPLC_TFT.print("Retorna a IDLE en 8s");
 }
 
 extern "C" void jwplcUIEnter()
 {
     refreshCounter = 0;
 
-    auto &tft = JWPLC_Display.tft();
+    JWPLC_TFT.fillScreen(JWPLC_TFT_BLACK);
 
-    tft.fillScreen(JWPLC_TFT_BLACK);
+    JWPLC_TFT.setTextColor(JWPLC_TFT_CYAN);
+    JWPLC_TFT.setTextSize(2);
+    JWPLC_TFT.setCursor(10, 20);
+    JWPLC_TFT.print("USER DOT API");
 
-    tft.setTextColor(JWPLC_TFT_CYAN);
-    tft.setTextSize(2);
-    tft.setCursor(10, 20);
-    tft.print("USER DOT API");
+    JWPLC_TFT.setTextColor(JWPLC_TFT_WHITE);
+    JWPLC_TFT.setTextSize(1);
+    JWPLC_TFT.setCursor(10, 55);
+    JWPLC_TFT.print("Dibujando con:");
 
-    tft.setTextColor(JWPLC_TFT_WHITE);
-    tft.setTextSize(1);
-    tft.setCursor(10, 55);
-    tft.print("Dibujando con:");
-
-    tft.setCursor(10, 70);
-    tft.print("JWPLC_Display.tft()");
+    JWPLC_TFT.setCursor(10, 70);
+    JWPLC_TFT.print("JWPLC_TFT");
 
     // Mostrar inmediatamente la región dinámica; no esperar al primer tick.
     drawDynamicValues(millis());

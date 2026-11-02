@@ -107,38 +107,36 @@ extern "C" void jwplcUIEnter()
 {
     userCounter = 0;
 
-    auto &tft = JWPLC_Display.tft();
+    JWPLC_TFT.fillScreen(JWPLC_TFT_BLACK);
+    JWPLC_TFT.setTextWrap(false);
 
-    tft.fillScreen(JWPLC_TFT_BLACK);
-    tft.setTextWrap(false);
+    JWPLC_TFT.setTextSize(2);
+    JWPLC_TFT.setTextColor(JWPLC_TFT_CYAN, JWPLC_TFT_BLACK);
+    JWPLC_TFT.setCursor(10, 12);
+    JWPLC_TFT.print("USER MODE");
 
-    tft.setTextSize(2);
-    tft.setTextColor(JWPLC_TFT_CYAN, JWPLC_TFT_BLACK);
-    tft.setCursor(10, 12);
-    tft.print("USER MODE");
+    JWPLC_TFT.setTextSize(1);
+    JWPLC_TFT.setTextColor(JWPLC_TFT_WHITE, JWPLC_TFT_BLACK);
 
-    tft.setTextSize(1);
-    tft.setTextColor(JWPLC_TFT_WHITE, JWPLC_TFT_BLACK);
+    JWPLC_TFT.setCursor(10, 50);
+    JWPLC_TFT.print("Modo:");
 
-    tft.setCursor(10, 50);
-    tft.print("Modo:");
+    JWPLC_TFT.setCursor(10, 80);
+    JWPLC_TFT.print("Counter:");
 
-    tft.setCursor(10, 80);
-    tft.print("Counter:");
-
-    tft.setCursor(10, 120);
+    JWPLC_TFT.setCursor(10, 120);
 
     if (CURRENT_MODE == IDLE_RETURN_TIMEOUT)
     {
-        tft.print("Vuelve por timeout.");
+        JWPLC_TFT.print("Vuelve por timeout.");
     }
     else if (CURRENT_MODE == IDLE_RETURN_ESC_ONLY)
     {
-        tft.print("Vuelve solo con ESC.");
+        JWPLC_TFT.print("Vuelve solo con ESC.");
     }
     else if (CURRENT_MODE == IDLE_RETURN_DISABLED)
     {
-        tft.print("Vuelve con goIdle().");
+        JWPLC_TFT.print("Vuelve con goIdle().");
     }
 }
 
@@ -146,31 +144,29 @@ extern "C" void jwplcUIUpdate()
 {
     userCounter++;
 
-    auto &tft = JWPLC_Display.tft();
+    JWPLC_TFT.setTextSize(1);
 
-    tft.setTextSize(1);
-
-    tft.fillRect(80, 50, 220, 16, JWPLC_TFT_BLACK);
-    tft.setCursor(80, 50);
-    tft.setTextColor(JWPLC_TFT_GREEN, JWPLC_TFT_BLACK);
+    JWPLC_TFT.fillRect(80, 50, 220, 16, JWPLC_TFT_BLACK);
+    JWPLC_TFT.setCursor(80, 50);
+    JWPLC_TFT.setTextColor(JWPLC_TFT_GREEN, JWPLC_TFT_BLACK);
 
     if (CURRENT_MODE == IDLE_RETURN_TIMEOUT)
     {
-        tft.print("IDLE_RETURN_TIMEOUT");
+        JWPLC_TFT.print("IDLE_RETURN_TIMEOUT");
     }
     else if (CURRENT_MODE == IDLE_RETURN_ESC_ONLY)
     {
-        tft.print("IDLE_RETURN_ESC_ONLY");
+        JWPLC_TFT.print("IDLE_RETURN_ESC_ONLY");
     }
     else if (CURRENT_MODE == IDLE_RETURN_DISABLED)
     {
-        tft.print("IDLE_RETURN_DISABLED");
+        JWPLC_TFT.print("IDLE_RETURN_DISABLED");
     }
 
-    tft.fillRect(80, 80, 120, 16, JWPLC_TFT_BLACK);
-    tft.setCursor(80, 80);
-    tft.setTextColor(JWPLC_TFT_WHITE, JWPLC_TFT_BLACK);
-    tft.print(userCounter);
+    JWPLC_TFT.fillRect(80, 80, 120, 16, JWPLC_TFT_BLACK);
+    JWPLC_TFT.setCursor(80, 80);
+    JWPLC_TFT.setTextColor(JWPLC_TFT_WHITE, JWPLC_TFT_BLACK);
+    JWPLC_TFT.print(userCounter);
 }
 
 extern "C" void jwplcUIExit()

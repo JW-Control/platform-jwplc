@@ -47,14 +47,20 @@ void actualizarHMI()
         JWPLC_Display.setRunLed(run);
     }
 
-    static const char *errAnterior = "";
-    const char *err = textoAlarmaPrincipal();
-    if (strcmp(err, errAnterior) != 0)
+    static uint8_t alarmaAnterior = ALM_CANTIDAD;
+    const uint8_t alarma = alarmaPrincipal();
+    if (alarma != alarmaAnterior)
     {
-        errAnterior = err;
-        JWPLC_Display.setErrCode(err);
-        if (err[0] != '\0')
+        alarmaAnterior = alarma;
+        if (alarma < ALM_CANTIDAD)
+        {
+            JWPLC_Display.setErrCode(TEXTO_ALARMA[alarma]);
             JWPLC_Buzzer.beep(); // aviso corto al aparecer una alarma
+        }
+        else
+        {
+            JWPLC_Display.setErrCode("");
+        }
     }
 
     if (JWPLC_Buttons.pressed(BTN_ESC))

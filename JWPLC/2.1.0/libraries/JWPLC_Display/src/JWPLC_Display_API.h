@@ -89,11 +89,17 @@ public:
     size_t fieldCount() const;
 
     // MENU declarativo (ver JWPLC_UI_Menu.h). menuChanged() devuelve true una
-    // vez por cada valor confirmado con OK; nodeIndex = índice del nodo.
+    // vez por cada valor confirmado con OK; menuNode() dice qué nodo fue:
+    //   if (JWPLC_Display.menuChanged(MENU_AJUSTES))
+    //   {
+    //       if (JWPLC_Display.menuNode() == NODO_SETPOINT) { ... }
+    //   }
+    // (La forma vieja con puntero, menuChanged(MENU, &nodo), sigue valiendo.)
     bool setMenus(const JWPLC_UIMenu *menus, size_t count);
     void clearMenus();
     size_t menuCount() const;
     bool menuChanged(uint8_t menuId, uint8_t *nodeIndex = nullptr);
+    uint8_t menuNode() const;
     bool menuEditing() const;
 
     // PixelMaps estáticos agrupados por página.

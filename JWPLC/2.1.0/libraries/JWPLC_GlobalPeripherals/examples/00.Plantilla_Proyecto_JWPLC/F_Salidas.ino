@@ -9,7 +9,7 @@
 void salidasApagarTodo()
 {
     imagenSalidas = 0x00;
-    JWPLC_writeOutputs(imagenSalidas);
+    JWPLC_IO.setOutputs(imagenSalidas);
 }
 
 void escribirSalidas()
@@ -26,6 +26,6 @@ void escribirSalidas()
     if (nueva != imagenSalidas)
     {
         imagenSalidas = nueva;
-        JWPLC_writeOutputs(imagenSalidas);
+        JWPLC_IO.setOutputs(imagenSalidas);
     }
 }

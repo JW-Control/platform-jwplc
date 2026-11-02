@@ -860,10 +860,10 @@ void setup()
 
 void loop()
 {
-    uint8_t nodo = 0;
-    if (JWPLC_Display.menuChanged(0, &nodo))
+    if (JWPLC_Display.menuChanged(0))
     {
-        // el operador confirmó un valor nuevo en el nodo «nodo»
+        // el operador confirmó un valor nuevo; JWPLC_Display.menuNode() dice en qué nodo
+        uint8_t nodo = JWPLC_Display.menuNode();
     }
 }
 ```
@@ -1209,11 +1209,12 @@ extern "C" void jwplcUIUpdate();
 extern "C" void jwplcUIExit();
 ```
 
-Dentro de esos callbacks puedes acceder a la TFT:
+Dentro de esos callbacks se dibuja con el objeto global `JWPLC_TFT`:
 
 ```cpp
-auto &tft =
-    JWPLC_Display.tft();
+JWPLC_TFT.fillRect(10, 40, 120, 20, JWPLC_TFT_BLACK);
+JWPLC_TFT.setCursor(10, 40);
+JWPLC_TFT.print("Hola");
 ```
 
 - `jwplcUIEnter()`: dibujar/inicializar al entrar a USER.
@@ -1250,12 +1251,8 @@ auto &tft =
     JWPLC_Display.display();
 ```
 
-Para código nuevo se recomienda:
-
-```cpp
-auto &tft =
-    JWPLC_Display.tft();
-```
+Para código nuevo se recomienda dibujar con el objeto global `JWPLC_TFT`
+(`JWPLC_TFT.fillRect(...)`, `JWPLC_TFT.print(...)`), sin `::`, `*` ni `&` en el sketch.
 
 La API histórica `JWPLCDisplay::` continúa existiendo para sketches antiguos,
 pero no debe enseñarse como camino principal.
@@ -1272,13 +1269,8 @@ bool err =
 Para código nuevo se recomienda `setErrCode()`, porque permite representar
 un error identificable.
 
-El tipo gráfico público actual es `JWPLC_TFTClass&`. Código antiguo que
-declaraba explícitamente otro tipo gráfico debe migrarse a:
-
-```cpp
-auto &tft =
-    JWPLC_Display.tft();
-```
+Código antiguo que tomaba una referencia (`auto &tft = JWPLC_Display.tft();`)
+sigue compilando, pero se migra a usar `JWPLC_TFT` directamente.
 
 ## Novedades de 2.1.0-alpha.16
 

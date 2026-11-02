@@ -73,8 +73,9 @@ console.log('VARIOS MENU');
 const twoMenus = ['A', 'B'].map((id) => `// Nodos de MENU_${id}: x\nenum : uint8_t\n{\n    MENU_${id}_X = 0,\n};\n` +
   `static const JWPLC_UIMenuNode HMI_MENU_${id}_NODES[] =\n{\n    JWPLC_UIMenuEditBool(JWPLC_UI_MENU_ROOT, "X", &x${id}, "NO", "SI")\n};\n`).join('\n');
 const base = guide.baseSketch(`// Variables HMI\n// MENU A\nbool xA = false;\n// MENU B\nbool xB = false;\n\n${twoMenus}`);
-check((base.match(/uint8_t nodo;/g) || []).length === 1 && (base.match(/menuChanged\(/g) || []).length === 2,
-  'dos MENU: una sola declaración de «nodo» y un menuChanged() por MENU');
+check(!/&nodo|uint8_t nodo/.test(base) && (base.match(/menuChanged\(MENU_[AB]\)/g) || []).length === 2 &&
+  (base.match(/switch \(JWPLC_Display\.menuNode\(\)\)/g) || []).length === 2,
+  'dos MENU: menuChanged(MENU) + menuNode() por MENU, sin «&nodo» (regla del «.»)');
 
 console.log(failures ? `\n${failures} verificación(es) fallaron.` : '\nTodas las verificaciones pasaron.');
 process.exit(failures ? 1 : 0);
