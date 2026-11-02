@@ -40,12 +40,12 @@ Todos dibujan con el objeto `JWPLC_TFT` (sin `::`, `*` ni `&` en el sketch).
 ## Demos
 
 ```text
-Display_FlappyBird
-Display_Tetris
+15.Display_FlappyBird
+16.Display_Tetris
 ```
 
 En 2.1.0-alpha.17 `Display_DotAPI_Minimal` se retiró (los LED RUN/ERR/BUS/ETH están en `01`) y los avanzados se
-numeraron del 10 al 14.
+numeraron del 10 al 14; las demos de juegos quedaron como 15 y 16.
 
 Por defecto el wake USER es seguro (`IDLE_WAKE_DISABLED`). Los ejemplos que esperan entrada automática a USER configuran explícitamente su botón/modo de wake.
 
@@ -58,4 +58,4 @@ El periodo IDLE no debe endurecerse en un ejemplo salvo que sea parte de lo que 
 El gate de banco HMI + botonera (antes `Display_Alpha8_HMI_Gate`) está en `tools/display-gates/`, fuera de los
 ejemplos.
 
-`Display_Tetris` y `Display_FlappyBird` son además gates físicos útiles para validar `jwplcUIUpdate()`, botonera, dibujo directo y audio no bloqueante mientras el `loop()` principal permanece operativo.
+`16.Display_Tetris` y `15.Display_FlappyBird` son además gates físicos útiles para validar `jwplcUIUpdate()`, botonera, dibujo directo y audio no bloqueante mientras el `loop()` principal permanece operativo.

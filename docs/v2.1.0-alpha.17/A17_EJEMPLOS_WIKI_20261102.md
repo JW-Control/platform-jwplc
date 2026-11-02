@@ -1,7 +1,7 @@
 # A17 · Ejemplos listos para la Wiki del JWPLC (02/11/2026)
 
 Revisión de los ejemplos que quedan tras la limpieza (PR #225), con la API con «.» (PR #224) y los JW_* de
-JW-Libraries PR #7. Fuera de alcance: `JWPLC_LogicRuntime*` (decisión pendiente).
+JW-Libraries PR #7. `JWPLC_LogicRuntime*` se borró en #225. Los juegos quedan como `15.Display_FlappyBird` y `16.Display_Tetris`.
 
 ```text
 A17_EJEMPLOS_WIKI=IN_PROGRESS   (falta «Qué mirar» en 64 sketches JWPLC_*; se hace tras fusionar #224/#225)
@@ -24,7 +24,7 @@ Un ejemplo sirve para una página de la Wiki si cumple las seis:
 | Librería | Ejemplos | 1 | 2 | 3 | 4 | 5 | 6 |
 |---|---|---|---|---|---|---|---|
 | GlobalPeripherals (plantilla + 7 + curso 11) | 19 | ✅ | ✅ #224 | 🔧 qué mirar | ✅ | ✅ | ✅ |
-| Display | 14 + 2 juegos | ✅ #225 | ✅ #224 | 🔧 qué mirar; 05 solo README | ✅ | ✅ | ✅ |
+| Display | 16 (incluye 2 juegos) | ✅ #225 | ✅ #224 | 🔧 qué mirar; 05 solo README | ✅ | ✅ | ✅ |
 | Ethernet | 3 | ✅ | ✅ | 🔧 qué mirar | ✅ | ✅ | ✅ |
 | RS485 | 4 | ✅ #225 | ✅ | 🔧 qué mirar | ✅ | ✅ | ✅ |
 | ModbusRTU | 3 | ✅ | ✅ #224 | 🔧 qué mirar | ✅ | ✅ | ✅ |
@@ -44,7 +44,6 @@ qué hace y qué conectar, pero no dicen qué mirar.
 | Línea «Qué mirar» en los 64 sketches `JWPLC_*` y encabezado corto en `05.HMI_Plantilla_Caldera.ino` | feature `ejemplos-wiki` tras fusionar #224 y #225 (tocan los mismos archivos) |
 | Numerar `Expansion_Esclavo_Basic`, `Runtime_*`, `Widgets_*` (`01.`…) | misma feature; requiere copiar sus pruebas en jwplc-sim, como #16 |
 | Ejemplos nuevos `08.RTC_Ajustar_Hora` y `09.Botones_Eventos` | tras el sync de JW-Libraries #7 al package |
-| `Display_FlappyBird` / `Display_Tetris` | decisión del propietario |
 
 ## 4. Plantilla de encabezado
 

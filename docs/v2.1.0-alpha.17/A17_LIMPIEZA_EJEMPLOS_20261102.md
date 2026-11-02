@@ -5,7 +5,7 @@ Base de la propuesta: `/mnt/project-files/sim-alpha17/EJEMPLOS_QUE_QUEDAN.md` y
 `A17_ANALISIS_API_EJEMPLOS_20261102.md`. **Cada grupo de borrados espera el OK del propietario.**
 
 ```text
-A17_LIMPIEZA_EJEMPLOS=IN_PROGRESS   (falta OK por grupo + tests/pin de jwplc-sim)
+A17_LIMPIEZA_EJEMPLOS=IN_PROGRESS   (OK del propietario 02/11; falta fusionar jwplc-sim #16 y subir el pin)
 ```
 
 ## 1. Renombres (se conserva el código; cambia carpeta, `.ino` y la línea 2 del encabezado)
@@ -19,8 +19,10 @@ A17_LIMPIEZA_EJEMPLOS=IN_PROGRESS   (falta OK por grupo + tests/pin de jwplc-sim
 | Display | `Display_Idle_Return_Modes` | `13.Display_Idle_Return_Modes` | Ídem. |
 | Display | `Display_UserUI_Callbacks` | `14.Display_UserUI_Callbacks` | Ídem. |
 | RS485 | `RS485_USB_Bridge` | `04.RS485_Puente_USB` | Único puente USB↔RS-485 que queda. |
+| Display | `Display_FlappyBird` | `15.Display_FlappyBird` | Demo que se mantiene (propietario, 02/11). |
+| Display | `Display_Tetris` | `16.Display_Tetris` | Ídem. |
 
-## 2. Borrados (28)
+## 2. Ejemplos borrados (28)
 
 | Grupo | Ejemplos | Motivo |
 |---|---|---|
@@ -38,11 +40,13 @@ A17_LIMPIEZA_EJEMPLOS=IN_PROGRESS   (falta OK por grupo + tests/pin de jwplc-sim
 
 Los borrados quedan en el historial de git (último SHA con ellos: `d007b44`).
 
-## 3. Pendiente de decisión del propietario (no se tocan en este PR)
+## 3. Librerías borradas (propietario, 02/11: «el runtime anterior elimínalo»)
 
-- `Display_FlappyBird` y `Display_Tetris`: demos de juegos. ¿Quedan como `15/16` o se borran?
-- `JWPLC_LogicRuntime` (27) y `JWPLC_LogicRuntime_UI` (6): motor v1/v2 anterior. Opciones: borrar la
-  librería o solo ocultarla de la lista del Sim hasta validar `JWPLC_Runtime` en placa.
+- `JWPLC_LogicRuntime` (27 ejemplos) y `JWPLC_LogicRuntime_UI` (6): motor v1/v2 anterior. El runtime vigente es
+  `JWPLC_Runtime`. Ningún otro código del package las incluye `[visto]`; las referencias en `tools/alpha12` y
+  `tools/alpha13` son gates históricos y no se tocan. `CLAUDE.md` §1 actualizado.
+- En jwplc-sim (PR #16), `gate-g4-nvs`, `e2e-g4` y `diag-windows-crash` solo usan esos ejemplos si el package
+  fijado los trae; `sim/package-parity.json` se regenera con `parity --update` al subir el pin.
 
 ## 4. Efectos
 
