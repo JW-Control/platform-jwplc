@@ -158,6 +158,6 @@ jobs:
   # árbol del PR: avisa de una regresión simulada antes de llegar a publicar.
   sim-regression:
     name: SIM_REGRESSION (JWPLC Sim)
-    uses: JW-Control/jwplc-sim/.github/workflows/sim-regression.yml@19a1a40d576563da8297dd93243db6a9bd5f1206
+    uses: JW-Control/jwplc-sim/.github/workflows/sim-regression.yml@a81f302e590b134bb77eeb3c48752917926c5691
     with:
-      sim_ref: 19a1a40d576563da8297dd93243db6a9bd5f1206
+      sim_ref: a81f302e590b134bb77eeb3c48752917926c5691

@@ -1,15 +1,16 @@
 # v2.1.0-alpha.16 — JWPLC Sim: estado vivo
 
-Actualizado: `2026-11-02` (feria: pantalla web, página HMI del Runtime y editor 4.2.8-jwplc.9)
+Actualizado: `2026-11-02` (cierre: `.a` regenerados, matriz y ejemplos ESP32 138/138, notas de publicación)
 
 ## 1. Ramas y sincronización
 
 | Repo | Rol | Rama | SHA / estado |
 |---|---|---|---|
-| platform-jwplc | Base de la línea (`…/main`) | `v2.1.0-alpha.16/JWPLC-Sim/main` | `da628bb` (#216) |
+| platform-jwplc | Base de la línea (`…/main`) | `v2.1.0-alpha.16/JWPLC-Sim/main` | `d850f40` (#217) |
+| platform-jwplc | Feature de cierre | `v2.1.0-alpha.16/JWPLC-Sim/feature/cierre-alpha16` | PR hacia `…/main` |
 | openplc-editor | Base de la línea (`…/main`) | `v2.1.0-alpha.16/JWPLC-Sim/main` | `2ef069b` (#11), prerelease `4.2.8-jwplc.9` |
 | openplc-editor | Designer / VPP empaquetados | `PLATFORM_DESIGNER_SHA` = `PLATFORM_VPP_SHA` | platform `94edd7d` (Designer y VPP 2.1.0-alpha.16) |
-| jwplc-sim | Simulador | `claude/jwplc-basic-simulator-8dgcen` | PR #9 (`a749024`); `package.lock` → `…/main` `da628bb` |
+| jwplc-sim | Simulador | rama por defecto | `a81f302` (#10, `package.lock` → `da628bb`); fijado en `sim-regression` de los dos workflows |
 
 Ramas de Kenyi con el nombre viejo, contenidas en `…/main` (se borran cuando él confirme):
 `v2.1.0-alpha.16/OpenPLC-HMI/feature/modo-claro-designer` @ `1817838` y
@@ -41,10 +42,13 @@ Ramas de Kenyi con el nombre viejo, contenidas en `…/main` (se borran cuando �
 
 Editor (02/11): #11 `…/feature/editor-jwplc9` → `2ef069b`, con el panel lateral HMI de Kenyi (`3531f31`).
 
-## 3. Librerías en modo fuente (regenerar `.a` al cierre)
+## 3. Librerías precompiladas y en fuente
 
-`JWPLC_TFT` 0.5.0 (incluye TFT_eSPI), `JWPLC_Display` 1.1.0, `JWPLC_UI_Widgets` 0.5.0, `JWPLC_Runtime` 0.2.0,
-`JWPLC_Expansion` 0.1.0, `JWPLC_WebScreen` 0.1.0 y `JW_MatrixButtons` 1.0.6 (teclas virtuales). Al cierre: regenerar sus `.a` y benchmark de compilación en la PC del propietario.
+Regeneradas al cierre y de vuelta en `precompiled=full`: `JWPLC_TFT` 0.5.0 (incluye TFT_eSPI), `JWPLC_Display`
+1.1.0 y `JW_MatrixButtons` 1.0.6, ABI compatible con alpha.15
+([A16_CIERRE_PRECOMPILADAS_20261102.md](A16_CIERRE_PRECOMPILADAS_20261102.md), script
+`tools/alpha16/regenerate_precompiled.sh`). En fuente (nuevas): `JWPLC_UI_Widgets` 0.5.0, `JWPLC_Runtime` 0.2.0,
+`JWPLC_Expansion` 0.1.0 y `JWPLC_WebScreen` 0.1.0. Falta el benchmark de compilación en la PC del propietario.
 
 ## 4. Qué funciona en la máquina
 
@@ -69,32 +73,34 @@ cuando el propietario valide el MVP del Runtime en placa.
 
 ## 6. Evidencia vigente
 
-- Matriz completa de jwplc-sim sobre `ea4f349` (= árbol de `a0900c0`): 133/133 compilan, corren y pasan.
-- `JWSIM_PARITY` PASS sobre `…/main` y sobre esta feature.
-- jwplc-sim `tests/examples/JWPLC_Display`: 17/17 con los ejemplos 08 y 09 (se retiró la prueba de
-  `Display_Alpha8_HMI_Gate`, cuyo ejemplo ya no existe).
-- Suite del HMI Designer (`tests/run-all.cjs`): 18/18.
+- Cierre (02/11), árbol de la feature de cierre con los `.a` nuevos:
+  - matriz completa de jwplc-sim: 138 ejemplos; 138 compilan, corren y pasan su prueba;
+  - compilación ESP32 real (`jwplc_local:esp32:jwplcbasic`) de los 138 ejemplos `JWPLC_*`/`JW_*`: 138/138, sin
+    advertencias.
+- `JWSIM_PARITY` PASS sobre `…/main`.
+- Suite del HMI Designer (`tests/run-all.cjs`): 18/18 (Designer sin cambios desde `94edd7d`).
 - Pin TE de la TFT: no está libre en la placa v2.0; el corte de imagen (tearing) se acepta.
 
 ## 7. Plan de hitos y NEXT
 
-H1–H4 en [ALPHA16_PLAN.md](ALPHA16_PLAN.md). Runtime:
-[A16_RUNTIME_MVP_20261101.md](A16_RUNTIME_MVP_20261101.md) y
-[A16_RT2_EXPANSION_DISENO_20261101.md](A16_RT2_EXPANSION_DISENO_20261101.md).
+Hitos en [ALPHA16_PLAN.md](ALPHA16_PLAN.md): H1 y H2 PASS, H3 (`JWSIM_G6_SIMULATE_BUTTON`) DEFERRED, H4 con
+jwplc-sim `a81f302`. Notas de publicación: [PRE_RELEASE.md](PRE_RELEASE.md).
 
-1. Validación en placa del MVP, la página HMI del Runtime y la expansión con dos JWPLC Basic (propietario).
-2. Retirar `JWPLC_LogicRuntime`/`_UI` y actualizar `CLAUDE.md` tras el punto 1.
-3. Registrar la línea en `RAMAS_Y_TAGS.md` (hilo «Revisar orden de ramas alpha 16», espera OK).
-4. WiFi y vinculación del celular (F9), al final.
-5. Cierre: regenerar los `.a` de §3, matriz completa de jwplc-sim, benchmark en la PC del propietario.
+1. PR de cierre → `…/main`; luego `…/main` → `release/v2.1.x` (publica la Release, con OK del propietario).
+2. Tras publicar: fusionar el PR de índices hacia `main` con *merge commit* y avanzar `release/v2.1.x` a `main`;
+   en openplc-editor, `…/main` → `release/v2.1.x` (merge commit).
+3. Benchmark de compilación en la PC del propietario.
+4. Validación en placa del Runtime, su página HMI y la expansión; luego retirar `JWPLC_LogicRuntime`/`_UI`.
+5. WiFi y vinculación del celular (F9); botón «Simular» en el editor (H3), en la siguiente línea.
 
-`NEXT_GATE=RT_PLACA_MVP` · `HARDWARE=PENDIENTE_PROPIETARIO`
+`NEXT_GATE=PUBLICAR_ALPHA16` · `HARDWARE=PENDIENTE_PROPIETARIO`
 
 ## 8. Para retomar
 
 - Validación en el simulador: solo los ejemplos de lo que se toca; la matriz completa, al cierre.
 - Cada ejemplo nuevo del package lleva su `.jwtest.json` en jwplc-sim.
-- El proxy de la nube no deja borrar ramas remotas ni compilar ESP32: lo hace el propietario.
+- El proxy de la nube no deja borrar ramas remotas: lo hace el propietario. Compilar ESP32 sí se puede
+  (receta en `A16_CIERRE_PRECOMPILADAS_20261102.md` §5).
 - El proxy tampoco deja crear tags: el de `jwplc-editor-v4.2.8-jwplc.N` lo crea el propietario.
 - Ramas fusionadas que el propietario borra: features #210–#216 de platform, `…/feature/editor-jwplc9` del
   editor y las de jwplc-sim #6–#9.

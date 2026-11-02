@@ -218,8 +218,9 @@ raw.githubusercontent.com y github.com releases):
 ```bash
 tools/alpha15/regenerate_libJWPLC_TFT.sh setup              # una vez: arduino-cli + tools + TFT_eSPI
 tools/alpha15/regenerate_libJWPLC_TFT.sh compile <sketch>    # compila con jwplc_local:esp32:jwplcbasic
-tools/alpha15/regenerate_libJWPLC_TFT.sh build [--install]   # regenera libJWPLC_TFT.a + chequeo ABI
-tools/alpha15/regenerate_libJWPLC_Display.sh build [--install]  # SÓLO al cierre: libJWPLC_Display.a + chequeo ABI
+tools/alpha15/regenerate_libJWPLC_TFT.sh build [--install]   # obsoleto desde alpha.16 (TFT_eSPI va en src/): usar tools/alpha16
+tools/alpha15/regenerate_libJWPLC_Display.sh build [--install]  # obsoleto desde alpha.16: usar tools/alpha16
+tools/alpha16/regenerate_precompiled.sh build [--install] [LIB...]  # SÓLO al cierre: .a de TFT/Display/MatrixButtons + ABI
 ```
 
 Los gates físicos (subir a la placa, mirar la TFT) los ejecuta el equipo en taller y se

@@ -32,3 +32,16 @@ Gates del simulador: `docs/GATES.md` de `jwplc-sim` (G6).
 Reglas del package que valen aquí: el VPP no se parchea desde el simulador; un
 cambio que el simulador necesite en el VPP o en el package entra por una feature
 de esta línea, con su PR hacia `…/main`.
+
+## Estado de los hitos al cierre (02/11/2026)
+
+```text
+H1 JWSIM_G6_LADDER_CHAIN=PASS          (jwplc-sim, 28/10)
+H2 JWSIM_G6_RELOAD_FROM_EDITOR=PASS    (jwplc-sim, 28/10)
+H3 JWSIM_G6_SIMULATE_BUTTON=DEFERRED   (pasa a la siguiente línea: el simulador se abre aparte)
+H4 SIM_REGRESSION fijado a jwplc-sim a81f302 en ci-jwplc-package-smoke.yml y release-jwplc-package.yml
+```
+
+La línea creció más allá del simulador (Runtime de panel, expansión, widgets, pantalla web, Designer y editor
+4.2.8-jwplc.9): lo que entró está en [ALPHA16_STATUS.md](ALPHA16_STATUS.md) §2 y las notas en
+[PRE_RELEASE.md](PRE_RELEASE.md).
