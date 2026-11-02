@@ -37,3 +37,4 @@ uint32_t jwplcMirrorRowVersion(uint16_t y);
 const uint8_t *jwplcMirrorRow(uint16_t y);
 uint16_t jwplcMirrorPaletteCount();
 uint16_t jwplcMirrorPaletteColor(uint16_t index);
+uint32_t jwplcMirrorWrites(); // crece con cada tramo escrito (para esperar a que termine un redibujo)
