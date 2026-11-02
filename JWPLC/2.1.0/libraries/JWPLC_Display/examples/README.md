@@ -25,16 +25,27 @@ Proyectos completos del HMI Designer listos para abrir, subir y modificar. Cada 
 
 Antes de modificar uno, **Archivo → Guardar como**: los ejemplos del package son de solo lectura.
 
-## Ejemplos avanzados
+## Dibujo directo y pantalla USER
+
+Todos dibujan con el objeto `JWPLC_TFT` (sin `::`, `*` ni `&` en el sketch).
 
 ```text
-Display_DotAPI_Minimal
-Display_Efficient_Redraw
-Display_FlappyBird
-Display_Idle_Return_Modes
-Display_Tetris
-Display_UserUI_Callbacks
+10.Display_Fuentes_Grandes     fuentes 16/26/7 segmentos, sin escalar la GLCD
+11.Display_Graficos_Sprite     API gráfica: figuras, arcos, sprites
+12.Display_Efficient_Redraw    redibujar solo lo que cambia
+13.Display_Idle_Return_Modes   tres formas de volver de USER a IDLE
+14.Display_UserUI_Callbacks    jwplcUIEnter/Update/Exit con retorno automático
 ```
+
+## Demos
+
+```text
+Display_FlappyBird
+Display_Tetris
+```
+
+En 2.1.0-alpha.17 `Display_DotAPI_Minimal` se retiró (los LED RUN/ERR/BUS/ETH están en `01`) y los avanzados se
+numeraron del 10 al 14.
 
 Por defecto el wake USER es seguro (`IDLE_WAKE_DISABLED`). Los ejemplos que esperan entrada automática a USER configuran explícitamente su botón/modo de wake.
 
