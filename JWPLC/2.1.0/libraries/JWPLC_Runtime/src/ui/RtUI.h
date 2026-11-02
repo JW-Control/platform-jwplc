@@ -54,6 +54,7 @@ Screen *current();
 
 // La UI pide volver a la pantalla RUN; la tarea llama goIdle() fuera del batch.
 bool takeIdleRequest();
+void requestIdle(); // como ESC en el menú raíz: vuelve a la pantalla RUN
 extern volatile bool editing; // editor abierto: no vuelve solo a RUN
 uint32_t lastKeyMs();
 
@@ -114,5 +115,15 @@ void openDiagMenu();
 
 // Editor FBD (monitor = solo ver).
 void openEditor(bool monitor);
+
+// ---------------------------------------------------------------- página HMI
+// Páginas del HMI Designer (proyecto «Runtime»), registradas con
+// JWPLC_Runtime.setHMI() desde el header generado (RtUIHMI.cpp).
+void setHMI(const JWPLC_UIField fields[], uint8_t count, uint8_t pages);
+bool hasHMI();
+uint8_t hmiPageCount();
+bool hmiActive();          // una página HMI está en pantalla
+void openHMI(uint8_t page); // encima de lo que haya (normalmente el menú raíz)
+void releaseHMI();         // quita los campos de JWPLC_Display
 
 } // namespace rtui
