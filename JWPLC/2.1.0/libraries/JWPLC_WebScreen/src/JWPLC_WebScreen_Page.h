@@ -2,9 +2,11 @@
 //
 // Protocolo con el equipo:
 //   GET /f?v=<versión>&p=<colores conocidos>  -> cuadro binario (little endian):
-//       "JWS1", u32 versión, u16 ancho, u16 alto, u16 desde, u16 n, n x u16 RGB565,
-//       filas { u16 y, pares (u8 largo-1, u8 índice) hasta completar el ancho },
-//       u16 0xFFFF al final.
+//       "JWS2", u32 versión, u16 ancho, u16 alto, u16 desde, u16 n, n x u16 RGB565,
+//       tramos { u16 y, u16 x, u16 ancho del tramo, pares (u8 largo-1, u8 índice)
+//       hasta completar el tramo }, u16 0xFFFF al final. Con v=0 cada tramo es la
+//       fila entera; después, solo las columnas que cambiaron.
+//       Un pedido por conexión (Connection: close).
 //       &w=1  espera larga: el equipo responde en cuanto cambia algo (máx. 400 ms).
 //       &e=<tecla><1|0>  tecla pulsada / suelta dentro de la misma petición.
 //   GET /k?b=<0..5>&d=<1|0>                    -> tecla virtual (compatibilidad).
@@ -14,6 +16,7 @@ static const char JWPLC_WEBSCREEN_PAGE[] = R"JWHTML(<!doctype html>
 <html lang="es"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>JWPLC Basic en vivo</title>
+<link rel="icon" href="data:,">
 <style>
 :root{--bg:#0d1117;--panel:#1b2230;--edge:#2c3648;--txt:#e6edf3;--dim:#8b98a9;--key:#2a3344;--keyon:#1f6feb;--ok:#2ea043;--bad:#da3633}
 *{box-sizing:border-box}
@@ -55,10 +58,10 @@ let W=320,H=170,img=g.createImageData(W,H),idx=new Uint8Array(W*H),pal=[],ver=0,
 function rgb(v){return[((v>>11)&31)*255/31|0,((v>>5)&63)*255/63|0,(v&31)*255/31|0]}
 function resize(w,h){W=w;H=h;c.width=w;c.height=h;img=g.createImageData(w,h);idx=new Uint8Array(w*h);ver=0}
 function paint(rows){const d=img.data;for(const y of rows){let o=y*W;for(let x=0;x<W;x++,o++){const p=pal[idx[o]]||[0,0,0],q=o*4;d[q]=p[0];d[q+1]=p[1];d[q+2]=p[2];d[q+3]=255}}g.putImageData(img,0,0)}
-function apply(b){const v=new DataView(b);if(b.byteLength<16||v.getUint32(0)!==0x4A575331)throw 0;let o=4;const nv=v.getUint32(o,true);o+=4;const w=v.getUint16(o,true),h=v.getUint16(o+2,true);o+=4;
+function apply(b){const v=new DataView(b);if(b.byteLength<16||v.getUint32(0)!==0x4A575332)throw 0;let o=4;const nv=v.getUint32(o,true);o+=4;const w=v.getUint16(o,true),h=v.getUint16(o+2,true);o+=4;
 if(w!==W||h!==H){resize(w,h);return}
 const from=v.getUint16(o,true),n=v.getUint16(o+2,true);o+=4;for(let i=0;i<n;i++){pal[from+i]=rgb(v.getUint16(o,true));o+=2}
-const rows=[];for(;;){const y=v.getUint16(o,true);o+=2;if(y===0xFFFF)break;let x=0,r=y*W;while(x<W){const len=v.getUint8(o)+1,ix=v.getUint8(o+1);o+=2;idx.fill(ix,r+x,r+x+len);x+=len}rows.push(y)}
+const rows=[];for(;;){const y=v.getUint16(o,true);o+=2;if(y===0xFFFF)break;let x=v.getUint16(o,true);const e=x+v.getUint16(o+2,true),r=y*W;o+=4;while(x<e){const len=v.getUint8(o)+1,ix=v.getUint8(o+1);o+=2;idx.fill(ix,r+x,r+x+len);x+=len}rows.push(y)}
 if(rows.length){paint(rows);frames++}ver=nv}
 // Una petición a la vez. Sin teclas pendientes, espera larga (w=1): el equipo
 // contesta en cuanto cambia la pantalla. Una tecla cancela esa espera y viaja
