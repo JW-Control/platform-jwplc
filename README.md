@@ -30,17 +30,6 @@ Requisitos: Windows 10/11 de 64 bits y el package **JWPLC 2.1.0-alpha.16** insta
 [OpenPLC Editor](https://github.com/JW-Control/openplc-editor/releases/tag/jwplc-editor-v4.2.8-jwplc.9) ·
 [HMI Designer](https://github.com/JW-Control/platform-jwplc/releases/tag/v2.1.0-alpha.16).
 
----|---|---|
-| **OpenPLC Editor – JWPLC Edition 4.2.8-jwplc.8** | [⬇ Instalador Windows x64](https://github.com/JW-Control/openplc-editor/releases/download/jwplc-editor-v4.2.8-jwplc.8/OpenPLC-Editor.exe) | Editor OpenPLC con el HMI Designer adentro |
-| **Paquete de placas JWPLC Basic (VPP) 2.1.0-alpha.15** | [⬇ VPP firmado](https://github.com/JW-Control/openplc-editor/releases/download/jwplc-editor-v4.2.8-jwplc.8/JWPLC-Basic.vpp) | Se importa en OpenPLC Editor: placa JWPLC BASIC y su Pantalla HMI |
-| **JWPLC HMI Designer 2.1.0-alpha.15** | [⬇ Instalador](https://github.com/JW-Control/platform-jwplc/releases/download/v2.1.0-alpha.15/HMI-Designer-Setup.exe) · [⬇ Portable](https://github.com/JW-Control/platform-jwplc/releases/download/v2.1.0-alpha.15/HMI-Designer-Portable.exe) | Solo para usarlo con sketches de Arduino IDE (en OpenPLC ya viene incluido) |
-
-Requisitos: Windows 10/11 de 64 bits y el package **JWPLC 2.1.0-alpha.15** (o 2.1.0-alpha.14) instalado (ver
-[Instalación](#instalación)). Los instaladores no tienen firma de código: si Windows SmartScreen avisa, pulsa
-**Más información → Ejecutar de todas formas**. Pasos completos y sumas SHA-256 en las notas de cada descarga:
-[OpenPLC Editor](https://github.com/JW-Control/openplc-editor/releases/tag/jwplc-editor-v4.2.8-jwplc.8) ·
-[HMI Designer](https://github.com/JW-Control/platform-jwplc/releases/tag/v2.1.0-alpha.15).
-
 > Probado en un JWPLC Basic: Ladder con variables enlazadas a la pantalla, compilar, subir y ver la TFT.
 
 ---
