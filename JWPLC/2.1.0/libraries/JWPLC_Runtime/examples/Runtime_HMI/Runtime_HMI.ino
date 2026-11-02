@@ -10,7 +10,7 @@
     - En las páginas: ◄ ► pasan de página (desde la primera o la última
       vuelven a RUN) y ESC abre el MENU del Runtime.
     - Los valores salen del programa en marcha: aquí, el de ejemplo
-      (arranque a dos manos con retardo, marcha/parada, contador de piezas).
+      («Demo feria»: motor con marcha/parada, bomba con retardo y contador de piezas).
 
   El header de este ejemplo es el que genera el Designer: no se edita a mano.
 */

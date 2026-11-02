@@ -71,7 +71,7 @@ window.JWPLCValueFormat   designer-value-format   formato de VALUE (número, mil
   `tests/sketch-guide.test.cjs` (compila el sketch base de la guía contra cada golden). Una app generada
   antes de `write-guide` escribe header y `.jwhmi` y avisa que regenere la app para la guía.
 
-- Apertura desde el Arduino IDE (extensión `arduino-ide-launcher` 0.1.7): pasa la carpeta del sketch activo
+- Apertura desde el Arduino IDE (extensión `arduino-ide-launcher` 0.1.8): pasa la carpeta del sketch activo
   por argumento o por `jwplc-hmi://open?sketch=…`. `electron/main.js` (`extractSketchPathFromArgv`, también en
   `second-instance`) vincula el sketch y `designer-native-project.js` carga su `.jwhmi`; si el diseño en
   pantalla tiene cambios sin guardar (`JWPLCHMIProject.isDirty()`), pregunta antes de reemplazarlo. Abrir la

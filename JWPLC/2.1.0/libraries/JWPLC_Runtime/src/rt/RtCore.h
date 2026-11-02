@@ -77,6 +77,10 @@ struct Core
     volatile bool sdOk = false;
     volatile bool testMode = false;
     volatile uint8_t testQ = 0;
+    // Entradas simuladas desde Diagnóstico (solo RAM): bit en forceMask = I forzada al bit de forceVal.
+    volatile uint8_t forceMask = 0;
+    volatile uint8_t forceVal = 0;
+    volatile uint8_t rawIn = 0; // entradas físicas del último scan
     volatile uint32_t scanCount = 0;
     volatile uint32_t scanUsLast = 0;
     volatile uint32_t scanUsMax = 0;

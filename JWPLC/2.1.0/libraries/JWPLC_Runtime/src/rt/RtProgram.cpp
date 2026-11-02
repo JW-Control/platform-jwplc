@@ -342,53 +342,32 @@ void outName(uint8_t o, char out[], size_t size)
 
 void demoProgram(Program &p)
 {
-    clearProgram(p, "Demo tablero");
-    // B01 AND(I1, I2) -> B02 TON 3 s -> Q1: arranque con dos manos y retardo.
-    uint8_t b = addBlock(p, BT_AND);
+    // «Demo feria»: una máquina en tres pasos, pensada para explicarla en vivo.
+    clearProgram(p, "Demo feria");
+    // B01 marcha/parada del motor: SR con S = I1 (marcha) y R = I2 (parada) -> Q1.
+    uint8_t b = addBlock(p, BT_SR);
     p.blocks[b].in[0] = SRC_I + 0;
     p.blocks[b].in[1] = SRC_I + 1;
+    p.q[0] = SRC_B + 0;
+    // B02 bomba: arranca 3 s después del motor (TON) -> Q2. Tiempo en Parámetros.
     b = addBlock(p, BT_TON);
     p.blocks[b].in[0] = SRC_B + 0;
     p.blocks[b].p1 = 300;
-    p.q[0] = SRC_B + 1;
-    // B03 OR(I3, I4) -> B04 SR (R = I5) -> Q2: marcha/parada con memoria.
-    b = addBlock(p, BT_OR);
-    p.blocks[b].in[0] = SRC_I + 2;
-    p.blocks[b].in[1] = SRC_I + 3;
-    b = addBlock(p, BT_SR);
-    p.blocks[b].in[0] = SRC_B + 2;
-    p.blocks[b].in[1] = SRC_I + 4;
-    p.q[1] = SRC_B + 3;
-    // B05 contador de piezas: R = I6, Cnt = I7, Dir = lo; Q3 al llegar a 5.
+    p.blocks[b].flags |= BF_PARAM;
+    p.q[1] = SRC_B + 1;
+    // B03 contador de piezas: Cnt = I3, R = I4; Q3 al llegar a 5. Conserva la cuenta al apagar.
     b = addBlock(p, BT_CTUD);
-    p.blocks[b].in[0] = SRC_I + 5;
-    p.blocks[b].in[1] = SRC_I + 6;
+    p.blocks[b].in[0] = SRC_I + 3;
+    p.blocks[b].in[1] = SRC_I + 2;
     p.blocks[b].in[2] = SRC_LO;
     p.blocks[b].p1 = 5;
-    p.blocks[b].flags |= BF_RETAIN;
-    p.q[2] = SRC_B + 4;
-    // B06 baliza: generador 0,5 s / 0,5 s con I8.
-    b = addBlock(p, BT_GEN);
-    p.blocks[b].in[0] = SRC_I + 7;
-    p.q[3] = SRC_B + 5;
-    // B07 alumbrado: lunes a viernes de 07:00 a 18:00.
-    b = addBlock(p, BT_WEEK);
-    p.q[4] = SRC_B + 6;
-    // B08 aviso "Lote completo" cuando el contador llega.
+    p.blocks[b].flags |= BF_RETAIN | BF_PARAM;
+    p.q[2] = SRC_B + 2;
+    // B04 aviso "Lote completo" cuando el contador llega.
     b = addBlock(p, BT_ALARM);
-    p.blocks[b].in[0] = SRC_B + 4;
+    p.blocks[b].in[0] = SRC_B + 2;
     p.blocks[b].aux = (uint8_t)((SEV_WARN << 4) | 0);
     strncpy(p.texts[0], "Lote completo", TEXT_LEN - 1);
-    // B09 TOF 5 s sobre I1: ventilador que sigue 5 s.
-    b = addBlock(p, BT_TOF);
-    p.blocks[b].in[0] = SRC_I + 0;
-    p.blocks[b].in[1] = SRC_OPEN;
-    p.blocks[b].p1 = 500;
-    p.q[5] = SRC_B + 8;
-    // B10 NOT(B04) -> Q7: piloto de parada.
-    b = addBlock(p, BT_NOT);
-    p.blocks[b].in[0] = SRC_B + 3;
-    p.q[6] = SRC_B + 9;
 }
 
 uint32_t crc32(const uint8_t *data, size_t len, uint32_t crc)

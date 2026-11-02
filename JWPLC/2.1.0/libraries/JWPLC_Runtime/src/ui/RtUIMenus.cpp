@@ -960,8 +960,9 @@ void openNetMenu()
 
 namespace
 {
-const char *const DIAG_ROWS[] = {"Resumen", "Eventos", "Avisos activos", "Prueba de salidas Q", "Borrar eventos"};
-uint16_t diagCount() { return 5; }
+const char *const DIAG_ROWS[] = {"Resumen", "Eventos", "Avisos activos", "Prueba de salidas Q", "Simular entradas I",
+                                 "Borrar eventos"};
+uint16_t diagCount() { return 6; }
 void diagRow(uint16_t i, JWPLC_UIRow r)
 {
     r.left(DIAG_ROWS[i]);
@@ -985,6 +986,16 @@ void diagRow(uint16_t i, JWPLC_UIRow r)
     else if (i == 3)
     {
         r.right(core.mode == MODE_RUN ? "requiere STOP" : ">");
+    }
+    else if (i == 4 && core.forceMask)
+    {
+        uint8_t n = 0;
+        for (uint8_t k = 0; k < NUM_I; k++)
+        {
+            n += (core.forceMask >> k) & 1;
+        }
+        snprintf(t, sizeof(t), "%u forzada%s", n, n == 1 ? "" : "s");
+        r.right(t);
     }
     else
     {
@@ -1145,6 +1156,69 @@ public:
 };
 TestGuard g_testGuard;
 
+// Simular entradas: OK fuerza la I a 1 y luego la alterna 1 <-> 0 (un pulso = OK, OK); ◄ ► la libera.
+// Vale en RUN y queda hasta liberarla o apagar el equipo; el programa ve la entrada forzada
+// (Monitor, salidas, HMI). Solo RAM.
+// La pantalla RUN (IDLE) marca las entradas forzadas con una «F» (mismo aviso que el forzado de OpenPLC).
+void applyForce()
+{
+    jwplcDisplaySetInputForceOverlay(core.forceMask, core.forceVal);
+    refreshList();
+}
+uint16_t forceCount() { return NUM_I + 1; }
+void forceRow(uint16_t i, JWPLC_UIRow r)
+{
+    if (i == NUM_I)
+    {
+        r.left("Liberar todas");
+        r.right(core.forceMask ? ">" : "");
+        return;
+    }
+    char l[8];
+    snprintf(l, sizeof(l), "I%u", i + 1);
+    r.left(l);
+    char t[24];
+    if ((core.forceMask >> i) & 1)
+    {
+        snprintf(t, sizeof(t), "FORZADA %u", (unsigned)((core.forceVal >> i) & 1));
+    }
+    else
+    {
+        snprintf(t, sizeof(t), "libre (%u)", (unsigned)((core.rawIn >> i) & 1));
+    }
+    r.right(t);
+}
+void forceOk(uint16_t i)
+{
+    if (i == NUM_I)
+    {
+        core.forceMask = 0;
+        core.forceVal = 0;
+    }
+    else
+    {
+        const uint8_t bit = (uint8_t)(1 << i);
+        if (!(core.forceMask & bit))
+        {
+            core.forceVal = (uint8_t)(core.forceVal | bit);
+            core.forceMask = (uint8_t)(core.forceMask | bit);
+        }
+        else
+        {
+            core.forceVal = (uint8_t)(core.forceVal ^ bit);
+        }
+    }
+    applyForce();
+}
+void forceSide(uint16_t i, int8_t)
+{
+    if (i < NUM_I)
+    {
+        core.forceMask = (uint8_t)(core.forceMask & ~(1 << i));
+        applyForce();
+    }
+}
+
 void diagOk(uint16_t i)
 {
     switch (i)
@@ -1176,6 +1250,13 @@ void diagOk(uint16_t i)
         {
             requireAdmin([]() { push(&g_testGuard); });
         }
+        break;
+    case 4:
+        requireAdmin([]() {
+            ListSpec s = {"SIMULAR ENTRADAS", "OK 1/0  <> liberar  ESC volver", forceCount, forceRow, forceOk,
+                          forceSide, nullptr, 500};
+            pushList(s);
+        });
         break;
     default:
         requireAdmin([]() { confirm("Eventos", "Borrar todos los eventos?", []() { runCommand(CMD_CLEAR_EVENTS, [](bool) { refreshList(); }); }); });
