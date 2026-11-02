@@ -32,6 +32,10 @@ namespace
 const uint32_t VIEWER_WINDOW_MS = 3000;
 const uint32_t KEY_AUTO_RELEASE_MS = 4000; // la página repite "pulsada" cada 1 s
 const uint32_t REQUEST_TIMEOUT_MS = 800;
+// Espera larga: si nada cambió, la respuesta sale en cuanto cambia una fila
+// (o a los LONG_POLL_MS). Así la página no pregunta a ciegas cada N ms.
+const uint32_t LONG_POLL_MS = 400;
+const uint32_t LONG_POLL_STEP_MS = 3;
 const size_t OUT_CHUNK = 1400;
 
 EthernetServer *g_server = nullptr;
@@ -112,10 +116,46 @@ void sendPage(EthernetClient &c)
     }
 }
 
+void applyKey(uint32_t b, bool down)
+{
+    if (!g_keysAllowed || b >= BTN_COUNT)
+    {
+        return;
+    }
+    g_keyDown[b] = down;
+    g_keyDownAt[b] = millis();
+    JWPLC_Buttons.setVirtualDown((uint8_t)b, down);
+}
+
+// ¿Alguna fila cambió desde la versión que tiene la página?
+bool changedSince(uint32_t since, uint16_t knownColors)
+{
+    if (jwplcMirrorPaletteCount() != knownColors)
+    {
+        return true;
+    }
+    const uint16_t h = jwplcMirrorHeight();
+    for (uint16_t y = 0; y < h; y++)
+    {
+        if (jwplcMirrorRowVersion(y) >= since)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
 void sendFrame(EthernetClient &c, const char *query)
 {
     g_lastViewMs = millis();
     g_viewed = true;
+    // Tecla dentro de la misma petición (e=<tecla><1|0>): sin cola detrás del cuadro.
+    const uint32_t ev = argValue(query, "e", 0xFFFFFFFFu);
+    const bool hasEvent = ev != 0xFFFFFFFFu;
+    if (hasEvent)
+    {
+        applyKey(ev / 10, (ev % 10) != 0);
+    }
     if (!jwplcMirrorActive())
     {
         sendHeader(c, "503 Service Unavailable", "text/plain");
@@ -124,6 +164,18 @@ void sendFrame(EthernetClient &c, const char *query)
     }
     const uint32_t since = argValue(query, "v", 0);
     const uint16_t known = (uint16_t)argValue(query, "p", 0);
+    if (since != 0 && !hasEvent && argValue(query, "w", 0) != 0)
+    {
+        const uint32_t t0 = millis();
+        while (!changedSince(since, known) && millis() - t0 < LONG_POLL_MS)
+        {
+            vTaskDelay(pdMS_TO_TICKS(LONG_POLL_STEP_MS));
+            if (!c.connected())
+            {
+                return; // la página canceló para mandar una tecla
+            }
+        }
+    }
     const uint32_t snap = jwplcMirrorSnapshot();
     const uint16_t w = jwplcMirrorWidth();
     const uint16_t h = jwplcMirrorHeight();
@@ -193,9 +245,7 @@ void sendKey(EthernetClient &c, const char *query)
         sendHeader(c, "403 Forbidden", "text/plain");
         return;
     }
-    g_keyDown[b] = down;
-    g_keyDownAt[b] = millis();
-    JWPLC_Buttons.setVirtualDown((uint8_t)b, down);
+    applyKey(b, down);
     sendHeader(c, "204 No Content", "text/plain");
 }
 
