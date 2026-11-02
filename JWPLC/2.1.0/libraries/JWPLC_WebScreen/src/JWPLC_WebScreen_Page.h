@@ -6,7 +6,7 @@
 //       tramos { u16 y, u16 x, u16 ancho del tramo, pares (u8 largo-1, u8 índice)
 //       hasta completar el tramo }, u16 0xFFFF al final. Con v=0 cada tramo es la
 //       fila entera; después, solo las columnas que cambiaron.
-//       La conexión queda abierta entre pedidos (keep-alive, cuerpo chunked).
+//       Un pedido por conexión (Connection: close).
 //       &w=1  espera larga: el equipo responde en cuanto cambia algo (máx. 400 ms).
 //       &e=<tecla><1|0>  tecla pulsada / suelta dentro de la misma petición.
 //   GET /k?b=<0..5>&d=<1|0>                    -> tecla virtual (compatibilidad).

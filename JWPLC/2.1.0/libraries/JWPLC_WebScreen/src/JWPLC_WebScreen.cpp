@@ -1,10 +1,10 @@
 // JWPLC_WebScreen.cpp: servidor HTTP mínimo por el W5500 con la pantalla en vivo.
 //
-// Una tarea propia (núcleo 0, prioridad baja) atiende una conexión a la vez y
-// la mantiene abierta entre pedidos (HTTP/1.1 keep-alive):
+// Una tarea propia (núcleo 0, prioridad baja) atiende una conexión a la vez,
+// un pedido por conexión (KEEP_ALIVE desactivado, ver abajo):
 //   "/"   la página (JWPLC_WebScreen_Page.h), con ETag: recargar no la reenvía
 //   "/f"  los tramos de fila de la TFT que cambiaron desde la versión que tiene
-//         la página (cuerpo por trozos: Transfer-Encoding: chunked)
+//         la página
 //   "/k"  tecla virtual (JWPLC_Buttons.setVirtualDown)
 // Cada operación del W5500 toma el bus SPI compartido por su cuenta (acceso
 // seguro de JWPLC_Ethernet); la copia de la pantalla está en RAM, así que
@@ -38,6 +38,10 @@ const uint32_t REQUEST_TIMEOUT_MS = 800;
 // Conexión abierta entre pedidos: la página pide el cuadro siguiente al instante,
 // así que 1 s sin pedido = la página se fue (o abrió otra conexión).
 const uint32_t KEEPALIVE_IDLE_MS = 1000;
+// Desactivada (02/11): en la placa con Windows, entrar a PROGRAMA, TARJETA SD,
+// RED o DIAGNÓSTICO se volvió más lento que con una conexión por pedido (#215).
+// Con false: Connection: close y cuerpo sin largo, como en #215.
+const bool KEEP_ALIVE = false;
 // Espera larga: si nada cambió, la respuesta sale en cuanto cambia una fila
 // (o a los LONG_POLL_MS). Así la página no pregunta a ciegas cada N ms.
 const uint32_t LONG_POLL_MS = 400;
@@ -188,6 +192,10 @@ const long BODY_NONE = -2; // 204 y 304: sin cuerpo ni Content-Length
 void beginResponse(const char *status, const char *type, long length, const char *extra = "")
 {
     g_outLen = 0;
+    if (!KEEP_ALIVE && length == BODY_CHUNKED)
+    {
+        length = BODY_NONE; // el cierre de la conexión marca el fin del cuerpo
+    }
     g_chunked = length == BODY_CHUNKED;
     char len[40];
     if (g_chunked)
@@ -203,8 +211,8 @@ void beginResponse(const char *status, const char *type, long length, const char
         snprintf(len, sizeof(len), "Content-Length: %ld\r\n", length);
     }
     const int n = snprintf(g_hdr, sizeof(g_hdr),
-                           "HTTP/1.1 %s\r\nContent-Type: %s\r\n%s%sConnection: keep-alive\r\n\r\n",
-                           status, type, len, extra);
+                           "HTTP/1.1 %s\r\nContent-Type: %s\r\n%s%sConnection: %s\r\n\r\n",
+                           status, type, len, extra, KEEP_ALIVE ? "keep-alive" : "close");
     g_hdrLen = n > 0 ? (size_t)n : 0;
 }
 
@@ -596,11 +604,11 @@ void webTask(void *)
         if (client)
         {
             // Misma conexión para los pedidos siguientes (sin abrir y cerrar TCP por cuadro).
-            uint32_t wait = REQUEST_TIMEOUT_MS;
-            while (serve(client, wait) && JWPLC_Ethernet.isReady())
+            bool more = serve(client, REQUEST_TIMEOUT_MS);
+            while (KEEP_ALIVE && more && JWPLC_Ethernet.isReady())
             {
                 releaseStaleKeys();
-                wait = KEEPALIVE_IDLE_MS;
+                more = serve(client, KEEPALIVE_IDLE_MS);
             }
             client.stop();
             continue; // la página pide seguido: atender sin esperar

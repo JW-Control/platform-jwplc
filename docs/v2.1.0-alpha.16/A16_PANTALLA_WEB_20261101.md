@@ -90,9 +90,10 @@ canvas 78 ms, máximo 89 ms. `JWSIM_WEBSCREEN=PASS`; ejemplos de `JWPLC_WebScree
 `[visto]` en placa (propietario): el PR #215 dejó la pantalla «drásticamente mejor». Rama
 `v2.1.0-alpha.16/JWPLC-Sim/feature/pantalla-web-optimizaciones`:
 
-- **Conexión abierta (keep-alive).** La conexión queda abierta entre pedidos; el cuadro va con
-  `Transfer-Encoding: chunked` (cada trozo de ~1 KB lleva su largo). Se cierra tras 1 s sin pedido o si otra
-  conexión trae un pedido (recarga). Una tecla sigue cancelando la espera larga, y eso abre otra conexión.
+- **Conexión abierta (keep-alive): desactivada.** Implementada (`KEEP_ALIVE` en `JWPLC_WebScreen.cpp`, cuerpo
+  `Transfer-Encoding: chunked`), pero `[visto]` en placa con Windows (propietario, 02/11) entrar a PROGRAMA,
+  TARJETA SD, RED y DIAGNÓSTICO se volvió más lento que con #215; PARÁMETROS seguía bien. Queda `KEEP_ALIVE =
+  false`: un pedido por conexión, como en #215. Causa `[no verificado]`; en el simulador la latencia no cambiaba.
 - **Tramos de fila (`JWS2`).** `JWPLC_TFT_Mirror` guarda por fila las columnas escritas en su última versión
   (`jwplcMirrorRowSpan()`); si la página ya tiene la versión anterior, solo viajan esas columnas. Registro:
   `u16 y, u16 x, u16 ancho, pares RLE`. Con `v=0`, o si la página se saltó una versión, la fila entera.
