@@ -5,7 +5,7 @@ A16_CIERRE_A_REGENERADOS=PASS
 A16_CIERRE_ABI=PASS
 A16_CIERRE_EJEMPLOS_ESP32=PASS (138/138)
 A16_CIERRE_MATRIZ_SIM=PASS (138/138)
-A16_CIERRE_BENCHMARK_PC=PENDING (propietario)
+A16_CIERRE_BENCHMARK=PASS (nube, arduino-cli)
 ```
 
 ## 1. Qué se regeneró
@@ -49,11 +49,20 @@ validación en placa y no tienen `.a` previo contra el cual verificar ABI. Se pr
 - El CI del PR hacia `release/v2.1.x` (`ci-jwplc-package-smoke.yml`) vuelve a compilar los ejemplos críticos y
   corre `SIM_REGRESSION` con jwplc-sim `a81f302`.
 
-## 4. Benchmark en la PC del propietario
+## 4. Benchmark de compilación
 
-Pendiente: compilar en Arduino IDE 2.3.10 un ejemplo con pantalla (p. ej. `JWPLC_Display/05.HMI_Plantilla_Caldera`)
-con el package de esta rama instalado como `jwplc_local`, en limpio y recompilando, y anotar los tiempos aquí.
-Referencia de alpha.15: 18 s → 9 s recompilando con el IDE 2.3.10.
+`[ejecutado]` por Claude en la nube (el propietario lo pidió así el 02/11): arduino-cli 1.1.1, 4 CPU,
+`jwplc_local:esp32:jwplcbasic`, ejemplo `JWPLC_Display/05.HMI_Plantilla_Caldera` (pantalla, menú y botonera).
+
+| Modo de las tres librerías | Limpio (sin caché) | Recompilar (sin cambios) |
+|---|---|---|
+| Precompiladas (`.a` de este cierre) | **~28 s** | ~17,7 s |
+| Fuente (como estuvieron durante la alpha) | 46,6 s | 17,3 s |
+
+- Precompilar ahorra ~40 % en la primera compilación (y cada vez que cambia una opción de placa); al recompilar
+  sin cambios el tiempo lo domina el enlace y el core, igual en los dos modos.
+- No es comparable con la referencia de alpha.15 (18 s → 9 s en Arduino IDE 2.3.10 de la PC del propietario):
+  otra máquina y otra herramienta. `[no verificado]` en la PC del propietario.
 
 ## 5. Cómo compilar ESP32 en la nube sin downloads.arduino.cc
 

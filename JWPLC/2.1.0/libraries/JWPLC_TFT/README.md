@@ -784,13 +784,25 @@ auto &tft =
     JWPLC_Display.tft();
 ```
 
+## Novedades de 0.4.0 y 0.5.0 (2.1.0-alpha.16)
+
+- **Recorte:** `setClipRect(x, y, w, h)` / `resetClip()` / `clipActive()`, dentro de un batch (los callbacks USER
+  ya corren dentro de uno). `endBatch()` quita siempre el recorte.
+- **Líneas gruesas:** `drawWideLine(x0, y0, x1, y1, ancho, color, fondo)` y `drawPolyline(xy, puntos, ancho,
+  color, fondo)` con un solo lock del bus.
+- **Sprites:** `JWPLC_TFTSprite` de 16/8/4/1 bits para redibujar zonas sin parpadeo; `push()` respeta el batch y el
+  recorte, y `scroll()` desplaza una región (ejemplo `JWPLC_Display › Display_Graficos_Sprite`).
+- **Fuentes grandes:** `JWPLC_FONT_26` y `JWPLC_FONT_7SEG_48` (ejemplo `JWPLC_Display › Display_Fuentes_Grandes`).
+- TFT_eSPI 2.5.43 va **dentro** de la librería (`src/`): no hay que instalarla ni configurarla.
+- Defines para detectar la API: `JWPLC_TFT_HAS_CLIP`, `JWPLC_TFT_HAS_WIDE_LINE` y `JWPLC_TFT_HAS_SPRITE`.
+
 ## Versión
 
 Documentado para:
 
 ```text
-JWPLC ESP32 v2.1.0-alpha.14
-JWPLC_TFT 0.3.0
+JWPLC ESP32 v2.1.0-alpha.16
+JWPLC_TFT 0.5.0 (precompilada: src/esp32/libJWPLC_TFT.a)
 ```
 
 Esta guía documenta la API gráfica de usuario. Los detalles del controlador

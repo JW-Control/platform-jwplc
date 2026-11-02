@@ -22,6 +22,7 @@ programa, sin escribir código.
 | **OpenPLC Editor – JWPLC Edition 4.2.8-jwplc.9** | [⬇ Instalador Windows x64](https://github.com/JW-Control/openplc-editor/releases/download/jwplc-editor-v4.2.8-jwplc.9/OpenPLC-Editor.exe) | Editor OpenPLC con el HMI Designer adentro |
 | **Paquete de placas JWPLC Basic (VPP) 2.1.0-alpha.16** | [⬇ VPP firmado](https://github.com/JW-Control/openplc-editor/releases/download/jwplc-editor-v4.2.8-jwplc.9/JWPLC-Basic.vpp) | Se importa en OpenPLC Editor: placa JWPLC BASIC |
 | **JWPLC HMI Designer 2.1.0-alpha.16** | [⬇ Instalador](https://github.com/JW-Control/platform-jwplc/releases/download/v2.1.0-alpha.16/HMI-Designer-Setup.exe) · [⬇ Portable](https://github.com/JW-Control/platform-jwplc/releases/download/v2.1.0-alpha.16/HMI-Designer-Portable.exe) | Solo para usarlo con sketches de Arduino IDE (en OpenPLC ya viene incluido) |
+| **JWPLC Sim** (simulador del JWPLC Basic) | [⬇ Instalador y portable](https://github.com/JW-Control/jwplc-sim/releases/latest) · [repositorio](https://github.com/JW-Control/jwplc-sim) | Probar sketches y proyectos de OpenPLC en la PC, sin placa |
 
 Requisitos: Windows 10/11 de 64 bits y el package **JWPLC 2.1.0-alpha.16** instalado (ver
 [Instalación](#instalación)). Los instaladores no tienen firma de código: si Windows SmartScreen avisa, pulsa
@@ -315,6 +316,11 @@ para el final.
 | Entradas, salidas, botonera, RTC, FRAM y microSD | [JWPLC_GlobalPeripherals](JWPLC/2.1.0/libraries/JWPLC_GlobalPeripherals/README.md) |
 | Pantalla y HMI | [JWPLC_Display](JWPLC/2.1.0/libraries/JWPLC_Display/README.md) |
 | Dibujo directo en la TFT | [JWPLC_TFT](JWPLC/2.1.0/libraries/JWPLC_TFT/README.md) |
+| Widgets de pantalla (parámetros, tendencia, teclado, QR) | [JWPLC_UI_Widgets](JWPLC/2.1.0/libraries/JWPLC_UI_Widgets/README.md) |
+| Runtime de panel estilo LOGO! (programar desde la pantalla) | [JWPLC_Runtime](JWPLC/2.1.0/libraries/JWPLC_Runtime/README.md) |
+| La pantalla en el navegador (Ethernet) | [JWPLC_WebScreen](JWPLC/2.1.0/libraries/JWPLC_WebScreen/README.md) |
+| Módulos de expansión por RS-485 | [JWPLC_Expansion](JWPLC/2.1.0/libraries/JWPLC_Expansion/README.md) |
+| Botonera (teclas físicas y virtuales) | [JW_MatrixButtons](JWPLC/2.1.0/libraries/JW_MatrixButtons/README.md) |
 | Ethernet, TCP y UDP | [JWPLC_Ethernet](JWPLC/2.1.0/libraries/JWPLC_Ethernet/README.md) |
 | Modbus TCP | [JWPLC_ModbusTCP](JWPLC/2.1.0/libraries/JWPLC_ModbusTCP/README.md) |
 | RS-485 | [JWPLC_RS485](JWPLC/2.1.0/libraries/JWPLC_RS485/README.md) |
