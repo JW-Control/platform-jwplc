@@ -10,9 +10,12 @@
     - Programa > Editar abre el editor FBD: ◄ ► ▲ ▼ recorren el mapa, OK
       edita el bloque o la salida, ESC guarda en FRAM o descarta.
 
-  Con loadDemoIfEmpty(true), si la FRAM no tiene programa se carga uno de
-  ejemplo (arranque a dos manos con retardo, marcha/parada, contador de
-  piezas, baliza, alumbrado semanal y un aviso).
+  Con loadDemoIfEmpty(true), si la FRAM no tiene programa se carga la
+  «Demo feria» (también en Programa > Cargar ejemplo): I1 marcha e I2 parada
+  del motor (Q1), bomba 3 s después (Q2), contador de piezas en I3 hasta 5
+  (Q3 y aviso «Lote completo») con reset en I4.
+    - Sin cables: Diagnostico > Simular entradas I fuerza I1..I8 en RUN
+      (OK 1/0, ◄ ► libera). Solo RAM: al apagar vuelven las reales.
 
   En modo Runtime el sketch no define jwplcUIEnter/jwplcUIUpdate: la
   pantalla USER y las salidas Q son del Runtime.

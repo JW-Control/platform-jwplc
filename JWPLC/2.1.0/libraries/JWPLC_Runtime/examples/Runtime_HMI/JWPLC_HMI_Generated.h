@@ -24,7 +24,7 @@ enum HMIFieldId : uint8_t
     FIELD_I1 = 5,
     FIELD_I2 = 6,
     FIELD_I3 = 7,
-    FIELD_I5 = 8,
+    FIELD_I4 = 8,
 };
 
 // Definición declarativa
@@ -58,7 +58,7 @@ static const JWPLC_UIField HMI_FIELDS[] =
     JWPLC_UIValueField(
         FIELD_PIEZAS,
         JWPLC_UIRect(178, 100),
-        JWPLC_UIText("Piezas B05", nullptr),
+        JWPLC_UIText("Piezas B03", nullptr),
         JWPLC_UIValueFormat(3, 0, false, false),
         JWPLC_UIValueStyle(3, 1, true, JWPLC_UI_LAYOUT_STACKED, JWPLC_UI_ALIGN_RIGHT),
         PAGE_TABLERO,
@@ -67,7 +67,7 @@ static const JWPLC_UIField HMI_FIELDS[] =
     JWPLC_UIBoolField(
         FIELD_I1,
         JWPLC_UIRect(8, 34),
-        JWPLC_UIText("Mano izq. (I1)", nullptr),
+        JWPLC_UIText("Marcha (I1)", nullptr),
         JWPLC_UIBoolText("0", "1"),
         JWPLC_UIBoolStyle(2, 1, true, JWPLC_UI_LAYOUT_STACKED, JWPLC_UI_ALIGN_CENTER),
         PAGE_ENTRADAS,
@@ -75,7 +75,7 @@ static const JWPLC_UIField HMI_FIELDS[] =
     JWPLC_UIBoolField(
         FIELD_I2,
         JWPLC_UIRect(166, 34),
-        JWPLC_UIText("Mano der. (I2)", nullptr),
+        JWPLC_UIText("Parada (I2)", nullptr),
         JWPLC_UIBoolText("0", "1"),
         JWPLC_UIBoolStyle(2, 1, true, JWPLC_UI_LAYOUT_STACKED, JWPLC_UI_ALIGN_CENTER),
         PAGE_ENTRADAS,
@@ -83,15 +83,15 @@ static const JWPLC_UIField HMI_FIELDS[] =
     JWPLC_UIBoolField(
         FIELD_I3,
         JWPLC_UIRect(8, 100),
-        JWPLC_UIText("Marcha (I3)", nullptr),
+        JWPLC_UIText("Pieza (I3)", nullptr),
         JWPLC_UIBoolText("0", "1"),
         JWPLC_UIBoolStyle(2, 1, true, JWPLC_UI_LAYOUT_STACKED, JWPLC_UI_ALIGN_CENTER),
         PAGE_ENTRADAS,
         JWPLC_UIColors(0xFFFF, 0x07FF, 0x0000, 0xFFFF)),
     JWPLC_UIBoolField(
-        FIELD_I5,
+        FIELD_I4,
         JWPLC_UIRect(166, 100),
-        JWPLC_UIText("Parada (I5)", nullptr),
+        JWPLC_UIText("Reset (I4)", nullptr),
         JWPLC_UIBoolText("0", "1"),
         JWPLC_UIBoolStyle(2, 1, true, JWPLC_UI_LAYOUT_STACKED, JWPLC_UI_ALIGN_CENTER),
         PAGE_ENTRADAS,
@@ -139,14 +139,14 @@ extern "C" void jwplcRuntimeHMIUpdate(uint8_t page)
         JWPLC_Display.setBool(FIELD_MOTOR, JWPLC_Runtime.output(1));
         JWPLC_Display.setBool(FIELD_BOMBA, JWPLC_Runtime.output(2));
         JWPLC_Display.setBar(FIELD_RETARDO, JWPLC_Runtime.blockSeconds(2));
-        JWPLC_Display.setValue(FIELD_PIEZAS, JWPLC_Runtime.counter(5));
+        JWPLC_Display.setValue(FIELD_PIEZAS, JWPLC_Runtime.counter(3));
         break;
 
     case PAGE_ENTRADAS:
         JWPLC_Display.setBool(FIELD_I1, JWPLC_Runtime.input(1));
         JWPLC_Display.setBool(FIELD_I2, JWPLC_Runtime.input(2));
         JWPLC_Display.setBool(FIELD_I3, JWPLC_Runtime.input(3));
-        JWPLC_Display.setBool(FIELD_I5, JWPLC_Runtime.input(5));
+        JWPLC_Display.setBool(FIELD_I4, JWPLC_Runtime.input(4));
         break;
 
     default:

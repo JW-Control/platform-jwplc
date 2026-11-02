@@ -527,7 +527,11 @@ void task(void *)
             {
                 core.engine.setRemoteInputs(x, core.expansion.inputs(x));
             }
-            core.engine.scan(JWPLC_readInputs(), millis(), clockNow());
+            const uint8_t fm = core.forceMask;
+            const uint8_t raw = JWPLC_readInputs();
+            core.rawIn = raw;
+            const uint8_t in = (uint8_t)((raw & ~fm) | (core.forceVal & fm));
+            core.engine.scan(in, millis(), clockNow());
             writeOutputs(core.engine.outputs());
             for (uint8_t x = 0; x < NUM_X; x++)
             {
