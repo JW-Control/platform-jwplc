@@ -18,6 +18,7 @@ const uint16_t HASH_SLOTS = 512;
 uint8_t *g_buf = nullptr;
 volatile uint32_t g_rowVer[MAX_SIDE];
 volatile uint32_t g_ver = 1;
+volatile uint32_t g_writes = 0;
 
 // Geometría lógica actual (setRotation) y desplazamiento CGRAM.
 int32_t g_w = TFT_WIDTH;
@@ -105,7 +106,7 @@ uint8_t indexOf(uint16_t c)
 // Escribe n píxeles del mismo índice desde el cursor, con el salto de fila de la ventana.
 void putRun(uint8_t idx, uint32_t n)
 {
-    const uint32_t ver = g_ver;
+    g_writes = g_writes + 1;
     while (n)
     {
         if (s_y > s_ye)
@@ -133,7 +134,10 @@ void putRun(uint8_t idx, uint32_t n)
             if (lx1 > lx0)
             {
                 memset(g_buf + (uint32_t)ly * (uint32_t)g_w + (uint32_t)lx0, idx, (size_t)(lx1 - lx0));
-                g_rowVer[ly] = ver;
+                // La versión se lee después de escribir: si el servidor tomó su
+                // versión en medio, la fila queda >= ella y sale en la siguiente.
+                __sync_synchronize();
+                g_rowVer[ly] = g_ver;
             }
         }
         s_x += (int32_t)span;
@@ -307,3 +311,4 @@ const uint8_t *jwplcMirrorRow(uint16_t y)
 }
 uint16_t jwplcMirrorPaletteCount() { return g_palN; }
 uint16_t jwplcMirrorPaletteColor(uint16_t index) { return index < 256 ? g_pal[index] : 0; }
+uint32_t jwplcMirrorWrites() { return g_writes; }

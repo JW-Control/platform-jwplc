@@ -36,7 +36,15 @@ const uint32_t REQUEST_TIMEOUT_MS = 800;
 // (o a los LONG_POLL_MS). Así la página no pregunta a ciegas cada N ms.
 const uint32_t LONG_POLL_MS = 400;
 const uint32_t LONG_POLL_STEP_MS = 3;
-const size_t OUT_CHUNK = 1400;
+// Trozos de ~1 KB: caben dos en el búfer de envío del W5500 (2 KB), así hay dos
+// segmentos en vuelo y Windows responde el ACK al instante. Con trozos de 1400
+// solo cabía uno y el ACK retrasado de Windows (hasta 200 ms) frenaba cada trozo:
+// un cambio de página (~10 KB) tardaba más de un segundo.
+const size_t OUT_CHUNK = 1000;
+// Un redibujo dura varios ms: se responde cuando la TFT deja de escribir
+// SETTLE_MS (máx. SETTLE_MAX_MS), para no mandar media pantalla y luego otra vez.
+const uint32_t SETTLE_MS = 8;
+const uint32_t SETTLE_MAX_MS = 150;
 
 EthernetServer *g_server = nullptr;
 uint16_t g_port = 80;
@@ -51,8 +59,25 @@ bool g_keyDown[BTN_COUNT];
 uint8_t g_out[OUT_CHUNK + 700]; // un trozo + una fila RLE completa (2 + 320 x 2)
 size_t g_outLen = 0;
 
+// Envía trozos exactos de OUT_CHUNK y deja el resto en el búfer.
+void flushChunks(EthernetClient &c)
+{
+    size_t sent = 0;
+    while (g_outLen - sent >= OUT_CHUNK)
+    {
+        c.write(g_out + sent, OUT_CHUNK);
+        sent += OUT_CHUNK;
+    }
+    if (sent)
+    {
+        memmove(g_out, g_out + sent, g_outLen - sent);
+        g_outLen -= sent;
+    }
+}
+
 void flushOut(EthernetClient &c)
 {
+    flushChunks(c);
     if (g_outLen)
     {
         c.write(g_out, g_outLen);
@@ -96,24 +121,44 @@ uint32_t argValue(const char *query, const char *name, uint32_t fallback)
     return fallback;
 }
 
+// La cabecera va al búfer de salida: sale en el mismo segmento que el cuerpo.
+void putHeader(const char *status, const char *type)
+{
+    const int n = snprintf((char *)g_out + g_outLen, sizeof(g_out) - g_outLen,
+                           "HTTP/1.1 %s\r\nContent-Type: %s\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n",
+                           status, type);
+    if (n > 0)
+    {
+        g_outLen += (size_t)n;
+    }
+}
+
 void sendHeader(EthernetClient &c, const char *status, const char *type)
 {
-    char h[200];
-    snprintf(h, sizeof(h),
-             "HTTP/1.1 %s\r\nContent-Type: %s\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n",
-             status, type);
-    c.write((const uint8_t *)h, strlen(h));
+    g_outLen = 0;
+    putHeader(status, type);
+    flushOut(c);
 }
 
 void sendPage(EthernetClient &c)
 {
-    sendHeader(c, "200 OK", "text/html; charset=utf-8");
+    g_outLen = 0;
+    putHeader("200 OK", "text/html; charset=utf-8");
     const size_t len = sizeof(JWPLC_WEBSCREEN_PAGE) - 1;
-    for (size_t i = 0; i < len; i += OUT_CHUNK)
+    size_t i = 0;
+    while (i < len)
     {
-        const size_t n = (len - i) < OUT_CHUNK ? (len - i) : OUT_CHUNK;
-        c.write((const uint8_t *)JWPLC_WEBSCREEN_PAGE + i, n);
+        size_t n = OUT_CHUNK - g_outLen;
+        if (n > len - i)
+        {
+            n = len - i;
+        }
+        memcpy(g_out + g_outLen, JWPLC_WEBSCREEN_PAGE + i, n);
+        g_outLen += n;
+        i += n;
+        flushChunks(c);
     }
+    flushOut(c);
 }
 
 void applyKey(uint32_t b, bool down)
@@ -176,14 +221,30 @@ void sendFrame(EthernetClient &c, const char *query)
             }
         }
     }
+    // Esperar a que termine el redibujo en curso (una sola respuesta por cambio).
+    {
+        const uint32_t t0 = millis();
+        uint32_t seen = jwplcMirrorWrites();
+        uint32_t quietSince = t0;
+        while (millis() - t0 < SETTLE_MAX_MS && millis() - quietSince < SETTLE_MS)
+        {
+            vTaskDelay(pdMS_TO_TICKS(LONG_POLL_STEP_MS));
+            const uint32_t now = jwplcMirrorWrites();
+            if (now != seen)
+            {
+                seen = now;
+                quietSince = millis();
+            }
+        }
+    }
     const uint32_t snap = jwplcMirrorSnapshot();
     const uint16_t w = jwplcMirrorWidth();
     const uint16_t h = jwplcMirrorHeight();
     const uint16_t palN = jwplcMirrorPaletteCount();
     const uint16_t from = known <= palN ? known : 0;
 
-    sendHeader(c, "200 OK", "application/octet-stream");
     g_outLen = 0;
+    putHeader("200 OK", "application/octet-stream");
     put8('J');
     put8('W');
     put8('S');
@@ -198,13 +259,14 @@ void sendFrame(EthernetClient &c, const char *query)
         put16(jwplcMirrorPaletteColor(i));
         if (g_outLen >= OUT_CHUNK)
         {
-            flushOut(c);
+            flushChunks(c);
         }
     }
     for (uint16_t y = 0; y < h; y++)
     {
-        // +1: una fila que se dibujaba justo al tomar la versión anterior se reenvía.
-        if (since != 0 && jwplcMirrorRowVersion(y) + 1 < since)
+        // La TFT guarda la versión después de escribir la fila (JWPLC_TFT_Mirror):
+        // una fila a medias al tomar la versión anterior quedó >= since.
+        if (since != 0 && jwplcMirrorRowVersion(y) < since)
         {
             continue;
         }
@@ -229,7 +291,7 @@ void sendFrame(EthernetClient &c, const char *query)
         }
         if (g_outLen >= OUT_CHUNK)
         {
-            flushOut(c);
+            flushChunks(c);
         }
     }
     put16(0xFFFF);

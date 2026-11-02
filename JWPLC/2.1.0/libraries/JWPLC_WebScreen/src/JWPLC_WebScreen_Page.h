@@ -70,7 +70,7 @@ try{const r=await fetch('/f?v='+ver+'&p='+pal.length+(ev!==undefined?'&e='+ev:(v
 catch(e){if(e&&e.name==='AbortError')aborted=true;else{if(ev!==undefined)evq.unshift(ev);if(++fails>2){off.hidden=false;dot.className='';txt.textContent='sin conexión';ver=0;pal=[]}}}
 waiting=false;busy=false;
 const now=performance.now();if(now-last>1000){if(!fails)txt.textContent='en vivo'+(frames?' · '+Math.round(frames*1000/(now-last))+' cuadros/s':'');frames=0;last=now}
-setTimeout(loop,fails&&!aborted?800:0)}
+setTimeout(loop,fails>2?800:(fails&&!aborted?150:0))}
 function send(k,d){evq.push(k*10+(d?1:0));if(waiting&&ctl)ctl.abort()}
 const down=new Set();
 if(/solo/.test(location.search))document.body.classList.add('solo');
