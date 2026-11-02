@@ -39,7 +39,7 @@ de esta línea, con su PR hacia `…/main`.
 H1 JWSIM_G6_LADDER_CHAIN=PASS          (jwplc-sim, 28/10)
 H2 JWSIM_G6_RELOAD_FROM_EDITOR=PASS    (jwplc-sim, 28/10)
 H3 JWSIM_G6_SIMULATE_BUTTON=DEFERRED   (pasa a la siguiente línea: el simulador se abre aparte)
-H4 SIM_REGRESSION fijado a jwplc-sim a81f302 en ci-jwplc-package-smoke.yml y release-jwplc-package.yml
+H4 SIM_REGRESSION fijado a jwplc-sim fd08f12 (#11; antes a81f302) en ci-jwplc-package-smoke.yml y release-jwplc-package.yml
 ```
 
 La línea creció más allá del simulador (Runtime de panel, expansión, widgets, pantalla web, Designer y editor

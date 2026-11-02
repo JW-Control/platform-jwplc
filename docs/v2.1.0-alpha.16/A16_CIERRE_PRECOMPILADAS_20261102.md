@@ -47,7 +47,7 @@ validación en placa y no tienen `.a` previo contra el cual verificar ABI. Se pr
 - `[ejecutado]` JWPLC Sim, `jwsim-cli matrix` completa sobre el mismo árbol: **138 ejemplos; 138 compilan, 138
   corren, 138 pasan su prueba**; 0 clasificados, 0 sin prueba.
 - El CI del PR hacia `release/v2.1.x` (`ci-jwplc-package-smoke.yml`) vuelve a compilar los ejemplos críticos y
-  corre `SIM_REGRESSION` con jwplc-sim `a81f302`.
+  corre `SIM_REGRESSION` con jwplc-sim `fd08f12`.
 
 ## 4. Benchmark de compilación
 

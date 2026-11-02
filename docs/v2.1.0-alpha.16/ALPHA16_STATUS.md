@@ -1,16 +1,16 @@
 # v2.1.0-alpha.16 — JWPLC Sim: estado vivo
 
-Actualizado: `2026-11-02` (cierre: `.a` regenerados, matriz y ejemplos ESP32 138/138, notas de publicación)
+Actualizado: `2026-11-02` (cierre autorizado por el propietario: `.a` regenerados, benchmark, README, publicación)
 
 ## 1. Ramas y sincronización
 
 | Repo | Rol | Rama | SHA / estado |
 |---|---|---|---|
 | platform-jwplc | Base de la línea (`…/main`) | `v2.1.0-alpha.16/JWPLC-Sim/main` | `d850f40` (#217) |
-| platform-jwplc | Feature de cierre | `v2.1.0-alpha.16/JWPLC-Sim/feature/cierre-alpha16` | PR hacia `…/main` |
-| openplc-editor | Base de la línea (`…/main`) | `v2.1.0-alpha.16/JWPLC-Sim/main` | `2ef069b` (#11), prerelease `4.2.8-jwplc.9` |
+| platform-jwplc | Feature de cierre | `v2.1.0-alpha.16/JWPLC-Sim/feature/cierre-alpha16` | PR #218 hacia `…/main`, luego `…/main` → `release/v2.1.x` |
+| openplc-editor | Base de la línea (`…/main`) | `v2.1.0-alpha.16/JWPLC-Sim/main` | `2ef069b` (#11, tag `jwplc-editor-v4.2.8-jwplc.9`) + README #12 |
 | openplc-editor | Designer / VPP empaquetados | `PLATFORM_DESIGNER_SHA` = `PLATFORM_VPP_SHA` | platform `94edd7d` (Designer y VPP 2.1.0-alpha.16) |
-| jwplc-sim | Simulador | rama por defecto | `a81f302` (#10, `package.lock` → `da628bb`); fijado en `sim-regression` de los dos workflows |
+| jwplc-sim | Simulador | rama por defecto | `fd08f12` (#11, Demo feria; `package.lock` → `1bec1ce`); fijado en `sim-regression` de los dos workflows |
 
 Ramas de Kenyi con el nombre viejo, contenidas en `…/main` (se borran cuando él confirme):
 `v2.1.0-alpha.16/OpenPLC-HMI/feature/modo-claro-designer` @ `1817838` y
@@ -48,7 +48,8 @@ Regeneradas al cierre y de vuelta en `precompiled=full`: `JWPLC_TFT` 0.5.0 (incl
 1.1.0 y `JW_MatrixButtons` 1.0.6, ABI compatible con alpha.15
 ([A16_CIERRE_PRECOMPILADAS_20261102.md](A16_CIERRE_PRECOMPILADAS_20261102.md), script
 `tools/alpha16/regenerate_precompiled.sh`). En fuente (nuevas): `JWPLC_UI_Widgets` 0.5.0, `JWPLC_Runtime` 0.2.0,
-`JWPLC_Expansion` 0.1.0 y `JWPLC_WebScreen` 0.1.0. Falta el benchmark de compilación en la PC del propietario.
+`JWPLC_Expansion` 0.1.0 y `JWPLC_WebScreen` 0.1.0, cada una con su README. Benchmark en la nube: limpio 28 s
+precompiladas frente a 46,6 s en fuente; recompilar ~17,5 s en los dos modos.
 
 ## 4. Qué funciona en la máquina
 
@@ -86,16 +87,17 @@ cuando el propietario valide el MVP del Runtime en placa.
 ## 7. Plan de hitos y NEXT
 
 Hitos en [ALPHA16_PLAN.md](ALPHA16_PLAN.md): H1 y H2 PASS, H3 (`JWSIM_G6_SIMULATE_BUTTON`) DEFERRED, H4 con
-jwplc-sim `a81f302`. Notas de publicación: [PRE_RELEASE.md](PRE_RELEASE.md).
+jwplc-sim `fd08f12`. Notas de publicación: [PRE_RELEASE.md](PRE_RELEASE.md).
 
 1. PR de cierre → `…/main`; luego `…/main` → `release/v2.1.x` (publica la Release, con OK del propietario).
 2. Tras publicar: fusionar el PR de índices hacia `main` con *merge commit* y avanzar `release/v2.1.x` a `main`;
    en openplc-editor, `…/main` → `release/v2.1.x` (merge commit).
-3. Benchmark de compilación en la PC del propietario.
+3. Tag `v0.2.0` de jwplc-sim (lo crea el propietario): publica su instalador, enlazado desde los README.
 4. Validación en placa del Runtime, su página HMI y la expansión; luego retirar `JWPLC_LogicRuntime`/`_UI`.
-5. WiFi y vinculación del celular (F9); botón «Simular» en el editor (H3), en la siguiente línea.
+5. Tras publicar, mover el `package.lock` de jwplc-sim al tag `v2.1.0-alpha.16`.
+6. WiFi y vinculación del celular (F9); botón «Simular» en el editor (H3), en la siguiente línea.
 
-`NEXT_GATE=PUBLICAR_ALPHA16` · `HARDWARE=PENDIENTE_PROPIETARIO`
+`NEXT_GATE=VALIDACION_PLACA_RUNTIME` · `HARDWARE=PENDIENTE_PROPIETARIO`
 
 ## 8. Para retomar
 
@@ -104,6 +106,7 @@ jwplc-sim `a81f302`. Notas de publicación: [PRE_RELEASE.md](PRE_RELEASE.md).
 - El proxy de la nube no deja borrar ramas remotas: lo hace el propietario. Compilar ESP32 sí se puede
   (receta en `A16_CIERRE_PRECOMPILADAS_20261102.md` §5).
 - El proxy tampoco deja crear tags: el de `jwplc-editor-v4.2.8-jwplc.N` lo crea el propietario.
-- Ramas fusionadas que el propietario borra: features #210–#216 de platform, `…/feature/editor-jwplc9` del
-  editor y las de jwplc-sim #6–#9.
+- Ramas fusionadas que el propietario borra: features #210–#216 y `…/feature/cierre-alpha16` (#218) de platform,
+  `…/feature/editor-jwplc9` y `…/feature/readme-jwplc9` del editor, y las de jwplc-sim #6–#11; al publicar,
+  también las dos `…/main` de la línea.
 - `JWPLC_WebScreen`: `KEEP_ALIVE` queda en `false` (más lento en placa con Windows); no reactivar sin probar en placa.

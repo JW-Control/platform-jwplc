@@ -87,4 +87,4 @@ formas**.
 | HMI Designer | 2.1.0-alpha.16 | instaladores: árbol de la Release (extensión 0.1.8); dentro del editor: platform-jwplc `94edd7d` |
 | VPP JWPLC Basic | 2.1.0-alpha.16 | platform-jwplc `94edd7d` |
 | OpenPLC Editor – JWPLC Edition | 4.2.8-jwplc.9 | openplc-editor `2ef069b` (tag `jwplc-editor-v4.2.8-jwplc.9`) |
-| JWPLC Sim (gate `SIM_REGRESSION`) | — | jwplc-sim `a81f302` |
+| JWPLC Sim (gate `SIM_REGRESSION`) | — | jwplc-sim `fd08f12` |
