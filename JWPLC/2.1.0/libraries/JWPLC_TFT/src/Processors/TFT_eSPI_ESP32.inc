@@ -254,6 +254,9 @@ void TFT_eSPI::pushBlock(uint16_t color, uint32_t len){
 //*
 void TFT_eSPI::pushBlock(uint16_t color, uint32_t len){
 
+#ifdef JWPLC_TFT_MIRROR_HOOKS
+  if (jwplcMirrorOn) jwplcMirrorBlock(color, len);
+#endif
   volatile uint32_t* spi_w = _spi_w;
   uint32_t color32 = (color<<8 | color >>8)<<16 | (color<<8 | color >>8);
   uint32_t i = 0;
@@ -295,6 +298,10 @@ void TFT_eSPI::pushSwapBytePixels(const void* data_in, uint32_t len){
 
   uint8_t* data = (uint8_t*)data_in;
   uint32_t color[16];
+
+#ifdef JWPLC_TFT_MIRROR_HOOKS
+  if (jwplcMirrorOn) jwplcMirrorPixels(data_in, len, true);
+#endif
 
   if (len > 31)
   {
@@ -376,6 +383,10 @@ void TFT_eSPI::pushPixels(const void* data_in, uint32_t len){
   }
 
   uint32_t *data = (uint32_t*)data_in;
+
+#ifdef JWPLC_TFT_MIRROR_HOOKS
+  if (jwplcMirrorOn) jwplcMirrorPixels(data_in, len, false);
+#endif
 
   if (len > 31)
   {

@@ -814,10 +814,13 @@ void openConfigMenu()
 
 // ================================================================ RED
 
+// Puerto de JWPLC_WebScreen si el sketch la usa (la librería la redefine); 0 = no activa.
+extern "C" uint16_t __attribute__((weak)) jwplcWebScreenPort() { return 0; }
+
 namespace
 {
-const char *const NET_ROWS[] = {"Enlace", "IP", "Mascara", "Puerta de enlace", "Conectar celular"};
-uint16_t netCount() { return 5; }
+const char *const NET_ROWS[] = {"Enlace", "IP", "Mascara", "Puerta de enlace", "Pantalla web", "Conectar celular"};
+uint16_t netCount() { return 6; }
 void netRow(uint16_t i, JWPLC_UIRow r)
 {
     r.left(NET_ROWS[i]);
@@ -835,6 +838,33 @@ void netRow(uint16_t i, JWPLC_UIRow r)
     case 3:
         r.right(core.gateway);
         break;
+    case 4:
+    {
+        // JWPLC_WebScreen en el sketch: dirección para el navegador.
+        const uint16_t port = jwplcWebScreenPort();
+        static char url[32];
+        if (!port)
+        {
+            r.right("no activa");
+        }
+        else if (core.ip[0] == '-')
+        {
+            r.right("sin IP");
+        }
+        else
+        {
+            if (port == 80)
+            {
+                snprintf(url, sizeof(url), "http://%s/", core.ip);
+            }
+            else
+            {
+                snprintf(url, sizeof(url), "http://%s:%u/", core.ip, (unsigned)port);
+            }
+            r.right(url);
+        }
+        break;
+    }
     default:
         r.right("vista previa >");
         break;
@@ -907,7 +937,7 @@ PhoneScreen g_phone;
 
 void netOk(uint16_t i)
 {
-    if (i == 4)
+    if (i == 5)
     {
         push(&g_phone);
     }

@@ -588,4 +588,32 @@ SPI3_HOST = 2
 // Concatenate a byte sequence A,B,C,D to CDAB, P is a uint8_t pointer
 #define DAT8TO32(P) ( (uint32_t)P[0]<<8 | P[1] | P[2]<<24 | P[3]<<16 )
 
+////////////////////////////////////////////////////////////////////////////////////////
+// JWPLC: espejo de la pantalla para JWPLC_WebScreen (JWPLC_TFT_Mirror.h). Cada
+// escritura SPI a la TFT avisa al espejo cuando está activo; DC_C/DC_D le dicen
+// si el byte es comando o dato. Solo el bus SPI de un hilo (nuestra placa).
+////////////////////////////////////////////////////////////////////////////////////////
+#include "../JWPLC_TFT_Mirror.h"
+#if !defined (TFT_PARALLEL_8_BIT) && !defined (SPI_18BIT_DRIVER) && !defined (RPI_DISPLAY_TYPE) && \
+    defined (TFT_DC) && (TFT_DC >= 0) && (TFT_DC < 32)
+  #undef DC_C
+  #undef DC_D
+  #define DC_C do { GPIO.out_w1tc = (1 << TFT_DC); jwplcMirrorDC = 0; } while (0)
+  #define DC_D do { GPIO.out_w1ts = (1 << TFT_DC); jwplcMirrorDC = 1; } while (0)
+  #undef TFT_WRITE_BITS
+  #define TFT_WRITE_BITS(D, B) do { const uint32_t jwMirrorD = (uint32_t)(D); \
+                                    *_spi_mosi_dlen = B-1;    \
+                                    *_spi_w = jwMirrorD;      \
+                                    *_spi_cmd = SPI_USR;      \
+                                    while (*_spi_cmd & SPI_USR); \
+                                    if (jwplcMirrorOn) jwplcMirrorWrite(jwMirrorD, B); } while (0)
+  #undef tft_Write_16N
+  #define tft_Write_16N(C) do { const uint32_t jwMirrorD = (uint32_t)(((C)<<8 | (C)>>8)); \
+                                *_spi_mosi_dlen = 16-1;   \
+                                *_spi_w = jwMirrorD;      \
+                                *_spi_cmd = SPI_USR;      \
+                                if (jwplcMirrorOn) jwplcMirrorWrite(jwMirrorD, 16); } while (0)
+  #define JWPLC_TFT_MIRROR_HOOKS 1
+#endif
+
 #endif // Header end
