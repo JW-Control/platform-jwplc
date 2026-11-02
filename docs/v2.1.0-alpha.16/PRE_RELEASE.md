@@ -22,6 +22,9 @@ formas**.
   se programa desde la pantalla y la botonera, sin escribir lógica en el sketch. Editor FBD en la TFT, RUN/STOP,
   parámetros, programa guardado en FRAM y copia en microSD, red y diagnóstico. Página HMI propia (► / ◄ desde RUN)
   diseñada con el proyecto «Runtime» del HMI Designer, y eventos del programa en el historial de la pantalla.
+  **Diagnóstico > Simular entradas I** fuerza I1..I8 desde la botonera en RUN (sin cables; la pantalla RUN las
+  marca con «F»), y el programa de ejemplo es la «Demo feria»: motor con marcha/parada, bomba con retardo y
+  contador de piezas con aviso.
 - **Módulos de expansión por RS-485** (`JWPLC_Expansion` 0.1.0, ejemplo `Expansion_Esclavo_Basic`): otro JWPLC
   Basic hace de esclavo de E/S; el Runtime lo da de alta desde la pantalla y usa sus entradas y salidas (`1.I1`,
   `1.Q1`…) como maestro Modbus RTU.

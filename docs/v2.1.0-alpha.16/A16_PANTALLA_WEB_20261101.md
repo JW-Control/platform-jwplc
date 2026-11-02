@@ -53,10 +53,19 @@ físicas siguen funcionando; la página solo agrega teclas virtuales. Pensado pa
    del sketch por una libre de esa red.)
 3. Cable directo laptop ↔ JWPLC. Encender; a los ~8 s abrir `http://192.168.10.10/` en Chrome o Edge. El punto verde
    dice «en vivo · N cuadros/s». Pulsar `T` para ocultar las teclas y `F` para pantalla completa en el proyector.
-4. Guion sugerido (5 min): pantalla RUN → MENU → Programa > Editar: armar «Q1 ← AND(I1, I2) con TON 3 s» →
-   guardar → INICIAR → mover entradas y ver Q y los cables verdes en Monitor → aviso (contador) y ERR «A08» →
-   Diagnóstico > Eventos → cortar la luz y volver: sigue en RUN con el contador.
-5. **Plan B**: si la red falla, cámara del celular apuntando a la TFT.
+4. **Cargar la «Demo feria»** (la FRAM guarda el programa anterior): MENU > Programa > Cargar ejemplo.
+   Programa de 4 bloques: I1 marcha / I2 parada del motor (B01 SR → Q1), bomba 3 s después (B02 TON → Q2),
+   contador de piezas en I3 hasta 5 (B03 → Q3) con reset en I4 y aviso «Lote completo» (B04).
+5. Guion (5 min, sin cables: solo botonera y USB/Ethernet):
+   - RUN: MENU > INICIAR. Mostrar la pantalla RUN (PWR/RUN/ERR, IN, OUT).
+   - MENU > Diagnóstico > **Simular entradas I**: en I1, OK (1) y OK (0) = pulso de marcha → Q1 se enciende y a los
+     3 s Q2 (la bomba). En I3, cinco veces OK, OK → «piezas»; a la quinta, Q3 y el aviso.
+   - ESC hasta RUN: ERR «A04» y las entradas forzadas con «F» (no son señales reales).
+   - Programa > Monitor (en vivo): los cables en verde. Parámetros: cambiar el retardo de 3 s a 5 s sin STOP.
+   - Diagnóstico > Eventos: el aviso con su hora. Cortar la luz y volver: sigue en RUN y el contador conserva
+     las piezas (los forzados se pierden, como debe ser).
+   - En Simular entradas, «Liberar todas» devuelve las entradas reales.
+6. **Plan B**: si la red falla, cámara del celular apuntando a la TFT.
 
 ## Latencia (02/11, tras la primera prueba en placa)
 

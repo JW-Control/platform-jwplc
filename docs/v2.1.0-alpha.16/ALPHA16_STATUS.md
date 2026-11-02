@@ -63,6 +63,8 @@ Regeneradas al cierre y de vuelta en `precompiled=full`: `JWPLC_TFT` 0.5.0 (incl
   [A16_PANTALLA_WEB_20261101.md](A16_PANTALLA_WEB_20261101.md), con el guion de la demo del 03/11.
   `[visto]` en placa (propietario, 02/11) con #215 y #216: cambio de página rápido.
 - Página HMI del Runtime (► / ◄ desde RUN): [A16_RUNTIME_HMI_20261101.md](A16_RUNTIME_HMI_20261101.md).
+- «Demo feria» y Diagnóstico > Simular entradas I (02/11, en #218): demo sin cables; guion en
+  [A16_PANTALLA_WEB_20261101.md](A16_PANTALLA_WEB_20261101.md). Pruebas en jwplc-sim PR #11.
 - Editor 4.2.8-jwplc.9 publicado: Designer 2.1.0-alpha.16 dentro de OpenPLC. Con el package sin publicar,
   compilar con *Package Source › Local Development* (`jwplc_local`).
 
