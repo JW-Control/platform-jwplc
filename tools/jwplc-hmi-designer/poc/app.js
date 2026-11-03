@@ -5799,13 +5799,9 @@
         return;
       }
       if (tool === 'barField') {
-        if (!field || field.type !== 'BAR') {
-          if (window.JWPLCHMIBar?.addBarField) window.JWPLCHMIBar.addBarField();
-        } else {
-          selectedTool = 'barField';
-          syncToolUI();
-          render();
-        }
+        selectedTool = 'barField';
+        syncToolUI();
+        render();
         return;
       }
       if (tool === 'navBarField') {
