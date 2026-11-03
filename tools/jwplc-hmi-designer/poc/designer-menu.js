@@ -179,6 +179,7 @@
       width: 300,
       height: 124,
       textSize: 1,
+      font: 'GLCD',
       frame: true,
       colors: { ...DEFAULT_COLORS },
       nodes
@@ -196,6 +197,7 @@
     if (!Number.isFinite(Number(field.width))) field.width = 300;
     if (!Number.isFinite(Number(field.height))) field.height = 124;
     if (![1, 2].includes(Number(field.textSize))) field.textSize = 1;
+    if (typeof field.font !== 'string') field.font = 'GLCD';
     if (typeof field.frame !== 'boolean') field.frame = true;
     return field;
   }
@@ -254,12 +256,21 @@
   function layout(field) {
     const ts = Number(field.textSize) >= 2 ? 2 : 1;
     const border = field.frame ? 1 : 0;
-    const rowH = 8 * ts + 2 * ROW_PAD_Y;
+    const fontId = field.font || 'GLCD';
+    const fonts = window.JWPLCDesignerFonts;
+    const font = fonts ? fonts.get(fonts.effectiveId(fontId)) : null;
+    const fontH = (font && font.kind !== 'glcd' && fonts)
+      ? fonts.lineHeight(font, ts)
+      : (8 * ts);
+    const rowH = fontH + 2 * ROW_PAD_Y;
     const hasTitle = String(field.title || '').length > 0;
     const headerH = hasTitle ? rowH : 0;
     const avail = num(field.height) - 2 * border - headerH;
     const rows = Math.min(MAX_VISIBLE_ROWS, avail > 0 ? Math.trunc(avail / rowH) : 0);
-    return { ts, cw: 6 * ts, border, rowH, hasTitle, headerH, rows };
+    const cw = (font && font.kind !== 'glcd' && fonts)
+      ? Math.max(6 * ts, fonts.measureWidth(font, 'M', ts))
+      : (6 * ts);
+    return { ts, cw, font, fontId, fontH, border, rowH, hasTitle, headerH, rows };
   }
 
   function glcdText(painter, text, x, y, ts, fg, bg) {
@@ -278,6 +289,23 @@
         }
       }
       cx += 6 * ts;
+    }
+  }
+
+  function drawMenuText(painter, text, x, y, ts, fg, bg, fontId) {
+    const fonts = window.JWPLCDesignerFonts;
+    const font = fonts ? fonts.get(fonts.effectiveId(fontId)) : null;
+    if (!font || font.kind === 'glcd') {
+      glcdText(painter, text, x, y, ts, fg, bg);
+      return;
+    }
+    const mask = fonts.rasterize(font, String(text), ts);
+    for (let row = 0; row < mask.height; row += 1) {
+      for (let column = 0; column < mask.width; column += 1) {
+        if (mask.data[row * mask.width + column]) {
+          painter.fillRect(x + column, y + row, 1, 1, fg);
+        }
+      }
     }
   }
 
@@ -352,10 +380,10 @@
       const arrowsW = (up || down) ? 2 * L.cw : 0;
       const maxChars = Math.max(0, Math.trunc((w - 2 * ROW_PAD_X - arrowsW) / L.cw));
       text = text.slice(0, maxChars);
-      glcdText(painter, text, x + ROW_PAD_X, y + ROW_PAD_Y, L.ts, c.title, c.titleBackground);
+      drawMenuText(painter, text, x + ROW_PAD_X, y + ROW_PAD_Y, L.ts, c.title, c.titleBackground, L.fontId);
       if (arrowsW > 0) {
         const arrows = `${up ? '\x1E' : ' '}${down ? '\x1F' : ' '}`;
-        glcdText(painter, arrows, x + w - ROW_PAD_X - arrowsW, y + ROW_PAD_Y, L.ts, c.title, c.titleBackground);
+        drawMenuText(painter, arrows, x + w - ROW_PAD_X - arrowsW, y + ROW_PAD_Y, L.ts, c.title, c.titleBackground, L.fontId);
       }
     }
 
@@ -386,8 +414,8 @@
       let label = String(node.label || '').slice(0, 39);
       const labelChars = Math.max(0, Math.trunc((w - 2 * ROW_PAD_X - valueW - (valueW > 0 ? L.cw : 0)) / L.cw));
       label = label.slice(0, labelChars);
-      glcdText(painter, label, x + ROW_PAD_X, y + ROW_PAD_Y, L.ts, fg, bg);
-      if (valueW > 0) glcdText(painter, value, x + w - ROW_PAD_X - valueW, y + ROW_PAD_Y, L.ts, vfg, bg);
+      drawMenuText(painter, label, x + ROW_PAD_X, y + ROW_PAD_Y, L.ts, fg, bg, L.fontId);
+      if (valueW > 0) drawMenuText(painter, value, x + w - ROW_PAD_X - valueW, y + ROW_PAD_Y, L.ts, vfg, bg, L.fontId);
     }
   }
 
@@ -577,6 +605,13 @@
         `static const JWPLC_UIMenuNode ${nodesName}[] =\n{\n${ordered.map((n) => `    ${nodeCpp(m, n, symbols)}`).join(',\n')}\n};`);
 
       const c = { ...DEFAULT_COLORS, ...m.colors };
+      const menuFonts = (typeof module === 'object' && module.exports)
+        ? require('./designer-fonts.js')
+        : (typeof window !== 'undefined' ? window.JWPLCDesignerFonts : null);
+      const fontSym = (m.font && m.font !== 'GLCD')
+        ? (menuFonts?.cppSymbol?.(m.font) || (String(m.font).startsWith('JWPLC_FONT_') ? m.font : (m.font === 'FONT_16' || m.font === 'FONT2' ? 'JWPLC_FONT_16' : (m.font === 'FONT_26' || m.font === 'FONT4' ? 'JWPLC_FONT_26' : (m.font === '7SEG_48' || m.font === 'FONT_7SEG_48' ? 'JWPLC_FONT_7SEG_48' : `JWPLC_FONT_${m.font}`)))))
+        : null;
+      const fontArg = fontSym ? `,\n        &${fontSym}` : '';
       menuEntries.push(
         `    JWPLC_UIMenuField(\n` +
         `        ${m.id},\n` +
@@ -588,7 +623,7 @@
         `        ${Number(m.textSize) >= 2 ? 2 : 1},\n` +
         `        ${m.frame ? 'true' : 'false'},\n` +
         `        JWPLC_UIMenuColors(\n` +
-        `            ${[c.text, c.background, c.value, c.selectText, c.selectBackground, c.editText, c.editBackground, c.title, c.titleBackground, c.frame].map(hex565).join(',\n            ')}))`);
+        `            ${[c.text, c.background, c.value, c.selectText, c.selectBackground, c.editText, c.editBackground, c.title, c.titleBackground, c.frame].map(hex565).join(',\n            ')})${fontArg})`);
     });
 
     declChunks.push(`static const JWPLC_UIMenu HMI_MENUS[] =\n{\n${menuEntries.join(',\n')}\n};`);
@@ -681,6 +716,12 @@
               <button type="button" class="bar-visual-btn" data-menu-set="textSize" data-value="1"><strong>Aa</strong><span>1× · filas de 12 px</span></button>
               <button type="button" class="bar-visual-btn" data-menu-set="textSize" data-value="2"><strong style="font-size:15px">Aa</strong><span>2× · filas de 20 px</span></button>
             </div>
+          </div>
+          <div class="bar-card">
+            <div class="bar-card-section-title">Tipografía</div>
+            <label class="field-label">Fuente del menú
+              <select class="field-input" data-menu-font></select>
+            </label>
           </div>
           <div class="bar-card">
             <div class="bar-card-section-title">Marco</div>
@@ -1092,6 +1133,30 @@
     });
     section.querySelectorAll('[data-menu-set="textSize"]').forEach((b) => b.classList.toggle('active', Number(b.dataset.value) === Number(field.textSize)));
     section.querySelectorAll('[data-menu-set="frame"]').forEach((b) => b.classList.toggle('active', (b.dataset.value === '1') === Boolean(field.frame)));
+
+    const fontSelect = section.querySelector('[data-menu-font]');
+    if (fontSelect && window.JWPLCDesignerFonts) {
+      const fonts = window.JWPLCDesignerFonts.availableFontsFor('MENU');
+      const val = window.JWPLCDesignerFonts.normalizeId(field.font || 'GLCD');
+      if (fontSelect.dataset.val !== val || !fontSelect.children.length) {
+        fontSelect.dataset.val = val;
+        fontSelect.innerHTML = '';
+        const groups = new Map();
+        fonts.forEach((f) => {
+          if (!groups.has(f.group)) {
+            const grp = document.createElement('optgroup');
+            grp.label = f.group;
+            groups.set(f.group, grp);
+            fontSelect.appendChild(grp);
+          }
+          const opt = document.createElement('option');
+          opt.value = f.id;
+          opt.textContent = f.label;
+          groups.get(f.group).appendChild(opt);
+        });
+        fontSelect.value = val;
+      }
+    }
 
     const L = layout(field);
     const set = (name, text) => section.querySelectorAll(`[data-menu-readout="${name}"]`).forEach((el) => { el.textContent = text; });

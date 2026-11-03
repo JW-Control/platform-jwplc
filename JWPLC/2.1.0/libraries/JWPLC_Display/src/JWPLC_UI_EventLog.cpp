@@ -655,6 +655,14 @@ namespace JWPLCUIEventLog
 
         // Encabezado
         tft.fillRect(x0 + border, y0 + border, w - 2 * border, HEADER_HEIGHT, c.headerBackground);
+        if (g_config.headerFont != nullptr && g_config.headerFont->kind != 0)
+        {
+            tft.setFont(*g_config.headerFont);
+        }
+        else
+        {
+            tft.setFont(JWPLC_FONT_GLCD);
+        }
         tft.setTextSize(1);
         tft.setTextColor(c.headerText, c.headerBackground);
         tft.setCursor(x0 + border + 6, y0 + border + 4);
@@ -688,6 +696,7 @@ namespace JWPLCUIEventLog
             tft.setCursor(x0 + border + w - 50 - shift, y0 + border + 4);
             tft.print(sdOk ? "SD:OK" : "SD:--");
         }
+        tft.setFont(JWPLC_FONT_GLCD);
 
         // Filas visibles
         for (uint8_t r = 0; r < visRows; ++r)
@@ -710,6 +719,14 @@ namespace JWPLCUIEventLog
                 // Hora
                 char timeBuf[16];
                 formatTime(rec.timestamp, timeBuf, sizeof(timeBuf));
+                if (g_config.rowFont != nullptr && g_config.rowFont->kind != 0)
+                {
+                    tft.setFont(*g_config.rowFont);
+                }
+                else
+                {
+                    tft.setFont(JWPLC_FONT_GLCD);
+                }
                 tft.setTextColor(rowFg, rowBg);
                 tft.setCursor(x0 + border + 6, y + 3);
                 tft.print(timeBuf);
@@ -743,6 +760,7 @@ namespace JWPLCUIEventLog
                     snprintf(truncDesc, sizeof(truncDesc), "%.*s", maxChars, label);
                     tft.print(truncDesc);
                 }
+                tft.setFont(JWPLC_FONT_GLCD);
             }
         }
 
@@ -757,6 +775,14 @@ namespace JWPLCUIEventLog
             tft.fillRect(x0 + border, rowsEnd, w - 2 * border, footerY - rowsEnd, c.rowBackground);
         }
         tft.fillRect(x0 + border, footerY, w - 2 * border, FOOTER_HEIGHT, 0x10A2);
+        if (g_config.rowFont != nullptr && g_config.rowFont->kind != 0)
+        {
+            tft.setFont(*g_config.rowFont);
+        }
+        else
+        {
+            tft.setFont(JWPLC_FONT_GLCD);
+        }
         tft.setTextColor(0xFFFF, 0x10A2);
         tft.setCursor(x0 + border + 8, footerY + 3);
         if (w >= 260)
@@ -767,6 +793,7 @@ namespace JWPLCUIEventLog
         {
             tft.print("[OK] [\x1E\x1F] [ESC]");
         }
+        tft.setFont(JWPLC_FONT_GLCD);
     }
 }
 

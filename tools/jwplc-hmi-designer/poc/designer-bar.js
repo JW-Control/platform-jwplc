@@ -406,6 +406,7 @@
 
             <!-- Controles cuando Degradado está activo -->
             <div id="barAppGradSettings" style="display:none;margin-top:10px;">
+              <div id="barGradPreviewBar" style="height:14px;border-radius:3px;border:1px solid var(--line);margin-bottom:8px;box-shadow:inset 0 1px 2px rgba(0,0,0,0.2);"></div>
               <div class="bar-grad-row full">
                 <label class="field-label" style="flex:1;min-width:0;">Color Inicial
                   <div class="bar-color-input-wrap compact">
@@ -1103,8 +1104,15 @@
     if (field.barFillMode !== 'GRADIENT') field.barFillMode = 'SOLID';
     if (field.barOrientation !== 'VERTICAL') field.barOrientation = 'HORIZONTAL';
     if (field.barStyle !== 'BLOCKS') field.barStyle = 'SOLID';
-    field.barCornerRadius = 0;
-    field.barBorderEnabled = false;
+    if (field.barCornerRadius !== 'FULL') {
+      const r = Number(field.barCornerRadius);
+      field.barCornerRadius = (Number.isFinite(r) && r >= 0) ? Math.min(20, Math.trunc(r)) : 0;
+    }
+    field.barBorderEnabled = Boolean(field.barBorderEnabled);
+    if (!Number.isFinite(Number(field.barBorderColor))) field.barBorderColor = 0xFFFF;
+    field.barBorderColor = Number(field.barBorderColor) & 0xFFFF;
+    if (!Number.isFinite(Number(field.barBorderWidth)) || field.barBorderWidth < 1) field.barBorderWidth = 1;
+    field.barBorderWidth = Math.min(10, Math.trunc(Number(field.barBorderWidth)));
     field.linearPctPos = 'NONE';
     if (field.barAutoWidth === true) {
       // Proyecto viejo con ancho AUTO: el firmware usaba una barra de 80 px;
@@ -2340,13 +2348,17 @@
 
       if (barFormaFillMode) field.barFillMode = barFormaFillMode.value || 'SOLID';
       if (field.barFillMode === 'GRADIENT') {
-        if (barAppLinearGradStartNative) {
-          field.valueColor = hexCssTo565(barAppLinearGradStartNative.value);
-          if (barAppLinearGradStartHex) barAppLinearGradStartHex.textContent = hex565(field.valueColor);
+        const startInput = barGradStartNative || barAppLinearGradStartNative;
+        const startHex = barGradStartHex || barAppLinearGradStartHex;
+        if (startInput) {
+          field.valueColor = hexCssTo565(startInput.value);
+          if (startHex) startHex.textContent = hex565(field.valueColor);
         }
-        if (barAppLinearGradEndNative) {
-          field.valueColorEnd = hexCssTo565(barAppLinearGradEndNative.value);
-          if (barAppLinearGradEndHex) barAppLinearGradEndHex.textContent = hex565(field.valueColorEnd);
+        const endInput = barGradEndNative || barAppLinearGradEndNative;
+        const endHex = barGradEndHex || barAppLinearGradEndHex;
+        if (endInput) {
+          field.valueColorEnd = hexCssTo565(endInput.value);
+          if (endHex) endHex.textContent = hex565(field.valueColorEnd);
         }
       } else {
         if (barAppLinearColorNative) {
@@ -2354,6 +2366,10 @@
           if (barAppLinearColorHex) barAppLinearColorHex.textContent = hex565(field.valueColor);
         }
       }
+
+      if (barFormaBorderEnabled) field.barBorderEnabled = barFormaBorderEnabled.checked;
+      if (barFormaBorderWidth) field.barBorderWidth = Math.max(1, Math.min(10, Math.trunc(Number(barFormaBorderWidth.value) || 1)));
+      if (barFormaBorderColorNative) field.barBorderColor = hexCssTo565(barFormaBorderColorNative.value);
 
       if (barAppLinearTrackNative) {
         field.trackColor = hexCssTo565(barAppLinearTrackNative.value);
@@ -3436,6 +3452,10 @@
       barGradEndNative.value = rgb565ToHexCss(field.valueColorEnd || 0x07E0);
       if (barGradEndHex) barGradEndHex.textContent = hex565(field.valueColorEnd || 0x07E0);
     }
+    const gradPreviewBar = document.getElementById('barGradPreviewBar');
+    if (gradPreviewBar) {
+      gradPreviewBar.style.background = `linear-gradient(90deg, ${rgb565ToCss(field.valueColor || 0x07FF)}, ${rgb565ToCss(field.valueColorEnd || 0x07E0)})`;
+    }
 
     // 6. TÉCNICO
     if (barTechName) barTechName.value = field.name || '';
@@ -3574,11 +3594,13 @@
   // Mismo patrón que TEXT/VALUE/BOOL (designer-field-inspector.js). Colores de
   // JWPLC_UIBarField: value = barra, background = fondo del campo y pista
   // vacía (un solo color), label = etiqueta y unidad, frame = marco.
-  const BAR_COLOR_PROP = { frame: 'frameColor', label: 'labelColor', value: 'valueColor', track: 'trackColor' };
-  const BAR_COLOR_DEFAULT = { frame: 0xFFFF, label: 0xFFFF, value: 0x07FF, track: 0x0000 };
+  const BAR_COLOR_PROP = { frame: 'frameColor', label: 'labelColor', value: 'valueColor', valueEnd: 'valueColorEnd', track: 'trackColor' };
+  const BAR_COLOR_DEFAULT = { frame: 0xFFFF, label: 0xFFFF, value: 0x07FF, valueEnd: 0x07E0, track: 0x0000 };
   const getBarName = (field, key) => {
     const isCirc = (field?.barPreset === 'CIRCULAR');
-    if (key === 'value') return isCirc ? 'Arco' : 'Barra';
+    const isGrad = isCirc ? (field?.circleColorMode === 'GRADIENT') : (field?.barFillMode === 'GRADIENT');
+    if (key === 'value') return isGrad ? (isCirc ? 'Arco (Inicio)' : 'Barra (Inicio)') : (isCirc ? 'Arco' : 'Barra');
+    if (key === 'valueEnd') return isCirc ? 'Arco (Fin degradado)' : 'Barra (Fin degradado)';
     if (key === 'track') return 'Fondo y pista';
     if (key === 'label') return 'Etiqueta y unidad';
     if (key === 'frame') return 'Marco';
@@ -3588,14 +3610,15 @@
   const getBarLetter = (field, key) => {
     const isCirc = (field?.barPreset === 'CIRCULAR');
     if (key === 'value') return isCirc ? 'A' : 'B';
+    if (key === 'valueEnd') return '2';
     if (key === 'track') return 'F';
     if (key === 'label') return 'T';
     if (key === 'frame') return 'M';
     return '?';
   };
 
-  const BAR_LETTER = { frame: 'M', label: 'T', value: 'B', track: 'F' };
-  const BAR_NAME = { frame: 'Marco', label: 'Etiqueta y unidad', value: 'Barra', track: 'Fondo y pista' };
+  const BAR_LETTER = { frame: 'M', label: 'T', value: 'B', valueEnd: '2', track: 'F' };
+  const BAR_NAME = { frame: 'Marco', label: 'Etiqueta y unidad', value: 'Barra', valueEnd: 'Barra (Fin)', track: 'Fondo y pista' };
   let barActiveKey = 'value';
   const barMiniCard = document.getElementById('barAppMini');
 
@@ -3603,7 +3626,18 @@
     const raw = Number(field[BAR_COLOR_PROP[key]]);
     return (Number.isFinite(raw) ? raw : BAR_COLOR_DEFAULT[key]) & 0xFFFF;
   };
-  const barMiniRows = (field) => [...(field.frame ? ['frame'] : []), 'label', 'value', 'track'];
+  const barMiniRows = (field) => {
+    const isGrad = (field?.barPreset === 'CIRCULAR')
+      ? (field?.circleColorMode === 'GRADIENT')
+      : (field?.barFillMode === 'GRADIENT');
+    return [
+      ...(field?.frame ? ['frame'] : []),
+      'label',
+      'value',
+      ...(isGrad ? ['valueEnd'] : []),
+      'track'
+    ];
+  };
 
   function buildBarMini(field) {
     const rows = barMiniRows(field);
@@ -3657,6 +3691,7 @@
       frame: [{ x: 0, y: 0, w, h }],
       label: label.length ? label : [{ x: g.valueX, y: g.valueY, w: g.valueW, h: g.valueH }],
       value: valueZone,
+      valueEnd: valueZone,
       track: [{ x: inset, y: inset, w: w - 2 * inset, h: h - 2 * inset, inset: true }]
     };
   }
@@ -3701,6 +3736,11 @@
       ? (field.circleColorMode === 'GRADIENT')
       : (field.barFillMode === 'GRADIENT');
 
+    const gradPreviewBar = document.getElementById('barGradPreviewBar');
+    if (gradPreviewBar) {
+      gradPreviewBar.style.background = `linear-gradient(90deg, ${rgb565ToCss(field.valueColor || 0x07FF)}, ${rgb565ToCss(field.valueColorEnd || 0x07E0)})`;
+    }
+
     Object.keys(BAR_COLOR_PROP).forEach((key) => {
       const v = barColorOf(field, key);
       barMiniCard.querySelectorAll(`[data-bar-swatch="${key}"]`).forEach((sw) => {
@@ -3726,9 +3766,17 @@
       if (barGradStartNative) barGradStartNative.value = rgb565ToHexCss(value565);
       if (barGradStartHex) barGradStartHex.textContent = hex565(value565);
     }
+    if (key === 'valueEnd') {
+      if (barGradEndNative) barGradEndNative.value = rgb565ToHexCss(value565);
+      if (barGradEndHex) barGradEndHex.textContent = hex565(value565);
+    }
     if (key === 'track') {
       field.backgroundColor = value565 & 0xFFFF; // un solo color en firmware
       field.circleTrackColor = value565 & 0xFFFF;
+    }
+    const gradPreviewBar = document.getElementById('barGradPreviewBar');
+    if (gradPreviewBar) {
+      gradPreviewBar.style.background = `linear-gradient(90deg, ${rgb565ToCss(field.valueColor || 0x07FF)}, ${rgb565ToCss(field.valueColorEnd || 0x07E0)})`;
     }
     triggerCoreRender(commit);
   }
@@ -3796,11 +3844,6 @@
   }
 
   function closeBarInspector() {
-    // BAR-3: variantes estéticas sin soporte en el hardware (radio y borde).
-    barInspectorWrap.querySelectorAll('.bar-radius-btn:not([data-radius="0"])').forEach(markNeedsFirmware);
-    const borderToggle = barInspectorWrap.querySelector('#barFormaBorderEnabled');
-    markNeedsFirmware(borderToggle);
-    borderToggle?.closest('label')?.classList.add('insp-needs-fw');
     alignMatrixCells.forEach((cell) => {
       cell.disabled = false;
       cell.classList.remove('insp-needs-fw');

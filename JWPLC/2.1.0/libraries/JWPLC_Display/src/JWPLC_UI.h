@@ -5,6 +5,7 @@
 #include <stddef.h>
 
 class JWPLC_TFTClass;
+struct JWPLC_TFTFont;
 
 static constexpr int16_t JWPLC_UI_AUTO = -1;
 static constexpr uint8_t JWPLC_UI_MAX_FIELDS = 32;
@@ -105,13 +106,18 @@ struct JWPLC_UIStyle
     // grupo propio de JWPLC_UIField, no anidado dentro de style.
     JWPLC_UIColors colors;
 
+    const JWPLC_TFTFont *labelFont = nullptr;
+    const JWPLC_TFTFont *valueFont = nullptr;
+
     JWPLC_UIStyle(
         uint8_t labelSizeValue = 1,
         uint8_t valueSizeValue = 2,
         bool frameValue = false,
         JWPLC_UIFieldLayout layoutValue = JWPLC_UI_LAYOUT_INLINE,
         JWPLC_UIValueAlign alignValue = JWPLC_UI_ALIGN_RIGHT,
-        JWPLC_UIColors colorsValue = JWPLC_UIColors());
+        JWPLC_UIColors colorsValue = JWPLC_UIColors(),
+        const JWPLC_TFTFont *labelFontValue = nullptr,
+        const JWPLC_TFTFont *valueFontValue = nullptr);
 };
 
 // signedValue=true permite negativos y reserva espacio para '-'.
@@ -351,6 +357,48 @@ struct JWPLC_UIIcon
 };
 
 #define JWPLC_UI_HAS_CIRCULAR 1
+#define JWPLC_UI_HAS_BAR_CONFIG 1
+
+enum JWPLC_UIBarOrientation : uint8_t
+{
+    JWPLC_UI_BAR_HORIZONTAL = 0,
+    JWPLC_UI_BAR_VERTICAL = 1
+};
+
+enum JWPLC_UIBarSegmentStyle : uint8_t
+{
+    JWPLC_UI_BAR_STYLE_SOLID = 0,
+    JWPLC_UI_BAR_STYLE_BLOCKS = 1
+};
+
+struct JWPLC_UIBarConfig
+{
+    uint8_t orientation;  // JWPLC_UI_BAR_HORIZONTAL o JWPLC_UI_BAR_VERTICAL
+    uint8_t style;        // JWPLC_UI_BAR_STYLE_SOLID o JWPLC_UI_BAR_STYLE_BLOCKS
+    uint16_t colorEnd;    // 0 = sólido (colors.value), != 0 = degradado hasta colorEnd
+    uint8_t cornerRadius; // 0 = recto, >0 = radio de redondeo (255 = semicírculo/píldora)
+    bool borderEnabled;   // true = borde habilitado
+    uint16_t borderColor;// color del borde
+    uint8_t borderWidth;  // grosor del borde (px)
+
+    constexpr JWPLC_UIBarConfig(
+        uint8_t orientationValue = 0,
+        uint8_t styleValue = 0,
+        uint16_t colorEndValue = 0,
+        uint8_t cornerRadiusValue = 0,
+        bool borderEnabledValue = false,
+        uint16_t borderColorValue = 0xFFFF,
+        uint8_t borderWidthValue = 1)
+        : orientation(orientationValue),
+          style(styleValue),
+          colorEnd(colorEndValue),
+          cornerRadius(cornerRadiusValue),
+          borderEnabled(borderEnabledValue),
+          borderColor(borderColorValue),
+          borderWidth(borderWidthValue)
+    {
+    }
+};
 
 struct JWPLC_UICircularStyle
 {
@@ -439,6 +487,7 @@ struct JWPLC_UIField
 
     // Medidor circular (JWPLC_UICircularField)
     JWPLC_UICircularStyle circularStyle = JWPLC_UICircularStyle();
+    JWPLC_UIBarConfig barConfig = JWPLC_UIBarConfig();
 
     JWPLC_UIField(
         JWPLC_UIFieldMeta metaValue = JWPLC_UIFieldMeta(),
@@ -456,21 +505,27 @@ JWPLC_UIStyle JWPLC_UIValueStyle(
     uint8_t labelTextSize = 1,
     bool frame = false,
     JWPLC_UIFieldLayout layout = JWPLC_UI_LAYOUT_INLINE,
-    JWPLC_UIValueAlign align = JWPLC_UI_ALIGN_RIGHT);
+    JWPLC_UIValueAlign align = JWPLC_UI_ALIGN_RIGHT,
+    const JWPLC_TFTFont *labelFont = nullptr,
+    const JWPLC_TFTFont *valueFont = nullptr);
 
 JWPLC_UIStyle JWPLC_UITextFieldStyle(
     uint8_t valueTextSize = 1,
     uint8_t labelTextSize = 1,
     bool frame = false,
     JWPLC_UIFieldLayout layout = JWPLC_UI_LAYOUT_INLINE,
-    JWPLC_UIValueAlign align = JWPLC_UI_ALIGN_LEFT);
+    JWPLC_UIValueAlign align = JWPLC_UI_ALIGN_LEFT,
+    const JWPLC_TFTFont *labelFont = nullptr,
+    const JWPLC_TFTFont *valueFont = nullptr);
 
 JWPLC_UIStyle JWPLC_UIBoolStyle(
     uint8_t valueTextSize = 2,
     uint8_t labelTextSize = 1,
     bool frame = false,
     JWPLC_UIFieldLayout layout = JWPLC_UI_LAYOUT_INLINE,
-    JWPLC_UIValueAlign align = JWPLC_UI_ALIGN_CENTER);
+    JWPLC_UIValueAlign align = JWPLC_UI_ALIGN_CENTER,
+    const JWPLC_TFTFont *labelFont = nullptr,
+    const JWPLC_TFTFont *valueFont = nullptr);
 
 JWPLC_UIStyle JWPLC_UIBarStyle(
     uint8_t labelTextSize = 1,
@@ -520,7 +575,8 @@ JWPLC_UIField JWPLC_UIBarField(
     JWPLC_UIRange range = JWPLC_UIRange(),
     JWPLC_UIStyle style = JWPLC_UIBarStyle(),
     uint8_t page = 0,
-    JWPLC_UIColors colors = JWPLC_UIColors());
+    JWPLC_UIColors colors = JWPLC_UIColors(),
+    JWPLC_UIBarConfig barConfig = JWPLC_UIBarConfig());
 
 JWPLC_UIField JWPLC_UIIconField(
     uint8_t id,
@@ -577,7 +633,8 @@ JWPLC_UIField JWPLC_UIBarField(
     JWPLC_UIRange range = JWPLC_UIRange(),
     int16_t width = 100,
     int16_t height = 28,
-    uint8_t page = 0);
+    uint8_t page = 0,
+    JWPLC_UIBarConfig barConfig = JWPLC_UIBarConfig());
 
 JWPLC_UIField JWPLC_UICircularField(
     uint8_t id,

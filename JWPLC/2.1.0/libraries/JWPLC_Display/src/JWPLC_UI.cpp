@@ -182,7 +182,8 @@ namespace
         const char *text,
         uint8_t textSize,
         uint16_t &w,
-        uint16_t &h)
+        uint16_t &h,
+        const JWPLC_TFTFont *font = nullptr)
     {
         w = 0;
         h = 0;
@@ -197,6 +198,16 @@ namespace
 
         const uint8_t scale = (textSize == 0) ? 1 : textSize;
         tft.setTextSize(scale);
+
+        if (font != nullptr && font->kind != 0)
+        {
+            tft.setFont(*font);
+            tft.getTextBounds(text, 0, 0, &x1, &y1, &w, &h);
+            tft.setFont(JWPLC_FONT_GLCD);
+            return;
+        }
+
+        tft.setFont(JWPLC_FONT_GLCD);
         tft.getTextBounds(text, 0, 0, &x1, &y1, &w, &h);
 
         // HMI declarativa: Adafruit GFX reporta la celda clasica 6x8 completa.
@@ -305,7 +316,8 @@ namespace
             field.value,
             field.def.style.valueTextSize,
             currentW,
-            currentH);
+            currentH,
+            field.def.style.valueFont);
 
         if ((int16_t)currentW >= field.valueW)
         {
@@ -342,7 +354,8 @@ namespace
             def.text.label,
             def.style.labelTextSize,
             labelW,
-            labelH);
+            labelH,
+            def.style.labelFont);
 
         uint16_t unitW = 0;
         uint16_t unitH = 0;
@@ -351,7 +364,8 @@ namespace
             def.text.unit,
             def.style.labelTextSize,
             unitW,
-            unitH);
+            unitH,
+            def.style.labelFont);
 
         uint16_t valueW = 0;
         uint16_t valueH = 0;
@@ -366,7 +380,8 @@ namespace
                 sample,
                 def.style.valueTextSize,
                 valueW,
-                valueH);
+                valueH,
+                def.style.valueFont);
             break;
 
         case JWPLC_UI_FIELD_TEXT:
@@ -379,7 +394,8 @@ namespace
                 sample,
                 def.style.valueTextSize,
                 valueW,
-                valueH);
+                valueH,
+                def.style.valueFont);
             break;
 
         case JWPLC_UI_FIELD_BOOL:
@@ -405,7 +421,8 @@ namespace
                     : "OFF",
                 def.style.valueTextSize,
                 falseW,
-                falseH);
+                falseH,
+                def.style.valueFont);
 
             textBounds(
                 tft,
@@ -414,7 +431,8 @@ namespace
                     : "ON",
                 def.style.valueTextSize,
                 trueW,
-                trueH);
+                trueH,
+                def.style.valueFont);
 
             valueW = (falseW > trueW) ? falseW : trueW;
             valueH = (falseH > trueH) ? falseH : trueH;
@@ -442,17 +460,38 @@ namespace
 
         case JWPLC_UI_FIELD_BAR:
         default:
-            valueW =
-                (def.rect.width == JWPLC_UI_AUTO)
-                    ? DEFAULT_BAR_WIDTH
-                    : (uint16_t)((def.rect.width > lead + pad)
-                                     ? def.rect.width - lead - pad
-                                     : DEFAULT_BAR_WIDTH);
-            valueH = DEFAULT_BAR_HEIGHT;
+            if (def.meta.type == JWPLC_UI_FIELD_BAR && def.barConfig.orientation == JWPLC_UI_BAR_VERTICAL)
+            {
+                int16_t w = (def.rect.width != JWPLC_UI_AUTO && def.rect.width > lead + pad)
+                                ? (def.rect.width - lead - pad)
+                                : 14;
+                int16_t h = (def.rect.height != JWPLC_UI_AUTO && def.rect.height > lead + pad)
+                                ? (def.rect.height - lead - pad)
+                                : 60;
+                if (def.style.layout == JWPLC_UI_LAYOUT_STACKED && labelH > 0)
+                {
+                    if (h > (int16_t)labelH + FIELD_GAP) h -= (int16_t)labelH + FIELD_GAP;
+                }
+                valueW = w > 0 ? (uint16_t)w : 14;
+                valueH = h > 0 ? (uint16_t)h : 60;
+            }
+            else
+            {
+                valueW =
+                    (def.rect.width == JWPLC_UI_AUTO)
+                        ? DEFAULT_BAR_WIDTH
+                        : (uint16_t)((def.rect.width > lead + pad)
+                                         ? def.rect.width - lead - pad
+                                         : DEFAULT_BAR_WIDTH);
+                valueH = (def.rect.height != JWPLC_UI_AUTO && def.rect.height > lead + pad)
+                             ? (def.rect.height - lead - pad)
+                             : DEFAULT_BAR_HEIGHT;
+            }
             break;
         }
 
         if (def.meta.type == JWPLC_UI_FIELD_BAR &&
+            def.barConfig.orientation != JWPLC_UI_BAR_VERTICAL &&
             def.rect.width != JWPLC_UI_AUTO)
         {
             int16_t available = def.rect.width - lead - pad;
@@ -559,7 +598,23 @@ namespace
         return def.style.colors.background;
     }
 
-    int16_t barFillWidth(const FieldRuntime &field)
+    static inline uint16_t interpolate565(uint16_t c1, uint16_t c2, float t)
+    {
+        if (t <= 0.0f) return c1;
+        if (t >= 1.0f) return c2;
+        uint32_t r1 = (c1 >> 11) & 0x1F;
+        uint32_t g1 = (c1 >> 5) & 0x3F;
+        uint32_t b1 = c1 & 0x1F;
+        uint32_t r2 = (c2 >> 11) & 0x1F;
+        uint32_t g2 = (c2 >> 5) & 0x3F;
+        uint32_t b2 = c2 & 0x1F;
+        uint32_t r = (uint32_t)(r1 + (int32_t)(r2 - r1) * t);
+        uint32_t g = (uint32_t)(g1 + (int32_t)(g2 - g1) * t);
+        uint32_t b = (uint32_t)(b1 + (int32_t)(b2 - b1) * t);
+        return (uint16_t)((r << 11) | (g << 5) | b);
+    }
+
+    int16_t barFillLevel(const FieldRuntime &field)
     {
         float minValue = field.def.options.barRange.min;
         float maxValue = field.def.options.barRange.max;
@@ -581,7 +636,176 @@ namespace
             normalized = 1.0f;
         }
 
-        return (int16_t)lroundf(normalized * field.valueW);
+        const bool isVert = (field.def.barConfig.orientation == JWPLC_UI_BAR_VERTICAL);
+        const int16_t totalLen = isVert ? field.valueH : field.valueW;
+        return (int16_t)lroundf(normalized * (float)totalLen);
+    }
+
+    void drawBarDelta(
+        JWPLC_TFTClass &tft,
+        FieldRuntime &field,
+        int16_t oldLevel,
+        int16_t newLevel)
+    {
+        const JWPLC_UIField &def = field.def;
+        const bool isVert = (def.barConfig.orientation == JWPLC_UI_BAR_VERTICAL);
+        const bool isBlocks = (def.barConfig.style == JWPLC_UI_BAR_STYLE_BLOCKS);
+        const uint16_t colStart = def.style.colors.value;
+        const uint16_t colEnd = def.barConfig.colorEnd;
+        const bool isGrad = (colEnd != 0 && colEnd != colStart);
+        const uint16_t bg = fieldBackground(field);
+
+        const int16_t b = (def.barConfig.borderEnabled && def.barConfig.borderWidth > 0)
+                              ? (int16_t)def.barConfig.borderWidth
+                              : 0;
+        const int16_t vx = field.valueX + b;
+        const int16_t vy = field.valueY + b;
+        const int16_t vw = field.valueW - 2 * b;
+        const int16_t vh = field.valueH - 2 * b;
+        if (vw <= 0 || vh <= 0) return;
+
+        const int16_t totalLen = isVert ? vh : vw;
+        if (totalLen <= 0) return;
+
+        if (oldLevel < 0) oldLevel = 0;
+        if (newLevel < 0) newLevel = 0;
+        if (newLevel > totalLen) newLevel = totalLen;
+        if (oldLevel > totalLen) oldLevel = totalLen;
+
+        if (newLevel == oldLevel) return;
+
+        if (!isBlocks)
+        {
+            // SÓLIDO (Continuo)
+            if (!isVert)
+            {
+                // Horizontal
+                if (newLevel > oldLevel)
+                {
+                    if (isGrad)
+                    {
+                        for (int16_t px = oldLevel; px < newLevel; px++)
+                        {
+                            float t = (float)px / (float)totalLen;
+                            uint16_t c = interpolate565(colStart, colEnd, t);
+                            tft.drawFastVLine(vx + px, vy, vh, c);
+                        }
+                    }
+                    else
+                    {
+                        tft.fillRect(
+                            vx + oldLevel,
+                            vy,
+                            newLevel - oldLevel,
+                            vh,
+                            colStart);
+                    }
+                }
+                else
+                {
+                    tft.fillRect(
+                        vx + newLevel,
+                        vy,
+                        oldLevel - newLevel,
+                        vh,
+                        bg);
+                }
+            }
+            else
+            {
+                // Vertical (Tanque: llena desde abajo hacia arriba)
+                if (newLevel > oldLevel)
+                {
+                    if (isGrad)
+                    {
+                        for (int16_t py = oldLevel; py < newLevel; py++)
+                        {
+                            float t = (float)py / (float)totalLen;
+                            uint16_t c = interpolate565(colStart, colEnd, t);
+                            tft.drawFastHLine(
+                                vx,
+                                vy + vh - 1 - py,
+                                vw,
+                                c);
+                        }
+                    }
+                    else
+                    {
+                        tft.fillRect(
+                            vx,
+                            vy + vh - newLevel,
+                            vw,
+                            newLevel - oldLevel,
+                            colStart);
+                    }
+                }
+                else
+                {
+                    tft.fillRect(
+                        vx,
+                        vy + vh - oldLevel,
+                        vw,
+                        oldLevel - newLevel,
+                        bg);
+                }
+            }
+        }
+        else
+        {
+            // BLOQUES (Segmentado industrial)
+            const int16_t blockPitch = totalLen >= 40 ? 5 : 4;
+            const int16_t blockSize = blockPitch - 1;
+            const int16_t numBlocks = totalLen / blockPitch;
+            if (numBlocks <= 0) return;
+
+            const int16_t minL = (newLevel < oldLevel) ? newLevel : oldLevel;
+            const int16_t maxL = (newLevel > oldLevel) ? newLevel : oldLevel;
+
+            for (int16_t k = 0; k < numBlocks; k++)
+            {
+                const int16_t bStart = k * blockPitch;
+                const int16_t bEnd = bStart + blockSize;
+                if (bEnd >= minL && bStart <= maxL)
+                {
+                    const bool active = (bEnd <= newLevel) || ((k + 0.5f) / (float)numBlocks <= (float)newLevel / (float)totalLen);
+                    uint16_t c = bg;
+                    if (active)
+                    {
+                        c = isGrad
+                            ? interpolate565(colStart, colEnd, (float)k / (float)(numBlocks > 1 ? numBlocks - 1 : 1))
+                            : colStart;
+                    }
+
+                    if (!isVert)
+                    {
+                        tft.fillRect(vx + bStart, vy, blockSize, vh, c);
+                    }
+                    else
+                    {
+                        const int16_t by = vy + vh - bEnd;
+                        tft.fillRect(vx, by, vw, blockSize, c);
+                    }
+                }
+            }
+        }
+
+        if (def.barConfig.cornerRadius > 0 && def.barConfig.borderEnabled && b > 0)
+        {
+            const int16_t minDim = (field.valueW < field.valueH) ? field.valueW : field.valueH;
+            int16_t r = (def.barConfig.cornerRadius == 255)
+                            ? (minDim / 2)
+                            : (int16_t)def.barConfig.cornerRadius;
+            if (r > minDim / 2) r = minDim / 2;
+            const uint16_t bCol = def.barConfig.borderColor;
+            for (int16_t i = 0; i < b; ++i)
+            {
+                const int16_t curW = field.valueW - 2 * i;
+                const int16_t curH = field.valueH - 2 * i;
+                if (curW <= 0 || curH <= 0) break;
+                const int16_t curR = (r - i > 0) ? (r - i) : 1;
+                tft.drawRoundRect(field.valueX + i, field.valueY + i, curW, curH, curR, bCol);
+            }
+        }
     }
 
     // ICON sin fondo: true si el píxel (x, y) es transparente en todos los
@@ -907,8 +1131,57 @@ namespace
                 def.style.colors.frame);
         }
 
+        if (def.meta.type == JWPLC_UI_FIELD_BAR)
+        {
+            const int16_t minDim = (field.valueW < field.valueH) ? field.valueW : field.valueH;
+            int16_t r = (def.barConfig.cornerRadius == 255)
+                            ? (minDim / 2)
+                            : (int16_t)def.barConfig.cornerRadius;
+            if (r > minDim / 2) r = minDim / 2;
+
+            if (r > 0)
+            {
+                tft.fillRoundRect(
+                    field.valueX,
+                    field.valueY,
+                    field.valueW,
+                    field.valueH,
+                    r,
+                    def.style.colors.background);
+            }
+
+            if (def.barConfig.borderEnabled && def.barConfig.borderWidth > 0)
+            {
+                const uint16_t bCol = def.barConfig.borderColor;
+                const int16_t bThick = (int16_t)def.barConfig.borderWidth;
+                for (int16_t i = 0; i < bThick; ++i)
+                {
+                    const int16_t curW = field.valueW - 2 * i;
+                    const int16_t curH = field.valueH - 2 * i;
+                    if (curW <= 0 || curH <= 0) break;
+                    if (r > 0)
+                    {
+                        const int16_t curR = (r - i > 0) ? (r - i) : 1;
+                        tft.drawRoundRect(field.valueX + i, field.valueY + i, curW, curH, curR, bCol);
+                    }
+                    else
+                    {
+                        tft.drawRect(field.valueX + i, field.valueY + i, curW, curH, bCol);
+                    }
+                }
+            }
+        }
+
         if (def.text.label != nullptr && def.text.label[0] != '\0')
         {
+            if (def.style.labelFont != nullptr && def.style.labelFont->kind != 0)
+            {
+                tft.setFont(*def.style.labelFont);
+            }
+            else
+            {
+                tft.setFont(JWPLC_FONT_GLCD);
+            }
             tft.setTextSize(
                 (def.style.labelTextSize == 0)
                     ? 1
@@ -927,10 +1200,19 @@ namespace
                 def.rect.x + FIELD_PADDING,
                 def.rect.y + FIELD_PADDING);
             tft.print(def.text.label);
+            tft.setFont(JWPLC_FONT_GLCD);
         }
 
         if (def.text.unit != nullptr && def.text.unit[0] != '\0')
         {
+            if (def.style.labelFont != nullptr && def.style.labelFont->kind != 0)
+            {
+                tft.setFont(*def.style.labelFont);
+            }
+            else
+            {
+                tft.setFont(JWPLC_FONT_GLCD);
+            }
             tft.setTextSize(
                 (def.style.labelTextSize == 0)
                     ? 1
@@ -942,6 +1224,7 @@ namespace
                 field.valueX + field.valueW + FIELD_GAP,
                 field.valueY);
             tft.print(def.text.unit);
+            tft.setFont(JWPLC_FONT_GLCD);
         }
 
         field.dirty = true;
@@ -984,30 +1267,13 @@ namespace
             field.hasValue &&
             field.barDrawnW >= 0)
         {
-            const int16_t fillW = barFillWidth(field);
-            const int16_t oldW = field.barDrawnW;
+            const int16_t fillLevel = barFillLevel(field);
+            const int16_t oldLevel = field.barDrawnW;
             const uint32_t printStartUs = profile ? micros() : 0U;
 
-            if (fillW > oldW)
-            {
-                tft.fillRect(
-                    field.valueX + oldW,
-                    field.valueY,
-                    fillW - oldW,
-                    field.valueH,
-                    def.style.colors.value);
-            }
-            else if (fillW < oldW)
-            {
-                tft.fillRect(
-                    field.valueX + fillW,
-                    field.valueY,
-                    oldW - fillW,
-                    field.valueH,
-                    fieldBackground(field));
-            }
+            drawBarDelta(tft, field, oldLevel, fillLevel);
 
-            field.barDrawnW = fillW;
+            field.barDrawnW = fillLevel;
             field.dirty = false;
 
             if (profile)
@@ -1113,12 +1379,64 @@ namespace
 
         const uint32_t clearStartUs = profile ? micros() : 0U;
 
-        tft.fillRect(
-            field.valueX,
-            field.valueY,
-            field.valueW,
-            clearH,
-            valueBackground);
+        if (def.meta.type == JWPLC_UI_FIELD_BAR)
+        {
+            const int16_t minDim = (field.valueW < field.valueH) ? field.valueW : field.valueH;
+            int16_t r = (def.barConfig.cornerRadius == 255)
+                            ? (minDim / 2)
+                            : (int16_t)def.barConfig.cornerRadius;
+            if (r > minDim / 2) r = minDim / 2;
+
+            if (r > 0)
+            {
+                tft.fillRoundRect(
+                    field.valueX,
+                    field.valueY,
+                    field.valueW,
+                    field.valueH,
+                    r,
+                    valueBackground);
+            }
+            else
+            {
+                tft.fillRect(
+                    field.valueX,
+                    field.valueY,
+                    field.valueW,
+                    field.valueH,
+                    valueBackground);
+            }
+
+            if (def.barConfig.borderEnabled && def.barConfig.borderWidth > 0)
+            {
+                const uint16_t bCol = def.barConfig.borderColor;
+                const int16_t bThick = (int16_t)def.barConfig.borderWidth;
+                for (int16_t i = 0; i < bThick; ++i)
+                {
+                    const int16_t curW = field.valueW - 2 * i;
+                    const int16_t curH = field.valueH - 2 * i;
+                    if (curW <= 0 || curH <= 0) break;
+                    if (r > 0)
+                    {
+                        const int16_t curR = (r - i > 0) ? (r - i) : 1;
+                        tft.drawRoundRect(field.valueX + i, field.valueY + i, curW, curH, curR, bCol);
+                    }
+                    else
+                    {
+                        tft.drawRect(field.valueX + i, field.valueY + i, curW, curH, bCol);
+                    }
+                }
+            }
+        }
+        else
+        {
+            tft.fillRect(
+                field.valueX,
+                field.valueY,
+                field.valueW,
+                clearH,
+                valueBackground);
+        }
 
         if (profile)
         {
@@ -1154,22 +1472,14 @@ namespace
 
         if (def.meta.type == JWPLC_UI_FIELD_BAR)
         {
-            const int16_t fillW = barFillWidth(field);
+            const int16_t fillLevel = barFillLevel(field);
 
             const uint32_t printStartUs =
                 profile ? micros() : 0U;
 
-            if (fillW > 0)
-            {
-                tft.fillRect(
-                    field.valueX,
-                    field.valueY,
-                    fillW,
-                    field.valueH,
-                    def.style.colors.value);
-            }
+            drawBarDelta(tft, field, 0, fillLevel);
 
-            field.barDrawnW = fillW;
+            field.barDrawnW = fillLevel;
 
             if (profile)
             {
@@ -1239,6 +1549,15 @@ namespace
             return;
         }
 
+        if (def.style.valueFont != nullptr && def.style.valueFont->kind != 0)
+        {
+            tft.setFont(*def.style.valueFont);
+        }
+        else
+        {
+            tft.setFont(JWPLC_FONT_GLCD);
+        }
+
         tft.setTextSize(
             (def.style.valueTextSize == 0)
                 ? 1
@@ -1265,6 +1584,7 @@ namespace
             profile ? micros() : 0U;
 
         tft.print(field.value);
+        tft.setFont(JWPLC_FONT_GLCD);
 
         if (profile)
         {

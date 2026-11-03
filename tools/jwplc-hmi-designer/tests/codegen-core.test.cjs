@@ -25,7 +25,7 @@ function loadMenuModule() {
   const context = { window: {}, console };
   context.self = context.window; // designer-cp437.js (UMD) se registra en self
   vm.createContext(context);
-  for (const file of ['designer-cp437.js', 'gfx-classic-font.js', 'designer-menu.js']) {
+  for (const file of ['designer-cp437.js', 'designer-fonts.js', 'gfx-classic-font.js', 'designer-menu.js']) {
     vm.runInContext(fs.readFileSync(path.join(POC, file), 'utf8'), context, { filename: file });
   }
   return context.window.JWPLCHMIMenu;
@@ -35,7 +35,7 @@ function loadEventLogModule() {
   const context = { window: {}, console };
   context.self = context.window;
   vm.createContext(context);
-  for (const file of ['designer-cp437.js', 'designer-event-log.js']) {
+  for (const file of ['designer-cp437.js', 'designer-fonts.js', 'designer-event-log.js']) {
     vm.runInContext(fs.readFileSync(path.join(POC, file), 'utf8'), context, { filename: file });
   }
   return context.window.JWPLCHMIEventLog;
@@ -80,6 +80,56 @@ check(core.variableDeclaration({ type: 'TEXT', capacity: 12 }, 'msg') === 'char 
 check(core.setterCall({ type: 'BAR' }, 'F', 'v') === 'JWPLC_Display.setBar(F, v);', 'setter de BAR');
 const bar = core.barFieldBlock({ ...COLORS, type: 'BAR', x: 1, y: 2, barWidth: 500, barMin: 0, barMax: 10, labelSize: 1, frame: true, layout: 'INLINE', page: 3, showLabel: false, barUnit: '', trackColor: 0x18C3 }, 'B');
 check(/JWPLC_UIRect\(1, 2, 320, JWPLC_UI_AUTO\)/.test(bar) && /JWPLC_UIText\(nullptr, nullptr\)/.test(bar) && /0x18C3/.test(bar), 'BAR: ancho acotado a 320, sin etiqueta, pista como fondo');
+const vertBar = core.barFieldBlock({
+  ...COLORS,
+  type: 'BAR',
+  barOrientation: 'VERTICAL',
+  barStyle: 'BLOCKS',
+  x: 10,
+  y: 20,
+  barWidth: 16,
+  barHeight: 80,
+  barMin: 0,
+  barMax: 100,
+  page: 0
+}, 'B_VERT');
+check(/JWPLC_UIRect\(10, 20, 16, 80\)/.test(vertBar) &&
+  /JWPLC_UIBarConfig\(\s*JWPLC_UI_BAR_VERTICAL,\s*JWPLC_UI_BAR_STYLE_BLOCKS,\s*0\)/.test(vertBar),
+  'BAR VERTICAL: emite dimensiones libres y JWPLC_UIBarConfig con VERTICAL y BLOCKS');
+const gradBar = core.barFieldBlock({
+  ...COLORS,
+  type: 'BAR',
+  barOrientation: 'HORIZONTAL',
+  barFillMode: 'GRADIENT',
+  valueColor: 0x07FF,
+  valueColorEnd: 0xF800,
+  x: 5,
+  y: 15,
+  barWidth: 100,
+  barMin: 0,
+  barMax: 50,
+  page: 0
+}, 'B_GRAD');
+check(/JWPLC_UIBarConfig\(\s*JWPLC_UI_BAR_HORIZONTAL,\s*JWPLC_UI_BAR_STYLE_SOLID,\s*0xF800\)/.test(gradBar),
+  'BAR GRADIENT: emite JWPLC_UIBarConfig con colorEnd 0xF800');
+const roundedBar = core.barFieldBlock({
+  ...COLORS,
+  type: 'BAR',
+  barOrientation: 'HORIZONTAL',
+  barStyle: 'SOLID',
+  barCornerRadius: 3,
+  barBorderEnabled: true,
+  barBorderColor: 0x001F,
+  barBorderWidth: 2,
+  x: 0,
+  y: 0,
+  barWidth: 100,
+  barMin: 0,
+  barMax: 100,
+  page: 0
+}, 'B_ROUND');
+check(/JWPLC_UIBarConfig\(\s*JWPLC_UI_BAR_HORIZONTAL,\s*JWPLC_UI_BAR_STYLE_SOLID,\s*0,\s*3,\s*true,\s*0x001F,\s*2\)/.test(roundedBar),
+  'BAR ROUNDED: emite cornerRadius y border en JWPLC_UIBarConfig');
 const circular = core.barFieldBlock({
   ...COLORS,
   type: 'BAR',
@@ -108,6 +158,37 @@ check(/JWPLC_UICircularField\(/.test(circular) &&
   /JWPLC_UIRect\(10, 20, 60, 60\)/.test(circular) &&
   /JWPLC_UICircularStyle\(\s*270,\s*6,\s*1/.test(circular),
   'CIRCULAR: genera JWPLC_UICircularField con JWPLC_UICircularStyle');
+
+const valCustomFont = core.valueFieldBlock({
+  ...value,
+  labelFont: 'FONT_16',
+  valueFont: 'FONT_7SEG_48'
+}, 'FIELD_CUSTOM_VAL');
+check(/JWPLC_UIValueStyle\(\s*2,\s*1,\s*false,\s*JWPLC_UI_LAYOUT_INLINE,\s*JWPLC_UI_ALIGN_RIGHT,\s*&JWPLC_FONT_16,\s*&JWPLC_FONT_7SEG_48\)/.test(valCustomFont),
+  'VALUE: emite &JWPLC_FONT_16 y &JWPLC_FONT_7SEG_48 en JWPLC_UIValueStyle');
+
+const valOnlyValueFont = core.valueFieldBlock({
+  ...value,
+  valueFont: 'FONT_7SEG_48'
+}, 'FIELD_ONLY_VAL_FONT');
+check(/JWPLC_UIValueStyle\(\s*2,\s*1,\s*false,\s*JWPLC_UI_LAYOUT_INLINE,\s*JWPLC_UI_ALIGN_RIGHT,\s*nullptr,\s*&JWPLC_FONT_7SEG_48\)/.test(valOnlyValueFont),
+  'VALUE: con solo valueFont emite nullptr para labelFont');
+
+const txtCustomFont = core.textFieldBlock({
+  ...COLORS, type: 'TEXT', x: 0, y: 0, label: 'Msg', unit: '', capacity: 8,
+  valueSize: 1, labelSize: 1, frame: false, layout: 'INLINE', align: 'LEFT', page: 0,
+  labelFont: 'FONT_26', valueFont: 'FONT_16'
+}, 'FIELD_CUSTOM_TXT');
+check(/JWPLC_UITextFieldStyle\(\s*1,\s*1,\s*false,\s*JWPLC_UI_LAYOUT_INLINE,\s*JWPLC_UI_ALIGN_LEFT,\s*&JWPLC_FONT_26,\s*&JWPLC_FONT_16\)/.test(txtCustomFont),
+  'TEXT: emite &JWPLC_FONT_26 y &JWPLC_FONT_16 en JWPLC_UITextFieldStyle');
+
+const boolCustomFont = core.boolFieldBlock({
+  ...COLORS, type: 'BOOL', x: 0, y: 0, label: 'Estado', unit: '', falseText: 'OFF', trueText: 'ON',
+  valueSize: 2, labelSize: 1, frame: false, layout: 'INLINE', align: 'CENTER', page: 0,
+  labelFont: 'FONT_16', valueFont: 'FONT_26'
+}, 'FIELD_CUSTOM_BOOL');
+check(/JWPLC_UIBoolStyle\(\s*2,\s*1,\s*false,\s*JWPLC_UI_LAYOUT_INLINE,\s*JWPLC_UI_ALIGN_CENTER,\s*&JWPLC_FONT_16,\s*&JWPLC_FONT_26\)/.test(boolCustomFont),
+  'BOOL: emite &JWPLC_FONT_16 y &JWPLC_FONT_26 en JWPLC_UIBoolStyle');
 
 console.log('MENU (sin DOM)');
 const menuApi = loadMenuModule();
@@ -149,6 +230,9 @@ check(/#error "MENU: /.test(menuApi.generate(twoOnPage, { fields: others }).decl
 
 const L = menuApi.layout({ textSize: 2, frame: true, title: 'X', height: 100 });
 check(L.rowH === 20 && L.headerH === 20 && L.rows === 3, 'layout: 2× -> filas de 20 px, 3 visibles en 100 px');
+const menuWithFont = { ...menus[0], id: 'MENU_FONT', font: 'FONT_16' };
+const genMenuFont = menuApi.generate([menuWithFont]);
+check(/&JWPLC_FONT_16\)/.test(genMenuFont.declarations), 'MENU: emite &JWPLC_FONT_16 en JWPLC_UIMenuField');
 
 console.log('EVENT_LOG (sin DOM)');
 const evtApi = loadEventLogModule();
@@ -165,6 +249,11 @@ check(/JWPLC_UIEventLog HMI_EVENT_LOG/.test(genEvt.declarations), 'genera estruc
 check(/JWPLC_Display\.setEventLog\(HMI_EVENT_LOG\);/.test(genEvt.setup), 'genera setup JWPLC_Display.setEventLog');
 const patched = evtApi.patchHeader('void jwplcHMISetup()\n{\n    JWPLCUI::begin();\n}\n', [sampleEvt]);
 check(/HMI_EVENT_LOG/.test(patched) && /JWPLC_Display\.setEventLog/.test(patched), 'patchHeader inyecta declaraciones y setup de EVENT_LOG');
+const evtWithFont = { ...sampleEvt, headerFont: 'FONT_16', rowFont: 'FONT_26' };
+const genEvtFont = evtApi.generate([evtWithFont]);
+check(/\/\* headerFont \*\/ &JWPLC_FONT_16/.test(genEvtFont.declarations) &&
+  /\/\* rowFont \*\/ &JWPLC_FONT_26/.test(genEvtFont.declarations),
+  'EVENT_LOG: emite &JWPLC_FONT_16 y &JWPLC_FONT_26');
 
 if (hasGpp()) {
   console.log('COMPILACIÓN HOST (g++)');

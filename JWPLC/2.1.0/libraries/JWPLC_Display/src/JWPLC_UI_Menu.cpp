@@ -528,10 +528,19 @@ namespace
 
     void drawText(JWPLC_TFTClass &tft, const MenuRuntime &m, int16_t x, int16_t y, const char *text, uint16_t fg, uint16_t bg)
     {
+        if (m.def.font != nullptr && m.def.font->kind != 0)
+        {
+            tft.setFont(*m.def.font);
+        }
+        else
+        {
+            tft.setFont(JWPLC_FONT_GLCD);
+        }
         tft.setTextSize(textScale(m));
         tft.setTextColor(fg, bg);
         tft.setCursor(x, y);
         tft.print(text);
+        tft.setFont(JWPLC_FONT_GLCD);
     }
 
     void drawHeader(JWPLC_TFTClass &tft, MenuRuntime &m)
@@ -853,7 +862,8 @@ JWPLC_UIMenu JWPLC_UIMenuField(
     uint8_t page,
     uint8_t textSize,
     bool frame,
-    JWPLC_UIMenuColors colors)
+    JWPLC_UIMenuColors colors,
+    const JWPLC_TFTFont *font)
 {
     JWPLC_UIMenu menu;
     menu.id = id;
@@ -868,6 +878,7 @@ JWPLC_UIMenu JWPLC_UIMenuField(
     menu.textSize = textSize;
     menu.frame = frame;
     menu.colors = colors;
+    menu.font = font;
     return menu;
 }
 

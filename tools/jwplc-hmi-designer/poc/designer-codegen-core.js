@@ -11,6 +11,7 @@
   'use strict';
 
   const SCREEN_W = 320;
+  const SCREEN_H = 240;
 
   function sanitizeSymbol(value, fallback) {
     const cleaned = String(value || '').trim().replace(/[^A-Za-z0-9_]/g, '_');
@@ -22,6 +23,31 @@
   const cp437 = (typeof module === 'object' && module.exports)
     ? require('./designer-cp437.js')
     : self.JWPLCCp437;
+
+  const fonts = (typeof module === 'object' && module.exports)
+    ? require('./designer-fonts.js')
+    : (typeof self !== 'undefined' ? self.JWPLCDesignerFonts : (typeof globalThis !== 'undefined' ? globalThis.JWPLCDesignerFonts : null));
+
+  function fontCppSymbol(id) {
+    if (!id || id === 'GLCD') return null;
+    if (fonts?.cppSymbol) return fonts.cppSymbol(id);
+    if (String(id).startsWith('JWPLC_FONT_')) return id;
+    if (id === 'FONT2' || id === 'FONT_16') return 'JWPLC_FONT_16';
+    if (id === 'FONT4' || id === 'FONT_26') return 'JWPLC_FONT_26';
+    if (id === '7SEG_48' || id === 'FONT_7SEG_48') return 'JWPLC_FONT_7SEG_48';
+    return `JWPLC_FONT_${id}`;
+  }
+
+  function styleFontsArgs(field) {
+    const labelSym = fontCppSymbol(field?.labelFont);
+    const valueSym = fontCppSymbol(field?.valueFont);
+    if (!labelSym && !valueSym) return '';
+    const labelArg = labelSym ? `&${labelSym}` : 'nullptr';
+    const valueArg = valueSym ? `&${valueSym}` : 'nullptr';
+    return `,
+            ${labelArg},
+            ${valueArg}`;
+  }
 
   // Literal C++ (sin las comillas) con los bytes que dibuja la TFT.
   function cppString(value) {
@@ -100,11 +126,13 @@
   }
 
   function valueFieldBlock(field, id) {
-    return `    JWPLC_UIValueField(\n        ${id},\n        JWPLC_UIRect(${field.x}, ${field.y}),\n        JWPLC_UIText(${textOrNull(field.label)}, ${textOrNull(field.unit)}),\n        ${valueFormatBlock(field)},\n        JWPLC_UIValueStyle(\n            ${field.valueSize},\n            ${field.labelSize},\n            ${cppBool(field.frame)},\n            JWPLC_UI_LAYOUT_${field.layout},\n            JWPLC_UI_ALIGN_${field.align}),\n        ${field.page},\n        ${fieldColors(field)})`;
+    const fontArgs = styleFontsArgs(field);
+    return `    JWPLC_UIValueField(\n        ${id},\n        JWPLC_UIRect(${field.x}, ${field.y}),\n        JWPLC_UIText(${textOrNull(field.label)}, ${textOrNull(field.unit)}),\n        ${valueFormatBlock(field)},\n        JWPLC_UIValueStyle(\n            ${field.valueSize},\n            ${field.labelSize},\n            ${cppBool(field.frame)},\n            JWPLC_UI_LAYOUT_${field.layout},\n            JWPLC_UI_ALIGN_${field.align}${fontArgs}),\n        ${field.page},\n        ${fieldColors(field)})`;
   }
 
   function textFieldBlock(field, id) {
-    return `    JWPLC_UITextField(\n        ${id},\n        JWPLC_UIRect(${field.x}, ${field.y}),\n        JWPLC_UIText(${textOrNull(field.label)}, ${textOrNull(field.unit)}, ${field.capacity}),\n        JWPLC_UITextFieldStyle(\n            ${field.valueSize},\n            ${field.labelSize},\n            ${cppBool(field.frame)},\n            JWPLC_UI_LAYOUT_${field.layout},\n            JWPLC_UI_ALIGN_${field.align}),\n        ${field.page},\n        ${fieldColors(field)})`;
+    const fontArgs = styleFontsArgs(field);
+    return `    JWPLC_UITextField(\n        ${id},\n        JWPLC_UIRect(${field.x}, ${field.y}),\n        JWPLC_UIText(${textOrNull(field.label)}, ${textOrNull(field.unit)}, ${field.capacity}),\n        JWPLC_UITextFieldStyle(\n            ${field.valueSize},\n            ${field.labelSize},\n            ${cppBool(field.frame)},\n            JWPLC_UI_LAYOUT_${field.layout},\n            JWPLC_UI_ALIGN_${field.align}${fontArgs}),\n        ${field.page},\n        ${fieldColors(field)})`;
   }
 
   function boolStateColorsOn(field) {
@@ -140,7 +168,8 @@
 
   // field: con falseText/trueText ya resueltos (designer-bool ensureBoolState).
   function boolFieldBlock(field, id) {
-    return `    JWPLC_UIBoolField(\n        ${id},\n        JWPLC_UIRect(${field.x}, ${field.y}),\n        JWPLC_UIText(${textOrNull(field.label)}, ${textOrNull(field.unit)}),\n${boolTextBlock(field)}        JWPLC_UIBoolStyle(\n            ${field.valueSize},\n            ${field.labelSize},\n            ${cppBool(field.frame)},\n            JWPLC_UI_LAYOUT_${field.layout},\n            JWPLC_UI_ALIGN_${field.align}),\n        ${field.page || 0},\n        ${fieldColors(field)})`;
+    const fontArgs = styleFontsArgs(field);
+    return `    JWPLC_UIBoolField(\n        ${id},\n        JWPLC_UIRect(${field.x}, ${field.y}),\n        JWPLC_UIText(${textOrNull(field.label)}, ${textOrNull(field.unit)}),\n${boolTextBlock(field)}        JWPLC_UIBoolStyle(\n            ${field.valueSize},\n            ${field.labelSize},\n            ${cppBool(field.frame)},\n            JWPLC_UI_LAYOUT_${field.layout},\n            JWPLC_UI_ALIGN_${field.align}${fontArgs}),\n        ${field.page || 0},\n        ${fieldColors(field)})`;
   }
 
   // field: normalizado por designer-bar (ensureBarState -> applyFirmwareCaps).
@@ -187,18 +216,41 @@
     }
 
     const isGrad = (field.barFillMode === 'GRADIENT' || field.barPreset === 'GRADIENT');
+    const isVert = field.barOrientation === 'VERTICAL';
+    const isBlocks = field.barStyle === 'BLOCKS';
     const borderColor = Number.isFinite(Number(field.barBorderColor)) ? Number(field.barBorderColor) : 0xFFFF;
     const borderComment = field.barBorderEnabled ? `, Borde: ${hex565(borderColor)} (${field.barBorderWidth || 1}px)` : '';
-    const unsupportedNote = isGrad ? '    // AVISO: degradado requiere firmware (Alpha13); se genera color sólido.\n' : '';
-    const styleHeader = `${unsupportedNote}    // Barra Sólida (${field.barOrientation || 'HORIZONTAL'}) - Estilo: ${field.barStyle || 'SOLID'}, Radio: ${field.barCornerRadius || 0}${borderComment}\n`;
-    const width = Math.max(20, Math.min(SCREEN_W, Math.trunc(Number(field.barWidth) || 110)));
-    const height = field.barOrientation === 'VERTICAL' ? Math.max(10, Math.trunc(Number(field.barHeight) || 60)) : 'JWPLC_UI_AUTO';
+    const fillLabel = isGrad ? 'Degradado' : (isBlocks ? 'Bloques' : 'Sólido');
+    const styleHeader = `    // Barra ${fillLabel} (${field.barOrientation || 'HORIZONTAL'}) - Radio: ${field.barCornerRadius || 0}${borderComment}\n`;
+    const width = isVert
+      ? Math.max(6, Math.min(SCREEN_W, Math.trunc(Number(field.barWidth) || 14)))
+      : Math.max(20, Math.min(SCREEN_W, Math.trunc(Number(field.barWidth) || 110)));
+    const height = isVert
+      ? Math.max(10, Math.min(SCREEN_H, Math.trunc(Number(field.barHeight) || 60)))
+      : 'JWPLC_UI_AUTO';
     const rect = field.barAutoWidth
       ? `JWPLC_UIRect(${field.x}, ${field.y})`
       : `JWPLC_UIRect(${field.x}, ${field.y}, ${width}, ${height})`;
 
+    const hasRadius = (field.barCornerRadius === 'FULL' || (Number(field.barCornerRadius) || 0) > 0);
+    const hasBorder = Boolean(field.barBorderEnabled);
+    const hasConfig = isVert || isBlocks || isGrad || hasRadius || hasBorder;
+    const colorEnd = isGrad ? hex565(field.valueColorEnd || 0x07E0) : '0';
+    const rVal = field.barCornerRadius === 'FULL' ? 255 : Math.max(0, Math.trunc(Number(field.barCornerRadius) || 0));
+    const bColor = hasBorder ? hex565(field.barBorderColor || 0xFFFF) : '0xFFFF';
+    const bWidth = hasBorder ? Math.max(1, Math.min(10, Math.trunc(Number(field.barBorderWidth) || 1))) : 1;
+
+    let configBlock = '';
+    if (hasConfig) {
+      if (hasRadius || hasBorder) {
+        configBlock = `,\n        JWPLC_UIBarConfig(\n            ${isVert ? 'JWPLC_UI_BAR_VERTICAL' : 'JWPLC_UI_BAR_HORIZONTAL'},\n            ${isBlocks ? 'JWPLC_UI_BAR_STYLE_BLOCKS' : 'JWPLC_UI_BAR_STYLE_SOLID'},\n            ${colorEnd},\n            ${rVal},\n            ${cppBool(hasBorder)},\n            ${bColor},\n            ${bWidth})`;
+      } else {
+        configBlock = `,\n        JWPLC_UIBarConfig(\n            ${isVert ? 'JWPLC_UI_BAR_VERTICAL' : 'JWPLC_UI_BAR_HORIZONTAL'},\n            ${isBlocks ? 'JWPLC_UI_BAR_STYLE_BLOCKS' : 'JWPLC_UI_BAR_STYLE_SOLID'},\n            ${colorEnd})`;
+      }
+    }
+
     return `${styleHeader}` +
-      `    JWPLC_UIBarField(\n        ${id},\n        ${rect},\n        JWPLC_UIText(${label}, ${unit}),\n        JWPLC_UIRange(${cppFloat(field.barMin)}, ${cppFloat(field.barMax)}),\n        JWPLC_UIBarStyle(\n            ${field.labelSize},\n            ${cppBool(field.frame)},\n            JWPLC_UI_LAYOUT_${field.layout}),\n        ${field.page || 0},\n        ${colorsBlock(field.labelColor, field.valueColor, field.trackColor || field.backgroundColor, field.frameColor)})`;
+      `    JWPLC_UIBarField(\n        ${id},\n        ${rect},\n        JWPLC_UIText(${label}, ${unit}),\n        JWPLC_UIRange(${cppFloat(field.barMin)}, ${cppFloat(field.barMax)}),\n        JWPLC_UIBarStyle(\n            ${field.labelSize},\n            ${cppBool(field.frame)},\n            JWPLC_UI_LAYOUT_${field.layout}),\n        ${field.page || 0},\n        ${colorsBlock(field.labelColor, field.valueColor, field.trackColor || field.backgroundColor, field.frameColor)}${configBlock})`;
   }
 
   function fieldBlock(field, id) {
@@ -252,6 +304,8 @@
     boolFieldBlock,
     boolStateColorsOn,
     barFieldBlock,
+    fontCppSymbol,
+    styleFontsArgs,
     fieldBlock,
     variableDeclaration,
     setterCall

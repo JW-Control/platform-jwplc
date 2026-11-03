@@ -1,4 +1,8 @@
-(() => {
+(function (root, factory) {
+  const api = factory();
+  if (typeof module === 'object' && module.exports) module.exports = api;
+  else root.JWPLCDesignerFonts = api;
+})(typeof self !== 'undefined' ? self : (typeof globalThis !== 'undefined' ? globalThis : this), () => {
   'use strict';
 
   // Catalogo de fuentes para RAW_TEXT. Los ids coinciden con las constantes
@@ -11,13 +15,15 @@
   // - Si faltan los datos, se aproxima con fuentes del navegador a 1 bit.
 
   const DPI_FACTOR = 141 / 72;
-  const DATA = window.JWPLCGfxFontData || {};
-  const BMP = window.JWPLCTftBitmapFontData || {};
+  const env = typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : {});
+  const DATA = env.JWPLCGfxFontData || {};
+  const BMP = env.JWPLCTftBitmapFontData || {};
 
   const FONTS = [
     { id: 'GLCD', group: 'Bitmap', label: 'Clasica 5x7 (GLCD)', kind: 'glcd', lineHeight: 8 },
-    { id: 'FONT2', group: 'Bitmap', label: 'Bitmap 16 px (Font 2)', kind: 'bitmap', css: 'sans-serif', px: 14, lineHeight: 16, exact: Boolean(BMP.FONT2) },
-    { id: 'FONT4', group: 'Bitmap', label: 'Bitmap 26 px (Font 4)', kind: 'bitmap', css: 'sans-serif', px: 24, lineHeight: 26, exact: Boolean(BMP.FONT4) }
+    { id: 'FONT_16', group: 'Bitmap', label: 'Bitmap 16 px (Font 2)', kind: 'bitmap', css: 'sans-serif', px: 14, lineHeight: 16, exact: Boolean(BMP.FONT2 || BMP.FONT_16) },
+    { id: 'FONT_26', group: 'Bitmap', label: 'Bitmap 26 px (Font 4)', kind: 'bitmap', css: 'sans-serif', px: 24, lineHeight: 26, exact: Boolean(BMP.FONT4 || BMP.FONT_26) },
+    { id: 'FONT_7SEG_48', group: 'Display', label: '7-Segmentos 48 px', kind: 'free', css: 'monospace', px: 48, lineHeight: 48, exact: Boolean(DATA.FONT_7SEG_48 || DATA['7SEG_48']), numericOnly: true }
   ];
 
   const FAMILIES = [
@@ -49,22 +55,39 @@
     });
   });
 
+  const ALIASES = {
+    'FONT2': 'FONT_16',
+    'FONT4': 'FONT_26',
+    '7SEG_48': 'FONT_7SEG_48'
+  };
+
   const byId = new Map(FONTS.map((font) => [font.id, font]));
+  Object.entries(ALIASES).forEach(([alias, target]) => {
+    const targetFont = byId.get(target);
+    if (targetFont) byId.set(alias, targetFont);
+  });
 
   function get(id) {
-    return byId.get(id) || byId.get('GLCD');
+    if (!id) return byId.get('GLCD');
+    const resolved = ALIASES[id] || id;
+    return byId.get(resolved) || byId.get('GLCD');
   }
 
   function normalizeId(id) {
-    return byId.has(id) ? id : 'GLCD';
+    if (!id) return 'GLCD';
+    const resolved = ALIASES[id] || id;
+    return byId.has(resolved) ? resolved : 'GLCD';
   }
 
-  // JWPLC_TFT 0.3.0 dibuja GLCD y las FreeFonts (cada una se enlaza sólo si
-  // el sketch la usa). Font2/Font4 de TFT_eSPI no se incluyen en el firmware:
-  // agregan ~9 KB a todo sketch aunque no se usen.
+  // JWPLC_TFT >= 0.5.0 soporta GLCD, FreeFonts, FONT_16, FONT_26 y FONT_7SEG_48.
   function isSupported(fontOrId) {
     const font = typeof fontOrId === 'string' ? get(fontOrId) : fontOrId;
-    return Boolean(font) && (font.kind === 'glcd' || font.kind === 'free');
+    return Boolean(font) && (font.kind === 'glcd' || font.kind === 'free' || font.kind === 'bitmap');
+  }
+
+  function availableFontsFor(targetType) {
+    const isNumeric = targetType === 'VALUE' || targetType === 'value' || targetType === 'numeric';
+    return FONTS.filter((font) => isNumeric || !font.numericOnly);
   }
 
   // Id que realmente se dibuja (en el lienzo y en la TFT).
@@ -85,7 +108,7 @@
     if (!font.exact || font.kind !== 'free') return null;
     let entry = decoded.get(font.id);
     if (entry) return entry;
-    const raw = DATA[font.id];
+    const raw = DATA[font.id] || (font.id === 'FONT_7SEG_48' ? DATA['7SEG_48'] : null);
     const binary = atob(raw.bitmap);
     const bitmap = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i += 1) bitmap[i] = binary.charCodeAt(i);
@@ -113,7 +136,7 @@
     if (!font.exact || font.kind !== 'bitmap') return null;
     let entry = decodedBitmap.get(font.id);
     if (entry) return entry;
-    const raw = BMP[font.id];
+    const raw = BMP[font.id] || (font.id === 'FONT_16' ? BMP.FONT2 : (font.id === 'FONT_26' ? BMP.FONT4 : null));
     const binary = atob(raw.bitmap);
     const bitmap = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i += 1) bitmap[i] = binary.charCodeAt(i);
@@ -136,6 +159,7 @@
   // ---- Aproximacion con canvas (FONT2 / FONT4) ------------------------------
   let scratch = null;
   function ctx2d() {
+    if (typeof document === 'undefined') return null;
     if (!scratch) {
       scratch = document.createElement('canvas').getContext('2d', { willReadFrequently: true });
     }
@@ -171,6 +195,10 @@
       return width;
     }
     const ctx = ctx2d();
+    if (!ctx) {
+      const charW = (font.px || 8) * 0.6 * scale;
+      return Math.ceil(text.length * charW);
+    }
     ctx.font = cssFont(font, scale);
     return Math.ceil(ctx.measureText(text).width);
   }
@@ -292,7 +320,7 @@
     return result;
   }
 
-  window.JWPLCDesignerFonts = Object.freeze({
+  return Object.freeze({
     list: FONTS,
     get,
     normalizeId,
@@ -302,6 +330,14 @@
     measureWidth,
     lineHeight,
     rasterize,
-    cppSymbol: (id) => `JWPLC_FONT_${effectiveId(id)}`
+    availableFontsFor,
+    cppSymbol: (id) => {
+      const eff = normalizeId(effectiveId(id));
+      if (!eff || eff === 'GLCD') return 'JWPLC_FONT_GLCD';
+      if (eff === 'FONT2' || eff === 'FONT_16') return 'JWPLC_FONT_16';
+      if (eff === 'FONT4' || eff === 'FONT_26') return 'JWPLC_FONT_26';
+      if (eff === '7SEG_48' || eff === 'FONT_7SEG_48') return 'JWPLC_FONT_7SEG_48';
+      return `JWPLC_FONT_${eff}`;
+    }
   });
-})();
+});

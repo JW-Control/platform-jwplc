@@ -48,13 +48,17 @@ JWPLC_UIStyle::JWPLC_UIStyle(
     bool frameValue,
     JWPLC_UIFieldLayout layoutValue,
     JWPLC_UIValueAlign alignValue,
-    JWPLC_UIColors colorsValue)
+    JWPLC_UIColors colorsValue,
+    const JWPLC_TFTFont *labelFontValue,
+    const JWPLC_TFTFont *valueFontValue)
     : labelTextSize(labelSizeValue),
       valueTextSize(valueSizeValue),
       frame(frameValue),
       layout(layoutValue),
       valueAlign(alignValue),
-      colors(colorsValue)
+      colors(colorsValue),
+      labelFont(labelFontValue),
+      valueFont(valueFontValue)
 {
 }
 
@@ -171,14 +175,19 @@ JWPLC_UIStyle JWPLC_UIValueStyle(
     uint8_t labelTextSize,
     bool frame,
     JWPLC_UIFieldLayout layout,
-    JWPLC_UIValueAlign align)
+    JWPLC_UIValueAlign align,
+    const JWPLC_TFTFont *labelFont,
+    const JWPLC_TFTFont *valueFont)
 {
     return JWPLC_UIStyle(
         labelTextSize,
         valueTextSize,
         frame,
         layout,
-        align);
+        align,
+        JWPLC_UIColors(),
+        labelFont,
+        valueFont);
 }
 
 JWPLC_UIStyle JWPLC_UITextFieldStyle(
@@ -186,14 +195,18 @@ JWPLC_UIStyle JWPLC_UITextFieldStyle(
     uint8_t labelTextSize,
     bool frame,
     JWPLC_UIFieldLayout layout,
-    JWPLC_UIValueAlign align)
+    JWPLC_UIValueAlign align,
+    const JWPLC_TFTFont *labelFont,
+    const JWPLC_TFTFont *valueFont)
 {
     return JWPLC_UIValueStyle(
         valueTextSize,
         labelTextSize,
         frame,
         layout,
-        align);
+        align,
+        labelFont,
+        valueFont);
 }
 
 JWPLC_UIStyle JWPLC_UIBoolStyle(
@@ -201,14 +214,18 @@ JWPLC_UIStyle JWPLC_UIBoolStyle(
     uint8_t labelTextSize,
     bool frame,
     JWPLC_UIFieldLayout layout,
-    JWPLC_UIValueAlign align)
+    JWPLC_UIValueAlign align,
+    const JWPLC_TFTFont *labelFont,
+    const JWPLC_TFTFont *valueFont)
 {
     return JWPLC_UIValueStyle(
         valueTextSize,
         labelTextSize,
         frame,
         layout,
-        align);
+        align,
+        labelFont,
+        valueFont);
 }
 
 JWPLC_UIStyle JWPLC_UIBarStyle(
@@ -319,9 +336,10 @@ JWPLC_UIField JWPLC_UIBarField(
     JWPLC_UIRange range,
     JWPLC_UIStyle style,
     uint8_t page,
-    JWPLC_UIColors colors)
+    JWPLC_UIColors colors,
+    JWPLC_UIBarConfig barConfig)
 {
-    return JWPLC_UIField(
+    JWPLC_UIField field(
         JWPLC_UIFieldMeta(id, page, JWPLC_UI_FIELD_BAR),
         rect,
         text,
@@ -330,6 +348,8 @@ JWPLC_UIField JWPLC_UIBarField(
         JWPLC_UIValueFormat(),
         JWPLC_UIBoolText(),
         range);
+    field.barConfig = barConfig;
+    return field;
 }
 
 JWPLC_UIField JWPLC_UICircularField(
@@ -413,7 +433,8 @@ JWPLC_UIField JWPLC_UIBarField(
     JWPLC_UIRange range,
     int16_t width,
     int16_t height,
-    uint8_t page)
+    uint8_t page,
+    JWPLC_UIBarConfig barConfig)
 {
     return JWPLC_UIBarField(
         id,
@@ -421,7 +442,9 @@ JWPLC_UIField JWPLC_UIBarField(
         JWPLC_UIText(label),
         range,
         JWPLC_UIBarStyle(),
-        page);
+        page,
+        JWPLC_UIColors(),
+        barConfig);
 }
 
 JWPLC_UIField JWPLC_UICircularField(
