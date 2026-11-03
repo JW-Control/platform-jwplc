@@ -2,18 +2,26 @@ name: CI JWPLC Package Smoke
 
 on:
   pull_request:
+    # release/v2.1.x (cierre de una alpha) y la «…/main» de cada línea
+    # (features de la alpha en curso, p. ej. v2.1.0-alpha.17/JWPLC-Sim/main).
     branches:
       - release/v2.1.x
+      - "v2.1.0-alpha.*/*/main"
     paths:
       - "JWPLC/**"
       - "tools/build-speed-benchmark/sketches/**"
+      - "tools/ci/**"
       - ".github/workflows/ci-jwplc-package-smoke.yml"
   workflow_dispatch:
 
 permissions:
   contents: read
+  actions: read   # buscar el marcador de SIM_REGRESSION de otro run
 
 env:
+  # Commit de jwplc-sim del gate SIM_REGRESSION. Debe ser el mismo que el de
+  # «uses:» del job sim-regression (y el de release-jwplc-package.yml).
+  JWSIM_REF: "fd08f12cb6978ba283ea733d24cf47389934c675"
   ARDUINO_CLI_VERSION: "1.x"
   # Última alpha publicada usada únicamente como bootstrap del toolchain.
   # El árbol completo JWPLC/2.1.0 del PR se superpone después con rsync --delete.
@@ -154,10 +162,50 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
+  # ¿Este árbol del package ya pasó SIM_REGRESSION con este jwplc-sim?
+  # (p. ej. el PR «…/main» → release/v2.1.x tiene el mismo árbol que la
+  # última feature fusionada). Si es así, no se repite el barrido.
+  sim-cache:
+    name: SIM_REGRESSION ya pasado para este árbol
+    runs-on: ubuntu-latest
+    outputs:
+      reuse: ${{ steps.lookup.outputs.reuse }}
+      name: ${{ steps.lookup.outputs.name }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: lookup
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: tools/ci/sim_regression_marker.sh "$JWSIM_REF"
+
   # Mismo gate que en la release (SIM_REGRESSION de JWPLC Sim), sobre el
   # árbol del PR: avisa de una regresión simulada antes de llegar a publicar.
   sim-regression:
     name: SIM_REGRESSION (JWPLC Sim)
+    needs: sim-cache
+    if: ${{ needs.sim-cache.outputs.reuse != 'true' }}
     uses: JW-Control/jwplc-sim/.github/workflows/sim-regression.yml@fd08f12cb6978ba283ea733d24cf47389934c675
     with:
       sim_ref: fd08f12cb6978ba283ea733d24cf47389934c675
+
+  # Deja el marcador para que la Release (y el CI siguiente) no repitan el
+  # barrido sobre el mismo árbol. Ver tools/ci/sim_regression_marker.sh.
+  sim-marker:
+    name: Marcar árbol con SIM_REGRESSION=PASS
+    needs: [sim-cache, sim-regression]
+    if: ${{ needs.sim-regression.result == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          mkdir -p marker
+          {
+            echo "SIM_REGRESSION=PASS"
+            echo "run=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo "sha=${GITHUB_SHA}"
+            echo "jwsim_ref=${JWSIM_REF}"
+          } > marker/SIM_REGRESSION.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ needs.sim-cache.outputs.name }}
+          path: marker/
+          retention-days: 30
