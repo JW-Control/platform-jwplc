@@ -144,6 +144,46 @@ body.theme-light #liveConnectButton:hover:not(:disabled)::before {
   box-shadow: 0 0 6px rgba(2, 132, 199, 0.45);
 }
 
+/* --- Monitor LIVE (estilos base en designer-live.js) --- */
+body.theme-light .live-status { color: #64748b; }
+body.theme-light .live-status.ready { color: #15803d; }
+body.theme-light .live-status.waiting { color: #b45309; }
+
+body.theme-light #liveConnectButton.live {
+  border-color: #16a34a;
+  color: #15803d;
+  box-shadow: inset 0 -2px 0 rgba(22, 163, 74, 0.35);
+}
+
+body.theme-light #liveConnectButton.waiting {
+  border-color: #d97706;
+  color: #b45309;
+}
+
+body.theme-light #liveDiagnosticPanel {
+  background: #ffffff;
+  color: #0f172a;
+}
+
+body.theme-light #diagFlashButton {
+  border-color: #ea580c;
+  color: #c2410c;
+}
+
+body.theme-light .live-diag-grid > div {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+body.theme-light .live-diag-grid span { color: #64748b; }
+body.theme-light .live-diag-grid strong { color: #0f172a; }
+
+body.theme-light #liveDiagnosticPanel .live-diag-log {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #166534;
+}
+
 /* --- Panel Izquierdo / Árbol de Objetos --- */
 body.theme-light .left-panel {
   background: #ffffff;

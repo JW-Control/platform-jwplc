@@ -69,7 +69,7 @@
       <strong>Monitor LIVE</strong>
       <span id="diagConnection">Desconectado</span>
       <span class="grow"></span>
-      <button id="diagFlashButton" type="button" style="border-color:#ff8a2a;color:#ff9a43;" title="Flashear firmware Live Bridge en 1 clic">⚡ Flashear Live Bridge</button>
+      <button id="diagFlashButton" type="button" title="Flashear firmware Live Bridge en 1 clic">⚡ Flashear Live Bridge</button>
       <button id="diagPauseButton" type="button">Pausar log</button>
       <button id="diagClearButton" type="button">Limpiar</button>
       <button id="diagCopyButton" type="button">Copiar</button>
@@ -103,6 +103,7 @@
     .live-diag-toolbar{display:flex;align-items:center;gap:10px;margin-bottom:8px;font-size:12px}
     .live-diag-toolbar .grow{flex:1}
     .live-diag-toolbar button{padding:4px 9px}
+    #diagFlashButton{border-color:#ff8a2a;color:#ff9a43}
     .live-diag-grid{display:grid;grid-template-columns:repeat(6,minmax(100px,1fr));gap:6px;margin-bottom:8px}
     .live-diag-grid>div{display:flex;flex-direction:column;padding:5px 7px;border:1px solid #1f3543;border-radius:4px;background:#0b1a24}
     .live-diag-grid span{font-size:10px;color:#718c9f}
