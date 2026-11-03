@@ -2946,3 +2946,48 @@ label.insp-needs-fw { opacity: 0.45; cursor: not-allowed; }
   animation: iconSpin var(--anim-spin-duration, 0.6s) linear infinite;
   transform-origin: center;
 }
+
+/* Subpanel Apariencia de BAR ultracompacto (sin scroll) */
+#barSubpanelAppearance {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+#barSubpanelAppearance .bar-card {
+  padding: 8px 10px;
+}
+#barSubpanelAppearance .color-editor {
+  gap: 4px;
+}
+#barSubpanelAppearance .color-editor-head {
+  font-size: 10px;
+}
+#barSubpanelAppearance .color-editor-swatch {
+  height: 14px;
+  width: 28px;
+}
+#barSubpanelAppearance .color-editor-sv {
+  height: 56px;
+}
+#barSubpanelAppearance .color-editor-hue {
+  height: 10px;
+}
+#barSubpanelAppearance .color-editor-fields {
+  gap: 6px;
+}
+#barSubpanelAppearance .color-editor-fields label {
+  font-size: 9px;
+  gap: 3px;
+}
+#barSubpanelAppearance .color-editor-fields input {
+  height: 20px;
+  padding: 1px 4px;
+  font-size: 10px;
+}
+#barSubpanelAppearance .color-editor-palette {
+  gap: 3px;
+}
+#barSubpanelAppearance .color-editor-palette .insp-swatch {
+  width: 17px;
+  height: 17px;
+}

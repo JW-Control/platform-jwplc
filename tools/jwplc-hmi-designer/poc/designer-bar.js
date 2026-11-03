@@ -379,44 +379,33 @@
 
         <!-- SUBPANEL 1.3: APARIENCIA -->
         <div class="bar-subpanel" id="barSubpanelAppearance" data-subpanel="appearance" style="display:none;">
-          <!-- Mini-modelo + leyenda + indicador A1 -->
-          <div class="bar-card" id="barAppMini"></div>
-
-          <!-- Configuración de Relleno y Degradado (en Apariencia) -->
-          <div class="bar-card" id="barAppGradCard" style="margin-top:10px;">
-            <div class="bar-card-section-title">▾ Relleno del indicador (Barra / Arco)</div>
-            <div class="bar-visual-grid-2" style="margin-top:6px;" id="barAppFillModeGroup">
-              <button type="button" class="bar-visual-btn bar-app-fill-btn active" data-fill="SOLID" title="Color liso uniforme">
-                <svg width="20" height="12" viewBox="0 0 20 12"><rect x="1" y="1" width="18" height="10" rx="1.5" fill="currentColor"/></svg>
-                <span>Color Sólido</span>
-              </button>
-              <button type="button" class="bar-visual-btn bar-app-fill-btn" data-fill="GRADIENT" title="Degradado suave entre dos colores">
-                <svg width="20" height="12" viewBox="0 0 20 12">
-                  <defs>
-                    <linearGradient id="barSvgGradIcon" x1="0" y1="0" x2="1" y2="0">
-                      <stop offset="0%" stop-color="#ff3b30"/>
-                      <stop offset="100%" stop-color="#34c759"/>
-                    </linearGradient>
-                  </defs>
-                  <rect x="1" y="1" width="18" height="10" rx="1.5" fill="url(#barSvgGradIcon)"/>
-                </svg>
-                <span>Degradado</span>
-              </button>
+          <!-- Configuración de Relleno y Degradado (en Apariencia, ARRIBA) -->
+          <div class="bar-card" id="barAppGradCard">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+              <span class="bar-card-section-title" style="margin:0;">Relleno del indicador</span>
+              <div class="bar-visual-grid-2" style="margin:0;width:150px;gap:4px;" id="barAppFillModeGroup">
+                <button type="button" class="bar-visual-btn bar-app-fill-btn active" data-fill="SOLID" title="Color liso uniforme" style="padding:2px 6px;min-height:22px;font-size:10px;">
+                  <span>Sólido</span>
+                </button>
+                <button type="button" class="bar-visual-btn bar-app-fill-btn" data-fill="GRADIENT" title="Degradado suave entre dos colores" style="padding:2px 6px;min-height:22px;font-size:10px;">
+                  <span>Degradado</span>
+                </button>
+              </div>
             </div>
 
             <!-- Controles cuando Degradado está activo -->
-            <div id="barAppGradSettings" style="display:none;margin-top:10px;">
-              <div id="barGradPreviewBar" style="height:14px;border-radius:3px;border:1px solid var(--line);margin-bottom:8px;box-shadow:inset 0 1px 2px rgba(0,0,0,0.2);"></div>
-              <div class="bar-grad-row full">
-                <label class="field-label" style="flex:1;min-width:0;">Color Inicial
-                  <div class="bar-color-input-wrap compact">
+            <div id="barAppGradSettings" style="display:none;margin-top:6px;">
+              <div id="barGradPreviewBar" style="height:10px;border-radius:3px;border:1px solid var(--line);margin-bottom:6px;box-shadow:inset 0 1px 2px rgba(0,0,0,0.2);"></div>
+              <div class="bar-grad-row full" style="margin:0 0 5px 0;gap:4px;">
+                <label class="field-label" style="flex:1;min-width:0;margin:0;font-size:10px;">Color Inicial
+                  <div class="bar-color-input-wrap compact" style="margin-top:2px;">
                     <input id="barGradStartNative" type="color" value="#00ffff" />
                     <span id="barGradStartHex" class="hex-label compact">0x07FF</span>
                   </div>
                 </label>
-                <button type="button" id="barGradSwapBtn" class="bar-swap-icon-btn" title="Intercalar color inicial y final" style="align-self:flex-end;margin-bottom:2px;">⇄</button>
-                <label class="field-label" style="flex:1;min-width:0;">Color Final
-                  <div class="bar-color-input-wrap compact">
+                <button type="button" id="barGradSwapBtn" class="bar-swap-icon-btn" title="Intercalar color inicial y final" style="width:24px;height:24px;align-self:flex-end;margin-bottom:1px;">⇄</button>
+                <label class="field-label" style="flex:1;min-width:0;margin:0;font-size:10px;">Color Final
+                  <div class="bar-color-input-wrap compact" style="margin-top:2px;">
                     <input id="barGradEndNative" type="color" value="#00ff00" />
                     <span id="barGradEndHex" class="hex-label compact">0x07E0</span>
                   </div>
@@ -424,28 +413,28 @@
               </div>
 
               <!-- Paletas rápidas -->
-              <div class="field-label full" style="margin-top:8px;">
-                <span style="font-size:10px;color:var(--muted);margin-bottom:5px;display:block;font-weight:600;">Paletas rápidas de degradado:</span>
-                <div class="bar-palette-row" id="barGradPalettes">
-                  <button type="button" class="bar-palette-pill" data-grad-start="0xF800" data-grad-end="0x07E0">
-                    <span class="bar-palette-preview" style="background:linear-gradient(90deg,#ff0000,#00ff00);"></span>Rojo-Verde
-                  </button>
-                  <button type="button" class="bar-palette-pill" data-grad-start="0x07E0" data-grad-end="0xF800">
-                    <span class="bar-palette-preview" style="background:linear-gradient(90deg,#00ff00,#ff0000);"></span>Verde-Rojo
-                  </button>
-                  <button type="button" class="bar-palette-pill" data-grad-start="0x07FF" data-grad-end="0x001F">
-                    <span class="bar-palette-preview" style="background:linear-gradient(90deg,#00ffff,#0000ff);"></span>Cian-Azul
-                  </button>
-                  <button type="button" class="bar-palette-pill" data-grad-start="0xFD20" data-grad-end="0xF800">
-                    <span class="bar-palette-preview" style="background:linear-gradient(90deg,#ff9900,#ff0000);"></span>Fuego
-                  </button>
-                  <button type="button" class="bar-palette-pill" data-grad-start="0x780F" data-grad-end="0xF81F">
-                    <span class="bar-palette-preview" style="background:linear-gradient(90deg,#7700ff,#ff00ff);"></span>Neón
-                  </button>
-                </div>
+              <div style="display:flex;align-items:center;gap:3px;flex-wrap:wrap;margin-top:2px;" id="barGradPalettes">
+                <button type="button" class="bar-palette-pill" data-grad-start="0xF800" data-grad-end="0x07E0" style="padding:2px 5px;font-size:9.5px;">
+                  <span class="bar-palette-preview" style="background:linear-gradient(90deg,#ff0000,#00ff00);width:10px;height:8px;"></span>R-V
+                </button>
+                <button type="button" class="bar-palette-pill" data-grad-start="0x07E0" data-grad-end="0xF800" style="padding:2px 5px;font-size:9.5px;">
+                  <span class="bar-palette-preview" style="background:linear-gradient(90deg,#00ff00,#ff0000);width:10px;height:8px;"></span>V-R
+                </button>
+                <button type="button" class="bar-palette-pill" data-grad-start="0x07FF" data-grad-end="0x001F" style="padding:2px 5px;font-size:9.5px;">
+                  <span class="bar-palette-preview" style="background:linear-gradient(90deg,#00ffff,#0000ff);width:10px;height:8px;"></span>Cian
+                </button>
+                <button type="button" class="bar-palette-pill" data-grad-start="0xFD20" data-grad-end="0xF800" style="padding:2px 5px;font-size:9.5px;">
+                  <span class="bar-palette-preview" style="background:linear-gradient(90deg,#ff9900,#ff0000);width:10px;height:8px;"></span>Fuego
+                </button>
+                <button type="button" class="bar-palette-pill" data-grad-start="0x780F" data-grad-end="0xF81F" style="padding:2px 5px;font-size:9.5px;">
+                  <span class="bar-palette-preview" style="background:linear-gradient(90deg,#7700ff,#ff00ff);width:10px;height:8px;"></span>Neón
+                </button>
               </div>
             </div>
           </div>
+
+          <!-- Mini-modelo + leyenda + indicador A1 (ABAJO) -->
+          <div class="bar-card" id="barAppMini"></div>
 
           <!-- Controles anteriores: quedan ocultos -->
           <div class="bar-card" id="barAppLegacyCard" style="display:none;">
@@ -3598,9 +3587,7 @@
   const BAR_COLOR_DEFAULT = { frame: 0xFFFF, label: 0xFFFF, value: 0x07FF, valueEnd: 0x07E0, track: 0x0000 };
   const getBarName = (field, key) => {
     const isCirc = (field?.barPreset === 'CIRCULAR');
-    const isGrad = isCirc ? (field?.circleColorMode === 'GRADIENT') : (field?.barFillMode === 'GRADIENT');
-    if (key === 'value') return isGrad ? (isCirc ? 'Arco (Inicio)' : 'Barra (Inicio)') : (isCirc ? 'Arco' : 'Barra');
-    if (key === 'valueEnd') return isCirc ? 'Arco (Fin degradado)' : 'Barra (Fin degradado)';
+    if (key === 'value') return isCirc ? 'Arco' : 'Barra';
     if (key === 'track') return 'Fondo y pista';
     if (key === 'label') return 'Etiqueta y unidad';
     if (key === 'frame') return 'Marco';
@@ -3610,15 +3597,14 @@
   const getBarLetter = (field, key) => {
     const isCirc = (field?.barPreset === 'CIRCULAR');
     if (key === 'value') return isCirc ? 'A' : 'B';
-    if (key === 'valueEnd') return '2';
     if (key === 'track') return 'F';
     if (key === 'label') return 'T';
     if (key === 'frame') return 'M';
     return '?';
   };
 
-  const BAR_LETTER = { frame: 'M', label: 'T', value: 'B', valueEnd: '2', track: 'F' };
-  const BAR_NAME = { frame: 'Marco', label: 'Etiqueta y unidad', value: 'Barra', valueEnd: 'Barra (Fin)', track: 'Fondo y pista' };
+  const BAR_LETTER = { frame: 'M', label: 'T', value: 'B', track: 'F' };
+  const BAR_NAME = { frame: 'Marco', label: 'Etiqueta y unidad', value: 'Barra', track: 'Fondo y pista' };
   let barActiveKey = 'value';
   const barMiniCard = document.getElementById('barAppMini');
 
@@ -3627,14 +3613,10 @@
     return (Number.isFinite(raw) ? raw : BAR_COLOR_DEFAULT[key]) & 0xFFFF;
   };
   const barMiniRows = (field) => {
-    const isGrad = (field?.barPreset === 'CIRCULAR')
-      ? (field?.circleColorMode === 'GRADIENT')
-      : (field?.barFillMode === 'GRADIENT');
     return [
       ...(field?.frame ? ['frame'] : []),
       'label',
       'value',
-      ...(isGrad ? ['valueEnd'] : []),
       'track'
     ];
   };
@@ -3645,8 +3627,8 @@
     if (barMiniCard.dataset.signature === signature) return;
     barMiniCard.dataset.signature = signature;
     barMiniCard.innerHTML = `
-      <div class="menu-case">
-        <div class="bar-card-section-title">Vista</div>
+      <div class="menu-case" style="margin-bottom:6px;">
+        <div class="bar-card-section-title" style="margin-bottom:4px;">Vista</div>
         <div class="menu-case-body field-case-body zone-host" data-bar-case-body>
           <canvas class="menu-case-canvas field-case-canvas" data-bar-case></canvas>
           <div class="menu-case-legend">${rows.map((k) => `
@@ -3655,8 +3637,7 @@
           </div>
         </div>
       </div>
-      <div class="menu-palette">
-        <div class="insp-note">Clic en una fila (texto o cuadro) para editar ese color: el contorno y el ▶ marcan lo que cambia en la vista. En la TFT el fondo del campo y la pista vacía son un solo color.</div>
+      <div class="menu-palette" style="padding-top:4px;border-top:1px solid var(--line);">
         <div data-bar-color-editor></div>
       </div>`;
     if (barColorEditor) barMiniCard.querySelector('[data-bar-color-editor]').appendChild(barColorEditor.el);
