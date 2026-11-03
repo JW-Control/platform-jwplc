@@ -93,9 +93,19 @@ const vertBar = core.barFieldBlock({
   barMax: 100,
   page: 0
 }, 'B_VERT');
-check(/JWPLC_UIRect\(10, 20, 16, 80\)/.test(vertBar) &&
-  /JWPLC_UIBarConfig\(\s*JWPLC_UI_BAR_VERTICAL,\s*JWPLC_UI_BAR_STYLE_BLOCKS,\s*0\)/.test(vertBar),
-  'BAR VERTICAL: emite dimensiones libres y JWPLC_UIBarConfig con VERTICAL y BLOCKS');
+check(/JWPLC_UIRect\(10, 20\)/.test(vertBar) &&
+  /JWPLC_UIBarConfig\(\s*JWPLC_UI_BAR_VERTICAL,\s*JWPLC_UI_BAR_STYLE_BLOCKS,\s*0,\s*0,\s*false,\s*0xFFFF,\s*1,\s*16,\s*80\)/.test(vertBar),
+  'BAR VERTICAL: grosor y largo en JWPLC_UIBarConfig, caja calculada por el firmware');
+const thickBar = core.barFieldBlock({ ...COLORS, type: 'BAR', x: 1, y: 2, barWidth: 110, barHeight: 30, barMin: 0, barMax: 100, page: 0 }, 'B_THICK');
+check(/JWPLC_UIRect\(1, 2, 110, JWPLC_UI_AUTO\)/.test(thickBar) &&
+  /JWPLC_UIBarConfig\(\s*JWPLC_UI_BAR_HORIZONTAL,\s*JWPLC_UI_BAR_STYLE_SOLID,\s*0,\s*0,\s*false,\s*0xFFFF,\s*1,\s*30,\s*0\)/.test(thickBar),
+  'BAR horizontal: el grosor distinto de 12 px llega a JWPLC_UIBarConfig');
+check(!/JWPLC_UIBarConfig/.test(core.barFieldBlock({ ...COLORS, type: 'BAR', x: 1, y: 2, barWidth: 110, barHeight: 12, barMin: 0, barMax: 100, page: 0 }, 'B_STD')),
+  'BAR horizontal de 12 px: sin JWPLC_UIBarConfig');
+const blackEndBar = core.barFieldBlock({ ...COLORS, type: 'BAR', x: 1, y: 2, barWidth: 110, barFillMode: 'GRADIENT', valueColor: 0x07FF, valueColorEnd: 0, barMin: 0, barMax: 100, page: 0 }, 'B_BLACK');
+check(/JWPLC_UI_BAR_STYLE_SOLID,\s*0x0001\)/.test(blackEndBar), 'BAR GRADIENT: el negro final sale como 0x0001 (0 significa sólido)');
+const blackBorderBar = core.barFieldBlock({ ...COLORS, type: 'BAR', x: 1, y: 2, barWidth: 110, barBorderEnabled: true, barBorderColor: 0, barBorderWidth: 2, barMin: 0, barMax: 100, page: 0 }, 'B_BORDER');
+check(/true,\s*0x0000,\s*2\)/.test(blackBorderBar), 'BAR: el borde negro se respeta');
 const gradBar = core.barFieldBlock({
   ...COLORS,
   type: 'BAR',

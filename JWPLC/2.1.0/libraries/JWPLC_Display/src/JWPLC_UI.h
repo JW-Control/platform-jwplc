@@ -380,6 +380,8 @@ struct JWPLC_UIBarConfig
     bool borderEnabled;   // true = borde habilitado
     uint16_t borderColor;// color del borde
     uint8_t borderWidth;  // grosor del borde (px)
+    uint8_t thickness;    // grosor de la barra (px), 0 = predeterminado
+    uint8_t length;       // largo de la barra vertical (px), 0 = según rect
 
     constexpr JWPLC_UIBarConfig(
         uint8_t orientationValue = 0,
@@ -388,14 +390,18 @@ struct JWPLC_UIBarConfig
         uint8_t cornerRadiusValue = 0,
         bool borderEnabledValue = false,
         uint16_t borderColorValue = 0xFFFF,
-        uint8_t borderWidthValue = 1)
+        uint8_t borderWidthValue = 1,
+        uint8_t thicknessValue = 0,
+        uint8_t lengthValue = 0)
         : orientation(orientationValue),
           style(styleValue),
           colorEnd(colorEndValue),
           cornerRadius(cornerRadiusValue),
           borderEnabled(borderEnabledValue),
           borderColor(borderColorValue),
-          borderWidth(borderWidthValue)
+          borderWidth(borderWidthValue),
+          thickness(thicknessValue),
+          length(lengthValue)
     {
     }
 };

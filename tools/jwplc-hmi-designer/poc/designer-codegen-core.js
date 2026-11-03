@@ -11,7 +11,8 @@
   'use strict';
 
   const SCREEN_W = 320;
-  const SCREEN_H = 240;
+  const SCREEN_H = 170;
+  const DEFAULT_BAR_THICKNESS = 12; // DEFAULT_BAR_HEIGHT de JWPLC_UI.cpp
 
   function sanitizeSymbol(value, fallback) {
     const cleaned = String(value || '').trim().replace(/[^A-Za-z0-9_]/g, '_');
@@ -220,7 +221,7 @@
     const isBlocks = field.barStyle === 'BLOCKS';
     const borderColor = Number.isFinite(Number(field.barBorderColor)) ? Number(field.barBorderColor) : 0xFFFF;
     const borderComment = field.barBorderEnabled ? `, Borde: ${hex565(borderColor)} (${field.barBorderWidth || 1}px)` : '';
-    const fillLabel = isGrad ? 'Degradado' : (isBlocks ? 'Bloques' : 'Sólido');
+    const fillLabel = isGrad ? 'con degradado' : (isBlocks ? 'por bloques' : 'sólida');
     const styleHeader = `    // Barra ${fillLabel} (${field.barOrientation || 'HORIZONTAL'}) - Radio: ${field.barCornerRadius || 0}${borderComment}\n`;
     const width = isVert
       ? Math.max(6, Math.min(SCREEN_W, Math.trunc(Number(field.barWidth) || 14)))
@@ -228,25 +229,37 @@
     const height = isVert
       ? Math.max(10, Math.min(SCREEN_H, Math.trunc(Number(field.barHeight) || 60)))
       : 'JWPLC_UI_AUTO';
-    const rect = field.barAutoWidth
+    const horizontalThickness = Math.max(4, Math.min(SCREEN_H, Math.trunc(Number(field.barHeight) || DEFAULT_BAR_THICKNESS)));
+    const thickness = isVert ? Math.min(255, width) : (horizontalThickness === DEFAULT_BAR_THICKNESS ? 0 : horizontalThickness);
+    const length = isVert ? height : 0;
+    // Vertical: el tamaño de la barra va en la config y el firmware calcula la
+    // caja del campo. Horizontal: ancho total del campo y grosor en la config.
+    const rect = (field.barAutoWidth || isVert)
       ? `JWPLC_UIRect(${field.x}, ${field.y})`
       : `JWPLC_UIRect(${field.x}, ${field.y}, ${width}, ${height})`;
 
     const hasRadius = (field.barCornerRadius === 'FULL' || (Number(field.barCornerRadius) || 0) > 0);
     const hasBorder = Boolean(field.barBorderEnabled);
-    const hasConfig = isVert || isBlocks || isGrad || hasRadius || hasBorder;
-    const colorEnd = isGrad ? hex565(field.valueColorEnd || 0x07E0) : '0';
+    const hasSize = thickness > 0 || length > 0;
+    const hasConfig = isVert || isBlocks || isGrad || hasRadius || hasBorder || hasSize;
+    // En JWPLC_UIBarConfig colorEnd 0 significa sólido: el negro va como 0x0001.
+    const endRaw = field.valueColorEnd;
+    const endColor = (endRaw === undefined || endRaw === null || !Number.isFinite(Number(endRaw))) ? 0x07E0 : (Number(endRaw) & 0xFFFF);
+    const colorEnd = isGrad ? hex565(endColor === 0 ? 0x0001 : endColor) : '0';
     const rVal = field.barCornerRadius === 'FULL' ? 255 : Math.max(0, Math.trunc(Number(field.barCornerRadius) || 0));
-    const bColor = hasBorder ? hex565(field.barBorderColor || 0xFFFF) : '0xFFFF';
+    const bColor = hasBorder ? hex565(borderColor) : '0xFFFF';
     const bWidth = hasBorder ? Math.max(1, Math.min(10, Math.trunc(Number(field.barBorderWidth) || 1))) : 1;
 
     let configBlock = '';
     if (hasConfig) {
-      if (hasRadius || hasBorder) {
-        configBlock = `,\n        JWPLC_UIBarConfig(\n            ${isVert ? 'JWPLC_UI_BAR_VERTICAL' : 'JWPLC_UI_BAR_HORIZONTAL'},\n            ${isBlocks ? 'JWPLC_UI_BAR_STYLE_BLOCKS' : 'JWPLC_UI_BAR_STYLE_SOLID'},\n            ${colorEnd},\n            ${rVal},\n            ${cppBool(hasBorder)},\n            ${bColor},\n            ${bWidth})`;
-      } else {
-        configBlock = `,\n        JWPLC_UIBarConfig(\n            ${isVert ? 'JWPLC_UI_BAR_VERTICAL' : 'JWPLC_UI_BAR_HORIZONTAL'},\n            ${isBlocks ? 'JWPLC_UI_BAR_STYLE_BLOCKS' : 'JWPLC_UI_BAR_STYLE_SOLID'},\n            ${colorEnd})`;
-      }
+      const args = [
+        isVert ? 'JWPLC_UI_BAR_VERTICAL' : 'JWPLC_UI_BAR_HORIZONTAL',
+        isBlocks ? 'JWPLC_UI_BAR_STYLE_BLOCKS' : 'JWPLC_UI_BAR_STYLE_SOLID',
+        colorEnd
+      ];
+      if (hasRadius || hasBorder || hasSize) args.push(rVal, cppBool(hasBorder), bColor, bWidth);
+      if (hasSize) args.push(thickness, length);
+      configBlock = `,\n        JWPLC_UIBarConfig(\n            ${args.join(',\n            ')})`;
     }
 
     return `${styleHeader}` +

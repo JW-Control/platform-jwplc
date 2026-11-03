@@ -170,7 +170,7 @@ Documentación completa: `docs/v2.1.0-alpha.17/A17_HMI_TEMAS_DESIGN_TOKENS_20261
   `JWPLC_TFT` >= 0.2.0 y un respaldo para 0.1.0 (`JWPLC_HMI_TFT_NATIVE_SHAPES`).
 - Fuentes: GLCD + FreeFonts vía `JWPLC_TFT` 0.3.0 (`setFont/drawString`), siempre dentro de
   `#if JWPLC_HMI_TFT_FONTS` con respaldo GLCD.
-- BAR circular/degradado: deshabilitados (`.insp-needs-fw`); el codegen cae a `JWPLC_UIBarField`.
+- BAR lineal: horizontal o vertical, sólida o por bloques, con degradado, radio, borde y grosor (`JWPLC_UIBarConfig`). `colorEnd` 0 significa sólido: el negro final se emite como `0x0001`. BAR circular: `JWPLC_UICircularField`, sin degradado.
 - Ids de página siempre contiguos `0..N-1` (`deletePage` renumera; abrir normaliza).
 - NAV con pestañas (todos los estilos salvo «Contador»), pestaña de la página actual en tres estados:
   no posicionada (estilo inactivo) · posicionada (selector, fondo de acento; una página blanca va en

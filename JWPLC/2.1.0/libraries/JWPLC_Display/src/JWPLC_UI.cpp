@@ -472,6 +472,8 @@ namespace
                 {
                     if (h > (int16_t)labelH + FIELD_GAP) h -= (int16_t)labelH + FIELD_GAP;
                 }
+                if (def.barConfig.thickness > 0) w = def.barConfig.thickness;
+                if (def.barConfig.length > 0) h = def.barConfig.length;
                 valueW = w > 0 ? (uint16_t)w : 14;
                 valueH = h > 0 ? (uint16_t)h : 60;
             }
@@ -483,8 +485,8 @@ namespace
                         : (uint16_t)((def.rect.width > lead + pad)
                                          ? def.rect.width - lead - pad
                                          : DEFAULT_BAR_WIDTH);
-                valueH = (def.rect.height != JWPLC_UI_AUTO && def.rect.height > lead + pad)
-                             ? (def.rect.height - lead - pad)
+                valueH = (def.meta.type == JWPLC_UI_FIELD_BAR && def.barConfig.thickness > 0)
+                             ? def.barConfig.thickness
                              : DEFAULT_BAR_HEIGHT;
             }
             break;
@@ -614,6 +616,51 @@ namespace
         return (uint16_t)((r << 11) | (g << 5) | b);
     }
 
+    int16_t barBorderInset(const JWPLC_UIField &def)
+    {
+        return (def.barConfig.borderEnabled && def.barConfig.borderWidth > 0)
+                   ? (int16_t)def.barConfig.borderWidth
+                   : 0;
+    }
+
+    // Margen de esquina de una fila: misma fórmula que getRoundedRectRowDx del Designer.
+    int16_t roundedRowInset(int16_t row, int16_t height, int16_t radius)
+    {
+        int16_t d;
+        if (radius <= 0) return 0;
+        if (row < radius) d = radius - 1 - row;
+        else if (row >= height - radius) d = row - (height - radius);
+        else return 0;
+        return (int16_t)lroundf((float)radius - sqrtf((float)(radius * radius - d * d)));
+    }
+
+    // Una línea del relleno (columna en horizontal, fila en vertical) recortada
+    // por las esquinas. position cuenta desde el inicio de la barra.
+    void paintBarLine(
+        JWPLC_TFTClass &tft,
+        int16_t x,
+        int16_t y,
+        int16_t w,
+        int16_t h,
+        int16_t radius,
+        bool vertical,
+        int16_t position,
+        uint16_t color)
+    {
+        if (vertical)
+        {
+            const int16_t row = h - 1 - position;
+            const int16_t dx = roundedRowInset(row, h, radius);
+            if (w - 2 * dx > 0) tft.drawFastHLine(x + dx, y + row, w - 2 * dx, color);
+            return;
+        }
+
+        const int16_t edge = (position < w - 1 - position) ? position : (w - 1 - position);
+        int16_t top = 0;
+        while (top < radius && roundedRowInset(top, h, radius) > edge) ++top;
+        if (h - 2 * top > 0) tft.drawFastVLine(x + position, y + top, h - 2 * top, color);
+    }
+
     int16_t barFillLevel(const FieldRuntime &field)
     {
         float minValue = field.def.options.barRange.min;
@@ -637,10 +684,13 @@ namespace
         }
 
         const bool isVert = (field.def.barConfig.orientation == JWPLC_UI_BAR_VERTICAL);
-        const int16_t totalLen = isVert ? field.valueH : field.valueW;
+        const int16_t inset = 2 * barBorderInset(field.def);
+        const int16_t totalLen = (isVert ? field.valueH : field.valueW) - inset;
+        if (totalLen <= 0) return 0;
         return (int16_t)lroundf(normalized * (float)totalLen);
     }
 
+    // Repinta sólo lo que cambió entre dos niveles, dentro del borde.
     void drawBarDelta(
         JWPLC_TFTClass &tft,
         FieldRuntime &field,
@@ -655,9 +705,7 @@ namespace
         const bool isGrad = (colEnd != 0 && colEnd != colStart);
         const uint16_t bg = fieldBackground(field);
 
-        const int16_t b = (def.barConfig.borderEnabled && def.barConfig.borderWidth > 0)
-                              ? (int16_t)def.barConfig.borderWidth
-                              : 0;
+        const int16_t b = barBorderInset(def);
         const int16_t vx = field.valueX + b;
         const int16_t vy = field.valueY + b;
         const int16_t vw = field.valueW - 2 * b;
@@ -665,7 +713,6 @@ namespace
         if (vw <= 0 || vh <= 0) return;
 
         const int16_t totalLen = isVert ? vh : vw;
-        if (totalLen <= 0) return;
 
         if (oldLevel < 0) oldLevel = 0;
         if (newLevel < 0) newLevel = 0;
@@ -674,138 +721,89 @@ namespace
 
         if (newLevel == oldLevel) return;
 
-        if (!isBlocks)
+        const int16_t outerMin = (field.valueW < field.valueH) ? field.valueW : field.valueH;
+        int16_t radius = (def.barConfig.cornerRadius == 255)
+                             ? (outerMin / 2)
+                             : (int16_t)def.barConfig.cornerRadius;
+        if (radius > outerMin / 2) radius = outerMin / 2;
+        radius -= b;
+        const int16_t innerMin = (vw < vh) ? vw : vh;
+        if (radius > innerMin / 2) radius = innerMin / 2;
+        if (radius < 0) radius = 0;
+
+        if (isBlocks)
         {
-            // SÓLIDO (Continuo)
-            if (!isVert)
+            // Bloques de 4 px con 1 px de separación, como el lienzo.
+            const int16_t blockPitch = 5;
+            const int16_t blockSize = 4;
+            const int16_t numBlocks = (totalLen + 1) / blockPitch;
+            if (numBlocks <= 0) return;
+
+            const int16_t oldBlocks = (int16_t)lroundf((float)oldLevel * numBlocks / totalLen);
+            const int16_t newBlocks = (int16_t)lroundf((float)newLevel * numBlocks / totalLen);
+            const int16_t first = (newBlocks < oldBlocks) ? newBlocks : oldBlocks;
+            const int16_t last = (newBlocks > oldBlocks) ? newBlocks : oldBlocks;
+
+            if (radius > 0) tft.beginBatch();
+            for (int16_t k = first; k < last; k++)
             {
-                // Horizontal
-                if (newLevel > oldLevel)
+                uint16_t c = bg;
+                if (k < newBlocks)
                 {
-                    if (isGrad)
+                    c = isGrad
+                            ? interpolate565(colStart, colEnd, (float)k / (float)(numBlocks > 1 ? numBlocks - 1 : 1))
+                            : colStart;
+                }
+
+                const int16_t start = k * blockPitch;
+                if (radius > 0)
+                {
+                    for (int16_t p = start; p < start + blockSize && p < totalLen; p++)
                     {
-                        for (int16_t px = oldLevel; px < newLevel; px++)
-                        {
-                            float t = (float)px / (float)totalLen;
-                            uint16_t c = interpolate565(colStart, colEnd, t);
-                            tft.drawFastVLine(vx + px, vy, vh, c);
-                        }
+                        paintBarLine(tft, vx, vy, vw, vh, radius, isVert, p, c);
                     }
-                    else
-                    {
-                        tft.fillRect(
-                            vx + oldLevel,
-                            vy,
-                            newLevel - oldLevel,
-                            vh,
-                            colStart);
-                    }
+                }
+                else if (isVert)
+                {
+                    tft.fillRect(vx, vy + vh - start - blockSize, vw, blockSize, c);
                 }
                 else
                 {
-                    tft.fillRect(
-                        vx + newLevel,
-                        vy,
-                        oldLevel - newLevel,
-                        vh,
-                        bg);
+                    tft.fillRect(vx + start, vy, blockSize, vh, c);
                 }
+            }
+            if (radius > 0) tft.endBatch();
+            return;
+        }
+
+        const bool growing = (newLevel > oldLevel);
+        const int16_t first = growing ? oldLevel : newLevel;
+        const int16_t last = growing ? newLevel : oldLevel;
+        const uint16_t flatColor = growing ? colStart : bg;
+
+        if (radius <= 0 && (!growing || !isGrad))
+        {
+            if (isVert)
+            {
+                tft.fillRect(vx, vy + vh - last, vw, last - first, flatColor);
             }
             else
             {
-                // Vertical (Tanque: llena desde abajo hacia arriba)
-                if (newLevel > oldLevel)
-                {
-                    if (isGrad)
-                    {
-                        for (int16_t py = oldLevel; py < newLevel; py++)
-                        {
-                            float t = (float)py / (float)totalLen;
-                            uint16_t c = interpolate565(colStart, colEnd, t);
-                            tft.drawFastHLine(
-                                vx,
-                                vy + vh - 1 - py,
-                                vw,
-                                c);
-                        }
-                    }
-                    else
-                    {
-                        tft.fillRect(
-                            vx,
-                            vy + vh - newLevel,
-                            vw,
-                            newLevel - oldLevel,
-                            colStart);
-                    }
-                }
-                else
-                {
-                    tft.fillRect(
-                        vx,
-                        vy + vh - oldLevel,
-                        vw,
-                        oldLevel - newLevel,
-                        bg);
-                }
+                tft.fillRect(vx + first, vy, last - first, vh, flatColor);
             }
+            return;
         }
-        else
+
+        // Degradado o esquinas: línea a línea bajo un solo lock SPI.
+        tft.beginBatch();
+        for (int16_t p = first; p < last; p++)
         {
-            // BLOQUES (Segmentado industrial)
-            const int16_t blockPitch = totalLen >= 40 ? 5 : 4;
-            const int16_t blockSize = blockPitch - 1;
-            const int16_t numBlocks = totalLen / blockPitch;
-            if (numBlocks <= 0) return;
-
-            const int16_t minL = (newLevel < oldLevel) ? newLevel : oldLevel;
-            const int16_t maxL = (newLevel > oldLevel) ? newLevel : oldLevel;
-
-            for (int16_t k = 0; k < numBlocks; k++)
-            {
-                const int16_t bStart = k * blockPitch;
-                const int16_t bEnd = bStart + blockSize;
-                if (bEnd >= minL && bStart <= maxL)
-                {
-                    const bool active = (bEnd <= newLevel) || ((k + 0.5f) / (float)numBlocks <= (float)newLevel / (float)totalLen);
-                    uint16_t c = bg;
-                    if (active)
-                    {
-                        c = isGrad
-                            ? interpolate565(colStart, colEnd, (float)k / (float)(numBlocks > 1 ? numBlocks - 1 : 1))
-                            : colStart;
-                    }
-
-                    if (!isVert)
-                    {
-                        tft.fillRect(vx + bStart, vy, blockSize, vh, c);
-                    }
-                    else
-                    {
-                        const int16_t by = vy + vh - bEnd;
-                        tft.fillRect(vx, by, vw, blockSize, c);
-                    }
-                }
-            }
+            const uint16_t c = (growing && isGrad)
+                                   ? interpolate565(colStart, colEnd, (float)p / (float)totalLen)
+                                   : flatColor;
+            paintBarLine(tft, vx, vy, vw, vh, radius, isVert, p, c);
         }
-
-        if (def.barConfig.cornerRadius > 0 && def.barConfig.borderEnabled && b > 0)
-        {
-            const int16_t minDim = (field.valueW < field.valueH) ? field.valueW : field.valueH;
-            int16_t r = (def.barConfig.cornerRadius == 255)
-                            ? (minDim / 2)
-                            : (int16_t)def.barConfig.cornerRadius;
-            if (r > minDim / 2) r = minDim / 2;
-            const uint16_t bCol = def.barConfig.borderColor;
-            for (int16_t i = 0; i < b; ++i)
-            {
-                const int16_t curW = field.valueW - 2 * i;
-                const int16_t curH = field.valueH - 2 * i;
-                if (curW <= 0 || curH <= 0) break;
-                const int16_t curR = (r - i > 0) ? (r - i) : 1;
-                tft.drawRoundRect(field.valueX + i, field.valueY + i, curW, curH, curR, bCol);
-            }
-        }
+        tft.endBatch();
     }
 
     // ICON sin fondo: true si el píxel (x, y) es transparente en todos los

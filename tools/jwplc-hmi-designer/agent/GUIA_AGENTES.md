@@ -95,7 +95,7 @@ La CLI acepta un JSON mínimo y completa el resto con los mismos valores por def
 - Tildes, ñ y ° existen en la fuente GLCD (no las mayúsculas acentuadas como Á, Í, Ú). Las fuentes
   FreeFont (`SANS_*`, `SERIF_*`, `MONO_*`) y `FONT2`/`FONT4` sólo tienen ASCII.
 - `VALUE` reserva el ancho de `integerDigits` + decimales: elige los dígitos del peor caso.
-- BAR: el firmware dibuja sólo la barra horizontal lineal sólida; no hay medidor circular ni degradado.
+- BAR: `barPreset` `LINEAR` admite vertical, bloques, degradado (`barFillMode`, `valueColorEnd`), radio, borde y grosor. `CIRCULAR` es sólido: no hay degradado en el medidor circular.
 - ICON: imagen fija por estado del catálogo (`jwhmi icons`), sin animación. Ocupa `iconSize` (24, 32, 48;
   64 en algunos) + 3 px de margen por lado, y con etiqueta STACKED suma ~9 px arriba (escala 1).
   Con 2 estados la variable es `bool`; con más, `uint8_t` y el sketch asigna 0..N-1 (el nombre de cada
