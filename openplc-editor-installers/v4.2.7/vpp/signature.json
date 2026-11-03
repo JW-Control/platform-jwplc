@@ -3,20 +3,21 @@
   "alg": "ed25519",
   "keyId": "jwcontrol-2026",
   "packageId": "com.jwcontrol.jwplc-basic",
-  "version": "2.1.0-alpha.16",
-  "signedAt": "2026-10-31T14:38:08.308Z",
+  "version": "2.1.0-alpha.17",
+  "signedAt": "2026-11-03T15:31:14.258Z",
   "files": {
     "README.md": "f98f113f4095893aca82fbb0a5d750d8a6c383af37e3cbe99691854c96ddb832",
     "assets/jwplcbasic.png": "64c7c2755436f2224c1aa7f4ed535c95339eba3df43dbc93f1f19bf5f1b6fb68",
     "examples/JWPLC_Basic_Blink_Q0_0/README.md": "363bf0ddb193c6d4978e18c3947bf53df755c42704fe383632e8929cad83c52f",
     "examples/JWPLC_Basic_IO_Test_I0_to_Q0/README.md": "c40d37f6963766cb280de09c43ab56f56b74ce5f533beaf06d35e937f37cb747",
     "hal/jwplcbasic-remoteio-slave.cpp": "d8823f51d8a0352017cca20f36057835bf92eacdf7b494733a82e77e63d88d7f",
-    "hal/jwplcbasic.cpp": "a7ea47bcd22f4a59dc84e79b3bde0921eefa1d27e53ebee32a71d2e6b053eabf",
-    "manifest.json": "7f7d089e72740eaec1c44ca3d4b545bb28d1972bdfb216721a9c6b3421efd407",
+    "hal/jwplcbasic.cpp": "43c5e017b9bd398699f052a783ecbc9129e4c933070b0dd50ed75c8dfd260064",
+    "manifest.json": "8b1f449429055aa72992f41b12f2ae121667921b443d6e9cdd0bef5822513953",
     "screens/backplane.json": "51e516ea63cb4dee71a93bdd218ebfcc565411a6eab295903bc89744a9827df2",
     "screens/jwplc-basic-remote-io.json": "f2ed17ef99859cf655f4c5d6be369dd4a49760b5c5e649fa688d04f9550090e1",
-    "screens/modbus.json": "2ba86ffbc65d197eaf94ca6ebc36b6ed0b2cf0d2ea7f0dc6c2676cfd61262ef6",
-    "screens/remote-io-slave.json": "aa4c1205fd3b9f9e5ca47dfa50db4c07470c00823f6c166cfa6b16a4e42771a0"
+    "screens/network.json": "80e1a8f9f2ae3a4418cf684f2333342cab910540c7fc1612d32c32bf2e41d5b0",
+    "screens/remote-io-slave.json": "aa4c1205fd3b9f9e5ca47dfa50db4c07470c00823f6c166cfa6b16a4e42771a0",
+    "screens/serial.json": "4e530b5e20ef1abc78b0e1f660fd61511b21bc5476ef92903e5d86a7f7a6ffe9"
   },
-  "signature": "o8qc+OQVv10oIfGA03uuAT9zp2CmFOX6v0LeLmkIE5pIskzVnF/k+7OLQT2PDnkEaEicSBGqlsbrrAsl+vekDA=="
+  "signature": "swHsbUjZm8jWpUDNtST9xxtT+pZnZMAjhRmcjNqXLhIRUmytIh8TnALYDMWSClDHFTlXqqYgHxfVIRXQWcF1AA=="
 }
