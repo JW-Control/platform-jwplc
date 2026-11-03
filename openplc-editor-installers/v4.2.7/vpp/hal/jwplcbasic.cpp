@@ -186,10 +186,10 @@ uint16_t pinMask_AOUT[] = {
     0xFFFF
 };
 
-static constexpr int NUM_DISCRETE_INPUT =
+static constexpr int JWPLC_NUM_DISCRETE_INPUT =
     sizeof(pinMask_DIN) / sizeof(pinMask_DIN[0]);
 
-static constexpr int NUM_DISCRETE_OUTPUT =
+static constexpr int JWPLC_NUM_DISCRETE_OUTPUT =
     sizeof(pinMask_DOUT) / sizeof(pinMask_DOUT[0]);
 
 static constexpr uint8_t JWPLC_REMOTE_CHANNELS = 8;
@@ -1351,7 +1351,7 @@ static void jwplcPublishForcedInputs()
         uint8_t forcedValues = 0;
 
         // pinMask_DIN es fijo (I0_0..I0_7), así que %IX0.i es el bit i de la IDLE.
-        for (int i = 0; i < NUM_DISCRETE_INPUT && i < 8; i++)
+        for (int i = 0; i < JWPLC_NUM_DISCRETE_INPUT && i < 8; i++)
         {
             IEC_BOOL *raw = bool_input[0][i];
             if (raw == NULL || !jwplcValidPin(pinMask_DIN[i]))
@@ -1408,7 +1408,7 @@ void updateInputBuffers()
 #endif
     jwplcTimingOnScanStart();
     uint8_t physical = 0;
-    for (int i = 0; i < NUM_DISCRETE_INPUT; i++)
+    for (int i = 0; i < JWPLC_NUM_DISCRETE_INPUT; i++)
     {
         uint16_t pin = pinMask_DIN[i];
 
@@ -1432,7 +1432,7 @@ void updateOutputBuffers()
     {
         jwplcTimingObserveRemoteOutputs(jwplcPackRemoteOutputs(jwplcRemoteSlots[0]));
     }
-    for (int i = 0; i < NUM_DISCRETE_OUTPUT; i++)
+    for (int i = 0; i < JWPLC_NUM_DISCRETE_OUTPUT; i++)
     {
         uint16_t pin = pinMask_DOUT[i];
 
