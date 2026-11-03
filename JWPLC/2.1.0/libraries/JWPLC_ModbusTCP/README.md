@@ -145,6 +145,15 @@ requestReadHoldingRegisters(
 
 lee dos Holding Registers empezando en la dirección interna 0.
 
+## Ejemplos del package
+
+En Arduino IDE: *Archivo → Ejemplos → JWPLC_ModbusTCP*. Los dos corren también en JWPLC Sim.
+
+- `01.ModbusTCP_Server`: server con Coils, Discrete Inputs, Holding e Input Registers (mapa en el encabezado del sketch).
+- `02.ModbusTCP_Client`: client cooperativo que lee dos Holding Registers (FC03) de otro equipo.
+
+Los fragmentos de abajo explican la API paso a paso.
+
 ## Ejemplo 1 — Básico: Server de Holding Registers
 
 ```cpp

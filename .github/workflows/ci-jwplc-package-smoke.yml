@@ -21,7 +21,7 @@ permissions:
 env:
   # Commit de jwplc-sim del gate SIM_REGRESSION. Debe ser el mismo que el de
   # «uses:» del job sim-regression (y el de release-jwplc-package.yml).
-  JWSIM_REF: "fd08f12cb6978ba283ea733d24cf47389934c675"
+  JWSIM_REF: "415cd20f27f7649514ec7a5d676473385d8583e1"
   ARDUINO_CLI_VERSION: "1.x"
   # Última alpha publicada usada únicamente como bootstrap del toolchain.
   # El árbol completo JWPLC/2.1.0 del PR se superpone después con rsync --delete.
@@ -119,19 +119,14 @@ jobs:
             "JWPLC/2.1.0/libraries/JWPLC_Display/examples/01.Display_IDLE_Status"
             "JWPLC/2.1.0/libraries/JWPLC_Display/examples/02.Display_HMI_Fields"
             "JWPLC/2.1.0/libraries/JWPLC_Display/examples/04.Display_TFT_Direct"
-            "JWPLC/2.1.0/libraries/JWPLC_Display/examples/Display_DotAPI_Minimal"
-            "JWPLC/2.1.0/libraries/JWPLC_Display/examples/Display_Efficient_Redraw"
-            "JWPLC/2.1.0/libraries/JWPLC_Display/examples/Display_Idle_Return_Modes"
-            "JWPLC/2.1.0/libraries/JWPLC_Display/examples/Display_UserUI_Callbacks"
-            "JWPLC/2.1.0/libraries/JWPLC_Display/examples/Display_Tetris"
-            "JWPLC/2.1.0/libraries/JWPLC_Display/examples/Display_FlappyBird"
-            "JWPLC/2.1.0/libraries/JWPLC_LogicRuntime_UI/examples/JWPLC_LogicRuntime_UI_Home"
-            "JWPLC/2.1.0/libraries/JWPLC_LogicRuntime_UI/examples/JWPLC_LogicRuntime_UI_FBD_Unified_Map_Detail_RAM"
+            "JWPLC/2.1.0/libraries/JWPLC_Display/examples/12.Display_Efficient_Redraw"
+            "JWPLC/2.1.0/libraries/JWPLC_Display/examples/13.Display_Idle_Return_Modes"
+            "JWPLC/2.1.0/libraries/JWPLC_Display/examples/14.Display_UserUI_Callbacks"
+            "JWPLC/2.1.0/libraries/JWPLC_Display/examples/16.Display_Tetris"
+            "JWPLC/2.1.0/libraries/JWPLC_Display/examples/15.Display_FlappyBird"
             "JWPLC/2.1.0/libraries/JWPLC_Ethernet/examples/03.Ethernet_Diagnostics"
-            "JWPLC/2.1.0/libraries/JWPLC_Ethernet/examples/Ethernet_SPI_Coexistence"
-            "JWPLC/2.1.0/libraries/JWPLC_Ethernet/examples/Ethernet_HTTP_TFT_Diagnostics"
-            "JWPLC/2.1.0/libraries/JWPLC_Ethernet/examples/Ethernet_Continuous_Stress_TFT"
-            "JWPLC/2.1.0/libraries/JWPLC_ModbusRTU/examples/JWPLC_RemoteIO_Slave_RTU"
+            "JWPLC/2.1.0/libraries/JWPLC_ModbusRTU/examples/01.ModbusRTU_Slave_Holding"
+            "JWPLC/2.1.0/libraries/JWPLC_RS485/examples/04.RS485_Puente_USB"
             "tools/build-speed-benchmark/sketches/06_alpha4_local_physical_gate"
           )
 
@@ -184,9 +179,9 @@ jobs:
     name: SIM_REGRESSION (JWPLC Sim)
     needs: sim-cache
     if: ${{ needs.sim-cache.outputs.reuse != 'true' }}
-    uses: JW-Control/jwplc-sim/.github/workflows/sim-regression.yml@fd08f12cb6978ba283ea733d24cf47389934c675
+    uses: JW-Control/jwplc-sim/.github/workflows/sim-regression.yml@415cd20f27f7649514ec7a5d676473385d8583e1
     with:
-      sim_ref: fd08f12cb6978ba283ea733d24cf47389934c675
+      sim_ref: 415cd20f27f7649514ec7a5d676473385d8583e1
 
   # Deja el marcador para que la Release (y el CI siguiente) no repitan el
   # barrido sobre el mismo árbol. Ver tools/ci/sim_regression_marker.sh.
