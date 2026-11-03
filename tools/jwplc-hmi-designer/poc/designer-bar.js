@@ -379,55 +379,16 @@
 
         <!-- SUBPANEL 1.3: APARIENCIA -->
         <div class="bar-subpanel" id="barSubpanelAppearance" data-subpanel="appearance" style="display:none;">
-          <!-- Configuración de Relleno y Degradado (en Apariencia, ARRIBA) -->
-          <div class="bar-card" id="barAppGradCard">
+          <!-- Interruptor de Modo de Relleno (Sólido / Degradado) -->
+          <div class="bar-card" style="padding:6px 10px;margin-bottom:6px;">
             <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
               <span class="bar-card-section-title" style="margin:0;">Relleno del indicador</span>
               <div class="bar-visual-grid-2" style="margin:0;width:150px;gap:4px;" id="barAppFillModeGroup">
-                <button type="button" class="bar-visual-btn bar-app-fill-btn active" data-fill="SOLID" title="Color liso uniforme" style="padding:2px 6px;min-height:22px;font-size:10px;">
+                <button type="button" class="bar-visual-btn bar-app-fill-btn active" data-fill="SOLID" title="Color liso uniforme" style="padding:2px 8px;min-height:22px;font-size:10px;">
                   <span>Sólido</span>
                 </button>
-                <button type="button" class="bar-visual-btn bar-app-fill-btn" data-fill="GRADIENT" title="Degradado suave entre dos colores" style="padding:2px 6px;min-height:22px;font-size:10px;">
+                <button type="button" class="bar-visual-btn bar-app-fill-btn" data-fill="GRADIENT" title="Degradado suave entre dos colores" style="padding:2px 8px;min-height:22px;font-size:10px;">
                   <span>Degradado</span>
-                </button>
-              </div>
-            </div>
-
-            <!-- Controles cuando Degradado está activo -->
-            <div id="barAppGradSettings" style="display:none;margin-top:6px;">
-              <div id="barGradPreviewBar" style="height:10px;border-radius:3px;border:1px solid var(--line);margin-bottom:6px;box-shadow:inset 0 1px 2px rgba(0,0,0,0.2);"></div>
-              <div class="bar-grad-row full" style="margin:0 0 5px 0;gap:4px;">
-                <label class="field-label" style="flex:1;min-width:0;margin:0;font-size:10px;">Color Inicial
-                  <div class="bar-color-input-wrap compact" style="margin-top:2px;">
-                    <input id="barGradStartNative" type="color" value="#00ffff" />
-                    <span id="barGradStartHex" class="hex-label compact">0x07FF</span>
-                  </div>
-                </label>
-                <button type="button" id="barGradSwapBtn" class="bar-swap-icon-btn" title="Intercalar color inicial y final" style="width:24px;height:24px;align-self:flex-end;margin-bottom:1px;">⇄</button>
-                <label class="field-label" style="flex:1;min-width:0;margin:0;font-size:10px;">Color Final
-                  <div class="bar-color-input-wrap compact" style="margin-top:2px;">
-                    <input id="barGradEndNative" type="color" value="#00ff00" />
-                    <span id="barGradEndHex" class="hex-label compact">0x07E0</span>
-                  </div>
-                </label>
-              </div>
-
-              <!-- Paletas rápidas -->
-              <div style="display:flex;align-items:center;gap:3px;flex-wrap:wrap;margin-top:2px;" id="barGradPalettes">
-                <button type="button" class="bar-palette-pill" data-grad-start="0xF800" data-grad-end="0x07E0" style="padding:2px 5px;font-size:9.5px;">
-                  <span class="bar-palette-preview" style="background:linear-gradient(90deg,#ff0000,#00ff00);width:10px;height:8px;"></span>R-V
-                </button>
-                <button type="button" class="bar-palette-pill" data-grad-start="0x07E0" data-grad-end="0xF800" style="padding:2px 5px;font-size:9.5px;">
-                  <span class="bar-palette-preview" style="background:linear-gradient(90deg,#00ff00,#ff0000);width:10px;height:8px;"></span>V-R
-                </button>
-                <button type="button" class="bar-palette-pill" data-grad-start="0x07FF" data-grad-end="0x001F" style="padding:2px 5px;font-size:9.5px;">
-                  <span class="bar-palette-preview" style="background:linear-gradient(90deg,#00ffff,#0000ff);width:10px;height:8px;"></span>Cian
-                </button>
-                <button type="button" class="bar-palette-pill" data-grad-start="0xFD20" data-grad-end="0xF800" style="padding:2px 5px;font-size:9.5px;">
-                  <span class="bar-palette-preview" style="background:linear-gradient(90deg,#ff9900,#ff0000);width:10px;height:8px;"></span>Fuego
-                </button>
-                <button type="button" class="bar-palette-pill" data-grad-start="0x780F" data-grad-end="0xF81F" style="padding:2px 5px;font-size:9.5px;">
-                  <span class="bar-palette-preview" style="background:linear-gradient(90deg,#7700ff,#ff00ff);width:10px;height:8px;"></span>Neón
                 </button>
               </div>
             </div>
@@ -2594,37 +2555,6 @@
     triggerCoreRender(true);
   });
 
-  barGradSwapBtn?.addEventListener('click', (e) => {
-    e.preventDefault();
-    const field = selectedField();
-    if (!isBar(field)) return;
-    const temp = field.valueColor || 0x07FF;
-    field.valueColor = field.valueColorEnd || 0x07E0;
-    field.valueColorEnd = temp;
-    if (barGradStartNative) barGradStartNative.value = rgb565ToHexCss(field.valueColor);
-    if (barGradStartHex) barGradStartHex.textContent = hex565(field.valueColor);
-    if (barGradEndNative) barGradEndNative.value = rgb565ToHexCss(field.valueColorEnd);
-    if (barGradEndHex) barGradEndHex.textContent = hex565(field.valueColorEnd);
-    syncBarMini(field);
-    triggerCoreRender(true);
-  });
-
-  document.querySelectorAll('#barGradPalettes .bar-palette-pill').forEach((pill) => {
-    pill.addEventListener('click', (e) => {
-      e.preventDefault();
-      const field = selectedField();
-      if (!isBar(field)) return;
-      field.valueColor = Number(pill.dataset.gradStart);
-      field.valueColorEnd = Number(pill.dataset.gradEnd);
-      if (barGradStartNative) barGradStartNative.value = rgb565ToHexCss(field.valueColor);
-      if (barGradStartHex) barGradStartHex.textContent = hex565(field.valueColor);
-      if (barGradEndNative) barGradEndNative.value = rgb565ToHexCss(field.valueColorEnd);
-      if (barGradEndHex) barGradEndHex.textContent = hex565(field.valueColorEnd);
-      syncBarMini(field);
-      triggerCoreRender(true);
-    });
-  });
-
   // Botones de Estilo de Barra Lineal
   document.querySelectorAll('.bar-linear-style-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -3430,22 +3360,6 @@
       btn.classList.toggle('active', isGradActive ? btn.dataset.fill === 'GRADIENT' : btn.dataset.fill === 'SOLID');
     });
 
-    const gradSettings = document.getElementById('barAppGradSettings');
-    if (gradSettings) gradSettings.style.display = isGradActive ? 'block' : 'none';
-
-    if (barGradStartNative) {
-      barGradStartNative.value = rgb565ToHexCss(field.valueColor || 0x07FF);
-      if (barGradStartHex) barGradStartHex.textContent = hex565(field.valueColor || 0x07FF);
-    }
-    if (barGradEndNative) {
-      barGradEndNative.value = rgb565ToHexCss(field.valueColorEnd || 0x07E0);
-      if (barGradEndHex) barGradEndHex.textContent = hex565(field.valueColorEnd || 0x07E0);
-    }
-    const gradPreviewBar = document.getElementById('barGradPreviewBar');
-    if (gradPreviewBar) {
-      gradPreviewBar.style.background = `linear-gradient(90deg, ${rgb565ToCss(field.valueColor || 0x07FF)}, ${rgb565ToCss(field.valueColorEnd || 0x07E0)})`;
-    }
-
     // 6. TÉCNICO
     if (barTechName) barTechName.value = field.name || '';
     if (barTechId) barTechId.value = field.id || '';
@@ -3587,7 +3501,9 @@
   const BAR_COLOR_DEFAULT = { frame: 0xFFFF, label: 0xFFFF, value: 0x07FF, valueEnd: 0x07E0, track: 0x0000 };
   const getBarName = (field, key) => {
     const isCirc = (field?.barPreset === 'CIRCULAR');
-    if (key === 'value') return isCirc ? 'Arco' : 'Barra';
+    const isGrad = isCirc ? (field?.circleColorMode === 'GRADIENT') : (field?.barFillMode === 'GRADIENT');
+    if (key === 'value') return isGrad ? (isCirc ? 'Arco (Inicio)' : 'Barra (Inicio)') : (isCirc ? 'Arco' : 'Barra');
+    if (key === 'valueEnd') return isCirc ? 'Arco (Fin)' : 'Barra (Fin)';
     if (key === 'track') return 'Fondo y pista';
     if (key === 'label') return 'Etiqueta y unidad';
     if (key === 'frame') return 'Marco';
@@ -3597,14 +3513,15 @@
   const getBarLetter = (field, key) => {
     const isCirc = (field?.barPreset === 'CIRCULAR');
     if (key === 'value') return isCirc ? 'A' : 'B';
+    if (key === 'valueEnd') return '2';
     if (key === 'track') return 'F';
     if (key === 'label') return 'T';
     if (key === 'frame') return 'M';
     return '?';
   };
 
-  const BAR_LETTER = { frame: 'M', label: 'T', value: 'B', track: 'F' };
-  const BAR_NAME = { frame: 'Marco', label: 'Etiqueta y unidad', value: 'Barra', track: 'Fondo y pista' };
+  const BAR_LETTER = { frame: 'M', label: 'T', value: 'B', valueEnd: '2', track: 'F' };
+  const BAR_NAME = { frame: 'Marco', label: 'Etiqueta y unidad', value: 'Barra', valueEnd: 'Barra (Fin)', track: 'Fondo y pista' };
   let barActiveKey = 'value';
   const barMiniCard = document.getElementById('barAppMini');
 
@@ -3613,10 +3530,14 @@
     return (Number.isFinite(raw) ? raw : BAR_COLOR_DEFAULT[key]) & 0xFFFF;
   };
   const barMiniRows = (field) => {
+    const isGrad = (field?.barPreset === 'CIRCULAR')
+      ? (field?.circleColorMode === 'GRADIENT')
+      : (field?.barFillMode === 'GRADIENT');
     return [
       ...(field?.frame ? ['frame'] : []),
       'label',
       'value',
+      ...(isGrad ? ['valueEnd'] : []),
       'track'
     ];
   };
@@ -3713,23 +3634,11 @@
     if (!barMiniCard || !isBar(field)) return;
     if (!barMiniRows(field).includes(barActiveKey)) barActiveKey = 'value';
     buildBarMini(field);
-    const isGradActiveForMini = (field.barPreset === 'CIRCULAR')
-      ? (field.circleColorMode === 'GRADIENT')
-      : (field.barFillMode === 'GRADIENT');
-
-    const gradPreviewBar = document.getElementById('barGradPreviewBar');
-    if (gradPreviewBar) {
-      gradPreviewBar.style.background = `linear-gradient(90deg, ${rgb565ToCss(field.valueColor || 0x07FF)}, ${rgb565ToCss(field.valueColorEnd || 0x07E0)})`;
-    }
 
     Object.keys(BAR_COLOR_PROP).forEach((key) => {
       const v = barColorOf(field, key);
       barMiniCard.querySelectorAll(`[data-bar-swatch="${key}"]`).forEach((sw) => {
-        if (key === 'value' && isGradActiveForMini) {
-          sw.style.background = `linear-gradient(90deg, ${rgb565ToCss(v)}, ${rgb565ToCss(field.valueColorEnd || 0x07E0)})`;
-        } else {
-          sw.style.background = rgb565ToCss(v);
-        }
+        sw.style.background = rgb565ToCss(v);
         sw.style.color = ((v >> 11) + ((v >> 5) & 0x3F) / 2 + (v & 0x1F)) > 40 ? '#000' : '#fff';
         sw.classList.toggle('active', key === barActiveKey);
       });
@@ -3743,21 +3652,9 @@
     const field = selectedField();
     if (!isBar(field)) return;
     field[BAR_COLOR_PROP[key]] = value565 & 0xFFFF;
-    if (key === 'value') {
-      if (barGradStartNative) barGradStartNative.value = rgb565ToHexCss(value565);
-      if (barGradStartHex) barGradStartHex.textContent = hex565(value565);
-    }
-    if (key === 'valueEnd') {
-      if (barGradEndNative) barGradEndNative.value = rgb565ToHexCss(value565);
-      if (barGradEndHex) barGradEndHex.textContent = hex565(value565);
-    }
     if (key === 'track') {
       field.backgroundColor = value565 & 0xFFFF; // un solo color en firmware
       field.circleTrackColor = value565 & 0xFFFF;
-    }
-    const gradPreviewBar = document.getElementById('barGradPreviewBar');
-    if (gradPreviewBar) {
-      gradPreviewBar.style.background = `linear-gradient(90deg, ${rgb565ToCss(field.valueColor || 0x07FF)}, ${rgb565ToCss(field.valueColorEnd || 0x07E0)})`;
     }
     triggerCoreRender(commit);
   }
