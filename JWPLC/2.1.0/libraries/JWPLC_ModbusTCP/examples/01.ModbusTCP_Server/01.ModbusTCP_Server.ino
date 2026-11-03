@@ -1,7 +1,7 @@
 /*
   01.ModbusTCP_Server
 
-  Ejemplo Server de JWPLC_ModbusTCP para Alpha12.
+  Server Modbus TCP del JWPLC Basic (puerto 502 por Ethernet W5500).
 
   Mapa:
   - Coils            00001..00008 -> 8 bits modificables

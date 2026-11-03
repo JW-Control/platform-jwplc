@@ -16,4 +16,5 @@ Slave ID 2
 Master local ID 247
 ```
 
-Los ejemplos Remote I/O, native/extern y gates cooperativos existentes se conservan como material avanzado.
+En 2.1.0-alpha.17 se retiraron los duplicados, las pruebas internas (CRC, tool, native/extern, gate cooperativo) y
+Remote I/O, que reemplaza `JWPLC_Expansion` (expansión RS-485 del Runtime).
