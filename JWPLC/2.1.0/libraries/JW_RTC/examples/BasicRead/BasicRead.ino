@@ -1,37 +1,39 @@
+/*
+  BasicRead
+
+  Lee la fecha, la hora y la temperatura del RTC DS3232M una vez por segundo.
+
+  En el JWPLC Basic el package ya inicia el RTC y lo publica en el objeto
+  global JWPLC_RTC (y en JWPLC_Time, que guarda la última lectura). Este
+  ejemplo crea su propio objeto JW_RTC para mostrar la librería sola; en un
+  programa del JWPLC usa JWPLC_RTC o JWPLC_Time
+  (ver JWPLC_GlobalPeripherals/03.RTC_Basic).
+
+  Qué mirar: el Monitor serie (115200) imprime «2026/11/02 10:15:30» y la
+  temperatura del chip.
+*/
+
 #include <JW_RTC.h>
 
 JW_RTC rtc;
 
-void printDateTime(const JWRTCDateTime& dt)
-{
-  Serial.print(dt.year);
-  Serial.print('/');
-  if (dt.month < 10) Serial.print('0');
-  Serial.print(dt.month);
-  Serial.print('/');
-  if (dt.day < 10) Serial.print('0');
-  Serial.print(dt.day);
-  Serial.print(' ');
+const uint32_t PERIODO_MS = 1000;
+uint32_t ultimaLecturaMs = 0;
 
-  if (dt.hour < 10) Serial.print('0');
-  Serial.print(dt.hour);
-  Serial.print(':');
-  if (dt.minute < 10) Serial.print('0');
-  Serial.print(dt.minute);
-  Serial.print(':');
-  if (dt.second < 10) Serial.print('0');
-  Serial.println(dt.second);
+// Dos dígitos: 7 -> "07".
+String dosDigitos(uint8_t valor)
+{
+  return (valor < 10) ? "0" + String(valor) : String(valor);
 }
 
 void setup()
 {
   Serial.begin(115200);
-  delay(300);
 
   if (!rtc.begin())
   {
     Serial.print("RTC begin failed: ");
-    Serial.println(JW_RTC::errorToString(rtc.lastError()));
+    Serial.println(rtc.lastErrorString());
     return;
   }
 
@@ -40,27 +42,29 @@ void setup()
 
 void loop()
 {
-  JWRTCDateTime dt;
-  float tempC = 0.0f;
+  if (millis() - ultimaLecturaMs < PERIODO_MS)
+    return;
+  ultimaLecturaMs = millis();
 
+  JWRTCDateTime dt;
   if (rtc.read(dt))
   {
     Serial.print("Valid: ");
     Serial.print(rtc.isTimeValid());
     Serial.print(" | ");
-    printDateTime(dt);
+    Serial.println(String(dt.year) + "/" + dosDigitos(dt.month) + "/" + dosDigitos(dt.day) + " " +
+                   dosDigitos(dt.hour) + ":" + dosDigitos(dt.minute) + ":" + dosDigitos(dt.second));
   }
   else
   {
     Serial.print("Read failed: ");
-    Serial.println(JW_RTC::errorToString(rtc.lastError()));
+    Serial.println(rtc.lastErrorString());
   }
 
+  float tempC = 0.0f;
   if (rtc.readTemperatureC(tempC))
   {
     Serial.print("Temp C: ");
     Serial.println(tempC, 2);
   }
-
-  delay(1000);
 }

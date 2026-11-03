@@ -127,6 +127,15 @@ Escribe un valor completo en la FRAM.
 ### `update()`
 Primero lee el valor actual y solo escribe si detecta cambios.
 
+### `updateBlock()` (1.0.4)
+Como `writeBlock()`, pero solo escribe si el bloque guardado es distinto (cabecera, versión y datos). Devuelve
+`true` si el bloque quedó guardado, se haya escrito o no. Sirve para guardar «cuando cambie» sin copia ni
+`memcmp` en el sketch:
+
+```cpp
+JWPLC_FRAM.updateBlock(DIR_DATOS, datos, VERSION_DATOS);
+```
+
 ## Tipos compatibles en `get`, `put`, `update`, `writeBlock`, `readBlock`
 
 Estos métodos están pensados para tipos **trivially copyable**, como por ejemplo:
@@ -304,3 +313,12 @@ JW_FRAM 1.0.3
 ```
 
 Corrección principal: escritura validada de bloques compatible con la FM25CL64B usada por JWPLC Basic.
+
+## Ejemplos
+
+En Arduino IDE: *Archivo → Ejemplos → JW_FRAM*. Todos imprimen en el Monitor serie a 115200 y corren también en JWPLC Sim.
+
+- `Basic_RW`: variables sueltas con `put()`, `update()` y `get()`.
+- `Struct_Config`: un struct de configuración completo con `put()`/`get()`.
+- `Block_Config`: bloque validado con versión y checksum (`writeBlock()`, `readBlock()`) y `updateBlock()`, que guarda solo si cambió.
+- `Strings`: textos con `writeString()`/`readString()` y `writeCString()`/`readCString()`.

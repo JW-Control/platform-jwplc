@@ -12,7 +12,7 @@
 #include <JW_DWIN.h>
 #include <JW_DWIN_ModbusRTU.h>
 
-JW_RS485 rs485(Serial2, 16, 17);
+JW_RS485 rs485(Serial2, JWPLC_RS485_RX_PIN, JWPLC_RS485_TX_PIN);  // RS-485 del JWPLC Basic (GPIO16/17)
 JW_ModbusRTU modbus(rs485);
 JW_DWIN_ModbusRTU transport(modbus, 1, 115200, SERIAL_8N1);
 JW_DWIN dwin(transport);

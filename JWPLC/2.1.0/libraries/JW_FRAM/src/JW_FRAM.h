@@ -1,7 +1,13 @@
 #ifndef _JW_FRAM_H_
 #define _JW_FRAM_H_
 
+// En el package JWPLC, Adafruit_BusIO va dentro del package con otro nombre de
+// librería; este include lo resuelve. Fuera del JWPLC no existe y se omite.
+#if defined(__has_include)
+#if __has_include(<JWPLC_Bundled_Adafruit_BusIO.h>)
 #include <JWPLC_Bundled_Adafruit_BusIO.h>
+#endif
+#endif
 #include <Adafruit_SPIDevice.h>
 #include <Arduino.h>
 #include <SPI.h>
@@ -82,6 +88,14 @@ public:
 
   template <typename T>
   bool writeBlock(uint32_t addr, const T &value, uint8_t version = 1);
+
+  // Como writeBlock(), pero solo escribe si el bloque guardado es distinto
+  // (cabecera válida, misma versión y mismos datos). Devuelve true si quedó
+  // guardado, se haya escrito o no. Sirve para guardar «cuando cambie» sin
+  // copia ni memcmp en el sketch:
+  //   JWPLC_FRAM.updateBlock(DIR_DATOS, datos);
+  template <typename T>
+  bool updateBlock(uint32_t addr, const T &value, uint8_t version = 1);
 
   template <typename T>
   bool readBlock(uint32_t addr, T &value, uint8_t expectedVersion = 1);
@@ -229,6 +243,43 @@ bool JW_FRAM::writeBlock(uint32_t addr, const T &value, uint8_t version)
   }
 
   return ok;
+}
+
+template <typename T>
+bool JW_FRAM::updateBlock(uint32_t addr, const T &value, uint8_t version)
+{
+  static_assert(std::is_trivially_copyable<T>::value,
+                "JW_FRAM::updateBlock<T>() requiere un tipo trivially copyable");
+  static_assert(sizeof(T) <= 0xFFFF,
+                "JW_FRAM::updateBlock<T>() excede el tamano permitido por uint16_t");
+
+  if (!isAddressValid(addr, sizeof(BlockHeader) + sizeof(T)))
+  {
+    debugPrint(F("JW_FRAM::updateBlock() direccion fuera de rango"));
+    return false;
+  }
+
+  const uint8_t *bytes = reinterpret_cast<const uint8_t *>(&value);
+  BlockHeader header{};
+  bool same = read(addr, reinterpret_cast<uint8_t *>(&header), sizeof(header)) &&
+              header.magic == BLOCK_MAGIC &&
+              header.version == version &&
+              header.length == sizeof(T) &&
+              header.checksum == computeChecksum(bytes, sizeof(T));
+
+  // Comparar por tramos: sin reservar sizeof(T) en el stack ni en el heap.
+  uint8_t chunk[32];
+  for (size_t off = 0; same && off < sizeof(T); off += sizeof(chunk))
+  {
+    const size_t n = (sizeof(T) - off < sizeof(chunk)) ? (sizeof(T) - off) : sizeof(chunk);
+    same = read(addr + sizeof(header) + off, chunk, n) && memcmp(chunk, bytes + off, n) == 0;
+  }
+
+  if (same)
+  {
+    return true;
+  }
+  return writeBlock(addr, value, version);
 }
 
 template <typename T>
