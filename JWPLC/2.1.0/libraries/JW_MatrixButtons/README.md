@@ -183,7 +183,7 @@ if (JWPLC_Buttons.released(BTN_OK))
 Estos métodos inspeccionan la cola de eventos producida por el scan actual.
 
 ```cpp
-JW_MatrixButtons::BtnEvent ev;
+JW_ButtonEvent ev;   // nombre global (antes JW_MatrixButtons::BtnEvent)
 
 for (uint8_t i = 0; i < JWPLC_Buttons.eventCount(); ++i)
 {
@@ -204,10 +204,15 @@ for (uint8_t i = 0; i < JWPLC_Buttons.eventCount(); ++i)
 Tipos:
 
 ```cpp
-JW_MatrixButtons::EV_PRESS
-JW_MatrixButtons::EV_RELEASE
-JW_MatrixButtons::EV_REPEAT
+BTN_EV_PRESS     // = JW_MatrixButtons::EV_PRESS
+BTN_EV_RELEASE   // = JW_MatrixButtons::EV_RELEASE
+BTN_EV_REPEAT    // = JW_MatrixButtons::EV_REPEAT
+
+if (ev.type == BTN_EV_PRESS) { /* ... */ }
 ```
+
+Desde 1.0.7 el sketch usa estos nombres globales (`BTN_EV_*`, `JW_ButtonEvent`, `JW_ButtonMapItem`) y no
+escribe `JW_MatrixButtons::`. Los nombres con `::` siguen existiendo.
 
 `getEvent()` no reemplaza los latches `pressed()` / `released()`; son dos mecanismos complementarios.
 
@@ -325,7 +330,7 @@ enum BtnId : uint8_t
     KEY_COUNT
 };
 
-static const JW_MatrixButtons::BtnMapItem MAP[] = {
+static const JW_ButtonMapItem MAP[] = {
     {KEY_A, 0, 0},
     {KEY_B, 1, 1},
 };

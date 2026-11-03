@@ -100,3 +100,12 @@ Equivalencia byte a byte contra el `JWPLC_ModbusRTU.cpp` original del package:
 ```bash
 bash extras/test/run_equivalence.sh <ruta a platform-jwplc/JWPLC/2.1.0/libraries>
 ```
+
+## Ejemplos
+
+En Arduino IDE: *Archivo → Ejemplos → JW_ModbusRTU*. Todos imprimen en el Monitor serie a 115200 y corren también en JWPLC Sim.
+
+- `Slave_Holding`: esclavo con Holding Registers (ID 2, 115200).
+- `Master_Read_Async`: lectura FC03 cooperativa, sin bloquear el loop.
+- `Master_Write_Async`: escritura FC06 cooperativa cada 2 s.
+- `Master_Sync`: API bloqueante `*Sync`, para puesta en marcha o pantallas.

@@ -88,3 +88,11 @@ Además es un `Stream`: `available()`, `read()`, `peek()`, `print()`, `println()
 ```bash
 bash extras/test/run_tests.sh
 ```
+
+## Ejemplos
+
+En Arduino IDE: *Archivo → Ejemplos → JW_RS485*. Todos imprimen en el Monitor serie a 115200 y corren también en JWPLC Sim.
+
+- `Basic_Send`: envía un texto cada segundo y muestra lo recibido.
+- `DE_RE_Pin`: transceptor clásico con DE y /RE en un GPIO.
+- `Status`: estado del puerto RS-485 integrado del JWPLC Basic.

@@ -581,3 +581,10 @@ FULL_RUNTIME_DATALOG=PASS_PHYSICAL
 
 La documentación futura de otros ciclos debe mantenerse fuera de este README
 de cierre cuando todavía no corresponda al package publicado.
+
+## Ejemplos
+
+En Arduino IDE: *Archivo → Ejemplos → JW_SD*. Todos imprimen en el Monitor serie a 115200 y corren también en JWPLC Sim.
+
+- `BasicReadWrite`: añade una línea a un archivo de la microSD y lo lee completo.
+- `CardInfo`: tipo y tamaño de la tarjeta.
