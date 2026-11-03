@@ -190,6 +190,7 @@ namespace JWPLCUI
     void clearMenus();
     size_t menuCount();
     bool menuChanged(uint8_t menuId, uint8_t *nodeIndex);
+    uint8_t menuNode();
     bool menuEditing();
 }
 

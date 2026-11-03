@@ -49,10 +49,9 @@ void loop()
     combustible = 0.0f; // p. ej. la lectura de tu sensor
 
     // MENU_AJUSTES: el operador cambió un valor (OK en la botonera).
-    uint8_t nodo;
-    if (JWPLC_Display.menuChanged(MENU_AJUSTES, &nodo))
+    if (JWPLC_Display.menuChanged(MENU_AJUSTES))
     {
-        switch (nodo)
+        switch (JWPLC_Display.menuNode())
         {
         case MENU_AJUSTES_CONSIGNA_PRESION:
             // «Consigna presi\242n» -> consignaPresion ya tiene el valor nuevo
@@ -124,7 +123,7 @@ otra vez da error de redefinición). Si cambias un nombre en el Designer, cámbi
 
 ## MENU
 
-`MENU_AJUSTES`: `JWPLC_Display.menuChanged(MENU_AJUSTES, &nodo)` devuelve `true` una vez cuando el operador confirma un valor; `nodo` es uno de: `MENU_AJUSTES_CONSIGNA_PRESION`, `MENU_AJUSTES_HISTERESIS`, `MENU_AJUSTES_MODO_AUTOMATICO`, `MENU_AJUSTES_TEMP__MAXIMA`, `MENU_AJUSTES_PRESION_MAXIMA`, `MENU_AJUSTES_RETARDO_LLAMA`, `MENU_AJUSTES_PURGA_MANUAL`.
+`MENU_AJUSTES`: `JWPLC_Display.menuChanged(MENU_AJUSTES)` devuelve `true` una vez cuando el operador confirma un valor; `JWPLC_Display.menuNode()` dice cuál: `MENU_AJUSTES_CONSIGNA_PRESION`, `MENU_AJUSTES_HISTERESIS`, `MENU_AJUSTES_MODO_AUTOMATICO`, `MENU_AJUSTES_TEMP__MAXIMA`, `MENU_AJUSTES_PRESION_MAXIMA`, `MENU_AJUSTES_RETARDO_LLAMA`, `MENU_AJUSTES_PURGA_MANUAL`.
 
 ## Fecha y hora
 

@@ -52,7 +52,7 @@ uint32_t inicioEstado = 0;     // Momento en que se entró al estado actual.
 bool peatonEsperando = false;  // Recuerda el pedido del botón.
 
 // Cambia de estado y anota el momento, para medir cuánto lleva en él.
-void cambiarA(Estado nuevo, const char *nombre)
+void cambiarA(Estado nuevo, const char nombre[])
 {
     estado = nuevo;
     inicioEstado = millis();

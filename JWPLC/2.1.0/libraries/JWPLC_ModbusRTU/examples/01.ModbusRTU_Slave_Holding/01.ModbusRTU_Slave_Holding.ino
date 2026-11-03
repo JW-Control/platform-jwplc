@@ -54,7 +54,7 @@ void loop()
     {
         lastPrintMs = millis();
 
-        const JWPLCModbusRTUStats &s = JWPLC_ModbusRTU.stats();
+        JWPLCModbusRTUStats s = JWPLC_ModbusRTU.stats();  // copia de los contadores
 
         Serial.print("HR0=");
         Serial.print(holding[0]);

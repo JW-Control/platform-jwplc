@@ -10,7 +10,7 @@
 */
 
 // Texto corto de cada alarma (1 a 4 caracteres A-Z/0-9: se muestra como código ERR en la pantalla IDLE).
-static const char *const TEXTO_ALARMA[ALM_CANTIDAD] = {
+const char TEXTO_ALARMA[ALM_CANTIDAD][5] = {
     "EMG", // ALM_EMERGENCIA
     "TER", // ALM_TERMICO
 };
@@ -41,13 +41,14 @@ void evaluarAlarmas()
     }
 }
 
-// Texto de la primera alarma pendiente, o "" si no hay ninguna (lo usa G_HMI).
-const char *textoAlarmaPrincipal()
+// Número de la primera alarma pendiente, o ALM_CANTIDAD si no hay ninguna
+// (lo usa G_HMI; su texto es TEXTO_ALARMA[numero]).
+uint8_t alarmaPrincipal()
 {
     for (uint8_t i = 0; i < ALM_CANTIDAD; ++i)
     {
         if (bitRead(alarmasEnclavadas, i))
-            return TEXTO_ALARMA[i];
+            return i;
     }
-    return "";
+    return ALM_CANTIDAD;
 }

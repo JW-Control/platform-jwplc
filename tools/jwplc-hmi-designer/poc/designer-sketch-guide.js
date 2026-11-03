@@ -101,17 +101,15 @@
         out.push(`    ${exampleLine(v)}`);
       });
     }
-    let nodoDeclared = false; // una sola declaración aunque haya varios MENU
     menus.forEach((menu) => {
       const editable = menu.nodes.filter((n) => n.editable);
       if (!editable.length) return;
       if (out[out.length - 1] !== '{') out.push('');
       out.push(`    // ${menu.id}: el operador cambió un valor (OK en la botonera).`);
-      if (!nodoDeclared) { out.push('    uint8_t nodo;'); nodoDeclared = true; }
       out.push(
-        `    if (JWPLC_Display.menuChanged(${menu.id}, &nodo))`,
+        `    if (JWPLC_Display.menuChanged(${menu.id}))`,
         '    {',
-        '        switch (nodo)',
+        '        switch (JWPLC_Display.menuNode())',
         '        {');
       editable.forEach((n) => {
         out.push(`        case ${n.name}:`, `            // «${n.label}» -> ${n.variable || 'variable'} ya tiene el valor nuevo`, '            break;');
@@ -179,7 +177,7 @@
       menus.forEach((menu) => {
         const editable = menu.nodes.filter((n) => n.editable);
         lines.push(`\`${menu.id}\`: ${editable.length
-          ? `\`JWPLC_Display.menuChanged(${menu.id}, &nodo)\` devuelve \`true\` una vez cuando el operador confirma un valor; \`nodo\` es uno de: ${editable.map((n) => `\`${n.name}\``).join(', ')}.`
+          ? `\`JWPLC_Display.menuChanged(${menu.id})\` devuelve \`true\` una vez cuando el operador confirma un valor; \`JWPLC_Display.menuNode()\` dice cuál: ${editable.map((n) => `\`${n.name}\``).join(', ')}.`
           : 'sólo muestra valores (no tiene ítems editables).'}`, '');
       });
     }

@@ -583,6 +583,11 @@ uint32_t JWPLC_IOView::lastScanMs() const
     return (state != nullptr) ? state->last_scan_ms : 0;
 }
 
+void JWPLC_IOView::setOutputs(uint8_t bits) const
+{
+    JWPLC_writeOutputs(bits);
+}
+
 bool JWPLC_TimeView::present() const
 {
     const JWPLC_RTCState *state = jwplcGetRTCState();

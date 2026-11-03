@@ -23,27 +23,25 @@ static uint32_t g_lastCounter = 0xFFFFFFFF;
 
 extern "C" void jwplcUIEnter()
 {
-    auto &tft = JWPLC_Display.tft();
-
     // fillScreen() está bien al entrar a una pantalla nueva.
-    tft.fillScreen(JWPLC_TFT_BLACK);
+    JWPLC_TFT.fillScreen(JWPLC_TFT_BLACK);
 
-    tft.setTextSize(2);
-    tft.setTextColor(JWPLC_TFT_CYAN);
-    tft.setCursor(10, 15);
-    tft.print("Proceso");
+    JWPLC_TFT.setTextSize(2);
+    JWPLC_TFT.setTextColor(JWPLC_TFT_CYAN);
+    JWPLC_TFT.setCursor(10, 15);
+    JWPLC_TFT.print("Proceso");
 
-    tft.setTextSize(1);
-    tft.setTextColor(JWPLC_TFT_WHITE);
+    JWPLC_TFT.setTextSize(1);
+    JWPLC_TFT.setTextColor(JWPLC_TFT_WHITE);
 
-    tft.setCursor(10, 55);
-    tft.print("Estado:");
+    JWPLC_TFT.setCursor(10, 55);
+    JWPLC_TFT.print("Estado:");
 
-    tft.setCursor(10, 80);
-    tft.print("Contador:");
+    JWPLC_TFT.setCursor(10, 80);
+    JWPLC_TFT.print("Contador:");
 
-    tft.setCursor(10, 120);
-    tft.print("Redibujo parcial");
+    JWPLC_TFT.setCursor(10, 120);
+    JWPLC_TFT.print("Redibujo parcial");
 
     // La pantalla acaba de limpiarse: forzar una primera actualización de
     // todos los campos dinámicos, incluso si se reentra antes de que cambien.
@@ -54,17 +52,15 @@ extern "C" void jwplcUIEnter()
 
 extern "C" void jwplcUIUpdate()
 {
-    auto &tft = JWPLC_Display.tft();
-
     if (g_firstDraw || g_runState != g_lastRunState)
     {
         g_lastRunState = g_runState;
 
         // Solo limpiar el campo del estado, no toda la pantalla.
-        tft.fillRect(90, 55, 120, 14, JWPLC_TFT_BLACK);
-        tft.setCursor(90, 55);
-        tft.setTextColor(g_runState ? JWPLC_TFT_GREEN : JWPLC_TFT_RED);
-        tft.print(g_runState ? "RUN" : "STOP");
+        JWPLC_TFT.fillRect(90, 55, 120, 14, JWPLC_TFT_BLACK);
+        JWPLC_TFT.setCursor(90, 55);
+        JWPLC_TFT.setTextColor(g_runState ? JWPLC_TFT_GREEN : JWPLC_TFT_RED);
+        JWPLC_TFT.print(g_runState ? "RUN" : "STOP");
     }
 
     if (g_firstDraw || g_processCounter != g_lastCounter)
@@ -75,10 +71,10 @@ extern "C" void jwplcUIUpdate()
         snprintf(buffer, sizeof(buffer), "%lu", (unsigned long)g_processCounter);
 
         // Solo limpiar el campo del contador.
-        tft.fillRect(90, 80, 120, 14, JWPLC_TFT_BLACK);
-        tft.setCursor(90, 80);
-        tft.setTextColor(JWPLC_TFT_WHITE);
-        tft.print(buffer);
+        JWPLC_TFT.fillRect(90, 80, 120, 14, JWPLC_TFT_BLACK);
+        JWPLC_TFT.setCursor(90, 80);
+        JWPLC_TFT.setTextColor(JWPLC_TFT_WHITE);
+        JWPLC_TFT.print(buffer);
     }
 
     g_firstDraw = false;

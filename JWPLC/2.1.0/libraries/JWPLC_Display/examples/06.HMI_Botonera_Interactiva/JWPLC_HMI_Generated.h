@@ -365,7 +365,7 @@ enum HMIMenuId : uint8_t
     MENU_AJUSTES = 0,
 };
 
-// Nodos de MENU_AJUSTES: el índice es el que informa JWPLC_Display.menuChanged().
+// Nodos de MENU_AJUSTES: el índice es el que informa JWPLC_Display.menuNode().
 enum : uint8_t
 {
     MENU_AJUSTES_RAMPA_MOTOR = 0,

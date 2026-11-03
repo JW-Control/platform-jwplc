@@ -23,7 +23,7 @@ void diagnosticoInicio()
 #endif
 }
 
-void diagnosticoMensaje(const char *origen, const char *detalle)
+void diagnosticoMensaje(const char origen[], const char detalle[])
 {
 #if USAR_SERIAL_DIAGNOSTICO
     Serial.print("[");

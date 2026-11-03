@@ -20,11 +20,11 @@ Buzzer          integrado, no bloqueante
 
 | Función | Qué hace |
 |---|---|
-| `uint8_t JWPLC_readInputs()` | Las 8 entradas en un byte (bit 0 = I0_0) |
-| `void JWPLC_writeOutputs(uint8_t b)` | Escribe las 8 salidas (bit 0 = Q0_0) |
-| `uint8_t JWPLC_readOutputs()` | Estado actual de las salidas |
+| `JWPLC_IO.inputs()` | Las 8 entradas en un byte (bit 0 = I0_0), ya escaneadas por el package |
+| `JWPLC_IO.setOutputs(b)` | Escribe las 8 salidas de una vez (bit 0 = Q0_0) |
+| `JWPLC_IO.outputs()` | Estado actual de las salidas |
+| `JWPLC_IO.input(i)` / `JWPLC_IO.output(i)` | Un punto, del último escaneo, sin acceso extra |
 | `digitalRead(I0_3)` / `digitalWrite(Q0_2, HIGH)` | Acceso de a una (más lento que por bloque) |
-| `JWPLC_IO.input(i)` / `JWPLC_IO.output(i)` | Último estado leído por el runtime, sin acceso extra |
 | `bitRead(v, n)` / `bitWrite(v, n, x)` | Leer o escribir un bit de un byte |
 
 ## Botonera · `JWPLC_GlobalPeripherals/02.Buttons_Basic`

@@ -572,7 +572,7 @@
 
       const nodesName = `HMI_${m.id}_NODES`;
       declChunks.push(
-        `// Nodos de ${m.id}: el índice es el que informa JWPLC_Display.menuChanged().\n` +
+        `// Nodos de ${m.id}: el índice es el que informa JWPLC_Display.menuNode().\n` +
         `enum : uint8_t\n{\n${ordered.map((n, i) => `    ${symbols.get(n.key)} = ${i},`).join('\n')}\n};\n\n` +
         `static const JWPLC_UIMenuNode ${nodesName}[] =\n{\n${ordered.map((n) => `    ${nodeCpp(m, n, symbols)}`).join(',\n')}\n};`);
 
@@ -1078,9 +1078,8 @@
     return `// Las variables del menú están declaradas en JWPLC_HMI_Generated.h.\n` +
       `// El menú escribe la variable al confirmar con OK.\n` +
       `void loop()\n{\n` +
-      `    uint8_t nodo;\n` +
-      `    if (JWPLC_Display.menuChanged(${field.id}, &nodo))\n    {\n` +
-      `        switch (nodo)\n        {\n${cases || '        // (sin ítems editables)'}\n        default:\n            break;\n        }\n    }\n}`;
+      `    if (JWPLC_Display.menuChanged(${field.id}))\n    {\n` +
+      `        switch (JWPLC_Display.menuNode())\n        {\n${cases || '        // (sin ítems editables)'}\n        default:\n            break;\n        }\n    }\n}`;
   }
 
   function sync() {

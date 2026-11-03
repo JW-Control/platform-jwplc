@@ -15,8 +15,9 @@ static bool bitEntrada(uint8_t bit)
 
 void leerEntradas()
 {
-    // Un solo acceso al expansor por ciclo: bit 0 = I0_0 ... bit 7 = I0_7.
-    imagenEntradas = JWPLC_readInputs();
+    // Imagen de las 8 entradas que el package ya escaneó (sin acceso extra al
+    // expansor): bit 0 = I0_0 ... bit 7 = I0_7.
+    imagenEntradas = JWPLC_IO.inputs();
 
     pbMarcha = bitEntrada(BIT_PB_MARCHA);
     pbParo = !bitEntrada(BIT_PB_PARO);          // NC: abierto = pulsado
