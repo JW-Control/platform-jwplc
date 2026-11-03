@@ -149,6 +149,17 @@ Estado de adopción por tipo: ver `ALPHA15_STATUS.md` (§Inspector).
   El `.jwhmi` guarda `iconAssets` (bitmaps usados) para abrir proyectos con iconos que ya no estén en el catálogo.
   Paridad lienzo/firmware: `tests/icon-smoke.cjs` (+ `tests/icon-host-sim.cjs` para el firmware solo).
 
+## Sistema de temas y diseño visual (Tokens de diseño)
+
+Documentación completa: `docs/v2.1.0-alpha.17/A17_HMI_TEMAS_DESIGN_TOKENS_20261103.md`.
+
+- **Fuente de verdad:** Las primeras 53 líneas de `poc/styles.css` definen los tokens semánticos en `:root` (tema oscuro por defecto) y `html.theme-light, body.theme-light` (tema claro).
+- **Lienzo TFT ST7789:** El lienzo de simulación (`#tftCanvas`, 320×170 px) permanece estrictamente en `#000000` en ambos temas para reflejar con fidelidad la pantalla de hardware.
+- **Regla para nuevas características y componentes:**
+  - **Prohibido** usar colores hexadecimales rígidos (`#dce9f1`, `#0d1820`, etc.) o estilos en línea `style="color:..."` en HTML/JS.
+  - Usar siempre tokens semánticos: `var(--bg)`, `var(--panel)`, `var(--panel-2)`, `var(--panel-3)`, `var(--panel-inset)`, `var(--line)`, `var(--text)`, `var(--text-heading)`, `var(--muted)`, `var(--orange)`, `var(--orange-soft)`, `var(--cyan)`, etc.
+  - Al usar estos tokens, cualquier nuevo componente hereda soporte automático e instantáneo para ambos temas sin necesidad de reglas de override adicionales en `designer-light-theme.css`.
+
 ## Reglas del codegen (A15-1..A15-3)
 
 - Gráfica estática (figuras, RAW_TEXT, NAV_BAR) -> `jwplcUIPageEnter()`; `jwplcUIUpdate()`
