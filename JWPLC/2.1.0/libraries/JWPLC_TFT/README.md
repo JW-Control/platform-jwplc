@@ -774,8 +774,8 @@ sketch. Código antiguo con `auto &tft = JWPLC_Display.tft();` sigue compilando.
 - **Líneas gruesas:** `drawWideLine(x0, y0, x1, y1, ancho, color, fondo)` y `drawPolyline(xy, puntos, ancho,
   color, fondo)` con un solo lock del bus.
 - **Sprites:** `JWPLC_TFTSprite` de 16/8/4/1 bits para redibujar zonas sin parpadeo; `push()` respeta el batch y el
-  recorte, y `scroll()` desplaza una región (ejemplo `JWPLC_Display › Display_Graficos_Sprite`).
-- **Fuentes grandes:** `JWPLC_FONT_26` y `JWPLC_FONT_7SEG_48` (ejemplo `JWPLC_Display › Display_Fuentes_Grandes`).
+  recorte, y `scroll()` desplaza una región (ejemplo `JWPLC_Display › 11.Display_Graficos_Sprite`).
+- **Fuentes grandes:** `JWPLC_FONT_26` y `JWPLC_FONT_7SEG_48` (ejemplo `JWPLC_Display › 10.Display_Fuentes_Grandes`).
 - TFT_eSPI 2.5.43 va **dentro** de la librería (`src/`): no hay que instalarla ni configurarla.
 - Defines para detectar la API: `JWPLC_TFT_HAS_CLIP`, `JWPLC_TFT_HAS_WIDE_LINE` y `JWPLC_TFT_HAS_SPRITE`.
 

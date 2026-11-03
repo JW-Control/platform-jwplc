@@ -467,7 +467,7 @@ void loop()
 
 Un `beep()` durante una melodía la interrumpe y al terminar la melodía sigue. Las notas deben
 ser `static`/globales (se leen mientras suenan). Ejemplo: `07.Buzzer_Basic`. Los ejemplos
-`Display_Tetris` y `Display_FlappyBird` manejan el buzzer por su cuenta: no mezclar ambos en un
+`16.Display_Tetris` y `15.Display_FlappyBird` manejan el buzzer por su cuenta: no mezclar ambos en un
 mismo sketch.
 
 ## Errores comunes

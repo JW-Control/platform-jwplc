@@ -9,7 +9,7 @@
 // =====================================================
 // JWPLC_Buzzer: buzzer integrado sin delay() ni service()
 // =====================================================
-// Misma técnica que los ejemplos Display_Tetris/Display_FlappyBird:
+// Misma técnica que los ejemplos 16.Display_Tetris/15.Display_FlappyBird:
 // ledcWriteTone() fija la frecuencia y ledcWrite() el duty (volumen). La
 // diferencia es que aquí el paso de nota lo da un esp_timer de una sola
 // vez, así que no depende de que el sketch llame a nada en loop().
