@@ -1,0 +1,21 @@
+{
+  "sections": [
+    {
+      "id": "serial",
+      "title": "Serial (USB)",
+      "layout": "form",
+      "collapsible": true,
+      "collapsed": false,
+      "fields": [
+        {
+          "id": "baud_rate",
+          "label": "Baud Rate",
+          "type": "select",
+          "options": ["9600", "14400", "19200", "38400", "57600", "115200"],
+          "default": "115200",
+          "help": "Velocidad del USB (Serial). La usan el depurador y, si el servidor Modbus RTU del proyecto va por USB, también ese servidor. El RS-485 (Serial2) toma la velocidad del servidor o del Backplane."
+        }
+      ]
+    }
+  ]
+}
