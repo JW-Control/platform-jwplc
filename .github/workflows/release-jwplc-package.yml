@@ -11,22 +11,54 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  actions: read   # buscar el marcador de SIM_REGRESSION del CI
+
+env:
+  # Commit de jwplc-sim del gate SIM_REGRESSION. Debe ser el mismo que el de
+  # «uses:» del job sim-regression (y el de ci-jwplc-package-smoke.yml).
+  JWSIM_REF: "fd08f12cb6978ba283ea733d24cf47389934c675"
 
 jobs:
   # Gate SIM_REGRESSION (JWPLC Sim, G5): compila y simula este árbol del
   # package (paridad del core, headers y autoload; matriz de ejemplos con sus
   # pruebas). Si falla, no se publica. Va antes de los gates físicos de taller
   # y no los reemplaza. Para actualizar el simulador, cambiar el commit de
-  # jwplc-sim en «uses» y en «sim_ref» (los dos iguales).
+  # jwplc-sim en «uses», en «sim_ref» y en JWSIM_REF (los tres iguales).
+  #
+  # Sin barrido doble: si el CI del PR que trajo este árbol a release/v2.1.x
+  # ya pasó SIM_REGRESSION con el mismo jwplc-sim, dejó un marcador
+  # (tools/ci/sim_regression_marker.sh) y aquí no se repite.
+  sim-cache:
+    name: SIM_REGRESSION ya pasado en el CI
+    runs-on: ubuntu-latest
+    outputs:
+      reuse: ${{ steps.lookup.outputs.reuse }}
+      run_url: ${{ steps.lookup.outputs.run_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: lookup
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tools/ci/sim_regression_marker.sh "$JWSIM_REF"
+          echo "SIM_REGRESSION: ver la salida de este paso (REUSED = pasó en el CI de este mismo árbol)." >> "$GITHUB_STEP_SUMMARY"
+
   sim-regression:
     name: SIM_REGRESSION (JWPLC Sim)
+    needs: sim-cache
+    if: ${{ needs.sim-cache.outputs.reuse != 'true' }}
     uses: JW-Control/jwplc-sim/.github/workflows/sim-regression.yml@fd08f12cb6978ba283ea733d24cf47389934c675
     with:
       sim_ref: fd08f12cb6978ba283ea733d24cf47389934c675
 
   release:
     name: Preparar y publicar package JWPLC
-    needs: sim-regression
+    needs: [sim-cache, sim-regression]
+    # Publica si el gate pasó aquí o si ya había pasado en el CI de este árbol.
+    if: >-
+      ${{ !cancelled()
+          && needs.sim-cache.result == 'success'
+          && (needs.sim-cache.outputs.reuse == 'true' || needs.sim-regression.result == 'success') }}
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.prepare.outputs.version }}
@@ -356,6 +388,9 @@ jobs:
   hmi-designer:
     name: HMI Designer Windows en la Release
     needs: release
+    # sim-regression puede quedar «skipped» (reutilizado); sin esta condición
+    # GitHub saltaría también este job.
+    if: ${{ !cancelled() && needs.release.result == 'success' }}
     uses: ./.github/workflows/hmi-designer-windows.yml
     with:
       version: ${{ needs.release.outputs.version }}
