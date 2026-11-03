@@ -340,8 +340,39 @@ void outName(uint8_t o, char out[], size_t size)
     }
 }
 
-void demoProgram(Program &p)
+// «Intermitente»: solo salidas y dos TON; cabe en una pantalla del editor
+// y se ve funcionar sin tocar entradas (no hace falta simularlas). El lazo se
+// cierra con la marca M1 (valor del ciclo anterior), no con un cable de
+// bloque a bloque: así el mapa queda en dos columnas.
+static void demoIntermitente(Program &p)
 {
+    clearProgram(p, "Intermitente");
+    // B01 TON: entrada = M1 negada. Con M1 en 0 cuenta 1 s y se activa.
+    uint8_t b = addBlock(p, BT_TON);
+    p.blocks[b].in[0] = SRC_M + 0;
+    p.blocks[b].neg = 0x01;
+    p.blocks[b].p1 = 100;
+    p.blocks[b].flags |= BF_PARAM;
+    // B02 TON: 1 s después de B01 se activa y, por M1, apaga a B01; los dos
+    // vuelven a 0 y el ciclo empieza de nuevo (1 s encendida, 1 s apagada).
+    b = addBlock(p, BT_TON);
+    p.blocks[b].in[0] = SRC_B + 0;
+    p.blocks[b].p1 = 100;
+    p.blocks[b].flags |= BF_PARAM;
+    p.m[0] = SRC_B + 1;
+    // Q1 sigue a B01 y Q2 es su contrario: se alternan.
+    p.q[0] = SRC_B + 0;
+    p.q[1] = SRC_B + 0;
+    p.qNeg = 0x02;
+}
+
+void demoProgram(Program &p, uint8_t which)
+{
+    if (which == DEMO_INTERMITENTE)
+    {
+        demoIntermitente(p);
+        return;
+    }
     // «Demo feria»: una máquina en tres pasos, pensada para explicarla en vivo.
     clearProgram(p, "Demo feria");
     // B01 marcha/parada del motor: SR con S = I1 (marcha) y R = I2 (parada) -> Q1.

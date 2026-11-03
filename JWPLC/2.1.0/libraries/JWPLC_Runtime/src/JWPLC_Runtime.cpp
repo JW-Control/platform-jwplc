@@ -320,7 +320,7 @@ void doCommand(const QueuedCommand &qc)
         setResult(true, "Programa borrado");
         break;
     case CMD_LOAD_DEMO:
-        demoProgram(core.draft);
+        demoProgram(core.draft, core.demo);
         core.store.saveProgram(core.draft);
         core.store.clearRetained();
         core.engine.load(core.draft);
@@ -657,6 +657,12 @@ bool dateText(char out[], size_t size)
 
 using namespace jwrt;
 
+void JWPLC_RuntimeClass::loadDemoIfEmpty(bool enable, uint8_t demo)
+{
+    _demoIfEmpty = enable;
+    core.demo = demo == RUNTIME_DEMO_INTERMITENTE ? DEMO_INTERMITENTE : DEMO_FERIA;
+}
+
 bool JWPLC_RuntimeClass::begin()
 {
     if (g_task)
@@ -671,7 +677,7 @@ bool JWPLC_RuntimeClass::begin()
     {
         if (_demoIfEmpty)
         {
-            demoProgram(p);
+            demoProgram(p, core.demo);
         }
         else
         {

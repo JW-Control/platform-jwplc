@@ -27,6 +27,10 @@
 // Se muestra en la pantalla RUN y en Configuración > Versión.
 #define JWPLC_RUNTIME_VERSION "0.2.0"
 
+// Programas de ejemplo para loadDemoIfEmpty().
+static const uint8_t RUNTIME_DEMO_FERIA = 0;
+static const uint8_t RUNTIME_DEMO_INTERMITENTE = 1;
+
 class JWPLC_RuntimeClass
 {
 public:
@@ -34,8 +38,12 @@ public:
     // de arranque y toma las salidas Q, la botonera y la pantalla USER.
     bool begin();
 
-    // Si la FRAM no tiene programa, carga el de ejemplo (útil para probar).
-    void loadDemoIfEmpty(bool enable) { _demoIfEmpty = enable; }
+    // Si la FRAM no tiene programa, carga un programa de ejemplo (útil para
+    // probar); Programa > Cargar ejemplo carga ese mismo. Ejemplos:
+    //   RUNTIME_DEMO_FERIA         «Demo feria» (marcha/parada, bomba, contador)
+    //   RUNTIME_DEMO_INTERMITENTE  «Intermitente»: Q1 y Q2 alternan cada 1 s
+    //                              con dos TON, sin entradas
+    void loadDemoIfEmpty(bool enable, uint8_t demo = RUNTIME_DEMO_FERIA);
 
     void run();
     void stop();
