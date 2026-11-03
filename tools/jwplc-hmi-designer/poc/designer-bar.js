@@ -158,7 +158,7 @@
               <!-- Estilo de Barra -->
               <div class="field-label full" style="margin-top:6px;">
                 <span class="bar-visual-group-title">Estilo de Barra</span>
-                <div class="bar-visual-grid-4" id="barLinearStyleWrap">
+                <div class="bar-visual-grid-2" id="barLinearStyleWrap">
                   <button type="button" class="bar-visual-btn bar-linear-style-btn active" data-style="SOLID" title="Relleno continuo liso">
                     <svg width="22" height="14" viewBox="0 0 22 14">
                       <rect x="1" y="2" width="20" height="10" rx="1" stroke-width="1.5"/>
@@ -166,14 +166,7 @@
                     </svg>
                     <span>Sólido</span>
                   </button>
-                  <button type="button" class="bar-visual-btn bar-linear-style-btn" data-style="STRIPES" title="Líneas diagonales a 45° tipo industrial">
-                    <svg width="22" height="14" viewBox="0 0 22 14">
-                      <rect x="1" y="2" width="20" height="10" rx="1" stroke-width="1.5"/>
-                      <path d="M 4 10 L 8 4 M 8 10 L 12 4 M 12 10 L 16 4" stroke-width="1.5" stroke-linecap="round"/>
-                    </svg>
-                    <span>Diagonales</span>
-                  </button>
-                  <button type="button" class="bar-visual-btn bar-linear-style-btn" data-style="BLOCKS" title="Segmentos rectangulares clásico Win XP">
+                  <button type="button" class="bar-visual-btn bar-linear-style-btn" data-style="BLOCKS" title="Segmentos rectangulares discretos">
                     <svg width="22" height="14" viewBox="0 0 22 14">
                       <rect x="1" y="2" width="20" height="10" rx="1" stroke-width="1.5"/>
                       <rect x="3" y="4" width="3" height="6" fill="currentColor"/>
@@ -181,15 +174,6 @@
                       <rect x="13" y="4" width="3" height="6" fill="currentColor"/>
                     </svg>
                     <span>Bloques</span>
-                  </button>
-                  <button type="button" class="bar-visual-btn bar-linear-style-btn" data-style="DOTS" title="Matriz de puntos LED lineales">
-                    <svg width="22" height="14" viewBox="0 0 22 14">
-                      <rect x="1" y="2" width="20" height="10" rx="1" stroke-width="1.5"/>
-                      <circle cx="5" cy="7" r="1.8" fill="currentColor"/>
-                      <circle cx="10" cy="7" r="1.8" fill="currentColor"/>
-                      <circle cx="15" cy="7" r="1.8" fill="currentColor"/>
-                    </svg>
-                    <span>Puntos</span>
                   </button>
                 </div>
               </div>
@@ -225,8 +209,8 @@
                     <span id="barFormaBorderColorHex" class="hex-label compact">0xFFFF</span>
                   </div>
                 </div>
-                <div id="barFormaBorderWidthWrap" style="display:none;align-items:center;justify-content:space-between;margin-top:4px;padding:3px 6px;background:#0d1820;border:1px solid #1e313f;border-radius:4px;">
-                  <span style="font-size:10px;color:#8ea3b3;font-weight:600;">Grosor de borde (px)</span>
+                <div id="barFormaBorderWidthWrap" style="display:none;align-items:center;justify-content:space-between;margin-top:4px;padding:3px 6px;background:var(--panel-2);border:1px solid var(--line);border-radius:4px;">
+                  <span style="font-size:10px;color:var(--muted);font-weight:600;">Grosor de borde (px)</span>
                   <input id="barFormaBorderWidth" class="field-input" type="number" min="1" max="10" value="1" style="width:60px;padding:2px 6px;text-align:right;" />
                 </div>
               </div>
@@ -261,7 +245,7 @@
 
               <!-- Dirección de llenado y Rotación -->
               <div class="field-label full" style="margin-top:6px;">
-                <span class="bar-visual-group-title">Dirección y Rotación <span id="barCircleStartHint" style="font-weight:normal;color:#8ea3b3;margin-left:4px;font-size:10px;">(Inicio: 12h)</span></span>
+                <span class="bar-visual-group-title">Dirección y Rotación <span id="barCircleStartHint" style="font-weight:normal;color:var(--muted);margin-left:4px;font-size:10px;">(Inicio: 12h)</span></span>
                 <div class="bar-visual-grid-4" id="barCircularDirRotWrap">
                   <button type="button" class="bar-visual-btn bar-dir-btn active" data-dir="CW" title="Llenado en sentido horario">
                     <span style="font-size:13px;line-height:1;">↻</span>
@@ -285,7 +269,7 @@
               <!-- Estilo de Anillo -->
               <div class="field-label full" style="margin-top:6px;">
                 <span class="bar-visual-group-title">Estilo de Anillo</span>
-                <div class="bar-visual-grid-4" id="barCircularStyleWrap">
+                <div class="bar-visual-grid-2" id="barCircularStyleWrap">
                   <button type="button" class="bar-visual-btn bar-style-btn active" data-style="CONTINUOUS" title="Anillo continuo sólido">
                     <svg width="18" height="18" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7.5" stroke-width="3.5"/></svg>
                     <span>Sólido</span>
@@ -293,14 +277,6 @@
                   <button type="button" class="bar-visual-btn bar-style-btn" data-style="SEGMENTED" title="Segmentos o bloques discretos">
                     <svg width="18" height="18" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7.5" stroke-width="3.5" stroke-dasharray="3.2 2"/></svg>
                     <span>Bloques</span>
-                  </button>
-                  <button type="button" class="bar-visual-btn bar-style-btn" data-style="DOTS" title="Puntos o esferas independientes">
-                    <svg width="18" height="18" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7.5" stroke-width="3" stroke-dasharray="0.1 3.8" stroke-linecap="round"/></svg>
-                    <span>Puntos</span>
-                  </button>
-                  <button type="button" class="bar-visual-btn bar-style-btn" data-style="TICKS" title="Marcas o rayas radiales">
-                    <svg width="18" height="18" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7.5" stroke-width="3.5" stroke-dasharray="1 2.2"/></svg>
-                    <span>Rayas</span>
                   </button>
                 </div>
               </div>
@@ -448,7 +424,7 @@
 
               <!-- Paletas rápidas -->
               <div class="field-label full" style="margin-top:8px;">
-                <span style="font-size:10px;color:#8ea3b3;margin-bottom:5px;display:block;font-weight:600;">Paletas rápidas de degradado:</span>
+                <span style="font-size:10px;color:var(--muted);margin-bottom:5px;display:block;font-weight:600;">Paletas rápidas de degradado:</span>
                 <div class="bar-palette-row" id="barGradPalettes">
                   <button type="button" class="bar-palette-pill" data-grad-start="0xF800" data-grad-end="0x07E0">
                     <span class="bar-palette-preview" style="background:linear-gradient(90deg,#ff0000,#00ff00);"></span>Rojo-Verde
@@ -498,7 +474,7 @@
                   </label>
                 </div>
                 <div class="field-label full" style="margin-top:4px;">
-                  <span style="font-size:10px;color:#8ea3b3;margin-bottom:4px;display:block;">Paletas rápidas de degradado:</span>
+                  <span style="font-size:10px;color:var(--muted);margin-bottom:4px;display:block;">Paletas rápidas de degradado:</span>
                   <div class="bar-palette-row">
                     <button type="button" class="bar-palette-pill" data-grad-start="0xF800" data-grad-end="0x07E0">
                       <span class="bar-palette-preview" style="background:linear-gradient(90deg,#ff0000,#00ff00);"></span>Rojo-Verde
@@ -706,7 +682,7 @@
               Contrato C++
             </span>
           </div>
-          <span style="font-size:10px;color:#8ea3b3;margin-top:4px;display:block;">Declaración (en tiempo de compilación)</span>
+          <span style="font-size:10px;color:var(--muted);margin-top:4px;display:block;">Declaración (en tiempo de compilación)</span>
           <div class="bar-code-box" style="margin-top:4px;">
             <code id="barTechContractCode">float nivel4 = 0.0f;</code>
             <button type="button" id="barTechCopyContractBtn" class="bar-copy-icon-btn" title="Copiar código">⧉</button>
@@ -733,7 +709,7 @@
             <span>Rango configurado</span>
             <strong id="barDiagRange">0 — 100 %</strong>
           </div>
-          <span style="font-size:10px;color:#8ea3b3;margin-top:8px;display:block;font-weight:600;">Geometría (px)</span>
+          <span style="font-size:10px;color:var(--muted);margin-top:8px;display:block;font-weight:600;">Geometría (px)</span>
           <div class="bar-two-cols" style="margin-top:4px;">
             <div class="readout"><span>X</span><strong id="barDiagX">20</strong></div>
             <div class="readout"><span>Y</span><strong id="barDiagY">20</strong></div>
@@ -755,7 +731,7 @@
         <!-- Tarjeta 4: Acciones avanzadas -->
         <div class="bar-card" style="margin-top:10px;">
           <div class="bar-card-header">
-            <span class="bar-card-title" style="color:#dce9f1;font-size:11px;">Acciones avanzadas</span>
+            <span class="bar-card-title" style="color:var(--text-heading);font-size:11px;">Acciones avanzadas</span>
           </div>
           <div style="display:flex;gap:6px;margin-top:8px;">
             <button type="button" class="bar-action-btn" id="barTechDuplicateBtn" style="flex:1;">Duplicar objeto</button>
@@ -1120,13 +1096,13 @@
       if (!Number.isFinite(Number(field.circleSweep))) field.circleSweep = 360;
       if (typeof field.circleDirection !== 'string') field.circleDirection = 'CW';
       if (typeof field.circleStartAngle !== 'string') field.circleStartAngle = 'TOP';
-      if (typeof field.circleStyle !== 'string') field.circleStyle = 'CONTINUOUS';
+      if (typeof field.circleStyle !== 'string' || !['CONTINUOUS', 'SEGMENTED'].includes(field.circleStyle)) field.circleStyle = 'CONTINUOUS';
       return;
     }
     field.barPreset = 'LINEAR';
-    field.barFillMode = 'SOLID';
-    field.barOrientation = 'HORIZONTAL';
-    field.barStyle = 'SOLID';
+    if (field.barFillMode !== 'GRADIENT') field.barFillMode = 'SOLID';
+    if (field.barOrientation !== 'VERTICAL') field.barOrientation = 'HORIZONTAL';
+    if (field.barStyle !== 'BLOCKS') field.barStyle = 'SOLID';
     field.barCornerRadius = 0;
     field.barBorderEnabled = false;
     field.linearPctPos = 'NONE';
@@ -1143,7 +1119,13 @@
         : FIELD_PADDING + pad + Math.max(labelW, valueAndUnit);
     }
     field.barAutoWidth = false;
-    field.barHeight = DEFAULT_BAR_HEIGHT;
+    if (field.barOrientation === 'VERTICAL') {
+      if (!Number.isFinite(Number(field.barWidth)) || field.barWidth < 4) field.barWidth = 14;
+      if (!Number.isFinite(Number(field.barHeight)) || field.barHeight < 10) field.barHeight = 60;
+    } else {
+      if (!Number.isFinite(Number(field.barWidth)) || field.barWidth < 20) field.barWidth = 110;
+      if (!Number.isFinite(Number(field.barHeight)) || field.barHeight < 4) field.barHeight = DEFAULT_BAR_HEIGHT;
+    }
     if (field.layout !== 'INLINE' && field.layout !== 'STACKED') field.layout = 'STACKED';
     field.alignV = field.layout === 'INLINE' ? 'MID' : 'TOP';
     field.alignH = 'LEFT';
@@ -1938,16 +1920,17 @@
             ctx.save();
             pixelClipRoundedRect(ctx, g.valueX, g.valueY, g.valueW, g.valueH, radPx, scale);
             ctx.clip();
-            const blockH = Math.max(3, Math.round(6 * scale));
-            const gap = Math.max(1, Math.round(2 * scale));
-            const totalBlocks = Math.max(1, Math.floor((g.valueH * scale + gap) / (blockH + gap)));
+            const blockPitch = Math.max(2, Math.round(5 * scale));
+            const blockSize = Math.max(1, Math.round(4 * scale));
+            const gap = blockPitch - blockSize;
+            const totalBlocks = Math.max(1, Math.floor((g.valueH * scale + gap) / blockPitch));
             const activeBlocks = Math.round(norm * totalBlocks);
             for (let i = 0; i < activeBlocks; i++) {
-              const by = (g.valueY + g.valueH) * scale - (i + 1) * (blockH + gap) + gap;
+              const by = (g.valueY + g.valueH) * scale - (i + 1) * blockPitch + gap;
               const prop = i / Math.max(1, totalBlocks - 1);
               const col = isGrad ? interpolateColor565(activeCol565, endCol565, prop) : activeCol565;
               ctx.fillStyle = rgb565ToCss(col);
-              ctx.fillRect(g.valueX * scale, by, g.valueW * scale, blockH);
+              ctx.fillRect(g.valueX * scale, by, g.valueW * scale, blockSize);
             }
             ctx.restore();
           } else if (barStyle === 'DOTS') {
@@ -2060,17 +2043,18 @@
             ctx.save();
             pixelClipRoundedRect(ctx, g.valueX, g.valueY, g.valueW, g.valueH, radPx, scale);
             ctx.clip();
-            const blockW = Math.max(3, Math.round(6 * scale));
-            const gap = Math.max(1, Math.round(2 * scale));
-            const totalBlocks = Math.max(1, Math.floor((g.valueW * scale + gap) / (blockW + gap)));
+            const blockPitch = Math.max(2, Math.round(5 * scale));
+            const blockSize = Math.max(1, Math.round(4 * scale));
+            const gap = blockPitch - blockSize;
+            const totalBlocks = Math.max(1, Math.floor((g.valueW * scale + gap) / blockPitch));
             const activeBlocks = Math.round(norm * totalBlocks);
             for (let i = 0; i < activeBlocks; i++) {
-              const bx = g.valueX * scale + i * (blockW + gap);
-              if (bx + blockW > (g.valueX + g.valueW) * scale) break;
+              const bx = g.valueX * scale + i * blockPitch;
+              if (bx + blockSize > (g.valueX + g.valueW) * scale) break;
               const prop = i / Math.max(1, totalBlocks - 1);
               const col = isGrad ? interpolateColor565(activeCol565, endCol565, prop) : activeCol565;
               ctx.fillStyle = rgb565ToCss(col);
-              ctx.fillRect(bx, g.valueY * scale, blockW, g.valueH * scale);
+              ctx.fillRect(bx, g.valueY * scale, blockSize, g.valueH * scale);
             }
             ctx.restore();
           } else if (barStyle === 'DOTS') {
@@ -3069,7 +3053,7 @@
   bindBarTextControl(fieldLabel, 'barLabel');
   bindBarTextControl(fieldUnit, 'barUnit');
 
-  function createBarField() {
+  function createBarField(preset = 'LINEAR') {
     const api = editor();
     api?.addTextField?.();
     const field = selectedField();
@@ -3077,10 +3061,11 @@
 
     const serial = serialFor(field);
     field.type = 'BAR';
-    field.name = `BAR ${serial}`;
-    field.id = `FIELD_BAR_${serial}`;
-    field.variable = `nivel${serial}`;
-    field.barPreset = 'LINEAR';
+    const isCirc = (preset === 'CIRCULAR');
+    field.name = isCirc ? `CIRCULAR ${serial}` : `BAR ${serial}`;
+    field.id = isCirc ? `FIELD_CIRCULAR_${serial}` : `FIELD_BAR_${serial}`;
+    field.variable = isCirc ? `medidor${serial}` : `nivel${serial}`;
+    field.barPreset = isCirc ? 'CIRCULAR' : 'LINEAR';
     field.barFillMode = 'SOLID';
     field.barOrientation = 'HORIZONTAL';
     field.linearPctPos = 'NONE';
@@ -3090,7 +3075,7 @@
     field.barBorderColor = 0xFFFF;
     field.barBorderWidth = 1;
     field.showLabel = true;
-    field.barLabel = 'Nivel';
+    field.barLabel = isCirc ? 'Carga' : 'Nivel';
     field.barUnit = '%';
     field.barMin = 0;
     field.barMax = 100;
@@ -3123,8 +3108,10 @@
     field.circleTrackColor = 0x0000;
     ensureBarState(field);
 
-    fieldName.value = field.name;
-    fieldName.dispatchEvent(new Event('change', { bubbles: true }));
+    if (fieldName) {
+      fieldName.value = field.name;
+      fieldName.dispatchEvent(new Event('change', { bubbles: true }));
+    }
   }
 
   barButton.disabled = false;
@@ -3620,7 +3607,7 @@
 
   function buildBarMini(field) {
     const rows = barMiniRows(field);
-    const signature = `${field.barPreset},${rows.join(',')}`;
+    const signature = `${field.barPreset},${field.barOrientation || 'HORIZONTAL'},${rows.join(',')}`;
     if (barMiniCard.dataset.signature === signature) return;
     barMiniCard.dataset.signature = signature;
     barMiniCard.innerHTML = `
@@ -3658,6 +3645,10 @@
     let valueZone;
     if (isCirc) {
       valueZone = [{ x: g.valueX, y: g.valueY, w: g.valueW, h: g.valueH }];
+    } else if (preview.barOrientation === 'VERTICAL') {
+      const fillH = Math.round(normalizedFor(preview) * g.valueH);
+      const hVal = fillH > 0 ? fillH : g.valueH;
+      valueZone = [{ x: g.valueX, y: g.valueY + g.valueH - hVal, w: g.valueW, h: hVal }];
     } else {
       const fillW = Math.round(normalizedFor(preview) * g.valueW);
       valueZone = [{ x: g.valueX, y: g.valueY, w: fillW > 0 ? fillW : g.valueW, h: g.valueH }];
@@ -3805,9 +3796,7 @@
   }
 
   function closeBarInspector() {
-    // BAR-3: variantes sin soporte en el firmware.
-    markNeedsFirmware(barInspectorWrap.querySelector('.bar-orient-btn[data-orient="VERTICAL"]'));
-    barInspectorWrap.querySelectorAll('.bar-linear-style-btn:not([data-style="SOLID"])').forEach(markNeedsFirmware);
+    // BAR-3: variantes estéticas sin soporte en el hardware (radio y borde).
     barInspectorWrap.querySelectorAll('.bar-radius-btn:not([data-radius="0"])').forEach(markNeedsFirmware);
     const borderToggle = barInspectorWrap.querySelector('#barFormaBorderEnabled');
     markNeedsFirmware(borderToggle);
@@ -3820,21 +3809,10 @@
       cell.title = `Alineación: ${vLabels[cell.dataset.alignV] || cell.dataset.alignV} ${hLabels[cell.dataset.alignH] || cell.dataset.alignH}`;
     });
 
-
     const pctWrap = barInspectorWrap.querySelector('#barContentLinearWrap');
     if (pctWrap) {
       hideForFirmware(pctWrap);
       pctWrap.insertAdjacentElement('afterend', fwCard('Texto sobre la barra', ['% a la derecha', '% dentro']));
-    }
-
-    // BAR-4: el alto no llega al firmware (DEFAULT_BAR_HEIGHT = 12 px).
-    const heightInput = barInspectorWrap.querySelector('#barFormaHeight');
-    if (heightInput) {
-      heightInput.value = String(DEFAULT_BAR_HEIGHT);
-      heightInput.disabled = true;
-      heightInput.title = 'El firmware dibuja la barra con 12 px de alto fijos';
-      const name = barInspectorWrap.querySelector('#barFormaHeightName');
-      if (name) name.textContent = 'Grosor (fijo en firmware)';
     }
 
     // Un solo color de fondo: el firmware borra la pista con colors.background.
@@ -3902,9 +3880,6 @@
           `${String(Number(p.id) + 1).padStart(2, '0')} · ${String(p.name).replace(/[&<>"]/g, '')}</button>`).join('');
       }
     }
-    const heightInput = barInspectorWrap.querySelector('#barFormaHeight');
-    if (heightInput) heightInput.value = String(DEFAULT_BAR_HEIGHT);
-    if (barFormaHeightName) barFormaHeightName.textContent = 'Grosor (fijo en firmware)';
   }
 
   closeBarInspector();
