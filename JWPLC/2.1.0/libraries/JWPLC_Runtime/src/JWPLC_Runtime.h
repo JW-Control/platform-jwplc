@@ -45,6 +45,12 @@ public:
     //                              con dos TON, sin entradas
     void loadDemoIfEmpty(bool enable, uint8_t demo = RUNTIME_DEMO_FERIA);
 
+    // Como loadDemoIfEmpty(), pero también reemplaza el programa de la FRAM
+    // si es otro (por nombre): al subir el ejemplo se ve ese programa aunque
+    // la placa tuviera la «Demo feria». Si la FRAM ya lo tiene, se conserva
+    // tal cual (parámetros cambiados en el panel incluidos).
+    void loadDemo(uint8_t demo);
+
     void run();
     void stop();
     bool isRunning() const;
@@ -66,6 +72,7 @@ public:
 
 private:
     bool _demoIfEmpty = false;
+    bool _demoReplace = false;
 };
 
 extern JWPLC_RuntimeClass JWPLC_Runtime;

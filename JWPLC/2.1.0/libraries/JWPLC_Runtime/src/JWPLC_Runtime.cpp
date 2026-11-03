@@ -663,6 +663,12 @@ void JWPLC_RuntimeClass::loadDemoIfEmpty(bool enable, uint8_t demo)
     core.demo = demo == RUNTIME_DEMO_INTERMITENTE ? DEMO_INTERMITENTE : DEMO_FERIA;
 }
 
+void JWPLC_RuntimeClass::loadDemo(uint8_t demo)
+{
+    loadDemoIfEmpty(true, demo);
+    _demoReplace = true;
+}
+
 bool JWPLC_RuntimeClass::begin()
 {
     if (g_task)
@@ -673,6 +679,13 @@ bool JWPLC_RuntimeClass::begin()
 
     Program p;
     bool have = core.framOk && core.store.loadProgram(p);
+    if (have && _demoReplace)
+    {
+        // loadDemo(): la FRAM tiene otro programa -> se reemplaza por el ejemplo.
+        Program d;
+        demoProgram(d, core.demo);
+        have = strncmp(p.name, d.name, NAME_LEN) == 0;
+    }
     if (!have)
     {
         if (_demoIfEmpty)
