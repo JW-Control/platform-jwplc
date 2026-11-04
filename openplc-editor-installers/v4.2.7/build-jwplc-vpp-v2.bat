@@ -19,7 +19,7 @@ rem   - Espera ESC antes de cerrar, incluso si hay error
 rem
 rem Opciones:
 rem   build-jwplc-vpp.bat --no-clean-installed
-rem   set "JWPLC_VPP_KEY=C:\ruta\jwcontrol-2026-private.pem"  (opcional, otra ruta de la llave)
+rem   set "JWPLC_VPP_KEY=<ruta de jwcontrol-2026-private.pem>"  (opcional, otra ruta de la llave)
 rem   set "JWPLC_VPP_DEST=C:\carpeta"  (opcional; por defecto copia a Documentos\openplcProbe si existe)
 rem ============================================================================
 
@@ -34,6 +34,8 @@ rem La llave puede estar en otra PC o carpeta: JWPLC_VPP_KEY reemplaza la ruta d
 if defined JWPLC_VPP_KEY set "KEY_PATH=%JWPLC_VPP_KEY%"
 rem Sin la llave en KEY_PATH: se busca un *private*.pem en Documentos\openplcProbe (PC del propietario).
 if not defined JWPLC_VPP_KEY if not exist "%KEY_PATH%" for %%K in ("%USERPROFILE%\Documents\openplcProbe\*private*.pem") do set "KEY_PATH=%%~fK"
+rem Ubicacion actual en la PC del propietario: %USERPROFILE%\JW_Seguridad_Local\OpenPLC.
+if not defined JWPLC_VPP_KEY if not exist "%KEY_PATH%" if exist "%USERPROFILE%\JW_Seguridad_Local\OpenPLC\%KEY_ID%-private.pem" set "KEY_PATH=%USERPROFILE%\JW_Seguridad_Local\OpenPLC\%KEY_ID%-private.pem"
 
 set "CLEAN_INSTALLED=1"
 if /I "%~1"=="--no-clean-installed" set "CLEAN_INSTALLED=0"
