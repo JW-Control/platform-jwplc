@@ -4,7 +4,7 @@
   "keyId": "jwcontrol-2026",
   "packageId": "com.jwcontrol.jwplc-basic",
   "version": "2.1.0-alpha.17",
-  "signedAt": "2026-11-03T15:31:14.258Z",
+  "signedAt": "2026-11-04T02:51:47.527Z",
   "files": {
     "README.md": "f98f113f4095893aca82fbb0a5d750d8a6c383af37e3cbe99691854c96ddb832",
     "assets/jwplcbasic.png": "64c7c2755436f2224c1aa7f4ed535c95339eba3df43dbc93f1f19bf5f1b6fb68",
@@ -12,12 +12,12 @@
     "examples/JWPLC_Basic_IO_Test_I0_to_Q0/README.md": "c40d37f6963766cb280de09c43ab56f56b74ce5f533beaf06d35e937f37cb747",
     "hal/jwplcbasic-remoteio-slave.cpp": "d8823f51d8a0352017cca20f36057835bf92eacdf7b494733a82e77e63d88d7f",
     "hal/jwplcbasic.cpp": "43c5e017b9bd398699f052a783ecbc9129e4c933070b0dd50ed75c8dfd260064",
-    "manifest.json": "8b1f449429055aa72992f41b12f2ae121667921b443d6e9cdd0bef5822513953",
-    "screens/backplane.json": "51e516ea63cb4dee71a93bdd218ebfcc565411a6eab295903bc89744a9827df2",
+    "manifest.json": "bb713c03de537e10aa7326a7e0f10690226d317615faf10a2eb8cead1a9e77a4",
+    "screens/backplane.json": "d08edca04da5ed0e66f2de6d0287dbbc45999418cd1d9526432e9172f96edadd",
     "screens/jwplc-basic-remote-io.json": "f2ed17ef99859cf655f4c5d6be369dd4a49760b5c5e649fa688d04f9550090e1",
-    "screens/network.json": "80e1a8f9f2ae3a4418cf684f2333342cab910540c7fc1612d32c32bf2e41d5b0",
-    "screens/remote-io-slave.json": "aa4c1205fd3b9f9e5ca47dfa50db4c07470c00823f6c166cfa6b16a4e42771a0",
-    "screens/serial.json": "4e530b5e20ef1abc78b0e1f660fd61511b21bc5476ef92903e5d86a7f7a6ffe9"
+    "screens/network.json": "17dd0d1110c0dd818122527282d46ded9ee6a4bedc0b40a31b2b30ccd767f405",
+    "screens/remote-io-slave.json": "420a5959bbbf1085aba2ec49dbd8c92174c07acbfb4437802723e73383ae3605",
+    "screens/serial.json": "e5f8fe2198658dd462a74172c7f997514a681992e6587c9d1a05de586a051dc0"
   },
-  "signature": "swHsbUjZm8jWpUDNtST9xxtT+pZnZMAjhRmcjNqXLhIRUmytIh8TnALYDMWSClDHFTlXqqYgHxfVIRXQWcF1AA=="
+  "signature": "ZKOzLD1dZgJMVa+qDFeBfRlMMnf5d0aUIjDLuqY/olhyDc87Es70n+XyTL46gmA65lxtrBqz3b1l9feQp49sDg=="
 }
