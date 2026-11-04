@@ -15,7 +15,7 @@
           "min": 1,
           "max": 247,
           "step": 1,
-          "help": "Direccion Modbus RTU de este modulo. Debe coincidir con el Slave ID del slot en la pantalla JWPLC Backplane del maestro (por defecto, el numero de slot)."
+          "help": "Direccion Modbus RTU de este modulo. Debe coincidir con el Slave ID del slot en la pantalla Backplane del maestro (por defecto, el numero de slot)."
         },
         {
           "id": "baud_rate",

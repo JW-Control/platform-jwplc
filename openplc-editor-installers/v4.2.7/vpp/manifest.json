@@ -22,7 +22,7 @@
             "screens": {
                 "Serial": "screens/serial.json",
                 "Network": "screens/network.json",
-                "JWPLC Backplane": "screens/backplane.json"
+                "Backplane": "screens/backplane.json"
             },
             "serialPorts": [
                 "Serial",
@@ -465,7 +465,7 @@
             "specs": {
                 "Role": "Remote I/O module (Modbus RTU esclavo)",
                 "I/O": "8 DI / 8 DO controladas por el maestro del Backplane",
-                "RS-485": "Serial2 - bus del JWPLC Backplane",
+                "RS-485": "Serial2 - bus del Backplane",
                 "Failsafe": "Salidas en LOW sin escritura del maestro (1000 ms por defecto)",
                 "Programa": "El programa IEC no controla la I/O fisica de este modulo"
             },

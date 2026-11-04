@@ -35,9 +35,9 @@
           "id": "mac_address",
           "label": "MAC Address",
           "type": "mac-address",
-          "default": "DE:AD:BE:EF:00:01",
-          "placeholder": "DE:AD:BE:EF:00:01",
-          "help": "MAC del W5500. Usa una distinta por equipo si hay varios JWPLC Basic en la misma red.",
+          "default": "",
+          "placeholder": "Automática (de fábrica del ESP32)",
+          "help": "Vacío = MAC de fábrica del ESP32, única en cada equipo (recomendado). Escribe una solo si la red exige una MAC concreta.",
           "visible": {
             "condition": "fields.enabled",
             "operator": "equals",
