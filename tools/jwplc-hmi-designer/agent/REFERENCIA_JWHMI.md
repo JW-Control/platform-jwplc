@@ -74,6 +74,8 @@ Texto dinámico. Declara `char variable[2·capacity+1]`; el sketch lo llena y el
 | `unit` | texto | `""` | Unidad tras el valor. Vacía = sin unidad. |
 | `labelSize` | entero 1..4 | `1` | Escala de la etiqueta (celda GLCD 6×8 px × escala). |
 | `valueSize` | entero 1..4 | `2` | Escala del valor. |
+| `labelFont` | `"GLCD"` · `"FONT2"` · `"FONT4"` · `"FONT_16"` · `"FONT_26"` · `"FONT_7SEG_48"` · `"7SEG_48"` · `"SANS_9"` · `"SANS_BOLD_9"` · `"SANS_12"` · `"SANS_BOLD_12"` · `"SANS_18"` · `"SANS_BOLD_18"` · `"SANS_24"` · `"SANS_BOLD_24"` · `"SERIF_9"` · `"SERIF_BOLD_9"` · `"SERIF_12"` · `"SERIF_BOLD_12"` · `"SERIF_18"` · `"SERIF_BOLD_18"` · `"SERIF_24"` · `"SERIF_BOLD_24"` · `"MONO_9"` · `"MONO_BOLD_9"` · `"MONO_12"` · `"MONO_BOLD_12"` · `"MONO_18"` · `"MONO_BOLD_18"` · `"MONO_24"` · `"MONO_BOLD_24"` | `"GLCD"` | Fuente de la etiqueta (GLCD por defecto, bitmap o FreeFonts). |
+| `valueFont` | `"GLCD"` · `"FONT2"` · `"FONT4"` · `"FONT_16"` · `"FONT_26"` · `"FONT_7SEG_48"` · `"7SEG_48"` · `"SANS_9"` · `"SANS_BOLD_9"` · `"SANS_12"` · `"SANS_BOLD_12"` · `"SANS_18"` · `"SANS_BOLD_18"` · `"SANS_24"` · `"SANS_BOLD_24"` · `"SERIF_9"` · `"SERIF_BOLD_9"` · `"SERIF_12"` · `"SERIF_BOLD_12"` · `"SERIF_18"` · `"SERIF_BOLD_18"` · `"SERIF_24"` · `"SERIF_BOLD_24"` · `"MONO_9"` · `"MONO_BOLD_9"` · `"MONO_12"` · `"MONO_BOLD_12"` · `"MONO_18"` · `"MONO_BOLD_18"` · `"MONO_24"` · `"MONO_BOLD_24"` | `"GLCD"` | Fuente del valor o estado (GLCD por defecto, bitmap, FreeFonts o 7SEG_48). |
 | `frame` | bool | `false` | Marco alrededor del campo. |
 | `layout` | `"INLINE"` · `"STACKED"` | `"INLINE"` | INLINE: etiqueta y valor en una fila. STACKED: etiqueta arriba, valor abajo. |
 | `align` | `"LEFT"` · `"CENTER"` · `"RIGHT"` | `"LEFT"` | Alineación del valor dentro del campo. |
@@ -102,6 +104,8 @@ Número con formato (o duración, o fecha/hora del RTC). Declara `float` (o `int
 | `unit` | texto | `""` | Unidad tras el valor. Vacía = sin unidad. |
 | `labelSize` | entero 1..4 | `1` | Escala de la etiqueta (celda GLCD 6×8 px × escala). |
 | `valueSize` | entero 1..4 | `2` | Escala del valor. |
+| `labelFont` | `"GLCD"` · `"FONT2"` · `"FONT4"` · `"FONT_16"` · `"FONT_26"` · `"FONT_7SEG_48"` · `"7SEG_48"` · `"SANS_9"` · `"SANS_BOLD_9"` · `"SANS_12"` · `"SANS_BOLD_12"` · `"SANS_18"` · `"SANS_BOLD_18"` · `"SANS_24"` · `"SANS_BOLD_24"` · `"SERIF_9"` · `"SERIF_BOLD_9"` · `"SERIF_12"` · `"SERIF_BOLD_12"` · `"SERIF_18"` · `"SERIF_BOLD_18"` · `"SERIF_24"` · `"SERIF_BOLD_24"` · `"MONO_9"` · `"MONO_BOLD_9"` · `"MONO_12"` · `"MONO_BOLD_12"` · `"MONO_18"` · `"MONO_BOLD_18"` · `"MONO_24"` · `"MONO_BOLD_24"` | `"GLCD"` | Fuente de la etiqueta (GLCD por defecto, bitmap o FreeFonts). |
+| `valueFont` | `"GLCD"` · `"FONT2"` · `"FONT4"` · `"FONT_16"` · `"FONT_26"` · `"FONT_7SEG_48"` · `"7SEG_48"` · `"SANS_9"` · `"SANS_BOLD_9"` · `"SANS_12"` · `"SANS_BOLD_12"` · `"SANS_18"` · `"SANS_BOLD_18"` · `"SANS_24"` · `"SANS_BOLD_24"` · `"SERIF_9"` · `"SERIF_BOLD_9"` · `"SERIF_12"` · `"SERIF_BOLD_12"` · `"SERIF_18"` · `"SERIF_BOLD_18"` · `"SERIF_24"` · `"SERIF_BOLD_24"` · `"MONO_9"` · `"MONO_BOLD_9"` · `"MONO_12"` · `"MONO_BOLD_12"` · `"MONO_18"` · `"MONO_BOLD_18"` · `"MONO_24"` · `"MONO_BOLD_24"` | `"GLCD"` | Fuente del valor o estado (GLCD por defecto, bitmap, FreeFonts o 7SEG_48). |
 | `frame` | bool | `false` | Marco alrededor del campo. |
 | `layout` | `"INLINE"` · `"STACKED"` | `"INLINE"` | INLINE: etiqueta y valor en una fila. STACKED: etiqueta arriba, valor abajo. |
 | `align` | `"LEFT"` · `"CENTER"` · `"RIGHT"` | `"RIGHT"` | Alineación del valor dentro del campo. |
@@ -138,6 +142,8 @@ Estado ON/OFF. Declara `bool`. Muestra un texto por estado o un piloto (círculo
 | `unit` | texto | `""` | Unidad tras el valor. Vacía = sin unidad. |
 | `labelSize` | entero 1..4 | `1` | Escala de la etiqueta (celda GLCD 6×8 px × escala). |
 | `valueSize` | entero 1..4 | `2` | Escala del valor. |
+| `labelFont` | `"GLCD"` · `"FONT2"` · `"FONT4"` · `"FONT_16"` · `"FONT_26"` · `"FONT_7SEG_48"` · `"7SEG_48"` · `"SANS_9"` · `"SANS_BOLD_9"` · `"SANS_12"` · `"SANS_BOLD_12"` · `"SANS_18"` · `"SANS_BOLD_18"` · `"SANS_24"` · `"SANS_BOLD_24"` · `"SERIF_9"` · `"SERIF_BOLD_9"` · `"SERIF_12"` · `"SERIF_BOLD_12"` · `"SERIF_18"` · `"SERIF_BOLD_18"` · `"SERIF_24"` · `"SERIF_BOLD_24"` · `"MONO_9"` · `"MONO_BOLD_9"` · `"MONO_12"` · `"MONO_BOLD_12"` · `"MONO_18"` · `"MONO_BOLD_18"` · `"MONO_24"` · `"MONO_BOLD_24"` | `"GLCD"` | Fuente de la etiqueta (GLCD por defecto, bitmap o FreeFonts). |
+| `valueFont` | `"GLCD"` · `"FONT2"` · `"FONT4"` · `"FONT_16"` · `"FONT_26"` · `"FONT_7SEG_48"` · `"7SEG_48"` · `"SANS_9"` · `"SANS_BOLD_9"` · `"SANS_12"` · `"SANS_BOLD_12"` · `"SANS_18"` · `"SANS_BOLD_18"` · `"SANS_24"` · `"SANS_BOLD_24"` · `"SERIF_9"` · `"SERIF_BOLD_9"` · `"SERIF_12"` · `"SERIF_BOLD_12"` · `"SERIF_18"` · `"SERIF_BOLD_18"` · `"SERIF_24"` · `"SERIF_BOLD_24"` · `"MONO_9"` · `"MONO_BOLD_9"` · `"MONO_12"` · `"MONO_BOLD_12"` · `"MONO_18"` · `"MONO_BOLD_18"` · `"MONO_24"` · `"MONO_BOLD_24"` | `"GLCD"` | Fuente del valor o estado (GLCD por defecto, bitmap, FreeFonts o 7SEG_48). |
 | `frame` | bool | `false` | Marco alrededor del campo. |
 | `layout` | `"INLINE"` · `"STACKED"` | `"INLINE"` | INLINE: etiqueta y valor en una fila. STACKED: etiqueta arriba, valor abajo. |
 | `align` | `"LEFT"` · `"CENTER"` · `"RIGHT"` | `"CENTER"` | Alineación del valor dentro del campo. |
@@ -174,6 +180,8 @@ Indicador de nivel: barra lineal (`barPreset: LINEAR`) o medidor circular (`barP
 | `unit` | texto | `""` | Unidad tras el valor. Vacía = sin unidad. |
 | `labelSize` | entero 1..4 | `1` | Escala de la etiqueta (celda GLCD 6×8 px × escala). |
 | `valueSize` | entero 1..4 | `1` | Escala del valor. |
+| `labelFont` | `"GLCD"` · `"FONT2"` · `"FONT4"` · `"FONT_16"` · `"FONT_26"` · `"FONT_7SEG_48"` · `"7SEG_48"` · `"SANS_9"` · `"SANS_BOLD_9"` · `"SANS_12"` · `"SANS_BOLD_12"` · `"SANS_18"` · `"SANS_BOLD_18"` · `"SANS_24"` · `"SANS_BOLD_24"` · `"SERIF_9"` · `"SERIF_BOLD_9"` · `"SERIF_12"` · `"SERIF_BOLD_12"` · `"SERIF_18"` · `"SERIF_BOLD_18"` · `"SERIF_24"` · `"SERIF_BOLD_24"` · `"MONO_9"` · `"MONO_BOLD_9"` · `"MONO_12"` · `"MONO_BOLD_12"` · `"MONO_18"` · `"MONO_BOLD_18"` · `"MONO_24"` · `"MONO_BOLD_24"` | `"GLCD"` | Fuente de la etiqueta (GLCD por defecto, bitmap o FreeFonts). |
+| `valueFont` | `"GLCD"` · `"FONT2"` · `"FONT4"` · `"FONT_16"` · `"FONT_26"` · `"FONT_7SEG_48"` · `"7SEG_48"` · `"SANS_9"` · `"SANS_BOLD_9"` · `"SANS_12"` · `"SANS_BOLD_12"` · `"SANS_18"` · `"SANS_BOLD_18"` · `"SANS_24"` · `"SANS_BOLD_24"` · `"SERIF_9"` · `"SERIF_BOLD_9"` · `"SERIF_12"` · `"SERIF_BOLD_12"` · `"SERIF_18"` · `"SERIF_BOLD_18"` · `"SERIF_24"` · `"SERIF_BOLD_24"` · `"MONO_9"` · `"MONO_BOLD_9"` · `"MONO_12"` · `"MONO_BOLD_12"` · `"MONO_18"` · `"MONO_BOLD_18"` · `"MONO_24"` · `"MONO_BOLD_24"` | `"GLCD"` | Fuente del valor o estado (GLCD por defecto, bitmap, FreeFonts o 7SEG_48). |
 | `frame` | bool | `false` | Marco alrededor del campo. |
 | `layout` | `"INLINE"` · `"STACKED"` | `"STACKED"` | INLINE: etiqueta y valor en una fila. STACKED: etiqueta arriba, valor abajo. |
 | `align` | `"LEFT"` · `"CENTER"` · `"RIGHT"` | `"LEFT"` | Alineación del valor dentro del campo. |
@@ -190,7 +198,16 @@ Indicador de nivel: barra lineal (`barPreset: LINEAR`) o medidor circular (`barP
 | `barValue` | número | `50` | Valor de muestra en el lienzo. |
 | `barWidth` | entero 20..320 | `110` | Ancho total del campo (px). |
 | `trackColor` | color | `0x0000` | Fondo de la pista (parte vacía). |
-| `barPreset` | `"LINEAR"` · `"CIRCULAR"` · `"GRADIENT"` | `"LINEAR"` | LINEAR = barra (JWPLC_UIBarField); CIRCULAR = medidor circular (JWPLC_UICircularField, propiedades circle*). GRADIENT cae a LINEAR. |
+| `barPreset` | `"LINEAR"` · `"CIRCULAR"` · `"GRADIENT"` | `"LINEAR"` | LINEAR = barra (JWPLC_UIBarField); CIRCULAR = medidor circular (JWPLC_UICircularField, propiedades circle*). GRADIENT cae a LINEAR con relleno degradado. |
+| `barFillMode` | `"SOLID"` · `"GRADIENT"` | `"SOLID"` | Relleno de la barra: sólido o degradado suave. |
+| `barOrientation` | `"HORIZONTAL"` · `"VERTICAL"` | `"HORIZONTAL"` | Orientación: barra horizontal o vertical (tanque). |
+| `barStyle` | `"SOLID"` · `"BLOCKS"` | `"SOLID"` | Estilo de barra: sólida continua o por bloques. |
+| `barCornerRadius` | undefined | `0` | Radio de esquinas: 0 (recto), 1..20 o FULL (píldora). |
+| `barBorderEnabled` | bool | `false` | Borde perimetral de la barra. |
+| `barBorderColor` | color | `0xFFFF` | Color del borde de la barra. |
+| `barBorderWidth` | entero 1..10 | `1` | Grosor del borde de la barra (px). |
+| `barHeight` | entero 1..170 | `12` | Alto del campo o longitud en vertical (px). |
+| `valueColorEnd` | color | `0x07E0` | Color final del degradado cuando barFillMode es GRADIENT. |
 | `circleRadius` | entero 10..80 | `26` | CIRCULAR: radio (px); el campo ocupa 2·radio de lado. |
 | `circleThickness` | entero 2..25 | `5` | CIRCULAR: grosor del arco (px). |
 | `circleSweep` | `360` · `270` · `240` · `180` | `360` | CIRCULAR: recorrido del arco (grados). |
@@ -218,6 +235,8 @@ Icono con estado (motor, piloto, válvula…; JWPLC_UIIconField): una imagen por
 | `variable` | identificador C++ |  | Variable C++ que el header declara y tu sketch asigna. Si falta se genera. |
 | `label` | texto | `""` | Etiqueta opcional (arriba con STACKED, a la izquierda con INLINE). Vacía = sin etiqueta. |
 | `labelSize` | entero 1..4 | `1` | Escala de la etiqueta (celda GLCD 6×8 px × escala). |
+| `labelFont` | `"GLCD"` · `"FONT2"` · `"FONT4"` · `"FONT_16"` · `"FONT_26"` · `"FONT_7SEG_48"` · `"7SEG_48"` · `"SANS_9"` · `"SANS_BOLD_9"` · `"SANS_12"` · `"SANS_BOLD_12"` · `"SANS_18"` · `"SANS_BOLD_18"` · `"SANS_24"` · `"SANS_BOLD_24"` · `"SERIF_9"` · `"SERIF_BOLD_9"` · `"SERIF_12"` · `"SERIF_BOLD_12"` · `"SERIF_18"` · `"SERIF_BOLD_18"` · `"SERIF_24"` · `"SERIF_BOLD_24"` · `"MONO_9"` · `"MONO_BOLD_9"` · `"MONO_12"` · `"MONO_BOLD_12"` · `"MONO_18"` · `"MONO_BOLD_18"` · `"MONO_24"` · `"MONO_BOLD_24"` | `"GLCD"` | Fuente de la etiqueta (GLCD por defecto, bitmap o FreeFonts). |
+| `valueFont` | `"GLCD"` · `"FONT2"` · `"FONT4"` · `"FONT_16"` · `"FONT_26"` · `"FONT_7SEG_48"` · `"7SEG_48"` · `"SANS_9"` · `"SANS_BOLD_9"` · `"SANS_12"` · `"SANS_BOLD_12"` · `"SANS_18"` · `"SANS_BOLD_18"` · `"SANS_24"` · `"SANS_BOLD_24"` · `"SERIF_9"` · `"SERIF_BOLD_9"` · `"SERIF_12"` · `"SERIF_BOLD_12"` · `"SERIF_18"` · `"SERIF_BOLD_18"` · `"SERIF_24"` · `"SERIF_BOLD_24"` · `"MONO_9"` · `"MONO_BOLD_9"` · `"MONO_12"` · `"MONO_BOLD_12"` · `"MONO_18"` · `"MONO_BOLD_18"` · `"MONO_24"` · `"MONO_BOLD_24"` | `"GLCD"` | Fuente del valor o estado (GLCD por defecto, bitmap, FreeFonts o 7SEG_48). |
 | `frame` | bool | `false` | Marco alrededor del campo. |
 | `layout` | `"INLINE"` · `"STACKED"` | `"STACKED"` | INLINE: etiqueta y valor en una fila. STACKED: etiqueta arriba, valor abajo. |
 | `labelColor` | color | `0xFFFF` | Color de la etiqueta. |
@@ -290,6 +309,7 @@ El estado `k` de la variable muestra la imagen `k` (bool: 0 = false, 1 = true). 
 | `width` | entero 40..320 | `300` | Ancho (px). |
 | `height` | entero 30..170 | `124` | Alto (px). Filas de 12 px (textSize 1) o 20 px (textSize 2) bajo la cabecera. |
 | `textSize` | `1` · `2` | `1` | Escala del texto. |
+| `font` | `"GLCD"` · `"FONT2"` · `"FONT4"` · `"FONT_16"` · `"FONT_26"` · `"FONT_7SEG_48"` · `"7SEG_48"` · `"SANS_9"` · `"SANS_BOLD_9"` · `"SANS_12"` · `"SANS_BOLD_12"` · `"SANS_18"` · `"SANS_BOLD_18"` · `"SANS_24"` · `"SANS_BOLD_24"` · `"SERIF_9"` · `"SERIF_BOLD_9"` · `"SERIF_12"` · `"SERIF_BOLD_12"` · `"SERIF_18"` · `"SERIF_BOLD_18"` · `"SERIF_24"` · `"SERIF_BOLD_24"` · `"MONO_9"` · `"MONO_BOLD_9"` · `"MONO_12"` · `"MONO_BOLD_12"` · `"MONO_18"` · `"MONO_BOLD_18"` · `"MONO_24"` · `"MONO_BOLD_24"` | `"GLCD"` | Tipografía del menú (GLCD por defecto, bitmap o FreeFonts). |
 | `frame` | bool | `true` | Marco exterior. |
 | `colors` | objeto |  | Colores: text, background, value, selectText, selectBackground, editText, editBackground, title, titleBackground, frame. Los que falten toman su valor por defecto. |
 | `nodes` **(obligatoria)** | arreglo |  | Nodos del árbol (ver «Nodos de MENU»). Se pueden anidar con `children` en lugar de `parent`. |
@@ -334,6 +354,8 @@ Historial y registro de eventos (Alpha16). 10 filas de altura fija con registro 
 | `width` | entero 40..320 | `320` | Ancho (px). |
 | `height` | entero 30..170 | `170` | Alto (px). |
 | `frame` | bool | `true` | Marco exterior alrededor del historial. |
+| `headerFont` | `"GLCD"` · `"FONT2"` · `"FONT4"` · `"FONT_16"` · `"FONT_26"` · `"FONT_7SEG_48"` · `"7SEG_48"` · `"SANS_9"` · `"SANS_BOLD_9"` · `"SANS_12"` · `"SANS_BOLD_12"` · `"SANS_18"` · `"SANS_BOLD_18"` · `"SANS_24"` · `"SANS_BOLD_24"` · `"SERIF_9"` · `"SERIF_BOLD_9"` · `"SERIF_12"` · `"SERIF_BOLD_12"` · `"SERIF_18"` · `"SERIF_BOLD_18"` · `"SERIF_24"` · `"SERIF_BOLD_24"` · `"MONO_9"` · `"MONO_BOLD_9"` · `"MONO_12"` · `"MONO_BOLD_12"` · `"MONO_18"` · `"MONO_BOLD_18"` · `"MONO_24"` · `"MONO_BOLD_24"` | `"GLCD"` | Tipografía de la cabecera (GLCD por defecto). |
+| `rowFont` | `"GLCD"` · `"FONT2"` · `"FONT4"` · `"FONT_16"` · `"FONT_26"` · `"FONT_7SEG_48"` · `"7SEG_48"` · `"SANS_9"` · `"SANS_BOLD_9"` · `"SANS_12"` · `"SANS_BOLD_12"` · `"SANS_18"` · `"SANS_BOLD_18"` · `"SANS_24"` · `"SANS_BOLD_24"` · `"SERIF_9"` · `"SERIF_BOLD_9"` · `"SERIF_12"` · `"SERIF_BOLD_12"` · `"SERIF_18"` · `"SERIF_BOLD_18"` · `"SERIF_24"` · `"SERIF_BOLD_24"` · `"MONO_9"` · `"MONO_BOLD_9"` · `"MONO_12"` · `"MONO_BOLD_12"` · `"MONO_18"` · `"MONO_BOLD_18"` · `"MONO_24"` · `"MONO_BOLD_24"` | `"GLCD"` | Tipografía de las filas de eventos (GLCD por defecto). |
 | `ramCapacity` | entero 16..128 | `64` | Capacidad del buffer en RAM. |
 | `enableFram` | bool | `true` | Persistencia de los últimos 16 eventos en FRAM ante corte de luz. |
 | `enableSd` | bool | `true` | Exportación no bloqueante a microSD. |
@@ -354,7 +376,7 @@ Texto fijo (se dibuja una vez al entrar a la página). Admite fuentes GLCD, bitm
 | `x` **(obligatoria)** | entero 0..319 |  | Esquina superior izquierda, X (px). |
 | `y` **(obligatoria)** | entero 0..169 |  | Esquina superior izquierda, Y (px). |
 | `text` **(obligatoria)** | texto |  | Texto. Tildes, ñ y ° sí existen en GLCD. |
-| `font` | `"GLCD"` · `"FONT2"` · `"FONT4"` · `"SANS_9"` · `"SANS_BOLD_9"` · `"SANS_12"` · `"SANS_BOLD_12"` · `"SANS_18"` · `"SANS_BOLD_18"` · `"SANS_24"` · `"SANS_BOLD_24"` · `"SERIF_9"` · `"SERIF_BOLD_9"` · `"SERIF_12"` · `"SERIF_BOLD_12"` · `"SERIF_18"` · `"SERIF_BOLD_18"` · `"SERIF_24"` · `"SERIF_BOLD_24"` · `"MONO_9"` · `"MONO_BOLD_9"` · `"MONO_12"` · `"MONO_BOLD_12"` · `"MONO_18"` · `"MONO_BOLD_18"` · `"MONO_24"` · `"MONO_BOLD_24"` | `"GLCD"` | Fuente. GLCD = clásica 6×8 escalable; FONT2/FONT4 bitmap de 16/26 px; FreeFonts SANS/SERIF/MONO [BOLD] 9/12/18/24 pt. |
+| `font` | `"GLCD"` · `"FONT2"` · `"FONT4"` · `"FONT_16"` · `"FONT_26"` · `"FONT_7SEG_48"` · `"7SEG_48"` · `"SANS_9"` · `"SANS_BOLD_9"` · `"SANS_12"` · `"SANS_BOLD_12"` · `"SANS_18"` · `"SANS_BOLD_18"` · `"SANS_24"` · `"SANS_BOLD_24"` · `"SERIF_9"` · `"SERIF_BOLD_9"` · `"SERIF_12"` · `"SERIF_BOLD_12"` · `"SERIF_18"` · `"SERIF_BOLD_18"` · `"SERIF_24"` · `"SERIF_BOLD_24"` · `"MONO_9"` · `"MONO_BOLD_9"` · `"MONO_12"` · `"MONO_BOLD_12"` · `"MONO_18"` · `"MONO_BOLD_18"` · `"MONO_24"` · `"MONO_BOLD_24"` | `"GLCD"` | Fuente. GLCD = clásica 6×8 escalable; FONT2/FONT4 bitmap de 16/26 px; FreeFonts SANS/SERIF/MONO [BOLD] 9/12/18/24 pt. |
 | `size` | entero 1..4 | `1` | Escala (GLCD y bitmap). |
 | `textColor` | color | `0xFFFF` | Color del texto. |
 | `backgroundColor` | color | `0x0000` | Fondo detrás del texto (si no es transparente). |
@@ -426,4 +448,4 @@ Barra de navegación entre páginas (◀ ▶ de la botonera). Global: una sola, 
 
 ## Fuentes de `RAW_TEXT`
 
-`GLCD` · `FONT2` · `FONT4` · `SANS_9` · `SANS_BOLD_9` · `SANS_12` · `SANS_BOLD_12` · `SANS_18` · `SANS_BOLD_18` · `SANS_24` · `SANS_BOLD_24` · `SERIF_9` · `SERIF_BOLD_9` · `SERIF_12` · `SERIF_BOLD_12` · `SERIF_18` · `SERIF_BOLD_18` · `SERIF_24` · `SERIF_BOLD_24` · `MONO_9` · `MONO_BOLD_9` · `MONO_12` · `MONO_BOLD_12` · `MONO_18` · `MONO_BOLD_18` · `MONO_24` · `MONO_BOLD_24`
+`GLCD` · `FONT2` · `FONT4` · `FONT_16` · `FONT_26` · `FONT_7SEG_48` · `7SEG_48` · `SANS_9` · `SANS_BOLD_9` · `SANS_12` · `SANS_BOLD_12` · `SANS_18` · `SANS_BOLD_18` · `SANS_24` · `SANS_BOLD_24` · `SERIF_9` · `SERIF_BOLD_9` · `SERIF_12` · `SERIF_BOLD_12` · `SERIF_18` · `SERIF_BOLD_18` · `SERIF_24` · `SERIF_BOLD_24` · `MONO_9` · `MONO_BOLD_9` · `MONO_12` · `MONO_BOLD_12` · `MONO_18` · `MONO_BOLD_18` · `MONO_24` · `MONO_BOLD_24`

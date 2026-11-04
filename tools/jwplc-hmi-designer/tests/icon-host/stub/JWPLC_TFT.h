@@ -5,6 +5,7 @@
 #include <Arduino.h>
 
 struct JWPLC_TFTFont { uint8_t kind; const void *data; };
+inline constexpr JWPLC_TFTFont JWPLC_FONT_GLCD = { 0, nullptr };
 
 class JWPLC_TFTClass : public Print
 {
@@ -30,6 +31,11 @@ public:
   int16_t width() const { return W; }
   int16_t height() const { return H; }
   void getTextBounds(const char *s, int16_t x, int16_t y, int16_t *x1, int16_t *y1, uint16_t *w, uint16_t *h);
+  void setFont(const JWPLC_TFTFont &) {} // el stub sólo dibuja GLCD
+  // Rectángulos redondeados: el stub ignora el radio (la prueba de esquinas
+  // mira el relleno de la barra, no el contorno que dibuja TFT_eSPI).
+  bool fillRoundRect(int16_t x, int16_t y, int16_t w, int16_t h, int16_t, uint16_t c, uint32_t t = 50) { return fillRect(x, y, w, h, c, t); }
+  bool drawRoundRect(int16_t x, int16_t y, int16_t w, int16_t h, int16_t, uint16_t c, uint32_t t = 50) { return drawRect(x, y, w, h, c, t); }
   void setTextSize(uint8_t s) { size = s ? s : 1; }
   void setTextColor(uint16_t f) { fg = f; bg = f; }
   void setTextColor(uint16_t f, uint16_t b) { fg = f; bg = b; }

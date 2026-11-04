@@ -536,15 +536,64 @@ async function main() {
       const wrap = document.getElementById('barInspectorWrap');
       const visible = (el) => el && el.offsetParent !== null;
       return {
-        verticalDisabled: wrap.querySelector('.bar-orient-btn[data-orient="VERTICAL"]').disabled,
+        verticalEnabled: !wrap.querySelector('.bar-orient-btn[data-orient="VERTICAL"]').disabled,
         simInShape: visible(wrap.querySelector('#barSubpanelShape .bar-top-slider-wrap')),
-        heightLocked: wrap.querySelector('#barFormaHeight').disabled,
+        heightEnabled: !wrap.querySelector('#barFormaHeight').disabled,
         dataTab: wrap.querySelector('.bar-main-tab[data-main-tab="plc"]').textContent.trim(),
         contract: wrap.querySelector('#barTechContractCode').textContent
       };
     });
-    check(barUi.verticalDisabled && barUi.heightLocked, 'BAR-3/BAR-4: vertical deshabilitada y alto fijo');
+    check(barUi.verticalEnabled && barUi.heightEnabled, 'BAR-3/BAR-4: vertical y grosor disponibles');
     check(!barUi.simInShape, 'BAR-1: simulación fuera de Forma');
+
+    console.log('BAR · DEGRADADO (mini-modelo)');
+    const barSel = () => page.evaluate(() => {
+      const f = window.JWPLCHMIEditor.getSelectedField();
+      return { fill: f.barFillMode, start: f.valueColor, end: f.valueColorEnd, width: f.barWidth, thick: f.barHeight };
+    });
+    const barRows = () => page.$$eval('#barAppMini [data-bar-legend]', (rows) => rows.map((r) => r.dataset.barLegend).join(','));
+    const barPick = async (key, value) => {
+      await page.$eval(`#barAppMini [data-bar-swatch="${key}"]`, (el) => el.click());
+      await page.$eval(`#barAppMini [data-bar-palette="${value}"]`, (el) => el.click());
+      await page.waitForTimeout(100);
+    };
+    const barSetNumber = async (id, value) => {
+      await page.$eval(id, (el, v) => {
+        el.value = String(v);
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      }, value);
+      await page.waitForTimeout(100);
+    };
+    await page.$eval('.bar-app-fill-btn[data-fill="GRADIENT"]', (el) => el.click());
+    await page.waitForTimeout(150);
+    check((await barRows()).includes('value,valueEnd'), 'Degradado: el mini-modelo añade el color final');
+    check(await page.$eval('#barAppGradTools', (el) => el.style.display === 'flex'), 'Degradado: se ven intercambio y paletas');
+    await page.$eval('#barAppGradTools .bar-palette-pill[data-grad-start="0xFD20"]', (el) => el.click());
+    await page.waitForTimeout(100);
+    let gradState = await barSel();
+    check(gradState.start === 0xFD20 && gradState.end === 0xF800, 'Degradado: la paleta rápida aplica los dos colores');
+    await page.$eval('#barAppGradSwapBtn', (el) => el.click());
+    await page.waitForTimeout(100);
+    gradState = await barSel();
+    check(gradState.start === 0xF800 && gradState.end === 0xFD20, 'Degradado: ⇄ intercambia inicio y fin');
+    await barPick('valueEnd', 0);
+    await barPick('value', 0);
+    await barSetNumber('#barFormaWidth', 125);
+    gradState = await barSel();
+    check(gradState.start === 0 && gradState.end === 0 && gradState.width === 125, `Negro: sobrevive a otro control (${JSON.stringify(gradState)})`);
+    await page.$eval('.bar-app-fill-btn[data-fill="SOLID"]', (el) => el.click());
+    await page.waitForTimeout(150);
+    check(!(await barRows()).includes('valueEnd'), 'Sólido: el color final sale del mini-modelo');
+    check(await page.$eval('#barAppGradTools', (el) => el.style.display === 'none'), 'Sólido: se ocultan intercambio y paletas');
+    await barSetNumber('#barFormaHeight', 30);
+    check((await barSel()).thick === 30, 'BAR: grosor editable');
+    await barSetNumber('#barFormaHeight', 12);
+    await page.evaluate(() => window.JWPLCHMIBar.setPreset('CIRCULAR'));
+    await page.waitForTimeout(150);
+    check(await page.$eval('#barAppFillCard', (el) => el.style.display === 'none'), 'Circular: no ofrece Degradado (el firmware no lo dibuja)');
+    await page.evaluate(() => window.JWPLCHMIBar.setPreset('LINEAR'));
+    await page.waitForTimeout(150);
     check(barUi.dataTab === 'Datos', 'BAR-5: pestaña "Datos"');
     check(/\n/.test(barUi.contract) && /setBar\(/.test(barUi.contract), 'BAR-6: contrato multilínea con setBar');
 

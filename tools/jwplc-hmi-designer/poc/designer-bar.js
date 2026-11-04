@@ -158,7 +158,7 @@
               <!-- Estilo de Barra -->
               <div class="field-label full" style="margin-top:6px;">
                 <span class="bar-visual-group-title">Estilo de Barra</span>
-                <div class="bar-visual-grid-4" id="barLinearStyleWrap">
+                <div class="bar-visual-grid-2" id="barLinearStyleWrap">
                   <button type="button" class="bar-visual-btn bar-linear-style-btn active" data-style="SOLID" title="Relleno continuo liso">
                     <svg width="22" height="14" viewBox="0 0 22 14">
                       <rect x="1" y="2" width="20" height="10" rx="1" stroke-width="1.5"/>
@@ -166,14 +166,7 @@
                     </svg>
                     <span>Sólido</span>
                   </button>
-                  <button type="button" class="bar-visual-btn bar-linear-style-btn" data-style="STRIPES" title="Líneas diagonales a 45° tipo industrial">
-                    <svg width="22" height="14" viewBox="0 0 22 14">
-                      <rect x="1" y="2" width="20" height="10" rx="1" stroke-width="1.5"/>
-                      <path d="M 4 10 L 8 4 M 8 10 L 12 4 M 12 10 L 16 4" stroke-width="1.5" stroke-linecap="round"/>
-                    </svg>
-                    <span>Diagonales</span>
-                  </button>
-                  <button type="button" class="bar-visual-btn bar-linear-style-btn" data-style="BLOCKS" title="Segmentos rectangulares clásico Win XP">
+                  <button type="button" class="bar-visual-btn bar-linear-style-btn" data-style="BLOCKS" title="Segmentos rectangulares discretos">
                     <svg width="22" height="14" viewBox="0 0 22 14">
                       <rect x="1" y="2" width="20" height="10" rx="1" stroke-width="1.5"/>
                       <rect x="3" y="4" width="3" height="6" fill="currentColor"/>
@@ -181,15 +174,6 @@
                       <rect x="13" y="4" width="3" height="6" fill="currentColor"/>
                     </svg>
                     <span>Bloques</span>
-                  </button>
-                  <button type="button" class="bar-visual-btn bar-linear-style-btn" data-style="DOTS" title="Matriz de puntos LED lineales">
-                    <svg width="22" height="14" viewBox="0 0 22 14">
-                      <rect x="1" y="2" width="20" height="10" rx="1" stroke-width="1.5"/>
-                      <circle cx="5" cy="7" r="1.8" fill="currentColor"/>
-                      <circle cx="10" cy="7" r="1.8" fill="currentColor"/>
-                      <circle cx="15" cy="7" r="1.8" fill="currentColor"/>
-                    </svg>
-                    <span>Puntos</span>
                   </button>
                 </div>
               </div>
@@ -225,8 +209,8 @@
                     <span id="barFormaBorderColorHex" class="hex-label compact">0xFFFF</span>
                   </div>
                 </div>
-                <div id="barFormaBorderWidthWrap" style="display:none;align-items:center;justify-content:space-between;margin-top:4px;padding:3px 6px;background:#0d1820;border:1px solid #1e313f;border-radius:4px;">
-                  <span style="font-size:10px;color:#8ea3b3;font-weight:600;">Grosor de borde (px)</span>
+                <div id="barFormaBorderWidthWrap" style="display:none;align-items:center;justify-content:space-between;margin-top:4px;padding:3px 6px;background:var(--panel-2);border:1px solid var(--line);border-radius:4px;">
+                  <span style="font-size:10px;color:var(--muted);font-weight:600;">Grosor de borde (px)</span>
                   <input id="barFormaBorderWidth" class="field-input" type="number" min="1" max="10" value="1" style="width:60px;padding:2px 6px;text-align:right;" />
                 </div>
               </div>
@@ -261,7 +245,7 @@
 
               <!-- Dirección de llenado y Rotación -->
               <div class="field-label full" style="margin-top:6px;">
-                <span class="bar-visual-group-title">Dirección y Rotación <span id="barCircleStartHint" style="font-weight:normal;color:#8ea3b3;margin-left:4px;font-size:10px;">(Inicio: 12h)</span></span>
+                <span class="bar-visual-group-title">Dirección y Rotación <span id="barCircleStartHint" style="font-weight:normal;color:var(--muted);margin-left:4px;font-size:10px;">(Inicio: 12h)</span></span>
                 <div class="bar-visual-grid-4" id="barCircularDirRotWrap">
                   <button type="button" class="bar-visual-btn bar-dir-btn active" data-dir="CW" title="Llenado en sentido horario">
                     <span style="font-size:13px;line-height:1;">↻</span>
@@ -285,7 +269,7 @@
               <!-- Estilo de Anillo -->
               <div class="field-label full" style="margin-top:6px;">
                 <span class="bar-visual-group-title">Estilo de Anillo</span>
-                <div class="bar-visual-grid-4" id="barCircularStyleWrap">
+                <div class="bar-visual-grid-2" id="barCircularStyleWrap">
                   <button type="button" class="bar-visual-btn bar-style-btn active" data-style="CONTINUOUS" title="Anillo continuo sólido">
                     <svg width="18" height="18" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7.5" stroke-width="3.5"/></svg>
                     <span>Sólido</span>
@@ -293,14 +277,6 @@
                   <button type="button" class="bar-visual-btn bar-style-btn" data-style="SEGMENTED" title="Segmentos o bloques discretos">
                     <svg width="18" height="18" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7.5" stroke-width="3.5" stroke-dasharray="3.2 2"/></svg>
                     <span>Bloques</span>
-                  </button>
-                  <button type="button" class="bar-visual-btn bar-style-btn" data-style="DOTS" title="Puntos o esferas independientes">
-                    <svg width="18" height="18" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7.5" stroke-width="3" stroke-dasharray="0.1 3.8" stroke-linecap="round"/></svg>
-                    <span>Puntos</span>
-                  </button>
-                  <button type="button" class="bar-visual-btn bar-style-btn" data-style="TICKS" title="Marcas o rayas radiales">
-                    <svg width="18" height="18" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7.5" stroke-width="3.5" stroke-dasharray="1 2.2"/></svg>
-                    <span>Rayas</span>
                   </button>
                 </div>
               </div>
@@ -403,72 +379,42 @@
 
         <!-- SUBPANEL 1.3: APARIENCIA -->
         <div class="bar-subpanel" id="barSubpanelAppearance" data-subpanel="appearance" style="display:none;">
-          <!-- Mini-modelo + leyenda + indicador A1 -->
-          <div class="bar-card" id="barAppMini"></div>
-
-          <!-- Configuración de Relleno y Degradado (en Apariencia) -->
-          <div class="bar-card" id="barAppGradCard" style="margin-top:10px;">
-            <div class="bar-card-section-title">▾ Relleno del indicador (Barra / Arco)</div>
-            <div class="bar-visual-grid-2" style="margin-top:6px;" id="barAppFillModeGroup">
-              <button type="button" class="bar-visual-btn bar-app-fill-btn active" data-fill="SOLID" title="Color liso uniforme">
-                <svg width="20" height="12" viewBox="0 0 20 12"><rect x="1" y="1" width="18" height="10" rx="1.5" fill="currentColor"/></svg>
-                <span>Color Sólido</span>
-              </button>
-              <button type="button" class="bar-visual-btn bar-app-fill-btn" data-fill="GRADIENT" title="Degradado suave entre dos colores">
-                <svg width="20" height="12" viewBox="0 0 20 12">
-                  <defs>
-                    <linearGradient id="barSvgGradIcon" x1="0" y1="0" x2="1" y2="0">
-                      <stop offset="0%" stop-color="#ff3b30"/>
-                      <stop offset="100%" stop-color="#34c759"/>
-                    </linearGradient>
-                  </defs>
-                  <rect x="1" y="1" width="18" height="10" rx="1.5" fill="url(#barSvgGradIcon)"/>
-                </svg>
-                <span>Degradado</span>
-              </button>
+          <!-- Interruptor de Modo de Relleno (Sólido / Degradado) -->
+          <div class="bar-card" id="barAppFillCard" style="padding:6px 10px;margin-bottom:6px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+              <span class="bar-card-section-title" style="margin:0;">Relleno del indicador</span>
+              <div class="bar-visual-grid-2" style="margin:0;width:150px;gap:4px;" id="barAppFillModeGroup">
+                <button type="button" class="bar-visual-btn bar-app-fill-btn active" data-fill="SOLID" title="Color liso uniforme" style="padding:2px 8px;min-height:22px;font-size:10px;">
+                  <span>Sólido</span>
+                </button>
+                <button type="button" class="bar-visual-btn bar-app-fill-btn" data-fill="GRADIENT" title="Degradado suave entre dos colores" style="padding:2px 8px;min-height:22px;font-size:10px;">
+                  <span>Degradado</span>
+                </button>
+              </div>
             </div>
-
-            <!-- Controles cuando Degradado está activo -->
-            <div id="barAppGradSettings" style="display:none;margin-top:10px;">
-              <div class="bar-grad-row full">
-                <label class="field-label" style="flex:1;min-width:0;">Color Inicial
-                  <div class="bar-color-input-wrap compact">
-                    <input id="barGradStartNative" type="color" value="#00ffff" />
-                    <span id="barGradStartHex" class="hex-label compact">0x07FF</span>
-                  </div>
-                </label>
-                <button type="button" id="barGradSwapBtn" class="bar-swap-icon-btn" title="Intercalar color inicial y final" style="align-self:flex-end;margin-bottom:2px;">⇄</button>
-                <label class="field-label" style="flex:1;min-width:0;">Color Final
-                  <div class="bar-color-input-wrap compact">
-                    <input id="barGradEndNative" type="color" value="#00ff00" />
-                    <span id="barGradEndHex" class="hex-label compact">0x07E0</span>
-                  </div>
-                </label>
-              </div>
-
-              <!-- Paletas rápidas -->
-              <div class="field-label full" style="margin-top:8px;">
-                <span style="font-size:10px;color:#8ea3b3;margin-bottom:5px;display:block;font-weight:600;">Paletas rápidas de degradado:</span>
-                <div class="bar-palette-row" id="barGradPalettes">
-                  <button type="button" class="bar-palette-pill" data-grad-start="0xF800" data-grad-end="0x07E0">
-                    <span class="bar-palette-preview" style="background:linear-gradient(90deg,#ff0000,#00ff00);"></span>Rojo-Verde
-                  </button>
-                  <button type="button" class="bar-palette-pill" data-grad-start="0x07E0" data-grad-end="0xF800">
-                    <span class="bar-palette-preview" style="background:linear-gradient(90deg,#00ff00,#ff0000);"></span>Verde-Rojo
-                  </button>
-                  <button type="button" class="bar-palette-pill" data-grad-start="0x07FF" data-grad-end="0x001F">
-                    <span class="bar-palette-preview" style="background:linear-gradient(90deg,#00ffff,#0000ff);"></span>Cian-Azul
-                  </button>
-                  <button type="button" class="bar-palette-pill" data-grad-start="0xFD20" data-grad-end="0xF800">
-                    <span class="bar-palette-preview" style="background:linear-gradient(90deg,#ff9900,#ff0000);"></span>Fuego
-                  </button>
-                  <button type="button" class="bar-palette-pill" data-grad-start="0x780F" data-grad-end="0xF81F">
-                    <span class="bar-palette-preview" style="background:linear-gradient(90deg,#7700ff,#ff00ff);"></span>Neón
-                  </button>
-                </div>
-              </div>
+            <!-- Sólo con Degradado activo: intercambio y paletas rápidas -->
+            <div id="barAppGradTools" style="display:none;align-items:center;gap:3px;flex-wrap:wrap;margin-top:5px;">
+              <button type="button" id="barAppGradSwapBtn" class="bar-swap-icon-btn" title="Intercalar color inicial y final" style="width:22px;height:22px;">⇄</button>
+              <button type="button" class="bar-palette-pill" data-grad-start="0xF800" data-grad-end="0x07E0" style="padding:2px 5px;font-size:9.5px;">
+                <span class="bar-palette-preview" style="background:linear-gradient(90deg,#ff0000,#00ff00);width:10px;height:8px;"></span>R-V
+              </button>
+              <button type="button" class="bar-palette-pill" data-grad-start="0x07E0" data-grad-end="0xF800" style="padding:2px 5px;font-size:9.5px;">
+                <span class="bar-palette-preview" style="background:linear-gradient(90deg,#00ff00,#ff0000);width:10px;height:8px;"></span>V-R
+              </button>
+              <button type="button" class="bar-palette-pill" data-grad-start="0x07FF" data-grad-end="0x001F" style="padding:2px 5px;font-size:9.5px;">
+                <span class="bar-palette-preview" style="background:linear-gradient(90deg,#00ffff,#0000ff);width:10px;height:8px;"></span>Cian
+              </button>
+              <button type="button" class="bar-palette-pill" data-grad-start="0xFD20" data-grad-end="0xF800" style="padding:2px 5px;font-size:9.5px;">
+                <span class="bar-palette-preview" style="background:linear-gradient(90deg,#ff9900,#ff0000);width:10px;height:8px;"></span>Fuego
+              </button>
+              <button type="button" class="bar-palette-pill" data-grad-start="0x780F" data-grad-end="0xF81F" style="padding:2px 5px;font-size:9.5px;">
+                <span class="bar-palette-preview" style="background:linear-gradient(90deg,#7700ff,#ff00ff);width:10px;height:8px;"></span>Neón
+              </button>
             </div>
           </div>
+
+          <!-- Mini-modelo + leyenda + indicador A1 (ABAJO) -->
+          <div class="bar-card" id="barAppMini"></div>
 
           <!-- Controles anteriores: quedan ocultos -->
           <div class="bar-card" id="barAppLegacyCard" style="display:none;">
@@ -498,7 +444,7 @@
                   </label>
                 </div>
                 <div class="field-label full" style="margin-top:4px;">
-                  <span style="font-size:10px;color:#8ea3b3;margin-bottom:4px;display:block;">Paletas rápidas de degradado:</span>
+                  <span style="font-size:10px;color:var(--muted);margin-bottom:4px;display:block;">Paletas rápidas de degradado:</span>
                   <div class="bar-palette-row">
                     <button type="button" class="bar-palette-pill" data-grad-start="0xF800" data-grad-end="0x07E0">
                       <span class="bar-palette-preview" style="background:linear-gradient(90deg,#ff0000,#00ff00);"></span>Rojo-Verde
@@ -706,7 +652,7 @@
               Contrato C++
             </span>
           </div>
-          <span style="font-size:10px;color:#8ea3b3;margin-top:4px;display:block;">Declaración (en tiempo de compilación)</span>
+          <span style="font-size:10px;color:var(--muted);margin-top:4px;display:block;">Declaración (en tiempo de compilación)</span>
           <div class="bar-code-box" style="margin-top:4px;">
             <code id="barTechContractCode">float nivel4 = 0.0f;</code>
             <button type="button" id="barTechCopyContractBtn" class="bar-copy-icon-btn" title="Copiar código">⧉</button>
@@ -733,7 +679,7 @@
             <span>Rango configurado</span>
             <strong id="barDiagRange">0 — 100 %</strong>
           </div>
-          <span style="font-size:10px;color:#8ea3b3;margin-top:8px;display:block;font-weight:600;">Geometría (px)</span>
+          <span style="font-size:10px;color:var(--muted);margin-top:8px;display:block;font-weight:600;">Geometría (px)</span>
           <div class="bar-two-cols" style="margin-top:4px;">
             <div class="readout"><span>X</span><strong id="barDiagX">20</strong></div>
             <div class="readout"><span>Y</span><strong id="barDiagY">20</strong></div>
@@ -755,7 +701,7 @@
         <!-- Tarjeta 4: Acciones avanzadas -->
         <div class="bar-card" style="margin-top:10px;">
           <div class="bar-card-header">
-            <span class="bar-card-title" style="color:#dce9f1;font-size:11px;">Acciones avanzadas</span>
+            <span class="bar-card-title" style="color:var(--text-heading);font-size:11px;">Acciones avanzadas</span>
           </div>
           <div style="display:flex;gap:6px;margin-top:8px;">
             <button type="button" class="bar-action-btn" id="barTechDuplicateBtn" style="flex:1;">Duplicar objeto</button>
@@ -963,6 +909,12 @@
     return (((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3)) & 0xFFFF;
   }
 
+  // 0 es negro, no «sin color»: sólo un valor no numérico toma el predeterminado.
+  const colorOr = (value, fallback) => (value !== null && value !== '' && Number.isFinite(Number(value)) ? Number(value) : fallback);
+
+  // El medidor circular del firmware no tiene degradado.
+  const barGradActive = (field) => field?.barPreset !== 'CIRCULAR' && field?.barFillMode === 'GRADIENT';
+
   function hexCssTo565(hex) {
     const cleaned = String(hex || '').replace('#', '').trim();
     if (cleaned.length === 3) {
@@ -1110,6 +1062,7 @@
   function applyFirmwareCaps(field) {
     if (field.barPreset === 'CIRCULAR') {
       field.barFillMode = 'SOLID';
+      field.circleColorMode = 'SOLID'; // JWPLC_UICircularStyle no tiene color final
       field.barOrientation = 'HORIZONTAL';
       field.barStyle = 'SOLID';
       field.barCornerRadius = 0;
@@ -1120,15 +1073,22 @@
       if (!Number.isFinite(Number(field.circleSweep))) field.circleSweep = 360;
       if (typeof field.circleDirection !== 'string') field.circleDirection = 'CW';
       if (typeof field.circleStartAngle !== 'string') field.circleStartAngle = 'TOP';
-      if (typeof field.circleStyle !== 'string') field.circleStyle = 'CONTINUOUS';
+      if (typeof field.circleStyle !== 'string' || !['CONTINUOUS', 'SEGMENTED'].includes(field.circleStyle)) field.circleStyle = 'CONTINUOUS';
       return;
     }
     field.barPreset = 'LINEAR';
-    field.barFillMode = 'SOLID';
-    field.barOrientation = 'HORIZONTAL';
-    field.barStyle = 'SOLID';
-    field.barCornerRadius = 0;
-    field.barBorderEnabled = false;
+    if (field.barFillMode !== 'GRADIENT') field.barFillMode = 'SOLID';
+    if (field.barOrientation !== 'VERTICAL') field.barOrientation = 'HORIZONTAL';
+    if (field.barStyle !== 'BLOCKS') field.barStyle = 'SOLID';
+    if (field.barCornerRadius !== 'FULL') {
+      const r = Number(field.barCornerRadius);
+      field.barCornerRadius = (Number.isFinite(r) && r >= 0) ? Math.min(20, Math.trunc(r)) : 0;
+    }
+    field.barBorderEnabled = Boolean(field.barBorderEnabled);
+    if (!Number.isFinite(Number(field.barBorderColor))) field.barBorderColor = 0xFFFF;
+    field.barBorderColor = Number(field.barBorderColor) & 0xFFFF;
+    if (!Number.isFinite(Number(field.barBorderWidth)) || field.barBorderWidth < 1) field.barBorderWidth = 1;
+    field.barBorderWidth = Math.min(10, Math.trunc(Number(field.barBorderWidth)));
     field.linearPctPos = 'NONE';
     if (field.barAutoWidth === true) {
       // Proyecto viejo con ancho AUTO: el firmware usaba una barra de 80 px;
@@ -1143,7 +1103,13 @@
         : FIELD_PADDING + pad + Math.max(labelW, valueAndUnit);
     }
     field.barAutoWidth = false;
-    field.barHeight = DEFAULT_BAR_HEIGHT;
+    if (field.barOrientation === 'VERTICAL') {
+      if (!Number.isFinite(Number(field.barWidth)) || field.barWidth < 4) field.barWidth = 14;
+      if (!Number.isFinite(Number(field.barHeight)) || field.barHeight < 10) field.barHeight = 60;
+    } else {
+      if (!Number.isFinite(Number(field.barWidth)) || field.barWidth < 20) field.barWidth = 110;
+      if (!Number.isFinite(Number(field.barHeight)) || field.barHeight < 4) field.barHeight = DEFAULT_BAR_HEIGHT;
+    }
     if (field.layout !== 'INLINE' && field.layout !== 'STACKED') field.layout = 'STACKED';
     field.alignV = field.layout === 'INLINE' ? 'MID' : 'TOP';
     field.alignH = 'LEFT';
@@ -1689,8 +1655,8 @@
       const rMid = g.radius - g.thickness / 2;
       const trackCol565 = Number.isFinite(Number(field.circleTrackColor)) ? Number(field.circleTrackColor) : 0x0000;
       const trackCss = rgb565ToCss(trackCol565);
-      const activeColor565 = field.valueColor || 0x07FF;
-      const endColor565 = field.valueColorEnd || 0x07E0;
+      const activeColor565 = colorOr(field.valueColor, 0x07FF);
+      const endColor565 = colorOr(field.valueColorEnd, 0x07E0);
       const isGrad = (field.circleColorMode === 'GRADIENT');
 
       ctx.save();
@@ -1891,76 +1857,85 @@
         pixelFillRoundedRect(ctx, g.valueX, g.valueY, g.valueW, g.valueH, radPx, trackCss, scale);
       }
 
-      // 2. Relleno activo según estilo
+      // 2. Relleno activo según estilo, dentro del borde (como drawBarDelta)
+      const fillInset = field.barBorderEnabled ? Math.max(1, Math.trunc(Number(field.barBorderWidth) || 1)) : 0;
+      const fv = {
+        valueX: g.valueX + fillInset,
+        valueY: g.valueY + fillInset,
+        valueW: g.valueW - 2 * fillInset,
+        valueH: g.valueH - 2 * fillInset
+      };
+      const fillRad = Math.max(0, radPx - fillInset);
       if (field.barOrientation === 'VERTICAL') {
-        const fillH = Math.round(norm * g.valueH);
+        const fillH = Math.round(norm * fv.valueH);
         if (fillH > 0) {
-          const activeCol565 = field.valueColor || 0x07FF;
-          const endCol565 = field.valueColorEnd || 0x07E0;
+          const activeCol565 = colorOr(field.valueColor, 0x07FF);
+          const endCol565 = colorOr(field.valueColorEnd, 0x07E0);
           const activeCss = rgb565ToCss(activeCol565);
 
           if (barStyle === 'SOLID') {
-            if (radPx <= 0) {
+            if (fillRad <= 0) {
               if (isGrad) {
-                const grad = ctx.createLinearGradient(0, (g.valueY + g.valueH) * scale, 0, g.valueY * scale);
+                const grad = ctx.createLinearGradient(0, (fv.valueY + fv.valueH) * scale, 0, fv.valueY * scale);
                 grad.addColorStop(0, rgb565ToCss(activeCol565));
                 grad.addColorStop(1, rgb565ToCss(endCol565));
                 ctx.fillStyle = grad;
               } else {
                 ctx.fillStyle = activeCss;
               }
-              ctx.fillRect(g.valueX * scale, (g.valueY + g.valueH - fillH) * scale, g.valueW * scale, fillH * scale);
+              ctx.fillRect(fv.valueX * scale, (fv.valueY + fv.valueH - fillH) * scale, fv.valueW * scale, fillH * scale);
             } else {
-              pixelFillRoundedPortion(ctx, g.valueX, g.valueY, g.valueW, g.valueH, radPx, 'VERTICAL', fillH, isGrad, activeCol565, endCol565, activeCss, scale);
+              pixelFillRoundedPortion(ctx, fv.valueX, fv.valueY, fv.valueW, fv.valueH, fillRad, 'VERTICAL', fillH, isGrad, activeCol565, endCol565, activeCss, scale);
             }
           } else if (barStyle === 'STRIPES') {
             ctx.save();
-            pixelClipRoundedRect(ctx, g.valueX, g.valueY, g.valueW, g.valueH, radPx, scale);
+            pixelClipRoundedRect(ctx, fv.valueX, fv.valueY, fv.valueW, fv.valueH, fillRad, scale);
             ctx.clip();
             ctx.beginPath();
-            ctx.rect(g.valueX * scale, (g.valueY + g.valueH - fillH) * scale, g.valueW * scale, fillH * scale);
+            ctx.rect(fv.valueX * scale, (fv.valueY + fv.valueH - fillH) * scale, fv.valueW * scale, fillH * scale);
             ctx.clip();
             const step = Math.max(4, Math.round(7 * scale));
             ctx.lineWidth = Math.max(1, Math.round(2 * scale));
-            const startY = (g.valueY + g.valueH) * scale + g.valueW * scale;
-            const endY = (g.valueY + g.valueH - fillH) * scale - g.valueW * scale;
+            const startY = (fv.valueY + fv.valueH) * scale + fv.valueW * scale;
+            const endY = (fv.valueY + fv.valueH - fillH) * scale - fv.valueW * scale;
             for (let sy = startY; sy >= endY; sy -= step) {
-              const prop = Math.max(0, Math.min(1, ((g.valueY + g.valueH) * scale - sy) / (g.valueH * scale)));
+              const prop = Math.max(0, Math.min(1, ((fv.valueY + fv.valueH) * scale - sy) / (fv.valueH * scale)));
               const col = isGrad ? interpolateColor565(activeCol565, endCol565, prop) : activeCol565;
               ctx.strokeStyle = rgb565ToCss(col);
               ctx.beginPath();
-              ctx.moveTo(g.valueX * scale, sy);
-              ctx.lineTo((g.valueX + g.valueW) * scale, sy - g.valueW * scale);
+              ctx.moveTo(fv.valueX * scale, sy);
+              ctx.lineTo((fv.valueX + fv.valueW) * scale, sy - fv.valueW * scale);
               ctx.stroke();
             }
             ctx.restore();
           } else if (barStyle === 'BLOCKS') {
             ctx.save();
-            pixelClipRoundedRect(ctx, g.valueX, g.valueY, g.valueW, g.valueH, radPx, scale);
+            pixelClipRoundedRect(ctx, fv.valueX, fv.valueY, fv.valueW, fv.valueH, fillRad, scale);
             ctx.clip();
-            const blockH = Math.max(3, Math.round(6 * scale));
-            const gap = Math.max(1, Math.round(2 * scale));
-            const totalBlocks = Math.max(1, Math.floor((g.valueH * scale + gap) / (blockH + gap)));
+            const blockPitch = Math.max(2, Math.round(5 * scale));
+            const blockSize = Math.max(1, Math.round(4 * scale));
+            const gap = blockPitch - blockSize;
+            const totalBlocks = Math.max(1, Math.floor((fv.valueH * scale + gap) / blockPitch));
             const activeBlocks = Math.round(norm * totalBlocks);
             for (let i = 0; i < activeBlocks; i++) {
-              const by = (g.valueY + g.valueH) * scale - (i + 1) * (blockH + gap) + gap;
+              const by = (fv.valueY + fv.valueH) * scale - (i + 1) * blockPitch + gap;
               const prop = i / Math.max(1, totalBlocks - 1);
               const col = isGrad ? interpolateColor565(activeCol565, endCol565, prop) : activeCol565;
               ctx.fillStyle = rgb565ToCss(col);
-              ctx.fillRect(g.valueX * scale, by, g.valueW * scale, blockH);
+              ctx.fillRect(fv.valueX * scale, by, fv.valueW * scale, blockSize);
             }
             ctx.restore();
           } else if (barStyle === 'DOTS') {
             ctx.save();
-            pixelClipRoundedRect(ctx, g.valueX, g.valueY, g.valueW, g.valueH, radPx, scale);
+            pixelClipRoundedRect(ctx, fv.valueX, fv.valueY, fv.valueW, fv.valueH, fillRad, scale);
             ctx.clip();
-            const dotR = Math.max(1.5, Math.min(g.valueW * scale / 2 - 1.5 * scale, 3.5 * scale));
+            const dotR = Math.max(1.5, Math.min(fv.valueW * scale / 2 - 1.5 * scale, 3.5 * scale));
             const step = dotR * 2 + Math.max(2, Math.round(3 * scale));
-            const totalDots = Math.max(1, Math.floor((g.valueH * scale - 2 * scale) / step));
+            const totalDots = Math.max(1, Math.floor((fv.valueH * scale - 2 * scale) / step));
             const activeDots = Math.round(norm * totalDots);
-            const cx = (g.valueX + g.valueW / 2) * scale;
+            const cx = (fv.valueX + fv.valueW / 2) * scale;
             for (let i = 0; i < totalDots; i++) {
-              const cy = (g.valueY + g.valueH) * scale - 1.5 * scale - dotR - i * step;
+              const cy = (fv.valueY + fv.valueH) * scale - 1.5 * scale - dotR - i * step;
               const isActive = (i < activeDots);
               if (isActive) {
                 const prop = i / Math.max(1, totalDots - 1);
@@ -2015,76 +1990,77 @@
         }
       } else {
         // Horizontal
-        const fillW = Math.round(norm * g.valueW);
+        const fillW = Math.round(norm * fv.valueW);
         if (fillW > 0) {
-          const activeCol565 = field.valueColor || 0x07FF;
-          const endCol565 = field.valueColorEnd || 0x07E0;
+          const activeCol565 = colorOr(field.valueColor, 0x07FF);
+          const endCol565 = colorOr(field.valueColorEnd, 0x07E0);
           const activeCss = rgb565ToCss(activeCol565);
 
           if (barStyle === 'SOLID') {
-            if (radPx <= 0) {
+            if (fillRad <= 0) {
               if (isGrad) {
-                const grad = ctx.createLinearGradient(g.valueX * scale, 0, (g.valueX + g.valueW) * scale, 0);
+                const grad = ctx.createLinearGradient(fv.valueX * scale, 0, (fv.valueX + fv.valueW) * scale, 0);
                 grad.addColorStop(0, rgb565ToCss(activeCol565));
                 grad.addColorStop(1, rgb565ToCss(endCol565));
                 ctx.fillStyle = grad;
               } else {
                 ctx.fillStyle = activeCss;
               }
-              ctx.fillRect(g.valueX * scale, g.valueY * scale, fillW * scale, g.valueH * scale);
+              ctx.fillRect(fv.valueX * scale, fv.valueY * scale, fillW * scale, fv.valueH * scale);
             } else {
-              pixelFillRoundedPortion(ctx, g.valueX, g.valueY, g.valueW, g.valueH, radPx, 'HORIZONTAL', fillW, isGrad, activeCol565, endCol565, activeCss, scale);
+              pixelFillRoundedPortion(ctx, fv.valueX, fv.valueY, fv.valueW, fv.valueH, fillRad, 'HORIZONTAL', fillW, isGrad, activeCol565, endCol565, activeCss, scale);
             }
           } else if (barStyle === 'STRIPES') {
             ctx.save();
-            pixelClipRoundedRect(ctx, g.valueX, g.valueY, g.valueW, g.valueH, radPx, scale);
+            pixelClipRoundedRect(ctx, fv.valueX, fv.valueY, fv.valueW, fv.valueH, fillRad, scale);
             ctx.clip();
             ctx.beginPath();
-            ctx.rect(g.valueX * scale, g.valueY * scale, fillW * scale, g.valueH * scale);
+            ctx.rect(fv.valueX * scale, fv.valueY * scale, fillW * scale, fv.valueH * scale);
             ctx.clip();
             const step = Math.max(4, Math.round(7 * scale));
             ctx.lineWidth = Math.max(1, Math.round(2 * scale));
-            const startX = g.valueX * scale - g.valueH * scale;
-            const endX = (g.valueX + fillW) * scale + g.valueH * scale;
+            const startX = fv.valueX * scale - fv.valueH * scale;
+            const endX = (fv.valueX + fillW) * scale + fv.valueH * scale;
             for (let sx = startX; sx < endX; sx += step) {
-              const prop = Math.max(0, Math.min(1, (sx - g.valueX * scale) / (g.valueW * scale)));
+              const prop = Math.max(0, Math.min(1, (sx - fv.valueX * scale) / (fv.valueW * scale)));
               const col = isGrad ? interpolateColor565(activeCol565, endCol565, prop) : activeCol565;
               ctx.strokeStyle = rgb565ToCss(col);
               ctx.beginPath();
-              ctx.moveTo(sx, (g.valueY + g.valueH) * scale);
-              ctx.lineTo(sx + g.valueH * scale, g.valueY * scale);
+              ctx.moveTo(sx, (fv.valueY + fv.valueH) * scale);
+              ctx.lineTo(sx + fv.valueH * scale, fv.valueY * scale);
               ctx.stroke();
             }
             ctx.restore();
           } else if (barStyle === 'BLOCKS') {
             ctx.save();
-            pixelClipRoundedRect(ctx, g.valueX, g.valueY, g.valueW, g.valueH, radPx, scale);
+            pixelClipRoundedRect(ctx, fv.valueX, fv.valueY, fv.valueW, fv.valueH, fillRad, scale);
             ctx.clip();
-            const blockW = Math.max(3, Math.round(6 * scale));
-            const gap = Math.max(1, Math.round(2 * scale));
-            const totalBlocks = Math.max(1, Math.floor((g.valueW * scale + gap) / (blockW + gap)));
+            const blockPitch = Math.max(2, Math.round(5 * scale));
+            const blockSize = Math.max(1, Math.round(4 * scale));
+            const gap = blockPitch - blockSize;
+            const totalBlocks = Math.max(1, Math.floor((fv.valueW * scale + gap) / blockPitch));
             const activeBlocks = Math.round(norm * totalBlocks);
             for (let i = 0; i < activeBlocks; i++) {
-              const bx = g.valueX * scale + i * (blockW + gap);
-              if (bx + blockW > (g.valueX + g.valueW) * scale) break;
+              const bx = fv.valueX * scale + i * blockPitch;
+              if (bx + blockSize > (fv.valueX + fv.valueW) * scale) break;
               const prop = i / Math.max(1, totalBlocks - 1);
               const col = isGrad ? interpolateColor565(activeCol565, endCol565, prop) : activeCol565;
               ctx.fillStyle = rgb565ToCss(col);
-              ctx.fillRect(bx, g.valueY * scale, blockW, g.valueH * scale);
+              ctx.fillRect(bx, fv.valueY * scale, blockSize, fv.valueH * scale);
             }
             ctx.restore();
           } else if (barStyle === 'DOTS') {
             ctx.save();
-            pixelClipRoundedRect(ctx, g.valueX, g.valueY, g.valueW, g.valueH, radPx, scale);
+            pixelClipRoundedRect(ctx, fv.valueX, fv.valueY, fv.valueW, fv.valueH, fillRad, scale);
             ctx.clip();
-            const dotR = Math.max(1.5, Math.min(g.valueH * scale / 2 - 1.5 * scale, 3.5 * scale));
+            const dotR = Math.max(1.5, Math.min(fv.valueH * scale / 2 - 1.5 * scale, 3.5 * scale));
             const step = dotR * 2 + Math.max(2, Math.round(3 * scale));
-            const totalDots = Math.max(1, Math.floor((g.valueW * scale - 2 * scale) / step));
+            const totalDots = Math.max(1, Math.floor((fv.valueW * scale - 2 * scale) / step));
             const activeDots = Math.round(norm * totalDots);
-            const cy = (g.valueY + g.valueH / 2) * scale;
+            const cy = (fv.valueY + fv.valueH / 2) * scale;
             for (let i = 0; i < totalDots; i++) {
-              const cx = g.valueX * scale + 1.5 * scale + dotR + i * step;
-              if (cx + dotR > (g.valueX + g.valueW) * scale) break;
+              const cx = fv.valueX * scale + 1.5 * scale + dotR + i * step;
+              if (cx + dotR > (fv.valueX + fv.valueW) * scale) break;
               const isActive = (i < activeDots);
               if (isActive) {
                 const prop = i / Math.max(1, totalDots - 1);
@@ -2311,35 +2287,12 @@
       if (barFormaCircleRadius) field.circleRadius = Math.max(10, Math.min(80, Number(barFormaCircleRadius.value) || 26));
       if (barFormaCircleThickness) field.circleThickness = Math.max(2, Math.min(25, Number(barFormaCircleThickness.value) || 5));
       if (barFormaCircleColorMode) field.circleColorMode = barFormaCircleColorMode.value || 'SOLID';
-      if (field.circleColorMode === 'GRADIENT') {
-        if (barAppCircularGradStartNative) {
-          field.valueColor = hexCssTo565(barAppCircularGradStartNative.value);
-          if (barAppCircularGradStartHex) barAppCircularGradStartHex.textContent = hex565(field.valueColor);
-        }
-        if (barAppCircularGradEndNative) {
-          field.valueColorEnd = hexCssTo565(barAppCircularGradEndNative.value);
-          if (barAppCircularGradEndHex) barAppCircularGradEndHex.textContent = hex565(field.valueColorEnd);
-        }
-      } else {
-        if (barAppCircularColorNative) {
-          field.valueColor = hexCssTo565(barAppCircularColorNative.value);
-          if (barAppCircularColorHex) barAppCircularColorHex.textContent = hex565(field.valueColor);
-        }
-      }
-      if (barAppCircularTrackNative) {
-        field.circleTrackColor = hexCssTo565(barAppCircularTrackNative.value);
-        if (barAppCircularTrackHex) barAppCircularTrackHex.textContent = hex565(field.circleTrackColor);
-      }
       if (barContentCircleCenterMode) {
         field.circleCenterMode = barContentCircleCenterMode.value || 'PERCENT';
         field.circleShowPercent = (field.circleCenterMode !== 'NONE');
       }
       if (barContentCircleTextSize) {
         field.circleTextSize = Number(barContentCircleTextSize.value) || 1;
-      }
-      if (barAppCircularTextColNative) {
-        field.circleTextColor = hexCssTo565(barAppCircularTextColNative.value);
-        if (barAppCircularTextColHex) barAppCircularTextColHex.textContent = hex565(field.circleTextColor);
       }
     } else {
       // Linear
@@ -2355,43 +2308,14 @@
       }
 
       if (barFormaFillMode) field.barFillMode = barFormaFillMode.value || 'SOLID';
-      if (field.barFillMode === 'GRADIENT') {
-        if (barAppLinearGradStartNative) {
-          field.valueColor = hexCssTo565(barAppLinearGradStartNative.value);
-          if (barAppLinearGradStartHex) barAppLinearGradStartHex.textContent = hex565(field.valueColor);
-        }
-        if (barAppLinearGradEndNative) {
-          field.valueColorEnd = hexCssTo565(barAppLinearGradEndNative.value);
-          if (barAppLinearGradEndHex) barAppLinearGradEndHex.textContent = hex565(field.valueColorEnd);
-        }
-      } else {
-        if (barAppLinearColorNative) {
-          field.valueColor = hexCssTo565(barAppLinearColorNative.value);
-          if (barAppLinearColorHex) barAppLinearColorHex.textContent = hex565(field.valueColor);
-        }
-      }
+      if (barFormaBorderEnabled) field.barBorderEnabled = barFormaBorderEnabled.checked;
+      if (barFormaBorderWidth) field.barBorderWidth = Math.max(1, Math.min(10, Math.trunc(Number(barFormaBorderWidth.value) || 1)));
+      if (barFormaBorderColorNative) field.barBorderColor = hexCssTo565(barFormaBorderColorNative.value);
 
-      if (barAppLinearTrackNative) {
-        field.trackColor = hexCssTo565(barAppLinearTrackNative.value);
-        if (barAppLinearTrackHex) barAppLinearTrackHex.textContent = hex565(field.trackColor);
-      }
 
       if (barContentLinearPctPos) {
         field.linearPctPos = barContentLinearPctPos.value || 'NONE';
       }
-      if (barAppLinearPctColNative) {
-        field.linearPctColor = hexCssTo565(barAppLinearPctColNative.value);
-        if (barAppLinearPctColHex) barAppLinearPctColHex.textContent = hex565(field.linearPctColor);
-      }
-    }
-
-    if (barAppLabelColNative) {
-      field.labelColor = hexCssTo565(barAppLabelColNative.value);
-      if (barAppLabelColHex) barAppLabelColHex.textContent = hex565(field.labelColor);
-    }
-    if (barAppBgColNative) {
-      field.backgroundColor = hexCssTo565(barAppBgColNative.value);
-      if (barAppBgColHex) barAppBgColHex.textContent = hex565(field.backgroundColor);
     }
 
     const norm = normalizedFor(field);
@@ -2547,91 +2471,17 @@
     });
   });
 
-  // Modo de Relleno (Sólido / Degradado) en Apariencia para ambos medidores
+  // Modo de Relleno (Sólido / Degradado) en Apariencia: sólo barra lineal
   document.querySelectorAll('.bar-app-fill-btn').forEach((btn) => {
     btn.addEventListener('click', (e) => {
       e.preventDefault();
       const field = selectedField();
       if (!isBar(field)) return;
+      if (field.barPreset === 'CIRCULAR') return;
       const isGrad = (btn.dataset.fill === 'GRADIENT');
-      if (field.barPreset === 'CIRCULAR') {
-        field.circleColorMode = isGrad ? 'GRADIENT' : 'SOLID';
-      } else {
-        field.barFillMode = isGrad ? 'GRADIENT' : 'SOLID';
-      }
-      if (isGrad && !field.valueColorEnd) field.valueColorEnd = 0x07E0;
+      field.barFillMode = isGrad ? 'GRADIENT' : 'SOLID';
+      if (isGrad && !Number.isFinite(Number(field.valueColorEnd))) field.valueColorEnd = 0x07E0;
       patchInspector(field);
-      triggerCoreRender(true);
-    });
-  });
-
-  const barGradStartNative = document.getElementById('barGradStartNative');
-  const barGradStartHex = document.getElementById('barGradStartHex');
-  const barGradEndNative = document.getElementById('barGradEndNative');
-  const barGradEndHex = document.getElementById('barGradEndHex');
-  const barGradSwapBtn = document.getElementById('barGradSwapBtn');
-
-  barGradStartNative?.addEventListener('input', () => {
-    const field = selectedField();
-    if (!isBar(field)) return;
-    field.valueColor = hexCssTo565(barGradStartNative.value);
-    if (barGradStartHex) barGradStartHex.textContent = hex565(field.valueColor);
-    syncBarMini(field);
-    triggerCoreRender(false);
-  });
-  barGradStartNative?.addEventListener('change', () => {
-    const field = selectedField();
-    if (!isBar(field)) return;
-    field.valueColor = hexCssTo565(barGradStartNative.value);
-    if (barGradStartHex) barGradStartHex.textContent = hex565(field.valueColor);
-    syncBarMini(field);
-    triggerCoreRender(true);
-  });
-
-  barGradEndNative?.addEventListener('input', () => {
-    const field = selectedField();
-    if (!isBar(field)) return;
-    field.valueColorEnd = hexCssTo565(barGradEndNative.value);
-    if (barGradEndHex) barGradEndHex.textContent = hex565(field.valueColorEnd);
-    syncBarMini(field);
-    triggerCoreRender(false);
-  });
-  barGradEndNative?.addEventListener('change', () => {
-    const field = selectedField();
-    if (!isBar(field)) return;
-    field.valueColorEnd = hexCssTo565(barGradEndNative.value);
-    if (barGradEndHex) barGradEndHex.textContent = hex565(field.valueColorEnd);
-    syncBarMini(field);
-    triggerCoreRender(true);
-  });
-
-  barGradSwapBtn?.addEventListener('click', (e) => {
-    e.preventDefault();
-    const field = selectedField();
-    if (!isBar(field)) return;
-    const temp = field.valueColor || 0x07FF;
-    field.valueColor = field.valueColorEnd || 0x07E0;
-    field.valueColorEnd = temp;
-    if (barGradStartNative) barGradStartNative.value = rgb565ToHexCss(field.valueColor);
-    if (barGradStartHex) barGradStartHex.textContent = hex565(field.valueColor);
-    if (barGradEndNative) barGradEndNative.value = rgb565ToHexCss(field.valueColorEnd);
-    if (barGradEndHex) barGradEndHex.textContent = hex565(field.valueColorEnd);
-    syncBarMini(field);
-    triggerCoreRender(true);
-  });
-
-  document.querySelectorAll('#barGradPalettes .bar-palette-pill').forEach((pill) => {
-    pill.addEventListener('click', (e) => {
-      e.preventDefault();
-      const field = selectedField();
-      if (!isBar(field)) return;
-      field.valueColor = Number(pill.dataset.gradStart);
-      field.valueColorEnd = Number(pill.dataset.gradEnd);
-      if (barGradStartNative) barGradStartNative.value = rgb565ToHexCss(field.valueColor);
-      if (barGradStartHex) barGradStartHex.textContent = hex565(field.valueColor);
-      if (barGradEndNative) barGradEndNative.value = rgb565ToHexCss(field.valueColorEnd);
-      if (barGradEndHex) barGradEndHex.textContent = hex565(field.valueColorEnd);
-      syncBarMini(field);
       triggerCoreRender(true);
     });
   });
@@ -2845,7 +2695,7 @@
     const field = selectedField();
     if (!isBar(field)) return;
     const temp = field.valueColor;
-    field.valueColor = field.valueColorEnd || 0x07E0;
+    field.valueColor = colorOr(field.valueColorEnd, 0x07E0);
     field.valueColorEnd = temp || 0xF800;
     barAppLinearGradStartNative.value = rgb565ToHexCss(field.valueColor);
     barAppLinearGradEndNative.value = rgb565ToHexCss(field.valueColorEnd);
@@ -2858,7 +2708,7 @@
     const field = selectedField();
     if (!isBar(field)) return;
     const temp = field.valueColor;
-    field.valueColor = field.valueColorEnd || 0x07E0;
+    field.valueColor = colorOr(field.valueColorEnd, 0x07E0);
     field.valueColorEnd = temp || 0xF800;
     barAppCircularGradStartNative.value = rgb565ToHexCss(field.valueColor);
     barAppCircularGradEndNative.value = rgb565ToHexCss(field.valueColorEnd);
@@ -3027,12 +2877,12 @@
       if (!field.circleStyle) field.circleStyle = 'CONTINUOUS';
       if (!field.circleCenterMode) field.circleCenterMode = 'PERCENT';
       if (!field.circleColorMode) field.circleColorMode = 'SOLID';
-      if (!field.valueColorEnd) field.valueColorEnd = 0x07E0;
+      if (!Number.isFinite(Number(field.valueColorEnd))) field.valueColorEnd = 0x07E0;
     } else {
       if (!field.linearPctPos) field.linearPctPos = 'NONE';
       if (!field.barFillMode) field.barFillMode = 'SOLID';
-      if (!field.valueColor) field.valueColor = 0x07FF;
-      if (!field.valueColorEnd) field.valueColorEnd = 0x07E0;
+      if (!Number.isFinite(Number(field.valueColor))) field.valueColor = 0x07FF;
+      if (!Number.isFinite(Number(field.valueColorEnd))) field.valueColorEnd = 0x07E0;
       if (!field.barStyle) field.barStyle = 'SOLID';
       if (field.barCornerRadius === undefined) field.barCornerRadius = 0;
       if (typeof field.barBorderEnabled !== 'boolean') field.barBorderEnabled = false;
@@ -3069,7 +2919,7 @@
   bindBarTextControl(fieldLabel, 'barLabel');
   bindBarTextControl(fieldUnit, 'barUnit');
 
-  function createBarField() {
+  function createBarField(preset = 'LINEAR') {
     const api = editor();
     api?.addTextField?.();
     const field = selectedField();
@@ -3077,10 +2927,11 @@
 
     const serial = serialFor(field);
     field.type = 'BAR';
-    field.name = `BAR ${serial}`;
-    field.id = `FIELD_BAR_${serial}`;
-    field.variable = `nivel${serial}`;
-    field.barPreset = 'LINEAR';
+    const isCirc = (preset === 'CIRCULAR');
+    field.name = isCirc ? `CIRCULAR ${serial}` : `BAR ${serial}`;
+    field.id = isCirc ? `FIELD_CIRCULAR_${serial}` : `FIELD_BAR_${serial}`;
+    field.variable = isCirc ? `medidor${serial}` : `nivel${serial}`;
+    field.barPreset = isCirc ? 'CIRCULAR' : 'LINEAR';
     field.barFillMode = 'SOLID';
     field.barOrientation = 'HORIZONTAL';
     field.linearPctPos = 'NONE';
@@ -3090,7 +2941,7 @@
     field.barBorderColor = 0xFFFF;
     field.barBorderWidth = 1;
     field.showLabel = true;
-    field.barLabel = 'Nivel';
+    field.barLabel = isCirc ? 'Carga' : 'Nivel';
     field.barUnit = '%';
     field.barMin = 0;
     field.barMax = 100;
@@ -3123,8 +2974,10 @@
     field.circleTrackColor = 0x0000;
     ensureBarState(field);
 
-    fieldName.value = field.name;
-    fieldName.dispatchEvent(new Event('change', { bubbles: true }));
+    if (fieldName) {
+      fieldName.value = field.name;
+      fieldName.dispatchEvent(new Event('change', { bubbles: true }));
+    }
   }
 
   barButton.disabled = false;
@@ -3342,16 +3195,16 @@
       if (barAppLinearGradWrap) barAppLinearGradWrap.style.display = isGrad ? 'grid' : 'none';
 
       if (barAppLinearColorNative) {
-        barAppLinearColorNative.value = rgb565ToHexCss(field.valueColor || 0x07FF);
-        if (barAppLinearColorHex) barAppLinearColorHex.textContent = hex565(field.valueColor || 0x07FF);
+        barAppLinearColorNative.value = rgb565ToHexCss(colorOr(field.valueColor, 0x07FF));
+        if (barAppLinearColorHex) barAppLinearColorHex.textContent = hex565(colorOr(field.valueColor, 0x07FF));
       }
       if (barAppLinearGradStartNative) {
-        barAppLinearGradStartNative.value = rgb565ToHexCss(field.valueColor || 0xF800);
-        if (barAppLinearGradStartHex) barAppLinearGradStartHex.textContent = hex565(field.valueColor || 0xF800);
+        barAppLinearGradStartNative.value = rgb565ToHexCss(colorOr(field.valueColor, 0xF800));
+        if (barAppLinearGradStartHex) barAppLinearGradStartHex.textContent = hex565(colorOr(field.valueColor, 0xF800));
       }
       if (barAppLinearGradEndNative) {
-        barAppLinearGradEndNative.value = rgb565ToHexCss(field.valueColorEnd || 0x07E0);
-        if (barAppLinearGradEndHex) barAppLinearGradEndHex.textContent = hex565(field.valueColorEnd || 0x07E0);
+        barAppLinearGradEndNative.value = rgb565ToHexCss(colorOr(field.valueColorEnd, 0x07E0));
+        if (barAppLinearGradEndHex) barAppLinearGradEndHex.textContent = hex565(colorOr(field.valueColorEnd, 0x07E0));
       }
       if (barAppLinearTrackNative) {
         const trackCol = Number.isFinite(Number(field.trackColor)) ? Number(field.trackColor) : 0x0000;
@@ -3370,16 +3223,16 @@
       if (barAppCircularGradWrap) barAppCircularGradWrap.style.display = circleGrad ? 'grid' : 'none';
 
       if (barAppCircularColorNative) {
-        barAppCircularColorNative.value = rgb565ToHexCss(field.valueColor || 0x07FF);
-        if (barAppCircularColorHex) barAppCircularColorHex.textContent = hex565(field.valueColor || 0x07FF);
+        barAppCircularColorNative.value = rgb565ToHexCss(colorOr(field.valueColor, 0x07FF));
+        if (barAppCircularColorHex) barAppCircularColorHex.textContent = hex565(colorOr(field.valueColor, 0x07FF));
       }
       if (barAppCircularGradStartNative) {
-        barAppCircularGradStartNative.value = rgb565ToHexCss(field.valueColor || 0xF800);
-        if (barAppCircularGradStartHex) barAppCircularGradStartHex.textContent = hex565(field.valueColor || 0xF800);
+        barAppCircularGradStartNative.value = rgb565ToHexCss(colorOr(field.valueColor, 0xF800));
+        if (barAppCircularGradStartHex) barAppCircularGradStartHex.textContent = hex565(colorOr(field.valueColor, 0xF800));
       }
       if (barAppCircularGradEndNative) {
-        barAppCircularGradEndNative.value = rgb565ToHexCss(field.valueColorEnd || 0x07E0);
-        if (barAppCircularGradEndHex) barAppCircularGradEndHex.textContent = hex565(field.valueColorEnd || 0x07E0);
+        barAppCircularGradEndNative.value = rgb565ToHexCss(colorOr(field.valueColorEnd, 0x07E0));
+        if (barAppCircularGradEndHex) barAppCircularGradEndHex.textContent = hex565(colorOr(field.valueColorEnd, 0x07E0));
       }
       if (barAppCircularTrackNative) {
         const cTrack = Number.isFinite(Number(field.circleTrackColor)) ? Number(field.circleTrackColor) : 0x0000;
@@ -3430,25 +3283,15 @@
     if (barTopSimReadout) barTopSimReadout.textContent = `${(norm * 100).toFixed(1)} %`;
 
     // Sincronizar Relleno y Degradado en Apariencia
-    const isGradActive = (field.barPreset === 'CIRCULAR')
-      ? (field.circleColorMode === 'GRADIENT')
-      : (field.barFillMode === 'GRADIENT');
+    const isGradActive = barGradActive(field);
+    const fillCard = document.getElementById('barAppFillCard');
+    if (fillCard) fillCard.style.display = isCirc ? 'none' : '';
+    const gradTools = document.getElementById('barAppGradTools');
+    if (gradTools) gradTools.style.display = isGradActive ? 'flex' : 'none';
 
     document.querySelectorAll('.bar-app-fill-btn').forEach((btn) => {
       btn.classList.toggle('active', isGradActive ? btn.dataset.fill === 'GRADIENT' : btn.dataset.fill === 'SOLID');
     });
-
-    const gradSettings = document.getElementById('barAppGradSettings');
-    if (gradSettings) gradSettings.style.display = isGradActive ? 'block' : 'none';
-
-    if (barGradStartNative) {
-      barGradStartNative.value = rgb565ToHexCss(field.valueColor || 0x07FF);
-      if (barGradStartHex) barGradStartHex.textContent = hex565(field.valueColor || 0x07FF);
-    }
-    if (barGradEndNative) {
-      barGradEndNative.value = rgb565ToHexCss(field.valueColorEnd || 0x07E0);
-      if (barGradEndHex) barGradEndHex.textContent = hex565(field.valueColorEnd || 0x07E0);
-    }
 
     // 6. TÉCNICO
     if (barTechName) barTechName.value = field.name || '';
@@ -3492,7 +3335,8 @@
       const prefix = text.slice(Math.max(0, idIdx - 120), idIdx);
       const helperMatch = prefix.match(/(?:JWPLC_UITextField|JWPLC_UIBarField|JWPLC_UIGradientBarField|JWPLC_UICircularField)\s*\(\s*$/);
       if (helperMatch) {
-        let start = idIdx - prefix.length + helperMatch.index;
+        const helperStart = idIdx - prefix.length + helperMatch.index;
+        let start = helperStart;
         while (start > 0 && (text[start - 1] === ' ' || text[start - 1] === '\t')) {
           start -= 1;
         }
@@ -3502,7 +3346,8 @@
           start -= commentMatch[1].length;
         }
 
-        const open = text.indexOf('(', start);
+        // Desde la llamada: el comentario previo también lleva paréntesis.
+        const open = text.indexOf('(', helperStart);
         if (open < 0) return text;
         let depth = 0;
         let inString = false;
@@ -3587,11 +3432,13 @@
   // Mismo patrón que TEXT/VALUE/BOOL (designer-field-inspector.js). Colores de
   // JWPLC_UIBarField: value = barra, background = fondo del campo y pista
   // vacía (un solo color), label = etiqueta y unidad, frame = marco.
-  const BAR_COLOR_PROP = { frame: 'frameColor', label: 'labelColor', value: 'valueColor', track: 'trackColor' };
-  const BAR_COLOR_DEFAULT = { frame: 0xFFFF, label: 0xFFFF, value: 0x07FF, track: 0x0000 };
+  const BAR_COLOR_PROP = { frame: 'frameColor', label: 'labelColor', value: 'valueColor', valueEnd: 'valueColorEnd', track: 'trackColor' };
+  const BAR_COLOR_DEFAULT = { frame: 0xFFFF, label: 0xFFFF, value: 0x07FF, valueEnd: 0x07E0, track: 0x0000 };
   const getBarName = (field, key) => {
     const isCirc = (field?.barPreset === 'CIRCULAR');
-    if (key === 'value') return isCirc ? 'Arco' : 'Barra';
+    const isGrad = barGradActive(field);
+    if (key === 'value') return isCirc ? 'Arco' : (isGrad ? 'Barra (Inicio)' : 'Barra');
+    if (key === 'valueEnd') return 'Barra (Fin)';
     if (key === 'track') return 'Fondo y pista';
     if (key === 'label') return 'Etiqueta y unidad';
     if (key === 'frame') return 'Marco';
@@ -3601,14 +3448,13 @@
   const getBarLetter = (field, key) => {
     const isCirc = (field?.barPreset === 'CIRCULAR');
     if (key === 'value') return isCirc ? 'A' : 'B';
+    if (key === 'valueEnd') return '2';
     if (key === 'track') return 'F';
     if (key === 'label') return 'T';
     if (key === 'frame') return 'M';
     return '?';
   };
 
-  const BAR_LETTER = { frame: 'M', label: 'T', value: 'B', track: 'F' };
-  const BAR_NAME = { frame: 'Marco', label: 'Etiqueta y unidad', value: 'Barra', track: 'Fondo y pista' };
   let barActiveKey = 'value';
   const barMiniCard = document.getElementById('barAppMini');
 
@@ -3616,16 +3462,25 @@
     const raw = Number(field[BAR_COLOR_PROP[key]]);
     return (Number.isFinite(raw) ? raw : BAR_COLOR_DEFAULT[key]) & 0xFFFF;
   };
-  const barMiniRows = (field) => [...(field.frame ? ['frame'] : []), 'label', 'value', 'track'];
+  const barMiniRows = (field) => {
+    const isGrad = barGradActive(field);
+    return [
+      ...(field?.frame ? ['frame'] : []),
+      'label',
+      'value',
+      ...(isGrad ? ['valueEnd'] : []),
+      'track'
+    ];
+  };
 
   function buildBarMini(field) {
     const rows = barMiniRows(field);
-    const signature = `${field.barPreset},${rows.join(',')}`;
+    const signature = `${field.barPreset},${field.barOrientation || 'HORIZONTAL'},${rows.join(',')}`;
     if (barMiniCard.dataset.signature === signature) return;
     barMiniCard.dataset.signature = signature;
     barMiniCard.innerHTML = `
-      <div class="menu-case">
-        <div class="bar-card-section-title">Vista</div>
+      <div class="menu-case" style="margin-bottom:6px;">
+        <div class="bar-card-section-title" style="margin-bottom:4px;">Vista</div>
         <div class="menu-case-body field-case-body zone-host" data-bar-case-body>
           <canvas class="menu-case-canvas field-case-canvas" data-bar-case></canvas>
           <div class="menu-case-legend">${rows.map((k) => `
@@ -3634,8 +3489,7 @@
           </div>
         </div>
       </div>
-      <div class="menu-palette">
-        <div class="insp-note">Clic en una fila (texto o cuadro) para editar ese color: el contorno y el ▶ marcan lo que cambia en la vista. En la TFT el fondo del campo y la pista vacía son un solo color.</div>
+      <div class="menu-palette" style="padding-top:4px;border-top:1px solid var(--line);">
         <div data-bar-color-editor></div>
       </div>`;
     if (barColorEditor) barMiniCard.querySelector('[data-bar-color-editor]').appendChild(barColorEditor.el);
@@ -3658,6 +3512,10 @@
     let valueZone;
     if (isCirc) {
       valueZone = [{ x: g.valueX, y: g.valueY, w: g.valueW, h: g.valueH }];
+    } else if (preview.barOrientation === 'VERTICAL') {
+      const fillH = Math.round(normalizedFor(preview) * g.valueH);
+      const hVal = fillH > 0 ? fillH : g.valueH;
+      valueZone = [{ x: g.valueX, y: g.valueY + g.valueH - hVal, w: g.valueW, h: hVal }];
     } else {
       const fillW = Math.round(normalizedFor(preview) * g.valueW);
       valueZone = [{ x: g.valueX, y: g.valueY, w: fillW > 0 ? fillW : g.valueW, h: g.valueH }];
@@ -3666,6 +3524,7 @@
       frame: [{ x: 0, y: 0, w, h }],
       label: label.length ? label : [{ x: g.valueX, y: g.valueY, w: g.valueW, h: g.valueH }],
       value: valueZone,
+      valueEnd: valueZone,
       track: [{ x: inset, y: inset, w: w - 2 * inset, h: h - 2 * inset, inset: true }]
     };
   }
@@ -3706,18 +3565,11 @@
     if (!barMiniCard || !isBar(field)) return;
     if (!barMiniRows(field).includes(barActiveKey)) barActiveKey = 'value';
     buildBarMini(field);
-    const isGradActiveForMini = (field.barPreset === 'CIRCULAR')
-      ? (field.circleColorMode === 'GRADIENT')
-      : (field.barFillMode === 'GRADIENT');
 
     Object.keys(BAR_COLOR_PROP).forEach((key) => {
       const v = barColorOf(field, key);
       barMiniCard.querySelectorAll(`[data-bar-swatch="${key}"]`).forEach((sw) => {
-        if (key === 'value' && isGradActiveForMini) {
-          sw.style.background = `linear-gradient(90deg, ${rgb565ToCss(v)}, ${rgb565ToCss(field.valueColorEnd || 0x07E0)})`;
-        } else {
-          sw.style.background = rgb565ToCss(v);
-        }
+        sw.style.background = rgb565ToCss(v);
         sw.style.color = ((v >> 11) + ((v >> 5) & 0x3F) / 2 + (v & 0x1F)) > 40 ? '#000' : '#fff';
         sw.classList.toggle('active', key === barActiveKey);
       });
@@ -3731,10 +3583,6 @@
     const field = selectedField();
     if (!isBar(field)) return;
     field[BAR_COLOR_PROP[key]] = value565 & 0xFFFF;
-    if (key === 'value') {
-      if (barGradStartNative) barGradStartNative.value = rgb565ToHexCss(value565);
-      if (barGradStartHex) barGradStartHex.textContent = hex565(value565);
-    }
     if (key === 'track') {
       field.backgroundColor = value565 & 0xFFFF; // un solo color en firmware
       field.circleTrackColor = value565 & 0xFFFF;
@@ -3748,6 +3596,22 @@
     paletteAttr: 'data-bar-palette',
     onInput: (v) => setBarColor(barActiveKey, v, false),
     onCommit: (v) => setBarColor(barActiveKey, v, true)
+  });
+
+  function setGradientColors(start, end) {
+    const field = selectedField();
+    if (!isBar(field)) return;
+    field.valueColor = start & 0xFFFF;
+    field.valueColorEnd = end & 0xFFFF;
+    syncBarMini(field);
+    triggerCoreRender(true);
+  }
+  document.getElementById('barAppGradSwapBtn')?.addEventListener('click', () => {
+    const field = selectedField();
+    if (isBar(field)) setGradientColors(barColorOf(field, 'valueEnd'), barColorOf(field, 'value'));
+  });
+  document.querySelectorAll('#barAppGradTools .bar-palette-pill').forEach((pill) => {
+    pill.addEventListener('click', () => setGradientColors(Number(pill.dataset.gradStart), Number(pill.dataset.gradEnd)));
   });
 
   if (barMiniCard) {
@@ -3805,13 +3669,6 @@
   }
 
   function closeBarInspector() {
-    // BAR-3: variantes sin soporte en el firmware.
-    markNeedsFirmware(barInspectorWrap.querySelector('.bar-orient-btn[data-orient="VERTICAL"]'));
-    barInspectorWrap.querySelectorAll('.bar-linear-style-btn:not([data-style="SOLID"])').forEach(markNeedsFirmware);
-    barInspectorWrap.querySelectorAll('.bar-radius-btn:not([data-radius="0"])').forEach(markNeedsFirmware);
-    const borderToggle = barInspectorWrap.querySelector('#barFormaBorderEnabled');
-    markNeedsFirmware(borderToggle);
-    borderToggle?.closest('label')?.classList.add('insp-needs-fw');
     alignMatrixCells.forEach((cell) => {
       cell.disabled = false;
       cell.classList.remove('insp-needs-fw');
@@ -3820,21 +3677,10 @@
       cell.title = `Alineación: ${vLabels[cell.dataset.alignV] || cell.dataset.alignV} ${hLabels[cell.dataset.alignH] || cell.dataset.alignH}`;
     });
 
-
     const pctWrap = barInspectorWrap.querySelector('#barContentLinearWrap');
     if (pctWrap) {
       hideForFirmware(pctWrap);
       pctWrap.insertAdjacentElement('afterend', fwCard('Texto sobre la barra', ['% a la derecha', '% dentro']));
-    }
-
-    // BAR-4: el alto no llega al firmware (DEFAULT_BAR_HEIGHT = 12 px).
-    const heightInput = barInspectorWrap.querySelector('#barFormaHeight');
-    if (heightInput) {
-      heightInput.value = String(DEFAULT_BAR_HEIGHT);
-      heightInput.disabled = true;
-      heightInput.title = 'El firmware dibuja la barra con 12 px de alto fijos';
-      const name = barInspectorWrap.querySelector('#barFormaHeightName');
-      if (name) name.textContent = 'Grosor (fijo en firmware)';
     }
 
     // Un solo color de fondo: el firmware borra la pista con colors.background.
@@ -3902,9 +3748,6 @@
           `${String(Number(p.id) + 1).padStart(2, '0')} · ${String(p.name).replace(/[&<>"]/g, '')}</button>`).join('');
       }
     }
-    const heightInput = barInspectorWrap.querySelector('#barFormaHeight');
-    if (heightInput) heightInput.value = String(DEFAULT_BAR_HEIGHT);
-    if (barFormaHeightName) barFormaHeightName.textContent = 'Grosor (fijo en firmware)';
   }
 
   closeBarInspector();

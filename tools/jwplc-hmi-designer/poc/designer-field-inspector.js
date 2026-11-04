@@ -176,6 +176,16 @@
           <div class="insp-note">Fuente GLCD 5×7 escalada (celda 6×8 px por 1×).</div>
         </div>
         <div class="bar-card">
+          <div class="bar-card-section-title">Tipografía</div>
+          <label class="field-label">Fuente de la etiqueta
+            <select class="field-input" data-font-select="labelFont"></select>
+          </label>
+          <label class="field-label insp-gap">Fuente del valor / estado
+            <select class="field-input" data-font-select="valueFont"></select>
+          </label>
+          <div class="insp-note">Permite fuentes GLCD, Bitmap (16/26 px), FreeFonts y 7-Segmentos (para valores numéricos).</div>
+        </div>
+        <div class="bar-card">
           <div class="bar-card-section-title">Marco</div>
           <div class="bar-visual-grid-2">
             <button type="button" class="bar-visual-btn" data-set="frame" data-value="0">${frameSvg(false)}<span>Sin marco</span></button>
@@ -619,6 +629,16 @@
     input.addEventListener('change', () => proxyValue(input.dataset.proxy, input.value, true));
   });
 
+  wrap.querySelectorAll('[data-font-select]').forEach((sel) => {
+    sel.addEventListener('change', () => {
+      const prop = sel.dataset.fontSelect;
+      setFieldProps((f) => {
+        f[prop] = sel.value;
+      }, true);
+      syncInspector();
+    });
+  });
+
   const COLOR_TARGET = {
     label: 'fieldLabelColor',
     value: 'fieldValueColor',
@@ -951,6 +971,38 @@
     setActive('[data-set="labelSize"]', Number(field.labelSize) || 1);
     readout('valueSizePx', `${8 * (Number(field.valueSize) || 1)} px de alto`);
     readout('labelSizePx', `${8 * (Number(field.labelSize) || 1)} px de alto`);
+
+    function populateFontSelect(select, fieldType, currentVal) {
+      if (!select || !window.JWPLCDesignerFonts) return;
+      const isLabel = select.dataset.fontSelect === 'labelFont';
+      const targetType = isLabel ? 'label' : fieldType;
+      const fonts = window.JWPLCDesignerFonts.availableFontsFor(targetType);
+      const val = window.JWPLCDesignerFonts.normalizeId(currentVal || 'GLCD');
+      const signature = `${targetType}:${val}`;
+      if (select.dataset.signature !== signature || !select.children.length) {
+        select.dataset.signature = signature;
+        select.innerHTML = '';
+        const groups = new Map();
+        fonts.forEach((f) => {
+          if (!groups.has(f.group)) {
+            const optgroup = document.createElement('optgroup');
+            optgroup.label = f.group;
+            groups.set(f.group, optgroup);
+            select.appendChild(optgroup);
+          }
+          const opt = document.createElement('option');
+          opt.value = f.id;
+          opt.textContent = f.label;
+          groups.get(f.group).appendChild(opt);
+        });
+        select.value = val;
+      } else if (select.value !== val) {
+        select.value = val;
+      }
+    }
+
+    populateFontSelect(wrap.querySelector('[data-font-select="labelFont"]'), field.type, field.labelFont);
+    populateFontSelect(wrap.querySelector('[data-font-select="valueFont"]'), field.type, field.valueFont);
 
     if (field.type === 'VALUE') {
       const decs = Number(field.decimalDigits) || 0;

@@ -3,10 +3,11 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light dark" />
   <title>JWPLC HMI Designer</title>
   <meta name="jwplc-designer-version" content="2.1.0-alpha.16" />
   <link rel="stylesheet" href="./styles.css?v=1793801300" />
-  <link rel="stylesheet" href="./designer-light-theme.css?v=1793802700" />
+  <link rel="stylesheet" href="./designer-light-theme.css?v=1793802800" />
   <script src="./designer-theme.js?v=1793802700"></script>
 </head>
 <body>
@@ -529,7 +530,7 @@
       <section id="shapeInspectorSection" class="inspector-section bar-inspector-wrap" hidden>
         <!-- Cabecera estilo BAR Propuesta 2 -->
         <div class="inspector-title" style="margin-bottom: 6px;">
-          <h2 style="font-size: 13px; color: #dce9f1; font-weight: 700; display: flex; align-items: center; gap: 6px;">
+          <h2 class="inspector-heading">
             <span id="shapeInspectorIcon" style="color: #ff9a43; font-size: 14px;">&#9633;</span>
             <span>Inspector — <span id="shapeInspectorHeaderTitle">RECT 1</span></span>
           </h2>
@@ -1430,7 +1431,7 @@
             <section id="rawTextControlsSection" class="inspector-section insp-wrap" hidden>
         <!-- Cabecera estilo Propuesta 2: Icono Aa + Inspector — Nombre + Acciones -->
         <div class="inspector-title" style="margin-bottom: 6px;">
-          <h2 style="font-size: 13px; color: #dce9f1; font-weight: 700; display: flex; align-items: center; gap: 6px;">
+          <h2 class="inspector-heading">
             <span style="color: #ff9a43; font-size: 14px; font-weight: bold; font-family: 'Cascadia Code', Consolas, monospace;">Aa</span>
             <span>Inspector — <span id="rawTextHeaderTitle">Texto RAW</span></span>
           </h2>
@@ -1654,7 +1655,7 @@
       <section id="pixelMapControlsSection" class="inspector-section bar-inspector-wrap" hidden>
         <!-- Cabecera estilo Propuesta 2: Icono ▦ + Inspector — Nombre + Acciones -->
         <div class="inspector-title" style="margin-bottom: 6px;">
-          <h2 style="font-size: 13px; color: #dce9f1; font-weight: 700; display: flex; align-items: center; gap: 6px;">
+          <h2 class="inspector-heading">
             <span id="pixelInspectorIcon" style="color: #ff9a43; font-size: 14px; font-weight: bold;">▦</span>
             <span>Inspector — <span id="pixelMapHeaderTitle">PIXEL 1</span></span>
           </h2>
@@ -1923,7 +1924,7 @@
       <!-- Inspector Cuentagotas / Relleno (mismo estilo que PIXEL, Propuesta 2) -->
       <section id="eyedropperSection" class="inspector-section bar-inspector-wrap" hidden>
         <div class="inspector-title" style="margin-bottom: 6px;">
-          <h2 style="font-size: 13px; color: #dce9f1; font-weight: 700; display: flex; align-items: center; gap: 6px;">
+          <h2 class="inspector-heading">
             <span id="colorToolIcon" style="color: #ff9a43; display: inline-flex;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m19 11-8-8-8.6 8.6a2 2 0 0 0 0 2.8l5.2 5.2c.8.8 2 .8 2.8 0L19 11Z"/><path d="m5 2 5 5"/><path d="M2 13h15"/><path d="M22 20a2 2 0 1 1-4 0c0-1.6 1.7-2.4 2-4 .3 1.6 2 2.4 2 4Z" fill="currentColor"/></svg></span>
             <span>Inspector — <span id="colorToolTitle">RELLENO</span></span>
           </h2>
@@ -2108,12 +2109,12 @@
   <script src="./designer-fonts-data.js?v=1793801300"></script>
   <script src="./designer-fonts.js?v=1793801300"></script>
   <script src="./designer-value-format.js?v=1793801300"></script>
-  <script src="./designer-codegen-core.js?v=1793802700"></script>
+  <script src="./designer-codegen-core.js?v=1793802900"></script>
   <script src="./designer-runtime-core.js?v=1793810000"></script>
   <script src="./designer-icon-catalog.js?v=1793801700"></script>
   <script src="./designer-icons-core.js?v=1793801900"></script>
   <script src="./designer-dialog.js?v=1793801300"></script>
-  <script src="./app.js?v=1793802700"></script>
+  <script src="./app.js?v=1793802900"></script>
   <script src="./ux-foundation.js?v=1793802000"></script>
   <script src="./designer-codegen.js?v=1793801800"></script>
 

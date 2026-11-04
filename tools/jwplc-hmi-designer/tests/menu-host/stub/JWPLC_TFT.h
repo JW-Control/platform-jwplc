@@ -4,6 +4,7 @@
 #include <Arduino.h>
 
 struct JWPLC_TFTFont { uint8_t kind; const void *data; };
+inline constexpr JWPLC_TFTFont JWPLC_FONT_GLCD = { 0, nullptr };
 static constexpr uint16_t JWPLC_TFT_BLACK = 0x0000;
 
 class JWPLC_TFTClass : public Print
@@ -19,6 +20,7 @@ public:
   bool fillScreen(uint16_t c, uint32_t = 50) { for (auto &p : fb) p = c; return true; }
   bool fillRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t c, uint32_t = 50);
   bool drawRect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t c, uint32_t = 50);
+  void setFont(const JWPLC_TFTFont &) {} // el stub sólo dibuja GLCD
   void setTextSize(uint8_t s) { size = s ? s : 1; }
   void setTextColor(uint16_t f) { fg = f; bg = f; }
   void setTextColor(uint16_t f, uint16_t b) { fg = f; bg = b; }

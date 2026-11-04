@@ -201,11 +201,15 @@ function validateField(field, i, project, report) {
   }
   if (field.type === 'BAR') {
     if (Number(field.barMax) <= Number(field.barMin)) report.error(`${where}.barMax`, `barMax (${field.barMax}) debe ser mayor que barMin (${field.barMin})`);
-    // El firmware dibuja la barra LINEAR sólida horizontal y el medidor CIRCULAR.
-    if (field.barPreset !== undefined && !['LINEAR', 'CIRCULAR'].includes(field.barPreset)) report.warn(`${where}.barPreset`, 'el firmware sólo dibuja LINEAR o CIRCULAR; se generará LINEAR');
-    const caps = { barFillMode: 'SOLID', barOrientation: 'HORIZONTAL' };
-    for (const [key, ok] of Object.entries(caps)) {
-      if (field[key] !== undefined && field[key] !== ok) report.warn(`${where}.${key}`, `el firmware sólo dibuja ${key} = ${ok}; se generará así`);
+    if (field.barPreset !== undefined && !['LINEAR', 'CIRCULAR', 'GRADIENT'].includes(field.barPreset)) report.warn(`${where}.barPreset`, 'el firmware sólo dibuja LINEAR, CIRCULAR o GRADIENT; se generará LINEAR');
+    if (field.barOrientation && !['HORIZONTAL', 'VERTICAL'].includes(field.barOrientation)) {
+      report.warn(`${where}.barOrientation`, 'orientación no válida; se usará HORIZONTAL');
+    }
+    if (field.barStyle && !['SOLID', 'BLOCKS'].includes(field.barStyle)) {
+      report.warn(`${where}.barStyle`, 'estilo no soportado; se usará SOLID');
+    }
+    if (field.barFillMode && !['SOLID', 'GRADIENT'].includes(field.barFillMode)) {
+      report.warn(`${where}.barFillMode`, 'modo de relleno no válido; se usará SOLID');
     }
   }
   if (field.type === 'ICON') validateIcon(field, where, project, report);

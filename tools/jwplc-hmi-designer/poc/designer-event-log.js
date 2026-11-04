@@ -90,6 +90,8 @@
       width: 300,
       height: 140,
       frame: true,
+      headerFont: 'GLCD',
+      rowFont: 'GLCD',
       ramCapacity: 64,
       enableFram: true,
       enableSd: true,
@@ -114,6 +116,8 @@
     if (!Number.isFinite(Number(field.width))) field.width = 300;
     if (!Number.isFinite(Number(field.height))) field.height = 140;
     if (typeof field.frame !== 'boolean') field.frame = true;
+    if (typeof field.headerFont !== 'string') field.headerFont = 'GLCD';
+    if (typeof field.rowFont !== 'string') field.rowFont = 'GLCD';
     if (!Number.isFinite(Number(field.ramCapacity))) field.ramCapacity = 64;
     if (typeof field.enableFram !== 'boolean') field.enableFram = true;
     if (typeof field.enableSd !== 'boolean') field.enableSd = true;
@@ -150,7 +154,7 @@
     painter.fillRect(x0 + border, y0 + border, w - 2 * border, HEADER_HEIGHT, c.headerBackground);
     if (painter.drawText) {
       const title = (w >= 200) ? (field.title || 'HISTORIAL DE EVENTOS') : 'HISTORIAL';
-      painter.drawText(title, x0 + border + 6, y0 + border + 4, c.headerText, c.headerBackground, 1);
+      painter.drawText(title, x0 + border + 6, y0 + border + 4, c.headerText, c.headerBackground, 1, field.headerFont);
       // Mismas posiciones que JWPLC_UI_EventLog.cpp; con varias páginas, el indicador
       // NN/TT tapa la esquina y el firmware corre el contador y "SD" a su izquierda.
       let shift = 0;
@@ -162,10 +166,10 @@
         if (r.x < hx1 && r.x + r.w > hx0 && r.y < hy1 && r.y + r.h > hy0) shift = Math.max(0, hx1 - (r.x - 4));
       }
       if (w >= 180) {
-        painter.drawText('01/06', x0 + border + w - (w >= 240 ? 110 : 70) - shift, y0 + border + 4, c.headerText, c.headerBackground, 1);
+        painter.drawText('01/06', x0 + border + w - (w >= 240 ? 110 : 70) - shift, y0 + border + 4, c.headerText, c.headerBackground, 1, field.headerFont);
       }
       if (w >= 240) {
-        painter.drawText(field.enableSd ? 'SD:OK' : 'SD:--', x0 + border + w - 50 - shift, y0 + border + 4, field.enableSd ? 0x07E0 : 0x632C, c.headerBackground, 1);
+        painter.drawText(field.enableSd ? 'SD:OK' : 'SD:--', x0 + border + w - 50 - shift, y0 + border + 4, field.enableSd ? 0x07E0 : 0x632C, c.headerBackground, 1, field.headerFont);
       }
     }
 
@@ -194,17 +198,17 @@
         painter.fillRect(x0 + border, y, 3, ROW_HEIGHT, item.sev);
 
         if (painter.drawText) {
-          painter.drawText(item.time, x0 + border + 6, y + 3, rowFg, rowBg, 1);
+          painter.drawText(item.time, x0 + border + 6, y + 3, rowFg, rowBg, 1, field.rowFont);
           if (w >= 120) {
-            painter.drawText(item.code, x0 + border + 60, y + 3, rowFg, rowBg, 1);
+            painter.drawText(item.code, x0 + border + 60, y + 3, rowFg, rowBg, 1, field.rowFont);
           }
           if (w >= 165) {
-            painter.drawText(item.trans, x0 + border + 98, y + 3, rowFg, rowBg, 1);
+            painter.drawText(item.trans, x0 + border + 98, y + 3, rowFg, rowBg, 1, field.rowFont);
           }
           if (w >= 210) {
             const maxChars = Math.max(1, Math.trunc((w - 145) / 6));
             const truncated = item.label.slice(0, maxChars);
-            painter.drawText(truncated, x0 + border + 138, y + 3, rowFg, rowBg, 1);
+            painter.drawText(truncated, x0 + border + 138, y + 3, rowFg, rowBg, 1, field.rowFont);
           }
         }
       }
@@ -215,9 +219,9 @@
     painter.fillRect(x0 + border, footerY, w - 2 * border, FOOTER_HEIGHT, 0x10A2);
     if (painter.drawText) {
       if (w >= 250) {
-        painter.drawText('[OK] Detalle     [\x1E\x1F] Desplazar     [ESC] Salir', x0 + border + 10, footerY + 3, 0xFFFF, 0x10A2, 1);
+        painter.drawText('[OK] Detalle     [\x1E\x1F] Desplazar     [ESC] Salir', x0 + border + 10, footerY + 3, 0xFFFF, 0x10A2, 1, field.rowFont);
       } else {
-        painter.drawText('[OK] [\x1E\x1F] [ESC]', x0 + border + 6, footerY + 3, 0xFFFF, 0x10A2, 1);
+        painter.drawText('[OK] [\x1E\x1F] [ESC]', x0 + border + 6, footerY + 3, 0xFFFF, 0x10A2, 1, field.rowFont);
       }
     }
   }
@@ -281,7 +285,24 @@ static const JWPLC_UIEventLog HMI_EVENT_LOG = {
         0x${(c.sevWarn !== undefined ? c.sevWarn : 0xFD20).toString(16).toUpperCase()},
         0x${(c.sevCrit !== undefined ? c.sevCrit : 0xF800).toString(16).toUpperCase()},
         0x${((c.frame !== undefined ? c.frame : 0xFFFF) & 0xFFFF).toString(16).toUpperCase()}
-    }
+    }${(() => {
+      const evtFonts = (typeof module === 'object' && module.exports)
+        ? require('./designer-fonts.js')
+        : (typeof window !== 'undefined' ? window.JWPLCDesignerFonts : null);
+      const getEvtFontSym = (fId) => {
+        if (!fId || fId === 'GLCD') return null;
+        if (evtFonts?.cppSymbol) return evtFonts.cppSymbol(fId);
+        if (String(fId).startsWith('JWPLC_FONT_')) return fId;
+        if (fId === 'FONT_16' || fId === 'FONT2') return 'JWPLC_FONT_16';
+        if (fId === 'FONT_26' || fId === 'FONT4') return 'JWPLC_FONT_26';
+        if (fId === '7SEG_48' || fId === 'FONT_7SEG_48') return 'JWPLC_FONT_7SEG_48';
+        return `JWPLC_FONT_${fId}`;
+      };
+      const headerFontSym = getEvtFontSym(field.headerFont);
+      const rowFontSym = getEvtFontSym(field.rowFont);
+      if (!headerFontSym && !rowFontSym) return '';
+      return `,\n    /* headerFont */ ${headerFontSym ? `&${headerFontSym}` : 'nullptr'},\n    /* rowFont */ ${rowFontSym ? `&${rowFontSym}` : 'nullptr'}`;
+    })()}
 };
 #endif`;
 
@@ -399,6 +420,15 @@ static const JWPLC_UIEventLog HMI_EVENT_LOG = {
             <div class="bar-card">
               <label class="field-label">Título de la cabecera
                 <input class="field-input" data-evt-prop="title" type="text" maxlength="32" placeholder="Historial de Eventos" />
+              </label>
+            </div>
+            <div class="bar-card">
+              <div class="bar-card-section-title">Tipografía</div>
+              <label class="field-label">Fuente de la cabecera
+                <select class="field-input" data-evt-font="headerFont"></select>
+              </label>
+              <label class="field-label insp-gap">Fuente de las filas de eventos
+                <select class="field-input" data-evt-font="rowFont"></select>
               </label>
             </div>
             <div class="bar-card">
@@ -724,6 +754,11 @@ static const JWPLC_UIEventLog HMI_EVENT_LOG = {
 
     section.addEventListener('change', (e) => {
       const t = e.target;
+      if (t.matches('[data-evt-font]')) {
+        const prop = t.dataset.evtFont;
+        mutate((f) => { f[prop] = t.value; }, true);
+        return;
+      }
       if (t.matches('[data-evt-prop]')) applyPropInput(t, true);
       if (t.matches('[data-evt-color]')) {
         const colKey = t.dataset.evtColor;
@@ -789,6 +824,32 @@ size_t total = JWPLC_Display.eventCount();
       const input = section.querySelector(`[data-evt-prop="${k}"]`);
       if (input) input.value = String(field[k]);
     });
+
+    function populateEvtFont(sel, currentVal) {
+      if (!sel || !window.JWPLCDesignerFonts) return;
+      const fonts = window.JWPLCDesignerFonts.availableFontsFor('EVENT_LOG');
+      const val = window.JWPLCDesignerFonts.normalizeId(currentVal || 'GLCD');
+      if (sel.dataset.val !== val || !sel.children.length) {
+        sel.dataset.val = val;
+        sel.innerHTML = '';
+        const groups = new Map();
+        fonts.forEach((f) => {
+          if (!groups.has(f.group)) {
+            const grp = document.createElement('optgroup');
+            grp.label = f.group;
+            groups.set(f.group, grp);
+            sel.appendChild(grp);
+          }
+          const opt = document.createElement('option');
+          opt.value = f.id;
+          opt.textContent = f.label;
+          groups.get(f.group).appendChild(opt);
+        });
+        sel.value = val;
+      }
+    }
+    populateEvtFont(section.querySelector('[data-evt-font="headerFont"]'), field.headerFont);
+    populateEvtFont(section.querySelector('[data-evt-font="rowFont"]'), field.rowFont);
 
     // Readouts
     const { rows } = layout(field);

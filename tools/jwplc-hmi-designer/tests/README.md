@@ -18,6 +18,7 @@ Sin `g++` (por ejemplo Windows sin MSYS2) se omiten los pasos que compilan C++; 
 | `menu-host-sim.cjs` | Compila el `JWPLC_UI_Menu.cpp` real con g++ contra stubs (`menu-host/stub`) y recorre un guion de teclas (39 verificaciones). Guarda capturas PNG del framebuffer. | g++ |
 | `icon-catalog.test.cjs` | Catálogo de iconos al día con `icons/library.cjs` (`build-catalog.cjs --check`) y cada entrada dentro de los límites del firmware (tamaños, estados, 16 colores, largo de las imágenes). | node |
 | `icon-host-sim.cjs` | Compila el `JWPLC_UI.cpp` real con g++ contra stubs (`icon-host/stub`) y verifica el ICON: decodificación 4 bpp, transparente, estados, etiqueta, 64 px y que un cambio de estado sólo repinta el icono. Guarda una captura PNG. | g++ |
+| `bar-host-sim.cjs` | Compila el `JWPLC_UI.cpp` real con g++ contra stubs (`icon-host/stub`) y verifica el BAR píxel a píxel: grosor, largo, borde, esquinas, bloques y degradado. Guarda una captura PNG. | g++ |
 | `agent-cli.test.cjs` | CLI para agentes (`cli/jwhmi.cjs`): valores por defecto de `cli/lib/spec.cjs` == los que crea el Designer, esquema y referencia al día, normalización y errores típicos, header de la CLI == golden, ejemplos de `examples/` sin avisos y compilando, `build` en un sketch. | Playwright (+ g++ opcional) |
 | `codegen-smoke.cjs` | Headers de varios proyectos compilan con `g++ -fsyntax-only` contra los headers reales y cada llamada existe en los `.a` (`nm`). | Playwright, g++, nm, python3 |
 

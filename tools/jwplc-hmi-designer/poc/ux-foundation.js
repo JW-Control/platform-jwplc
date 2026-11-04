@@ -269,7 +269,7 @@
 
   loadScript('./designer-color-editor.js?v=1793801300', () => {
   loadScript('./designer-bool.js?v=1793802300', () => {
-    loadScript('./designer-bar.js?v=1793804800', () => {
+    loadScript('./designer-bar.js?v=1793805300', () => {
       loadScript('./designer-zone-indicator.js?v=1793801300', () => {
         loadScript('./designer-field-inspector.js?v=1793801300', () => {
           loadScript('./designer-menu.js?v=1793801700');
@@ -281,7 +281,7 @@
             loadScript('./designer-pages.js?v=1793802300', () => {
               loadScript('./designer-flasher.js?v=1793801500', () => {
                 loadScript('./designer-port-picker.js?v=1793801500');
-                loadScript('./designer-live.js?v=1793801600');
+                loadScript('./designer-live.js?v=1793801700');
               });
             });
           });

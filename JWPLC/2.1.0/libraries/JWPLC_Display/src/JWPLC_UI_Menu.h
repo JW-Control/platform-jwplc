@@ -4,6 +4,8 @@
 #include <Arduino.h>
 #include <stddef.h>
 
+struct JWPLC_TFTFont;
+
 // MENU declarativo (Alpha15, MVP): árbol de menús/submenús dentro de una
 // página USER para ver y configurar variables con la botonera.
 //
@@ -112,6 +114,7 @@ struct JWPLC_UIMenu
     uint8_t textSize;
     bool frame;
     JWPLC_UIMenuColors colors;
+    const JWPLC_TFTFont *font = nullptr;
 };
 
 JWPLC_UIMenuNode JWPLC_UIMenuSubmenu(
@@ -182,7 +185,8 @@ JWPLC_UIMenu JWPLC_UIMenuField(
     uint8_t page = 0,
     uint8_t textSize = 1,
     bool frame = true,
-    JWPLC_UIMenuColors colors = JWPLC_UIMenuColors());
+    JWPLC_UIMenuColors colors = JWPLC_UIMenuColors(),
+    const JWPLC_TFTFont *font = nullptr);
 
 namespace JWPLCUI
 {

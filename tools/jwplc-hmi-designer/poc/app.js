@@ -2275,6 +2275,30 @@
     }
   }
 
+  function drawTextWithFont(buffer, text, x, y, foreground, background, size, fontId) {
+    if (!text) return;
+    const fonts = window.JWPLCDesignerFonts;
+    const font = fonts ? fonts.get(fonts.effectiveId(fontId)) : null;
+    if (!font || font.kind === 'glcd') {
+      drawClassicTextAt(buffer, text, x, y, foreground, background, size);
+      return;
+    }
+    if (background !== null && background !== undefined && background !== -1 && background !== 'TRANSPARENT') {
+      const tb = rawTextBounds(text, size, fontId);
+      if (tb.width > 0 && tb.height > 0) {
+        fillBufferRect(buffer, x, y, tb.width, tb.height, background);
+      }
+    }
+    const mask = fonts.rasterize(font, text, size);
+    for (let row = 0; row < mask.height; row += 1) {
+      for (let column = 0; column < mask.width; column += 1) {
+        if (mask.data[row * mask.width + column]) {
+          setBufferPixel(buffer, x + column, y + row, foreground);
+        }
+      }
+    }
+  }
+
   function rawTextBounds(text, size, fontId) {
     const fonts = window.JWPLCDesignerFonts;
     const font = fonts ? fonts.get(fonts.effectiveId(fontId)) : null;
@@ -2552,15 +2576,15 @@
     // valor no se muevan al pasar a 4×.
     const lead = FIELD_PADDING;
     const pad = effectiveFieldPadding(field);
-    const labelBounds = nominalTextBounds(field.label, field.labelSize);
-    const unitBounds = nominalTextBounds(field.unit, field.labelSize);
+    const labelBounds = rawTextBounds(field.label, field.labelSize, field.labelFont);
+    const unitBounds = rawTextBounds(field.unit, field.labelSize, field.labelFont);
     const pilotSide = 7 * Math.max(1, Math.trunc(Number(field.valueSize) || 1));
     const icon = field.type === 'ICON' ? iconEntry(field) : null;
     const valueBounds = field.type === 'ICON'
       ? (icon ? { width: icon.width, height: icon.height } : { width: 0, height: 7 })
       : isBoolPilot(field)
         ? { width: pilotSide, height: pilotSide }
-        : nominalTextBounds(valueSampleForField(field), field.valueSize);
+        : rawTextBounds(valueSampleForField(field), field.valueSize, field.valueFont);
     let fieldW;
     let fieldH;
     let valueX;
@@ -2595,7 +2619,7 @@
   }
 
   function alignedValueX(field, geometry) {
-    const current = nominalTextBounds(previewTextForField(field), field.valueSize).width;
+    const current = rawTextBounds(previewTextForField(field), field.valueSize, field.valueFont).width;
     if (current >= geometry.valueW) return geometry.valueX;
     const free = geometry.valueW - current;
     if (field.align === 'CENTER') return geometry.valueX + Math.floor(free / 2);
@@ -2619,10 +2643,10 @@
     }
     const textBg = (isTrans && stateBg === null) ? null : background;
     if (field.label) {
-      drawClassicTextAt(buffer, field.label, field.x + FIELD_PADDING, field.y + FIELD_PADDING, field.labelColor, textBg, field.labelSize);
+      drawTextWithFont(buffer, field.label, field.x + FIELD_PADDING, field.y + FIELD_PADDING, field.labelColor, textBg, field.labelSize, field.labelFont);
     }
     if (field.unit) {
-      drawClassicTextAt(buffer, field.unit, g.valueX + g.valueW + FIELD_GAP, g.valueY, field.labelColor, textBg, field.labelSize);
+      drawTextWithFont(buffer, field.unit, g.valueX + g.valueW + FIELD_GAP, g.valueY, field.labelColor, textBg, field.labelSize, field.labelFont);
     }
     if (field.type === 'ICON') {
       // JWPLC_UI.cpp:drawIcon: el índice transparente toma el fondo del campo.
@@ -2655,7 +2679,7 @@
     }
     const preview = previewTextForField(field);
     if (preview) {
-      drawClassicTextAt(buffer, preview, alignedValueX(field, g), g.valueY, fieldValueColor565(field), textBg, field.valueSize);
+      drawTextWithFont(buffer, preview, alignedValueX(field, g), g.valueY, fieldValueColor565(field), textBg, field.valueSize, field.valueFont);
     }
     return g;
   }
@@ -2763,7 +2787,7 @@
         window.JWPLCHMIEventLog?.paint?.(field, {
           fillRect: (x, y, w, h, c) => fillBufferRect(framebuffer, x, y, w, h, c),
           drawRect: (x, y, w, h, c) => drawBufferRect(framebuffer, x, y, w, h, c),
-          drawText: (text, x, y, fg, bg, sz) => drawRawTextAt(framebuffer, text, x, y, fg, bg, sz || 1),
+          drawText: (text, x, y, fg, bg, sz, fontId) => drawRawTextAt(framebuffer, text, x, y, fg, bg, sz || 1, fontId),
           pixel: (x, y, c) => setBufferPixel(framebuffer, x, y, c)
         });
       } else if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(field.type)) {
@@ -2878,6 +2902,7 @@
       const symbol = window.JWPLCHMIIcons?.symbolForField?.(field) || window.JWPLCIconsCore.symbolFor(field.iconId, entry ? entry.width : field.iconSize);
       return window.JWPLCIconsCore.iconFieldBlock(field, id, symbol, core.cppString);
     }
+    if (core?.fieldBlock) return core.fieldBlock(field, id);
     return field.type === 'VALUE' ? core.valueFieldBlock(field, id) : core.textFieldBlock(field, id);
   }
 
