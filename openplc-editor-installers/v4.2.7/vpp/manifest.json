@@ -29,8 +29,8 @@
                 "Serial2"
             ],
             "serialPortLabels": {
-                "Serial": "USB (Serial)",
-                "Serial2": "RS-485 (Serial2)"
+                "Serial": "USB (Serial) · comparte puerto con la depuración",
+                "Serial2": "RS-485 (Serial2) · solo sin módulos en el Backplane"
             },
             "defaultSerial": "Serial",
             "networkInterfaces": [
