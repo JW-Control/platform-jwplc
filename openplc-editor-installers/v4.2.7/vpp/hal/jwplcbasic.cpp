@@ -186,10 +186,10 @@ uint16_t pinMask_AOUT[] = {
     0xFFFF
 };
 
-static constexpr int NUM_DISCRETE_INPUT =
+static constexpr int JWPLC_NUM_DISCRETE_INPUT =
     sizeof(pinMask_DIN) / sizeof(pinMask_DIN[0]);
 
-static constexpr int NUM_DISCRETE_OUTPUT =
+static constexpr int JWPLC_NUM_DISCRETE_OUTPUT =
     sizeof(pinMask_DOUT) / sizeof(pinMask_DOUT[0]);
 
 static constexpr uint8_t JWPLC_REMOTE_CHANNELS = 8;
@@ -283,14 +283,14 @@ static_assert(JWPLC_MODBUS_CONFIG != 0UL,
               "JWPLC Backplane: formato serie RS-485 no soportado (8N1/8E1/8O1)");
 
 // El RS-485 del Backplane (Serial2) es exclusivo del Master RTU. Un servidor
-// Modbus RTU de Device > Modbus en Serial2 reabriria el mismo UART con su
+// Modbus RTU del proyecto (Servers) en Serial2 reabriria el mismo UART con su
 // propio baudrate y consumiria las respuestas de los modulos: todos quedarian
 // fuera de linea y sus salidas en fail-safe. El editor lo rechaza antes de
 // compilar (exclusiveSerialPort del modulo); esto cubre editores que no lo
-// validan. El debugger va por USB (Serial0).
-#if defined(VPP_MODULE_CONFIG_ENTRIES_COUNT) && (VPP_MODULE_CONFIG_ENTRIES_COUNT > 0) &&     defined(VPP_MODBUS_RTU_ENABLED) && defined(VPP_MODBUS_RTU_RTU_INTERFACE)
-static_assert(!(VPP_MODBUS_RTU_ENABLED) || !jwplcTextEquals(VPP_MODBUS_RTU_RTU_INTERFACE, "Serial2"),
-              "JWPLC Backplane: Modbus RTU (Device > Modbus) no puede usar RS-485 (Serial2) con modulos Remote I/O; usar USB (Serial0)");
+// validan. MBSERIAL y MBSERIAL_IFACE_IS_SERIAL2 llegan de defines.h (openplc.h).
+// El debugger va por USB (Serial0).
+#if defined(VPP_MODULE_CONFIG_ENTRIES_COUNT) && (VPP_MODULE_CONFIG_ENTRIES_COUNT > 0) && defined(MBSERIAL) &&     defined(MBSERIAL_IFACE_IS_SERIAL2)
+#error "JWPLC Backplane: el servidor Modbus RTU (Servers) no puede usar RS-485 (Serial2) con modulos Remote I/O; usar USB (Serial)"
 #endif
 
 struct JWPLCIecBitAddress
@@ -1351,7 +1351,7 @@ static void jwplcPublishForcedInputs()
         uint8_t forcedValues = 0;
 
         // pinMask_DIN es fijo (I0_0..I0_7), así que %IX0.i es el bit i de la IDLE.
-        for (int i = 0; i < NUM_DISCRETE_INPUT && i < 8; i++)
+        for (int i = 0; i < JWPLC_NUM_DISCRETE_INPUT && i < 8; i++)
         {
             IEC_BOOL *raw = bool_input[0][i];
             if (raw == NULL || !jwplcValidPin(pinMask_DIN[i]))
@@ -1408,7 +1408,7 @@ void updateInputBuffers()
 #endif
     jwplcTimingOnScanStart();
     uint8_t physical = 0;
-    for (int i = 0; i < NUM_DISCRETE_INPUT; i++)
+    for (int i = 0; i < JWPLC_NUM_DISCRETE_INPUT; i++)
     {
         uint16_t pin = pinMask_DIN[i];
 
@@ -1432,7 +1432,7 @@ void updateOutputBuffers()
     {
         jwplcTimingObserveRemoteOutputs(jwplcPackRemoteOutputs(jwplcRemoteSlots[0]));
     }
-    for (int i = 0; i < NUM_DISCRETE_OUTPUT; i++)
+    for (int i = 0; i < JWPLC_NUM_DISCRETE_OUTPUT; i++)
     {
         uint16_t pin = pinMask_DOUT[i];
 

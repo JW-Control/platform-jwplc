@@ -1,0 +1,75 @@
+{
+  "sections": [
+    {
+      "id": "serial",
+      "title": "Serial (USB)",
+      "layout": "form",
+      "collapsible": true,
+      "collapsed": false,
+      "fields": [
+        {
+          "id": "baud_rate",
+          "label": "Velocidad (baud)",
+          "type": "select",
+          "options": [
+            "9600",
+            "14400",
+            "19200",
+            "38400",
+            "57600",
+            "115200"
+          ],
+          "default": "115200",
+          "help": "Velocidad del USB para el depurador y para el servidor Modbus cuando va por «Serial». El servidor la muestra bloqueada: se cambia solo aquí."
+        }
+      ],
+      "description": "Puerto USB del JWPLC Basic. Por aquí depura el editor (siempre con la dirección 1) y, si el servidor Modbus del proyecto usa «Serial», también responde a un SCADA con esta misma velocidad."
+    },
+    {
+      "id": "backplane-rtu",
+      "title": "RS-485 (Serial2) · Backplane",
+      "layout": "form",
+      "persistence": "backplane_rtu",
+      "fields": [
+        {
+          "id": "baud_rate",
+          "label": "Velocidad (baud)",
+          "type": "select",
+          "options": [
+            "9600",
+            "19200",
+            "38400",
+            "57600",
+            "115200"
+          ],
+          "default": "115200",
+          "help": "Velocidad del bus RS-485 (Serial2) entre el JWPLC Basic y sus modulos Remote I/O. Todos los modulos del bus deben usar el mismo valor."
+        },
+        {
+          "id": "serial_format",
+          "label": "Formato serie",
+          "type": "select",
+          "options": [
+            {
+              "label": "8N1 (8 datos, sin paridad, 1 stop)",
+              "value": "8N1"
+            },
+            {
+              "label": "8E1 (8 datos, paridad par, 1 stop)",
+              "value": "8E1"
+            },
+            {
+              "label": "8O1 (8 datos, paridad impar, 1 stop)",
+              "value": "8O1"
+            }
+          ],
+          "default": "8N1",
+          "help": "Formato de trama del bus RS-485 del Backplane. Debe coincidir con el configurado en cada modulo Remote I/O."
+        }
+      ],
+      "description": "Bus RS-485 donde el JWPLC Basic es el maestro de sus módulos Remote I/O. Todos los módulos deben tener la misma velocidad y formato. Con módulos en el Backplane, el servidor Modbus no puede usar este puerto: usa USB o Ethernet.",
+      "collapsible": true,
+      "collapsed": false
+    }
+  ]
+}
