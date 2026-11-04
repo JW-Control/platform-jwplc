@@ -10,7 +10,7 @@
   Funciones mostradas:
   - setUserPage(page): cambia la página USER.
   - userPage(): consulta la página seleccionada.
-  - JWPLC_IO / JWPLC_Time: datos cacheados, sin transacciones extra.
+  - digitalReadBlock(I0_X) / JWPLC_Time: datos ya escaneados, sin transacciones extra.
 
   Controles:
   - OK    : entra a USER.
@@ -91,8 +91,8 @@ void loop()
     {
         lastUpdateMs = millis();
 
-        JWPLC_Display.setValue(FIELD_INPUTS, JWPLC_IO.inputs());
-        JWPLC_Display.setBool(FIELD_INPUT0, JWPLC_IO.input(0));
+        JWPLC_Display.setValue(FIELD_INPUTS, digitalReadBlock(I0_X));
+        JWPLC_Display.setBool(FIELD_INPUT0, digitalRead(I0_0) == HIGH);
 
         // FIELD_TIME no necesita código: se repinta solo cada segundo.
         JWPLC_Display.setBool(FIELD_RTC_VALID, JWPLC_Time.valid());

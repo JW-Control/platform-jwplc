@@ -25,4 +25,4 @@ Curso paso a paso: `Curso_JWPLC_Basic/` (lecciones 01 a 11).
 
 Estos ejemplos usan las **instancias globales del JWPLC Basic**. Por diseño no se copiaron a `JW_RTC`, `JW_FRAM`, `JW_SD` ni `JW_MatrixButtons`, porque esas librerías `JW_*` continúan siendo drivers genéricos reutilizables.
 
-Los ejemplos históricos no numerados (`DigitalIO_Block*`, `JWPLC_IO_BlockMirror`) se retiraron en 2.1.0-alpha.17: `01.DigitalIO_Basic` ya muestra las E/S en bloque con `JWPLC_IO`.
+Los ejemplos históricos no numerados (`DigitalIO_Block*`, `JWPLC_IO_BlockMirror`) se retiraron en 2.1.0-alpha.17: `01.DigitalIO_Basic` ya muestra las E/S en bloque con `digitalReadBlock(I0_X)` y `digitalWriteBlock(Q0_X, bits)`.
