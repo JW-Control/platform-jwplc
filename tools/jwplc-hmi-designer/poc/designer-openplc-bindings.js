@@ -53,7 +53,8 @@
     .jwplc-view-bindings [data-menu-action="delete"],
     .jwplc-view-bindings .menu-tree-btns,
     .jwplc-view-bindings #idleConfigSection,
-    .jwplc-view-bindings .jwplc-menu-design-only { display: none !important; }
+    .jwplc-view-bindings .jwplc-menu-design-only,
+    .jwplc-view-bindings #themeToggleButton { display: none !important; }
     /* Sin panel de código: su fila del grid queda en 0. */
     html.jwplc-view-bindings body, html.jwplc-view-bindings body.bottom-collapsed {
       grid-template-rows: 58px minmax(0, 1fr) 0 28px !important; }
@@ -74,9 +75,27 @@
     .jwplc-editor-open .jwplc-bindings-lock { display: block; }
     .jwplc-bindings-empty { margin: 14px 12px; padding: 14px; border: 1px dashed #3a5568; border-radius: 10px;
       color: #9fb3c2; font-size: 13px; line-height: 1.45; }
+    /* Modo claro (tema de OpenPLC): mismos tokens que designer-light-theme.css. */
+    html.theme-light .jwplc-bindings-chip, html.theme-light .jwplc-bindings-empty { color: var(--muted, #64748b); }
+    html.theme-light .jwplc-bindings-edit { border-color: var(--orange, #ea580c); color: var(--orange, #ea580c);
+      background: var(--orange-soft, rgba(234, 88, 12, .12)); }
+    html.theme-light .jwplc-bindings-edit:hover { background: rgba(234, 88, 12, .2); }
+    html.theme-light .jwplc-bindings-lock { border-color: var(--line, #cbd5e1); background: var(--panel-2, #f8fafc);
+      color: var(--text, #0f172a); }
+    html.theme-light .jwplc-bindings-empty { border-color: var(--line, #cbd5e1); }
     .jwplc-editor-open .jwplc-plc-select { pointer-events: none; opacity: .55; }
   `;
   document.head.appendChild(style);
+
+  // El tema lo decide OpenPLC (?theme= al cargar y setTheme al cambiarlo); no se guarda en el Designer.
+  window.JWPLCBindingsView = {
+    setTheme(theme) {
+      const isLight = theme === 'light';
+      document.documentElement.classList.toggle('theme-light', isLight);
+      document.body?.classList.toggle('theme-light', isLight);
+      window.dispatchEvent(new CustomEvent('jwplc:themechange', { detail: { theme: isLight ? 'light' : 'dark', isLight } }));
+    }
+  };
 
   // --- Barra superior: qué es esta vista y cómo editar el diseño -------------------
 
