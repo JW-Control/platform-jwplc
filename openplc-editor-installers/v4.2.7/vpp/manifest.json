@@ -28,6 +28,10 @@
                 "Serial",
                 "Serial2"
             ],
+            "serialPortLabels": {
+                "Serial": "USB (Serial)",
+                "Serial2": "RS-485 (Serial2)"
+            },
             "defaultSerial": "Serial",
             "networkInterfaces": [
                 "Ethernet"
