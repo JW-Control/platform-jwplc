@@ -172,9 +172,12 @@
     });
   }
 
+  // La vista previa vive en el panel izquierdo («Vista Previa»); sin .preview-section la pestaña «Vista 1:1» no mostraría nada.
+  const hasRightPreview = () => Boolean($('.right-panel .preview-section'));
+
   function ensureRightTabs() {
     const panel = rightPanel();
-    if (!panel || $('#responsiveRightTabs')) return;
+    if (!panel || $('#responsiveRightTabs') || !hasRightPreview()) return;
     const tabs = document.createElement('div');
     tabs.id = 'responsiveRightTabs';
     tabs.className = 'responsive-right-tabs';
@@ -208,7 +211,7 @@
       });
       bar.appendChild(button);
     }
-    if (!$('#compactPreviewButton')) {
+    if (!$('#compactPreviewButton') && hasRightPreview()) {
       const button = document.createElement('button');
       button.id = 'compactPreviewButton';
       button.type = 'button';
