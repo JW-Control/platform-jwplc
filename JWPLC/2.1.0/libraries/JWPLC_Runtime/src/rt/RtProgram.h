@@ -192,9 +192,10 @@ void formatClock(int32_t minutes, char out[], size_t size);
 // Programa vacío, con nombre.
 void clearProgram(Program &p, const char name[]);
 // Programa de ejemplo (portón con temporizador, alumbrado semanal, contador).
-// Programas de ejemplo: 0 = «Demo feria», 1 = «Intermitente».
+// Programas de ejemplo: 0 = «Demo feria», 1 = «Intermitente», 2 = «Escalonado».
 static const uint8_t DEMO_FERIA = 0;
 static const uint8_t DEMO_INTERMITENTE = 1;
+static const uint8_t DEMO_ESCALONADO = 2;
 void demoProgram(Program &p, uint8_t which = DEMO_FERIA);
 
 // Bloque nuevo con sus valores por defecto.

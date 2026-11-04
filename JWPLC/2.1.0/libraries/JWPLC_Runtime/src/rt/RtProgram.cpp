@@ -366,8 +366,29 @@ static void demoIntermitente(Program &p)
     p.qNeg = 0x02;
 }
 
+// «Escalonado»: una entrada y dos TON. Con I1 en 1, Q1 y Q2 se encienden
+// en cascada a 1 y 2 s; al soltar I1 se apagan. Cabe en una pantalla.
+static void demoEscalonado(Program &p)
+{
+    clearProgram(p, "Escalonado");
+    static const uint16_t TIEMPOS[2] = {100, 200}; // centésimas: 1 y 2 s
+    for (uint8_t i = 0; i < 2; i++)
+    {
+        uint8_t b = addBlock(p, BT_TON);
+        p.blocks[b].in[0] = SRC_I + 0;
+        p.blocks[b].p1 = TIEMPOS[i];
+        p.blocks[b].flags |= BF_PARAM;
+        p.q[i] = (uint8_t)(SRC_B + b);
+    }
+}
+
 void demoProgram(Program &p, uint8_t which)
 {
+    if (which == DEMO_ESCALONADO)
+    {
+        demoEscalonado(p);
+        return;
+    }
     if (which == DEMO_INTERMITENTE)
     {
         demoIntermitente(p);

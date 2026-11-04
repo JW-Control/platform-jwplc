@@ -30,6 +30,7 @@
 // Programas de ejemplo para loadDemoIfEmpty().
 static const uint8_t RUNTIME_DEMO_FERIA = 0;
 static const uint8_t RUNTIME_DEMO_INTERMITENTE = 1;
+static const uint8_t RUNTIME_DEMO_ESCALONADO = 2;
 
 class JWPLC_RuntimeClass
 {
@@ -43,6 +44,8 @@ public:
     //   RUNTIME_DEMO_FERIA         «Demo feria» (marcha/parada, bomba, contador)
     //   RUNTIME_DEMO_INTERMITENTE  «Intermitente»: Q1 y Q2 alternan cada 1 s
     //                              con dos TON, sin entradas
+    //   RUNTIME_DEMO_ESCALONADO    «Escalonado»: con I1, Q1 y Q2 se encienden
+    //                              a 1 y 2 s (dos TON)
     void loadDemoIfEmpty(bool enable, uint8_t demo = RUNTIME_DEMO_FERIA);
 
     // Como loadDemoIfEmpty(), pero también reemplaza el programa de la FRAM

@@ -660,7 +660,9 @@ using namespace jwrt;
 void JWPLC_RuntimeClass::loadDemoIfEmpty(bool enable, uint8_t demo)
 {
     _demoIfEmpty = enable;
-    core.demo = demo == RUNTIME_DEMO_INTERMITENTE ? DEMO_INTERMITENTE : DEMO_FERIA;
+    core.demo = demo == RUNTIME_DEMO_INTERMITENTE ? DEMO_INTERMITENTE
+                : demo == RUNTIME_DEMO_ESCALONADO  ? DEMO_ESCALONADO
+                                                   : DEMO_FERIA;
 }
 
 void JWPLC_RuntimeClass::loadDemo(uint8_t demo)
