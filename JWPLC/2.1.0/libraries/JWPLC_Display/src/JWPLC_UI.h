@@ -478,9 +478,9 @@ struct JWPLC_UITrendConfig
         bool enableSDVal = false,
         uint16_t sdIntervalMsVal = 1000,
         uint16_t curveColorVal = 0xFD20,
-        uint16_t axesColorVal = 0x4208,
-        uint16_t gridColorVal = 0x2104,
-        uint16_t textColorVal = 0xDF5E,
+        uint16_t axesColorVal = 0xFFFF,
+        uint16_t gridColorVal = 0x4208,
+        uint16_t textColorVal = 0xFFFF,
         uint16_t backgroundColorVal = 0x0000)
         : sampleIntervalMs(sampleIntervalMsVal),
           visibleSamples(visibleSamplesVal),

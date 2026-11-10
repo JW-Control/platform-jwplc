@@ -26,11 +26,21 @@
     '60s': 60000
   };
 
+  const COLOR_NAMES = {
+    curveColor: 'Línea / Curva',
+    axesColor: 'Ejes de coordenadas',
+    textColor: 'Textos y etiquetas',
+    gridColor: 'Guías de fondo',
+    backgroundColor: 'Fondo de gráfica'
+  };
+
   function applyPreset(field, presetKey) {
     if (!field || !PRESETS[presetKey]) return false;
     const p = PRESETS[presetKey];
     field.width = p.width;
     field.height = p.height;
+    field.w = p.width;
+    field.h = p.height;
     if (p.x !== undefined) field.x = p.x;
     if (p.y !== undefined) field.y = p.y;
     return true;
@@ -67,9 +77,10 @@
   }
 
   let activeMainTab = 'design';
-  let activeSubTab = 'shape';
+  let activeSubTab = 'appearance';
   let activeColorKey = 'curveColor';
   let trendColorEditor = null;
+  let sectionInstance = null;
 
   function editor() {
     return typeof window !== 'undefined' ? window.JWPLCHMIEditor : null;
@@ -90,11 +101,58 @@
     syncInspector(field);
   }
 
+  function drawAppearancePreview(section, field) {
+    if (!section) return;
+    const canvas = section.querySelector('[data-trend-preview-canvas]');
+    if (!canvas) return;
+
+    const f = field || selectedTrendField();
+    if (!f) return;
+
+    const w = Math.max(40, Number(f.width || f.w) || 200);
+    const h = Math.max(30, Number(f.height || f.h) || 80);
+
+    const previewField = {
+      ...f,
+      x: 0,
+      y: 0,
+      width: w,
+      height: h,
+      w,
+      h
+    };
+
+    const ed = editor();
+    const out = ed?.renderFieldPreview ? ed.renderFieldPreview(previewField) : null;
+    if (!out || !out.buffer) return;
+
+    if (canvas.width !== w) canvas.width = w;
+    if (canvas.height !== h) canvas.height = h;
+
+    const ctx = canvas.getContext('2d');
+    const img = ctx.createImageData(w, h);
+    for (let y = 0; y < h; y++) {
+      const row = y * out.width;
+      for (let x = 0; x < w; x++) {
+        const v = out.buffer[row + x];
+        const o = (y * w + x) * 4;
+        img.data[o] = ((v >> 11) & 0x1F) * 255 / 31;
+        img.data[o + 1] = ((v >> 5) & 0x3F) * 255 / 63;
+        img.data[o + 2] = (v & 0x1F) * 255 / 31;
+        img.data[o + 3] = 255;
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+  }
+
   function ensureTrendInspectorSection() {
     if (typeof document === 'undefined') return null;
 
     let section = document.getElementById('trendInspectorSection');
-    if (section) return section;
+    if (section) {
+      sectionInstance = section;
+      return section;
+    }
 
     const anchor = document.getElementById('textFieldControlsSection');
     if (!anchor || !anchor.parentNode) return null;
@@ -122,16 +180,16 @@
             <button type="button" class="bar-main-tab" data-trend-main="tech">Técnico</button>
           </div>
           <div class="bar-sub-tabs" data-trend-subtabs>
-            <button type="button" class="bar-sub-tab active" data-trend-sub="shape">Forma</button>
+            <button type="button" class="bar-sub-tab" data-trend-sub="shape">Forma</button>
             <button type="button" class="bar-sub-tab" data-trend-sub="content">Contenido</button>
-            <button type="button" class="bar-sub-tab" data-trend-sub="appearance">Apariencia</button>
+            <button type="button" class="bar-sub-tab active" data-trend-sub="appearance">Apariencia</button>
             <button type="button" class="bar-sub-tab" data-trend-sub="placement">Ubicación</button>
           </div>
         </div>
 
         <div class="insp-body">
           <!-- PANEL: Forma -->
-          <div class="insp-panel" data-trend-panel="design:shape">
+          <div class="insp-panel" data-trend-panel="design:shape" hidden>
             <div class="bar-card">
               <div class="bar-card-section-title">Presets rápidos de tamaño</div>
               <div class="bar-visual-grid-2">
@@ -177,6 +235,9 @@
               <label class="field-label">Título / Identificador
                 <input class="field-input" data-trend-prop="title" type="text" maxlength="16" placeholder="TEND" />
               </label>
+              <label class="field-label insp-gap">Valor de prueba
+                <input class="field-input" data-trend-prop="preview" type="text" placeholder="24.5" />
+              </label>
               <label class="field-label insp-gap">Unidad de ingeniería
                 <input class="field-input" data-trend-prop="unit" type="text" maxlength="8" placeholder="°C, RPM, BAR" />
               </label>
@@ -194,21 +255,32 @@
           </div>
 
           <!-- PANEL: Apariencia -->
-          <div class="insp-panel" data-trend-panel="design:appearance" hidden>
+          <div class="insp-panel" data-trend-panel="design:appearance">
+            <div class="bar-card">
+              <div class="bar-card-section-title">Vista previa en vivo</div>
+              <div class="trend-preview-wrap" style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:6px 0;">
+                <canvas class="trend-preview-canvas" data-trend-preview-canvas width="200" height="80"></canvas>
+              </div>
+            </div>
+
             <div class="bar-card">
               <div class="bar-card-section-title">Elemento a colorear</div>
               <div class="insp-chip-row" data-trend-color-tabs>
                 <button type="button" class="insp-chip active" data-trend-colorkey="curveColor">
                   <span class="trend-color-swatch" data-trend-swatch="curveColor" style="display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:4px;"></span>
-                  Curva
+                  Línea
                 </button>
                 <button type="button" class="insp-chip" data-trend-colorkey="axesColor">
                   <span class="trend-color-swatch" data-trend-swatch="axesColor" style="display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:4px;"></span>
-                  Ejes/Guías
+                  Ejes
                 </button>
                 <button type="button" class="insp-chip" data-trend-colorkey="textColor">
                   <span class="trend-color-swatch" data-trend-swatch="textColor" style="display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:4px;"></span>
-                  Etiquetas
+                  Textos
+                </button>
+                <button type="button" class="insp-chip" data-trend-colorkey="gridColor">
+                  <span class="trend-color-swatch" data-trend-swatch="gridColor" style="display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:4px;"></span>
+                  Guías
                 </button>
                 <button type="button" class="insp-chip" data-trend-colorkey="backgroundColor">
                   <span class="trend-color-swatch" data-trend-swatch="backgroundColor" style="display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:4px;"></span>
@@ -355,6 +427,7 @@
     `;
 
     anchor.parentNode.insertBefore(section, anchor.nextSibling);
+    sectionInstance = section;
 
     bindEvents(section);
     initColorEditor(section);
@@ -375,6 +448,7 @@
         field[activeColorKey] = Number(v565) & 0xFFFF;
         editor()?.render?.();
         updateColorSwatches(section, field);
+        drawAppearancePreview(section, field);
       },
       onCommit: (v565) => {
         mutateField((f) => {
@@ -464,7 +538,7 @@
         });
         const f = selectedTrendField();
         if (f && trendColorEditor) {
-          trendColorEditor.setColor(f[activeColorKey] ?? 0xFFFF);
+          trendColorEditor.set(f[activeColorKey] ?? 0xFFFF, COLOR_NAMES[activeColorKey] || 'Color');
         }
       });
     });
@@ -478,8 +552,14 @@
       input.addEventListener('change', () => {
         mutateField((f) => {
           if (isCheck) f[prop] = input.checked;
-          else if (isNum) f[prop] = Number(input.value) || 0;
-          else f[prop] = input.value;
+          else if (isNum) {
+            const nVal = Number(input.value) || 0;
+            f[prop] = nVal;
+            if (prop === 'width') f.w = nVal;
+            if (prop === 'height') f.h = nVal;
+          } else {
+            f[prop] = input.value;
+          }
         });
       });
 
@@ -487,15 +567,24 @@
         input.addEventListener('input', () => {
           const field = selectedTrendField();
           if (!field) return;
-          if (isNum) field[prop] = Number(input.value) || 0;
-          else field[prop] = input.value;
+          if (isNum) {
+            const nVal = Number(input.value) || 0;
+            field[prop] = nVal;
+            if (prop === 'width') field.w = nVal;
+            if (prop === 'height') field.h = nVal;
+          } else {
+            field[prop] = input.value;
+          }
           editor()?.render?.();
+          drawAppearancePreview(section, field);
         });
       }
     });
   }
 
   function switchTab(section) {
+    if (!section) return;
+
     // Update main tab headers
     section.querySelectorAll('[data-trend-main]').forEach((btn) => {
       btn.classList.toggle('active', btn.dataset.trendMain === activeMainTab);
@@ -523,6 +612,11 @@
       panel.hidden = !visible;
       panel.style.display = visible ? '' : 'none';
     });
+
+    if (activeMainTab === 'design' && activeSubTab === 'appearance') {
+      const f = selectedTrendField();
+      if (f) drawAppearancePreview(section, f);
+    }
   }
 
   function syncInspector(field) {
@@ -533,12 +627,15 @@
     // Sync input fields
     section.querySelectorAll('[data-trend-prop]').forEach((input) => {
       const prop = input.dataset.trendProp;
-      if (f[prop] === undefined) return;
       if (input.type === 'checkbox') {
-        input.checked = Boolean(f[prop]);
+        if (prop === 'enableSD') {
+          input.checked = Boolean(f.enableSD);
+        } else {
+          input.checked = f[prop] !== false;
+        }
       } else {
         if (document.activeElement !== input) {
-          input.value = String(f[prop]);
+          input.value = (f[prop] !== undefined && f[prop] !== null) ? String(f[prop]) : '';
         }
       }
     });
@@ -585,8 +682,11 @@
 
     // Active color in color editor
     if (trendColorEditor) {
-      trendColorEditor.setColor(f[activeColorKey] ?? 0xFFFF);
+      trendColorEditor.set(f[activeColorKey] ?? 0xFFFF, COLOR_NAMES[activeColorKey] || 'Color');
     }
+
+    // Mini-preview
+    drawAppearancePreview(section, f);
 
     // Code preview
     const codeEl = section.querySelector('[data-trend-readout="code"]');
@@ -599,23 +699,32 @@
     switchTab(section);
   }
 
-  // Auto-init on DOM ready
+  // Auto-init on DOM ready and listen to editor events
+  if (typeof window !== 'undefined') {
+    window.addEventListener('jwplc:editor-refresh', () => {
+      const f = selectedTrendField();
+      if (f) syncInspector(f);
+    });
+  }
+
   if (typeof document !== 'undefined') {
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', () => ensureTrendInspectorSection());
     } else {
-      setTimeout(() => ensureTrendInspectorSection(), 0);
+      ensureTrendInspectorSection();
     }
   }
 
   return {
     PRESETS,
     FREQUENCIES,
+    COLOR_NAMES,
     applyPreset,
     frequencyToMs,
     msToFrequencyLabel,
     estimateRamUsage,
     ensureTrendInspectorSection,
-    syncInspector
+    syncInspector,
+    drawAppearancePreview
   };
 });

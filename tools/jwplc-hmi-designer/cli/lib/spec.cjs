@@ -207,6 +207,7 @@ const TYPES = {
       variable: { kind: 'symbol', desc: 'Variable analógica C++ a graficar.', default: 'temperatura' },
       title: str('Título / Identificador de la curva.', { default: 'TEND' }),
       unit: str('Unidad de la variable.', { default: '' }),
+      preview: num('Valor de prueba para visualización en el lienzo.', { default: 24.5 }),
       sampleIntervalMs: int(50, 60000, 'Periodo de muestreo en ms (ej. 1000 = 1 muestra/s, 100 = 10 Hz).', { default: 1000 }),
       visibleSamples: int(20, SCREEN.width, 'Puntos visibles en la ventana en vivo.', { default: 150 }),
       scaleMode: oneOf(['AUTO', 'MANUAL'], 'AUTO: auto-escala dinámica con 3 guías. MANUAL: escala fija con minValue y maxValue.', { default: 'AUTO' }),
@@ -219,9 +220,9 @@ const TYPES = {
       enableSD: bool('Activa el registro continuo en tarjeta MicroSD.', { default: false }),
       sdIntervalMs: int(100, 60000, 'Periodo de volcado a la tarjeta MicroSD.', { default: 1000 }),
       curveColor: color('Color de la línea de tendencia.', { default: 0xFD20 }),
-      axesColor: color('Color de los ejes y guías horizontales.', { default: 0x4208 }),
-      gridColor: color('Color de la rejilla secundaria.', { default: 0x2104 }),
-      textColor: color('Color de las etiquetas de los ejes.', { default: 0xDF5E }),
+      axesColor: color('Color de los ejes de coordenadas (color entero).', { default: 0xFFFF }),
+      gridColor: color('Color de las 3 líneas guía de fondo.', { default: 0x4208 }),
+      textColor: color('Color de las etiquetas y textos.', { default: 0xFFFF }),
       backgroundColor: color('Fondo del área de la gráfica.', { default: 0x0000 })
     }
   },

@@ -757,6 +757,7 @@
       height: 80,
       title: 'TEND',
       unit: '',
+      preview: 24.5,
       sampleIntervalMs: 1000,
       visibleSamples: 150,
       scaleMode: 'AUTO',
@@ -769,9 +770,9 @@
       enableSD: false,
       sdIntervalMs: 1000,
       curveColor: 0xFD20,
-      axesColor: 0x4208,
-      gridColor: 0x2104,
-      textColor: 0xDF5E,
+      axesColor: 0xFFFF,
+      gridColor: 0x4208,
+      textColor: 0xFFFF,
       backgroundColor: 0x0000,
       frame: true,
       page: 0
@@ -2785,6 +2786,9 @@
     let g = null;
     if (['TEXT', 'VALUE', 'BOOL', 'ICON'].includes(field.type)) {
       g = drawField(buffer, field);
+    } else if (field.type === 'TREND') {
+      drawTrendToFramebuffer(buffer, field);
+      g = computeFieldGeometry(field);
     } else if (field.type === 'RAW_TEXT') {
       const bg = field.transparentBackground ? null : (field.backgroundColor ?? 0x0000);
       drawRawTextAt(buffer, field.text || '', field.x, field.y, field.textColor ?? 0xFFFF, bg, field.size || 1, field.font);
@@ -2861,21 +2865,33 @@
 
     const bg565 = (field.backgroundColor !== undefined && field.backgroundColor !== null && field.backgroundColor !== 'TRANSPARENT' && field.backgroundColor !== -1) ? (Number(field.backgroundColor) & 0xFFFF) : 0x0000;
     const curve565 = (field.curveColor !== undefined && field.curveColor !== null) ? (Number(field.curveColor) & 0xFFFF) : 0xFD20;
-    const axes565 = (field.axesColor !== undefined && field.axesColor !== null) ? (Number(field.axesColor) & 0xFFFF) : 0x4208;
-    const text565 = (field.textColor !== undefined && field.textColor !== null) ? (Number(field.textColor) & 0xFFFF) : 0xDF5E;
+    const axes565 = (field.axesColor !== undefined && field.axesColor !== null) ? (Number(field.axesColor) & 0xFFFF) : 0xFFFF;
+    const grid565 = (field.gridColor !== undefined && field.gridColor !== null) ? (Number(field.gridColor) & 0xFFFF) : 0x4208;
+    const text565 = (field.textColor !== undefined && field.textColor !== null) ? (Number(field.textColor) & 0xFFFF) : 0xFFFF;
 
     fillBufferRect(buffer, field.x, field.y, w, h, bg565);
     if (field.frame !== false) {
-      drawBufferRect(buffer, field.x, field.y, w, h, axes565);
+      drawBufferRect(buffer, field.x, field.y, w, h, grid565);
     }
 
     if (field.showAxes !== false) {
-      fillBufferRect(buffer, geo.plotX - 1, geo.plotY, 1, geo.plotH, axes565);
+      // Guías horizontales de fondo (tenues, diferencian del eje principal)
+      fillBufferRect(buffer, geo.plotX, geo.upperGuideY, geo.plotW, 1, grid565);
+      fillBufferRect(buffer, geo.plotX, geo.middleGuideY, geo.plotW, 1, grid565);
+      fillBufferRect(buffer, geo.plotX, geo.lowerGuideY, geo.plotW, 1, grid565);
+
+      // Ejes de coordenadas (L-frame sólido con color entero)
+      fillBufferRect(buffer, geo.plotX - 1, geo.plotY, 1, geo.plotH + 1, axes565);
       fillBufferRect(buffer, geo.plotX - 1, geo.plotY + geo.plotH, geo.plotW + 1, 1, axes565);
 
-      fillBufferRect(buffer, geo.plotX, geo.upperGuideY, geo.plotW, 1, axes565);
-      fillBufferRect(buffer, geo.plotX, geo.middleGuideY, geo.plotW, 1, axes565);
-      fillBufferRect(buffer, geo.plotX, geo.lowerGuideY, geo.plotW, 1, axes565);
+      // Marcas (ticks) en eje Y (2 px a la izquierda)
+      fillBufferRect(buffer, geo.plotX - 3, geo.upperGuideY, 2, 1, axes565);
+      fillBufferRect(buffer, geo.plotX - 3, geo.middleGuideY, 2, 1, axes565);
+      fillBufferRect(buffer, geo.plotX - 3, geo.lowerGuideY, 2, 1, axes565);
+
+      // Marcas (ticks) en eje X (2 px hacia abajo)
+      fillBufferRect(buffer, geo.plotX - 1, geo.plotY + geo.plotH, 1, 3, axes565);
+      fillBufferRect(buffer, geo.plotX + geo.plotW - 1, geo.plotY + geo.plotH, 1, 3, axes565);
 
       const minVal = Number(field.minValue) || 0;
       const maxVal = Number(field.maxValue) || 100;
@@ -2897,16 +2913,24 @@
       const totalSec = Math.round((sampleMs * visiblePts) / 1000);
       const rText = totalSec >= 60 ? `${Math.round(totalSec / 60)}m` : `${totalSec}s`;
 
-      drawTextWithFont(buffer, '0s', geo.plotX, geo.plotY + geo.plotH + 2, text565, bg565, 1, 'GLCD');
+      drawTextWithFont(buffer, '0s', geo.plotX, geo.plotY + geo.plotH + 3, text565, bg565, 1, 'GLCD');
       const rW = rText.length * 6;
-      drawTextWithFont(buffer, rText, Math.max(geo.plotX + 15, geo.plotX + geo.plotW - rW), geo.plotY + geo.plotH + 2, text565, bg565, 1, 'GLCD');
+      drawTextWithFont(buffer, rText, Math.max(geo.plotX + 15, geo.plotX + geo.plotW - rW), geo.plotY + geo.plotH + 3, text565, bg565, 1, 'GLCD');
     }
 
     const headerTitle = field.title || field.label;
     if (headerTitle) {
-      drawTextWithFont(buffer, String(headerTitle).slice(0, 8), geo.plotX + 2, field.y + 2, curve565, bg565, 1, 'GLCD');
+      let curX = geo.plotX + 2;
+      const titleStr = String(headerTitle).slice(0, 8);
+      drawTextWithFont(buffer, titleStr, curX, field.y + 2, curve565, bg565, 1, 'GLCD');
+      curX += titleStr.length * 6 + 4;
+      if (field.preview !== undefined && field.preview !== null && String(field.preview) !== '') {
+        const pStr = String(field.preview);
+        drawTextWithFont(buffer, pStr, curX, field.y + 2, text565, bg565, 1, 'GLCD');
+        curX += pStr.length * 6 + 4;
+      }
       if (field.unit) {
-        drawTextWithFont(buffer, String(field.unit).slice(0, 5), geo.plotX + 2 + String(headerTitle).slice(0, 8).length * 6 + 4, field.y + 2, text565, bg565, 1, 'GLCD');
+        drawTextWithFont(buffer, String(field.unit).slice(0, 6), curX, field.y + 2, text565, bg565, 1, 'GLCD');
       }
     }
 
@@ -4354,7 +4378,7 @@
       button.classList.toggle('active', button.dataset.tool === selectedTool);
     });
 
-    const isVarTool = ['valueField', 'boolField', 'barField', 'navBarField', 'menuField', 'eventLogField'].includes(selectedTool);
+    const isVarTool = ['valueField', 'boolField', 'barField', 'trendField', 'navBarField', 'menuField', 'eventLogField'].includes(selectedTool);
     const varToolBtn = document.getElementById('variableToolBtn');
     if (varToolBtn) {
       varToolBtn.classList.toggle('active', isVarTool);
@@ -4383,10 +4407,19 @@
     const isMenu = field?.type === 'MENU';
     const isEventLog = field?.type === 'EVENT_LOG';
     const isIcon = field?.type === 'ICON';
+    const isTrend = field?.type === 'TREND';
     const iconSection = document.getElementById('iconInspectorSection');
     if (iconSection) {
       iconSection.hidden = !isIcon;
       iconSection.style.display = isIcon ? '' : 'none';
+    }
+    const trendSection = document.getElementById('trendInspectorSection');
+    if (trendSection) {
+      trendSection.hidden = !isTrend;
+      trendSection.style.display = isTrend ? '' : 'none';
+      if (isTrend && window.JWPLCHMITrend?.syncInspector) {
+        window.JWPLCHMITrend.syncInspector(field);
+      }
     }
     const menuSection = document.getElementById('menuInspectorSection');
     if (menuSection) {
@@ -4425,7 +4458,7 @@
         syncRawTextInspector();
       }
     }
-    const showField = Boolean(field && fieldTools.includes(selectedTool) && field.type !== 'RAW_TEXT' && !isShape && field.type !== 'NAV_BAR' && !isMenu && !isEventLog && !isIcon);
+    const showField = Boolean(field && fieldTools.includes(selectedTool) && field.type !== 'RAW_TEXT' && !isShape && field.type !== 'NAV_BAR' && !isMenu && !isEventLog && !isIcon && !isTrend);
     if (fieldSection) {
       fieldSection.hidden = !showField;
       fieldSection.style.display = showField ? '' : 'none';
@@ -5172,6 +5205,14 @@
       syncShapeInspector();
       inspectorContract.textContent = `// Objeto estático: no requiere variable de estado`;
       syncAllColorControls();
+      return;
+    }
+
+    if (field.type === 'TREND') {
+      if (fieldSection) { fieldSection.hidden = true; fieldSection.style.display = 'none'; }
+      if (fieldMetricsSection) fieldMetricsSection.hidden = true;
+      window.JWPLCHMITrend?.syncInspector?.(field);
+      inspectorContract.textContent = `float ${sanitizeSymbol(field.variable, 'tendencia')} = 0.0f;`;
       return;
     }
 

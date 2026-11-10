@@ -144,4 +144,22 @@ const ramBytes = trendModule.estimateRamUsage(150);
 assert.strictEqual(ramBytes, 600, '150 puntos float deben ser 600 bytes');
 console.log('  PASS estimateRamUsage calcula 4 bytes por muestra');
 
+// 4. Elementos de color y mini-preview
+assert(typeof trendModule.drawAppearancePreview === 'function', 'drawAppearancePreview debe ser función');
+assert(trendModule.COLOR_NAMES, 'COLOR_NAMES debe existir');
+assert.strictEqual(trendModule.COLOR_NAMES.curveColor, 'Línea / Curva');
+assert.strictEqual(trendModule.COLOR_NAMES.axesColor, 'Ejes de coordenadas');
+assert.strictEqual(trendModule.COLOR_NAMES.textColor, 'Textos y etiquetas');
+assert.strictEqual(trendModule.COLOR_NAMES.gridColor, 'Guías de fondo');
+assert.strictEqual(trendModule.COLOR_NAMES.backgroundColor, 'Fondo de gráfica');
+console.log('  PASS COLOR_NAMES mapea Línea, Ejes, Textos, Guías y Fondo');
+
+const spec = require('../cli/lib/spec.cjs');
+const trendProps = spec.TYPES.TREND.props;
+assert.strictEqual(trendProps.axesColor.default, 0xFFFF, 'Ejes deben ser color entero (0xFFFF blanco)');
+assert.strictEqual(trendProps.textColor.default, 0xFFFF, 'Textos deben ser 0xFFFF blanco');
+assert.strictEqual(trendProps.gridColor.default, 0x4208, 'Guías deben ser 0x4208 gris tenue');
+assert.notStrictEqual(trendProps.axesColor.default, trendProps.gridColor.default, 'Ejes deben diferenciarse de las guías');
+console.log('  PASS ejes diferenciados de las guías con color entero (0xFFFF vs 0x4208)');
+
 console.log('\nResultado: TODAS PASARON');

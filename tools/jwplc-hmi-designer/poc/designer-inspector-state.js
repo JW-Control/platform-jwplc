@@ -87,6 +87,9 @@
     if (mode === 'NAV_BAR' && window.JWPLCHMIPages?.syncNavBarInspector) {
       window.JWPLCHMIPages.syncNavBarInspector();
     }
+    if (mode === 'TREND' && window.JWPLCHMITrend?.syncInspector) {
+      window.JWPLCHMITrend.syncInspector();
+    }
 
     // A11-7 ya dispone de color contextual en PIXEL y en Apariencia.
     // La sección global heredada mezcla estados y queda fuera del flujo normal.

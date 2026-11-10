@@ -265,7 +265,7 @@ El estado `k` de la variable muestra la imagen `k` (bool: 0 = false, 1 = true). 
 |---|---|---|---|
 | `motores/motor` | Motor trifásico | 24, 32, 48, 64 | Parado · En marcha · Falla |
 | `motores/motorreductor` | Motorreductor | 24, 32, 48, 64 | Parado · En marcha · Falla |
-| `motores/motor_dos_sentidos` | Motor dos sentidos | 24, 32, 48 | Parado · Adelante · Atrás |
+| `motores/motor_dos_sentidos` | Motor dos sentidos | 24, 32, 48, 64 | Parado · Adelante · Atrás |
 | `bombas/bomba` | Bomba | 24, 32, 48, 64 | Parado · En marcha · Falla |
 | `bombas/ventilador` | Ventilador | 24, 32, 48, 64 | Parado · En marcha · Falla |
 | `bombas/compresor` | Compresor | 24, 32, 48 | Parado · En marcha · Falla |
@@ -310,6 +310,7 @@ Gráfica de tendencia temporal (JWPLC_UITrend). Declara `float`. Soporta auto-es
 | `variable` | identificador C++ | `"temperatura"` | Variable analógica C++ a graficar. |
 | `title` | texto | `"TEND"` | Título / Identificador de la curva. |
 | `unit` | texto | `""` | Unidad de la variable. |
+| `preview` | número | `24.5` | Valor de prueba para visualización en el lienzo. |
 | `sampleIntervalMs` | entero 50..60000 | `1000` | Periodo de muestreo en ms (ej. 1000 = 1 muestra/s, 100 = 10 Hz). |
 | `visibleSamples` | entero 20..320 | `150` | Puntos visibles en la ventana en vivo. |
 | `scaleMode` | `"AUTO"` · `"MANUAL"` | `"AUTO"` | AUTO: auto-escala dinámica con 3 guías. MANUAL: escala fija con minValue y maxValue. |
@@ -322,9 +323,9 @@ Gráfica de tendencia temporal (JWPLC_UITrend). Declara `float`. Soporta auto-es
 | `enableSD` | bool | `false` | Activa el registro continuo en tarjeta MicroSD. |
 | `sdIntervalMs` | entero 100..60000 | `1000` | Periodo de volcado a la tarjeta MicroSD. |
 | `curveColor` | color | `0xFD20` | Color de la línea de tendencia. |
-| `axesColor` | color | `0x4208` | Color de los ejes y guías horizontales. |
-| `gridColor` | color | `0x2104` | Color de la rejilla secundaria. |
-| `textColor` | color | `0xDF5E` | Color de las etiquetas de los ejes. |
+| `axesColor` | color | `0xFFFF` | Color de los ejes de coordenadas (color entero). |
+| `gridColor` | color | `0x4208` | Color de las 3 líneas guía de fondo. |
+| `textColor` | color | `0xFFFF` | Color de las etiquetas y textos. |
 | `backgroundColor` | color | `0x0000` | Fondo del área de la gráfica. |
 
 ### `MENU`
