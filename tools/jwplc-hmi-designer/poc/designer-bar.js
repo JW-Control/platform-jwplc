@@ -2702,9 +2702,11 @@
     const field = selectedField();
     if (!field) return;
 
-    const serial = serialFor(field);
-    field.type = 'BAR';
     const isCirc = (preset === 'CIRCULAR');
+    const serial = isCirc
+      ? (api?.nextTypeSerial?.('CIRCULAR') || serialFor(field))
+      : (api?.nextTypeSerial?.('BAR') || serialFor(field));
+    field.type = 'BAR';
     field.name = isCirc ? `CIRCULAR ${serial}` : `BAR ${serial}`;
     field.id = isCirc ? `FIELD_CIRCULAR_${serial}` : `FIELD_BAR_${serial}`;
     field.variable = isCirc ? `medidor${serial}` : `nivel${serial}`;

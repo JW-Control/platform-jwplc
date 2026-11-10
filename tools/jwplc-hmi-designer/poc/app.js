@@ -744,6 +744,40 @@
     };
   }
 
+  function defaultTrendField(key = 'trend-1') {
+    return {
+      type: 'TREND',
+      key,
+      name: 'Tendencia',
+      id: 'FIELD_TREND',
+      variable: 'temperatura',
+      x: 10,
+      y: 15,
+      width: 200,
+      height: 80,
+      title: 'TEND',
+      unit: '',
+      sampleIntervalMs: 1000,
+      visibleSamples: 150,
+      scaleMode: 'AUTO',
+      minValue: 0,
+      maxValue: 100,
+      decimals: 1,
+      lineWidth: 2,
+      showAxes: true,
+      showTimeAxis: true,
+      enableSD: false,
+      sdIntervalMs: 1000,
+      curveColor: 0xFD20,
+      axesColor: 0x4208,
+      gridColor: 0x2104,
+      textColor: 0xDF5E,
+      backgroundColor: 0x0000,
+      frame: true,
+      page: 0
+    };
+  }
+
   let hmiFields = [defaultTextField()];
 
   const history = [];
@@ -1298,6 +1332,7 @@
     if (field.type === 'VALUE') return 'valueField';
     if (field.type === 'BOOL') return 'boolField';
     if (field.type === 'BAR') return 'barField';
+    if (field.type === 'TREND') return 'trendField';
     if (field.type === 'TEXT') return 'textField';
     if (field.type === 'NAV_BAR') return 'navBarField';
     if (field.type === 'MENU') return 'menuField';
@@ -2534,6 +2569,23 @@
         unitBounds: { width: 0, height: 0 }
       };
     }
+    if (field.type === 'TREND') {
+      const w = Math.max(40, Number(field.width || field.w) || 200);
+      const h = Math.max(30, Number(field.height || field.h) || 80);
+      return {
+        pad: 0,
+        fieldX: field.x,
+        fieldY: field.y,
+        fieldW: w,
+        fieldH: h,
+        valueX: field.x,
+        valueY: field.y,
+        valueW: w,
+        valueH: h,
+        labelBounds: { width: 0, height: 0 },
+        unitBounds: { width: 0, height: 0 }
+      };
+    }
     if (field.type === 'BAR') {
       if (window.JWPLCHMIBar?.computeGeometry) {
         return window.JWPLCHMIBar.computeGeometry(field);
@@ -2799,6 +2851,83 @@
     }
   }
 
+  function drawTrendToFramebuffer(buffer, field) {
+    const trendCore = window.JWPLCTrendCore;
+    const w = Math.max(40, Number(field.width || field.w) || 200);
+    const h = Math.max(30, Number(field.height || field.h) || 80);
+    const geo = trendCore?.computeTrendGeometry
+      ? trendCore.computeTrendGeometry(field)
+      : { plotX: field.x + 35, plotY: field.y + 4, plotW: w - 40, plotH: h - 20, upperGuideY: field.y + 10, middleGuideY: field.y + 35, lowerGuideY: field.y + 60, timeH: 14 };
+
+    const bg565 = (field.backgroundColor !== undefined && field.backgroundColor !== null && field.backgroundColor !== 'TRANSPARENT' && field.backgroundColor !== -1) ? (Number(field.backgroundColor) & 0xFFFF) : 0x0000;
+    const curve565 = (field.curveColor !== undefined && field.curveColor !== null) ? (Number(field.curveColor) & 0xFFFF) : 0xFD20;
+    const axes565 = (field.axesColor !== undefined && field.axesColor !== null) ? (Number(field.axesColor) & 0xFFFF) : 0x4208;
+    const text565 = (field.textColor !== undefined && field.textColor !== null) ? (Number(field.textColor) & 0xFFFF) : 0xDF5E;
+
+    fillBufferRect(buffer, field.x, field.y, w, h, bg565);
+    if (field.frame !== false) {
+      drawBufferRect(buffer, field.x, field.y, w, h, axes565);
+    }
+
+    if (field.showAxes !== false) {
+      fillBufferRect(buffer, geo.plotX - 1, geo.plotY, 1, geo.plotH, axes565);
+      fillBufferRect(buffer, geo.plotX - 1, geo.plotY + geo.plotH, geo.plotW + 1, 1, axes565);
+
+      fillBufferRect(buffer, geo.plotX, geo.upperGuideY, geo.plotW, 1, axes565);
+      fillBufferRect(buffer, geo.plotX, geo.middleGuideY, geo.plotW, 1, axes565);
+      fillBufferRect(buffer, geo.plotX, geo.lowerGuideY, geo.plotW, 1, axes565);
+
+      const minVal = Number(field.minValue) || 0;
+      const maxVal = Number(field.maxValue) || 100;
+      const scale = trendCore?.calculateGraphScale ? trendCore.calculateGraphScale(minVal, maxVal) : { low: minVal, mid: (minVal + maxVal) / 2, high: maxVal };
+      const dec = Math.max(0, Math.min(3, Number(field.decimals) || 1));
+
+      const lblHigh = scale.high.toFixed(dec);
+      const lblMid = scale.mid.toFixed(dec);
+      const lblLow = scale.low.toFixed(dec);
+
+      drawTextWithFont(buffer, lblHigh, field.x + 2, geo.upperGuideY - 3, text565, bg565, 1, 'GLCD');
+      drawTextWithFont(buffer, lblMid, field.x + 2, geo.middleGuideY - 3, text565, bg565, 1, 'GLCD');
+      drawTextWithFont(buffer, lblLow, field.x + 2, geo.lowerGuideY - 3, text565, bg565, 1, 'GLCD');
+    }
+
+    if (field.showTimeAxis !== false && geo.timeH > 0) {
+      const sampleMs = Number(field.sampleIntervalMs) || 1000;
+      const visiblePts = Number(field.visibleSamples) || 150;
+      const totalSec = Math.round((sampleMs * visiblePts) / 1000);
+      const rText = totalSec >= 60 ? `${Math.round(totalSec / 60)}m` : `${totalSec}s`;
+
+      drawTextWithFont(buffer, '0s', geo.plotX, geo.plotY + geo.plotH + 2, text565, bg565, 1, 'GLCD');
+      const rW = rText.length * 6;
+      drawTextWithFont(buffer, rText, Math.max(geo.plotX + 15, geo.plotX + geo.plotW - rW), geo.plotY + geo.plotH + 2, text565, bg565, 1, 'GLCD');
+    }
+
+    const headerTitle = field.title || field.label;
+    if (headerTitle) {
+      drawTextWithFont(buffer, String(headerTitle).slice(0, 8), geo.plotX + 2, field.y + 2, curve565, bg565, 1, 'GLCD');
+      if (field.unit) {
+        drawTextWithFont(buffer, String(field.unit).slice(0, 5), geo.plotX + 2 + String(headerTitle).slice(0, 8).length * 6 + 4, field.y + 2, text565, bg565, 1, 'GLCD');
+      }
+    }
+
+    const pts = trendCore?.generatePreviewData ? trendCore.generatePreviewData(geo.plotW, 20, 80) : [];
+    const minVal = 0, maxVal = 100;
+    const plotH = Math.max(10, geo.lowerGuideY - geo.upperGuideY);
+    const lineW = Number(field.lineWidth) === 1 ? 1 : 2;
+
+    if (pts.length > 1) {
+      for (let i = 0; i < pts.length - 1; i++) {
+        const x1 = geo.plotX + i;
+        const x2 = geo.plotX + i + 1;
+        const normY1 = 1 - (pts[i] - minVal) / (maxVal - minVal);
+        const normY2 = 1 - (pts[i + 1] - minVal) / (maxVal - minVal);
+        const y1 = Math.round(geo.upperGuideY + normY1 * plotH);
+        const y2 = Math.round(geo.upperGuideY + normY2 * plotH);
+        rasterLineThick(buffer, x1, y1, x2, y2, curve565, lineW);
+      }
+    }
+  }
+
   function composeFramebuffer() {
     framebuffer.set(pixelLayer);
     topFieldOrder.fill(Infinity);
@@ -2819,6 +2948,8 @@
         drawField(framebuffer, field);
       } else if (field.type === 'BAR') {
         drawBarToFramebuffer(framebuffer, field, true);
+      } else if (field.type === 'TREND') {
+        drawTrendToFramebuffer(framebuffer, field);
       } else if (field.type === 'MENU') {
         window.JWPLCHMIMenu?.paint?.(field, {
           fillRect: (x, y, w, h, c) => fillBufferRect(framebuffer, x, y, w, h, c),
@@ -2913,6 +3044,7 @@
     if (field.type === 'VALUE') return `FIELD_VALUE_${index + 1}`;
     if (field.type === 'BOOL') return `FIELD_BOOL_${index + 1}`;
     if (field.type === 'BAR') return `FIELD_BAR_${index + 1}`;
+    if (field.type === 'TREND') return `FIELD_TREND_${index + 1}`;
     return `FIELD_TEXT_${index + 1}`;
   }
 
@@ -2921,13 +3053,14 @@
     if (field.type === 'VALUE') return `valor${index + 1}`;
     if (field.type === 'BOOL') return `estado${index + 1}`;
     if (field.type === 'BAR') return `nivel${index + 1}`;
+    if (field.type === 'TREND') return `tendencia${index + 1}`;
     return `texto${index + 1}`;
   }
 
   function variableDeclaration(field, index) {
     const variable = sanitizeSymbol(field.variable, variableFallback(field, index));
     if (field.type === 'VALUE') return window.JWPLCHMICodegenCore.valueDeclaration(field, variable);
-    if (field.type === 'BAR') return `float ${variable} = 0.0f;`;
+    if (field.type === 'BAR' || field.type === 'TREND') return `float ${variable} = 0.0f;`;
     if (field.type === 'BOOL') return `bool ${variable} = false;`;
     if (field.type === 'ICON') return window.JWPLCIconsCore.iconDeclaration(field, variable, window.JWPLCHMIIcons?.iconInfo?.(field.iconId)?.stateNames || window.JWPLCIconsCore.stateNamesFor(window.JWPLCIconCatalog, field.iconId));
     return window.JWPLCHMICodegenCore.textDeclaration(field, variable);
@@ -2939,6 +3072,9 @@
   function fieldContract(field, index) {
     const id = sanitizeSymbol(field.id, fieldFallbackId(field, index));
     const core = window.JWPLCHMICodegenCore;
+    if (field.type === 'TREND' && core?.trendFieldBlock) {
+      return core.trendFieldBlock(field, id);
+    }
     if (field.type === 'ICON') {
       const entry = iconEntry(field);
       const symbol = window.JWPLCHMIIcons?.symbolForField?.(field) || window.JWPLCIconsCore.symbolFor(field.iconId, entry ? entry.width : field.iconSize);
@@ -2977,6 +3113,7 @@
     if (field.type === 'BOOL') return `// JWPLC_Display.setBool(${id}, ${variable});`;
     if (field.type === 'ICON') return `// ${window.JWPLCIconsCore.iconSetter(id, variable, field)}`;
     if (field.type === 'BAR') return `// JWPLC_Display.setBar(${id}, ${variable});`;
+    if (field.type === 'TREND') return `// JWPLC_Display.setTrend(${id}, ${variable});`;
     return `// JWPLC_Display.setText(${id}, ${variable});`;
   }
 
@@ -3160,7 +3297,7 @@
   const SVG_LOCK_CLOSED = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`;
   const SVG_LOCK_OPEN = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>`;
 
-  function formatLopakaFieldName(field, index) {
+  function formatLopakaFieldName(field, index, list = null) {
     if (!field) return `Objeto ${index + 1}`;
     if (field.name && field.name.trim()) {
       let n = field.name.trim().replace(/^FIELD[_\s-]*/i, '').trim();
@@ -3179,10 +3316,15 @@
       ELLIPSE: 'Elipse',
       TRIANGLE: 'Triángulo',
       POLYGON: 'Polígono',
-      NAV_BAR: 'Barra de Navegación'
+      NAV_BAR: 'Barra de Navegación',
+      EVENT_LOG: 'Historial',
+      MENU: 'Menú',
+      ICON: 'Icono',
+      TREND: 'Tendencia'
     };
     const tName = typeNames[field.type] || field.type || 'Objeto';
-    return `${tName} ${index + 1}`;
+    const typeCount = list ? list.slice(0, index + 1).filter((f) => f.type === field.type).length : (index + 1);
+    return `${tName} ${typeCount}`;
   }
 
   function renderObjectList() {
@@ -3195,13 +3337,14 @@
       button.className = `object-item${active ? ' active' : ''}${field.hidden ? ' is-hidden' : ''}${field.locked ? ' is-locked' : ''}`;
       button.dataset.fieldKey = field.key;
       button.dataset.layerOrder = String(field.layerOrder);
-      const displayName = formatLopakaFieldName(field, index);
+      const displayName = formatLopakaFieldName(field, index, visibleFields);
       button.title = `${displayName} (Doble clic: zoom in · Clic: editar)`;
 
       let icon = 'Aa';
       if (['TEXT', 'VALUE', 'RAW_TEXT'].includes(field.type)) icon = 'Aa';
       else if (field.type === 'BOOL') icon = '○';
       else if (field.type === 'BAR') icon = '▰';
+      else if (field.type === 'TREND') icon = '📈';
       else if (field.type === 'LINE') icon = '╱';
       else if (field.type === 'RECT') icon = '□';
       else if (field.type === 'ELLIPSE') icon = '○';
@@ -3548,52 +3691,12 @@
       // RAW_TEXT: sin handles de resize (el texto no se deforma geometricamente)
       if (f.type === 'RAW_TEXT') return [];
       if (f.type === 'LINE') {
-        const b = getFieldBounds(f);
-        const sx1 = b.minX * zoom;
-        const sy1 = b.minY * zoom;
-        const sx2 = (b.maxX + 1) * zoom - 1;
-        const sy2 = (b.maxY + 1) * zoom - 1;
-        const x1 = f.x ?? 0; const y1 = f.y ?? 0;
-        const x2 = f.x2 ?? x1; const y2 = f.y2 ?? y1;
-
-        const midX = (sx1 + sx2) / 2;
-        const midY = (sy1 + sy2) / 2;
-
-        let p1Pos, p2Pos;
-        if (Math.abs(x1 - x2) < 0.001) {
-          if (y1 <= y2) {
-            p1Pos = { x: midX, y: sy1 };
-            p2Pos = { x: midX, y: sy2 };
-          } else {
-            p1Pos = { x: midX, y: sy2 };
-            p2Pos = { x: midX, y: sy1 };
-          }
-        } else if (Math.abs(y1 - y2) < 0.001) {
-          if (x1 <= x2) {
-            p1Pos = { x: sx1, y: midY };
-            p2Pos = { x: sx2, y: midY };
-          } else {
-            p1Pos = { x: sx2, y: midY };
-            p2Pos = { x: sx1, y: midY };
-          }
-        } else {
-          if (x1 <= x2 && y1 <= y2) {
-            p1Pos = { x: sx1, y: sy1 };
-            p2Pos = { x: sx2, y: sy2 };
-          } else if (x1 <= x2 && y1 > y2) {
-            p1Pos = { x: sx1, y: sy2 };
-            p2Pos = { x: sx2, y: sy1 };
-          } else if (x1 > x2 && y1 <= y2) {
-            p1Pos = { x: sx2, y: sy1 };
-            p2Pos = { x: sx1, y: sy2 };
-          } else {
-            p1Pos = { x: sx2, y: sy2 };
-            p2Pos = { x: sx1, y: sy1 };
-          }
-        }
+        const pts = getShapeTransformedVertices(f);
+        const p1 = pts[0] || { x: f.x ?? 0, y: f.y ?? 0 };
+        const p2 = pts[1] || { x: f.x2 ?? p1.x, y: f.y2 ?? p1.y };
         return [
-          { id: 'p1', x: p1Pos.x, y: p1Pos.y, cursor: 'crosshair' },
-          { id: 'p2', x: p2Pos.x, y: p2Pos.y, cursor: 'crosshair' }
+          { id: 'p1', x: p1.x * zoom, y: p1.y * zoom, cursor: 'crosshair' },
+          { id: 'p2', x: p2.x * zoom, y: p2.y * zoom, cursor: 'crosshair' }
         ];
       }
       if (['RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(f.type)) {
@@ -4557,10 +4660,15 @@
       const cy = Math.round((field.y + field.y2) / 2);
       const rx = Math.round(Math.abs(field.x2 - field.x) / 2);
       const ry = Math.round(Math.abs(field.y2 - field.y) / 2);
-      const rad = Math.max(rx, ry);
       const cmds = [];
-      if (hasFill) cmds.push(`${tft}fillCircle(${cx}, ${cy}, ${rad}, ${fc});`);
-      if (hasBorder) cmds.push(`${tft}drawCircle(${cx}, ${cy}, ${rad}, ${c});`);
+      if (rx === ry) {
+        if (hasFill) cmds.push(`${tft}fillCircle(${cx}, ${cy}, ${rx}, ${fc});`);
+        if (hasBorder) cmds.push(`${tft}drawCircle(${cx}, ${cy}, ${rx}, ${c});`);
+      } else {
+        const rawTft = tft.endsWith('.') ? tft.slice(0, -1) : tft;
+        if (hasFill) cmds.push(`jwplcHMIFillEllipse(${rawTft}, ${cx}, ${cy}, ${rx}, ${ry}, ${fc});`);
+        if (hasBorder) cmds.push(`jwplcHMIDrawEllipse(${rawTft}, ${cx}, ${cy}, ${rx}, ${ry}, ${c});`);
+      }
       return cmds.join('\n') || '// Sin trazo ni relleno activo';
     }
     if (field.type === 'TRIANGLE' && rot === 0 && r <= 0 && !field.flipH && !field.flipV) {
@@ -5228,6 +5336,52 @@
     return usedValues('name').has(value) ? nextSequential(value, 'name') : value;
   }
 
+  const SHAPE_TYPE_LABELS = {
+    RECT: 'Rect',
+    ELLIPSE: 'Elipse',
+    LINE: 'Línea',
+    TRIANGLE: 'Triángulo',
+    POLYGON: 'Polígono'
+  };
+
+  function nextTypeSerial(type) {
+    const used = new Set();
+    let unnumberedCount = 0;
+    (hmiFields || []).forEach((f) => {
+      const matchType = (type === 'CIRCULAR')
+        ? (f.type === 'BAR' && f.barPreset === 'CIRCULAR')
+        : (type === 'BAR')
+          ? (f.type === 'BAR' && f.barPreset !== 'CIRCULAR')
+          : (f.type === type);
+
+      if (matchType) {
+        const candidates = [
+          f.name && String(f.name).match(/(\d+)\s*$/),
+          f.id && String(f.id).match(/_(\d+)$/),
+          f.label && String(f.label).match(/(\d+)\s*$/),
+          f.variable && String(f.variable).match(/(\d+)$/)
+        ];
+        let found = false;
+        for (const m of candidates) {
+          if (m) {
+            const num = parseInt(m[1], 10);
+            if (num > 0) {
+              used.add(num);
+              found = true;
+            }
+          }
+        }
+        if (!found) unnumberedCount++;
+      }
+    });
+    for (let i = 1; i <= unnumberedCount; i++) {
+      used.add(i);
+    }
+    let n = 1;
+    while (used.has(n)) n += 1;
+    return n;
+  }
+
   function uniqueFieldSymbol(base) {
     const used = new Set(hmiFields.map((field) => field.id));
     let candidate = base;
@@ -5406,12 +5560,13 @@
   function addShapeField(type, startPoint, endPoint) {
     if (hmiFields.length >= MAX_FIELDS) return;
     fieldSerial += 1;
-    const typeLabel = type.charAt(0) + type.slice(1).toLowerCase();
+    const serial = nextTypeSerial(type);
+    const typeLabel = SHAPE_TYPE_LABELS[type] || (type.charAt(0) + type.slice(1).toLowerCase());
     const field = {
       type: type,
       key: `shape-${fieldSerial}`,
-      name: uniqueName(`${typeLabel} ${fieldSerial}`),
-      id: uniqueFieldSymbol(`FIELD_${type}_${fieldSerial}`),
+      name: uniqueName(`${typeLabel} ${serial}`),
+      id: uniqueFieldSymbol(`FIELD_${type}_${serial}`),
       variable: '',
       x: startPoint.x,
       y: startPoint.y,
@@ -5438,13 +5593,14 @@
   function addRawTextField(point) {
     if (hmiFields.length >= MAX_FIELDS) return null;
     fieldSerial += 1;
-    const px = point ? point.x : 20 + ((fieldSerial - 1) * 8) % 80;
-    const py = point ? point.y : 20 + ((fieldSerial - 1) * 8) % 60;
+    const serial = nextTypeSerial('RAW_TEXT');
+    const px = point ? point.x : 20 + ((serial - 1) * 8) % 80;
+    const py = point ? point.y : 20 + ((serial - 1) * 8) % 60;
     const field = {
       type: 'RAW_TEXT',
       key: `rawText-${fieldSerial}`,
-      name: `RAW TEXT ${fieldSerial}`,
-      id: uniqueFieldSymbol(`FIELD_RAW_${fieldSerial}`),
+      name: `RAW TEXT ${serial}`,
+      id: uniqueFieldSymbol(`FIELD_RAW_${serial}`),
       text: rawState.value || 'Texto RAW',
       x: px,
       y: py,
@@ -5470,15 +5626,16 @@
   function addTextField() {
     if (hmiFields.length >= MAX_FIELDS) return;
     fieldSerial += 1;
+    const serial = nextTypeSerial('TEXT');
     const field = defaultTextField(`text-${fieldSerial}`);
-    field.name = uniqueName(`TEXT ${fieldSerial}`);
-    field.id = uniqueFieldSymbol(`FIELD_TEXT_${fieldSerial}`);
-    field.variable = uniqueVariable(`texto${fieldSerial}`);
-    field.label = `Texto ${fieldSerial}`;
+    field.name = uniqueName(`Texto ${serial}`);
+    field.id = uniqueFieldSymbol(`FIELD_TEXT_${serial}`);
+    field.variable = uniqueVariable(`texto${serial}`);
+    field.label = `Texto ${serial}`;
     field.preview = 'READY';
     field.page = activePage;
-    field.x = 20 + ((fieldSerial - 1) * 8) % 80;
-    field.y = 20 + ((fieldSerial - 1) * 8) % 60;
+    field.x = 20 + ((serial - 1) * 8) % 80;
+    field.y = 20 + ((serial - 1) * 8) % 60;
     placeNewField(field);
     assignNewLayerOrder(field);
     hmiFields.push(field);
@@ -5501,7 +5658,8 @@
       return;
     }
     fieldSerial += 1;
-    const field = api.createDefault(`eventlog-${fieldSerial}`, fieldSerial);
+    const serial = nextTypeSerial('EVENT_LOG');
+    const field = api.createDefault(`eventlog-${fieldSerial}`, serial);
     field.id = uniqueFieldSymbol(field.id);
     field.page = activePage;
     placeNewField(field);
@@ -5523,7 +5681,8 @@
       return;
     }
     fieldSerial += 1;
-    const field = api.createDefault(`menu-${fieldSerial}`, fieldSerial, hmiFields);
+    const serial = nextTypeSerial('MENU');
+    const field = api.createDefault(`menu-${fieldSerial}`, serial, hmiFields);
     field.id = uniqueFieldSymbol(field.id);
     field.page = activePage;
     placeNewField(field);
@@ -5567,12 +5726,13 @@
       return null;
     }
     fieldSerial += 1;
+    const serial = nextTypeSerial('ICON');
     const field = defaultTextField(`icon-${fieldSerial}`);
     const base = String(iconId).split('/').pop().replace(/[^A-Za-z0-9]+/g, '_');
     field.type = 'ICON';
-    field.name = uniqueName(`${icon.name} ${fieldSerial}`);
-    field.id = uniqueFieldSymbol(`FIELD_ICON_${fieldSerial}`);
-    field.variable = uniqueVariable(`${base}${fieldSerial}`);
+    field.name = uniqueName(`${icon.name} ${serial}`);
+    field.id = uniqueFieldSymbol(`FIELD_ICON_${serial}`);
+    field.variable = uniqueVariable(`${base}${serial}`);
     field.iconId = iconId;
     field.iconSize = core.resolveSize(icon, size || 32);
     field.iconVarType = icon.stateNames.length > 2 ? 'uint8' : 'bool';
@@ -5610,14 +5770,15 @@
   function addValueField() {
     if (hmiFields.length >= MAX_FIELDS) return;
     fieldSerial += 1;
+    const serial = nextTypeSerial('VALUE');
     const field = defaultValueField(`value-${fieldSerial}`);
-    field.name = uniqueName(`VALUE ${fieldSerial}`);
-    field.id = uniqueFieldSymbol(`FIELD_VALUE_${fieldSerial}`);
-    field.variable = uniqueVariable(`valor${fieldSerial}`);
-    field.label = `Valor ${fieldSerial}`;
+    field.name = uniqueName(`Valor ${serial}`);
+    field.id = uniqueFieldSymbol(`FIELD_VALUE_${serial}`);
+    field.variable = uniqueVariable(`valor${serial}`);
+    field.label = `Valor ${serial}`;
     field.page = activePage;
-    field.x = 28 + ((fieldSerial - 1) * 8) % 90;
-    field.y = 44 + ((fieldSerial - 1) * 8) % 70;
+    field.x = 28 + ((serial - 1) * 8) % 90;
+    field.y = 44 + ((serial - 1) * 8) % 70;
     placeNewField(field);
     assignNewLayerOrder(field);
     hmiFields.push(field);
@@ -5627,6 +5788,28 @@
     syncToolUI();
     render();
     commitHistory();
+  }
+
+  function addTrendField() {
+    if (hmiFields.length >= MAX_FIELDS) return;
+    fieldSerial += 1;
+    const serial = nextTypeSerial('TREND');
+    const field = defaultTrendField(`trend-${fieldSerial}`);
+    field.name = uniqueName(`TREND ${serial}`);
+    field.id = uniqueFieldSymbol(`FIELD_TREND_${serial}`);
+    field.variable = uniqueVariable(`tendencia${serial}`);
+    field.title = `TEND${serial}`;
+    field.page = activePage;
+    placeNewField(field);
+    assignNewLayerOrder(field);
+    hmiFields.push(field);
+    setSelectedKeys([field.key]);
+    selectedTool = 'trendField';
+    syncInputsFromState();
+    syncToolUI();
+    render();
+    commitHistory();
+    return field;
   }
 
   function duplicateSelectedField() {
@@ -5892,8 +6075,12 @@
         addEventLogField();
         return;
       }
+      if (tool === 'trendField') {
+        addTrendField();
+        return;
+      }
       selectedTool = tool;
-      if (!['pointer', 'textField', 'valueField', 'boolField', 'barField', 'navBarField', 'menuField'].includes(tool)) {
+      if (!['pointer', 'textField', 'valueField', 'boolField', 'barField', 'trendField', 'navBarField', 'menuField'].includes(tool)) {
         setSelectedKeys([]);
       }
       window.dispatchEvent(new CustomEvent('jwplc:tool-changed', { detail: { tool } }));
@@ -5917,6 +6104,7 @@
     valueField: '<svg width="18" height="16" viewBox="0 0 24 24"><text x="12" y="16.5" text-anchor="middle" font-size="11.5" font-weight="800" font-family="\'Segoe UI\', -apple-system, sans-serif" fill="currentColor" letter-spacing="-0.5px">123</text></svg>',
     boolField: '<svg width="18" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="6"/><circle cx="16" cy="12" r="3" fill="currentColor"/></svg>',
     barField: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="10" rx="2.5"/><rect x="5" y="10" width="7" height="4" rx="1" fill="currentColor"/></svg>',
+    trendField: '<svg width="18" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M19 9l-5 5-4-4-4 4"/></svg>',
     navBarField: '<svg width="18" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="10" rx="2"></rect><path d="M7 7v10M12 7v10M17 7v10"></path></svg>',
     menuField: '<svg width="18" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 8h18M7 12h6M7 16h10"/></svg>'
   };
@@ -5925,6 +6113,7 @@
     valueField: 'Variables del PLC · Valor Numérico (VALUE)',
     boolField: 'Variables del PLC · Booleano (BOOL)',
     barField: 'Variables del PLC · Indicadores de Nivel (BAR)',
+    trendField: 'Variables del PLC · Gráfica de Tendencia (TREND)',
     navBarField: 'Variables del PLC · Barra de Navegación (NAV)',
     menuField: 'Variables del PLC · Menú de configuración (MENU)'
   };
@@ -6852,6 +7041,11 @@
           f.y = Math.round(newMinY + (orig.y - initMinY) * scaleY);
           f.width = clamp(Math.round((Number(orig.width) || 1) * scaleX), 40, WIDTH);
           f.height = clamp(Math.round((Number(orig.height) || 1) * scaleY), 28, HEIGHT);
+        } else if (f.type === 'TREND') {
+          f.x = Math.round(newMinX + (orig.x - initMinX) * scaleX);
+          f.y = Math.round(newMinY + (orig.y - initMinY) * scaleY);
+          f.width = clamp(Math.round((Number(orig.width) || 200) * scaleX), 40, WIDTH);
+          f.height = clamp(Math.round((Number(orig.height) || 80) * scaleY), 30, HEIGHT);
         } else if (f.type === 'BAR') {
           f.barAutoWidth = false;
           const origW = Number(orig.barWidth) || 110;
@@ -8125,8 +8319,11 @@
     deleteSelectedField,
     addTextField,
     addValueField,
+    addTrendField,
+    defaultTrendField,
     addRawTextField,
     addIconField,
+    nextTypeSerial: (type) => nextTypeSerial(type),
     iconEntry,
     fillAt,
     fillRegion,

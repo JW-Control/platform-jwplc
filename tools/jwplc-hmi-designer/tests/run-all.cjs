@@ -31,6 +31,7 @@ const playwright = hasPlaywright();
 const TESTS = [
   { file: 'toolbar-dropdowns.test.cjs', what: 'menús de la barra de herramientas: exclusividad mutua (variables, texto, iconos)' },
   { file: 'layout-resizer.test.cjs', what: 'splitters interactivos: redimensionamiento de paneles y barra inferior' },
+  { file: 'per-type-counter.test.cjs', what: 'contador secuencial de objetos independiente por tipo' },
   { file: 'fonts-resolver.test.cjs', what: 'resolución tipográfica de familias, variantes y cálculo de altura en px' },
   { file: 'icon-inspector.test.cjs', what: 'inspector ICON: estructura, paridad y optimización sin scroll' },
   { file: 'shapes-parity.test.cjs', what: 'figuras geométricas: elipses rotadas, paridad de snippet y handles exactos de líneas' },

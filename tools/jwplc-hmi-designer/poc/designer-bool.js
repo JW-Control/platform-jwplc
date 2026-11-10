@@ -119,7 +119,7 @@
     const field = selectedField();
     if (!field) return;
 
-    const serial = serialFor(field);
+    const serial = api?.nextTypeSerial?.('BOOL') || serialFor(field);
     field.type = 'BOOL';
     field.name = `BOOL ${serial}`;
     field.id = `FIELD_BOOL_${serial}`;
