@@ -320,6 +320,59 @@
     return result;
   }
 
+  function fontFamilyOf(id) {
+    if (!id || id === 'GLCD') return 'GLCD';
+    const norm = normalizeId(id);
+    if (norm === 'FONT_16' || norm === 'FONT_26') return 'BITMAP';
+    if (norm === 'FONT_7SEG_48') return '7SEG';
+    if (norm.startsWith('SANS')) return 'SANS';
+    if (norm.startsWith('SERIF')) return 'SERIF';
+    if (norm.startsWith('MONO')) return 'MONO';
+    return 'GLCD';
+  }
+
+  function fontSizeVariantOf(id, scale) {
+    const fam = fontFamilyOf(id);
+    if (fam === 'GLCD') return Math.max(1, Math.trunc(Number(scale) || 1));
+    const norm = normalizeId(id);
+    if (norm === 'FONT_16') return '16';
+    if (norm === 'FONT_26') return '26';
+    if (norm === 'FONT_7SEG_48') return '48';
+    const m = norm.match(/_(\d+)$/);
+    if (m) return m[1];
+    return '9';
+  }
+
+  function isBold(id) {
+    if (!id) return false;
+    return String(id).includes('_BOLD_');
+  }
+
+  function fontIdFrom(family, sizeVariant, bold) {
+    if (!family || family === 'GLCD') return 'GLCD';
+    if (family === 'BITMAP') {
+      const s = String(sizeVariant || '16');
+      return s === '26' ? 'FONT_26' : 'FONT_16';
+    }
+    if (family === '7SEG') return 'FONT_7SEG_48';
+    if (family === 'SANS' || family === 'SERIF' || family === 'MONO') {
+      const b = bold ? 'BOLD_' : '';
+      const pt = String(sizeVariant || '9');
+      return `${family}_${b}${pt}`;
+    }
+    return 'GLCD';
+  }
+
+  function fontHeightPx(id, scale) {
+    const fam = fontFamilyOf(id);
+    if (fam === 'GLCD') {
+      const s = Math.max(1, Math.trunc(Number(scale) || 1));
+      return s * 8;
+    }
+    const font = get(id);
+    return font ? (font.lineHeight || 8) : 8;
+  }
+
   return Object.freeze({
     list: FONTS,
     get,
@@ -331,6 +384,11 @@
     lineHeight,
     rasterize,
     availableFontsFor,
+    fontFamilyOf,
+    fontSizeVariantOf,
+    isBold,
+    fontIdFrom,
+    fontHeightPx,
     cppSymbol: (id) => {
       const eff = normalizeId(effectiveId(id));
       if (!eff || eff === 'GLCD') return 'JWPLC_FONT_GLCD';

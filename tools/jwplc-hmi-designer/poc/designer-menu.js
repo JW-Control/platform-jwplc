@@ -710,18 +710,9 @@
       </div>
       <div class="insp-body">
         <div class="insp-panel" data-menu-panel="design:shape">
-          <div class="bar-card">
-            <div class="bar-card-section-title">Tamaño de texto</div>
-            <div class="bar-visual-grid-2">
-              <button type="button" class="bar-visual-btn" data-menu-set="textSize" data-value="1"><strong>Aa</strong><span>1× · filas de 12 px</span></button>
-              <button type="button" class="bar-visual-btn" data-menu-set="textSize" data-value="2"><strong style="font-size:15px">Aa</strong><span>2× · filas de 20 px</span></button>
-            </div>
-          </div>
-          <div class="bar-card">
-            <div class="bar-card-section-title">Tipografía</div>
-            <label class="field-label">Fuente del menú
-              <select class="field-input" data-menu-font></select>
-            </label>
+          <div class="bar-card" data-menu-font-card>
+            <div class="bar-card-section-title">Tipografía y Tamaño de Fila</div>
+            <div id="menuFontCtrl" class="insp-font-block"></div>
           </div>
           <div class="bar-card">
             <div class="bar-card-section-title">Marco</div>
@@ -1134,28 +1125,61 @@
     section.querySelectorAll('[data-menu-set="textSize"]').forEach((b) => b.classList.toggle('active', Number(b.dataset.value) === Number(field.textSize)));
     section.querySelectorAll('[data-menu-set="frame"]').forEach((b) => b.classList.toggle('active', (b.dataset.value === '1') === Boolean(field.frame)));
 
-    const fontSelect = section.querySelector('[data-menu-font]');
-    if (fontSelect && window.JWPLCDesignerFonts) {
-      const fonts = window.JWPLCDesignerFonts.availableFontsFor('MENU');
-      const val = window.JWPLCDesignerFonts.normalizeId(field.font || 'GLCD');
-      if (fontSelect.dataset.val !== val || !fontSelect.children.length) {
-        fontSelect.dataset.val = val;
-        fontSelect.innerHTML = '';
-        const groups = new Map();
-        fonts.forEach((f) => {
-          if (!groups.has(f.group)) {
-            const grp = document.createElement('optgroup');
-            grp.label = f.group;
-            groups.set(f.group, grp);
-            fontSelect.appendChild(grp);
-          }
-          const opt = document.createElement('option');
-          opt.value = f.id;
-          opt.textContent = f.label;
-          groups.get(f.group).appendChild(opt);
-        });
-        fontSelect.value = val;
+    const menuFontCtrl = section.querySelector('#menuFontCtrl');
+    if (menuFontCtrl && window.JWPLCDesignerFonts) {
+      const fonts = window.JWPLCDesignerFonts;
+      const currFont = fonts.normalizeId(field.font || 'GLCD');
+      const fam = fonts.fontFamilyOf(currFont);
+      const variant = fonts.fontSizeVariantOf(currFont, field.textSize || 1);
+      const bold = fonts.isBold(currFont);
+      const hPx = fonts.fontHeightPx(currFont, field.textSize || 1);
+
+      let summary = 'GLCD 1×';
+      if (fam === 'GLCD') summary = `GLCD ${field.textSize || 1}×`;
+      else if (fam === 'BITMAP') summary = `Bitmap ${variant}px`;
+      else if (fam === 'SANS') summary = `Sans ${variant}pt${bold ? ' B' : ''}`;
+
+      const fams = [
+        { id: 'GLCD', label: 'Clásica 5×7' },
+        { id: 'BITMAP', label: 'Bitmap' },
+        { id: 'SANS', label: 'Sans' }
+      ];
+
+      let sizeHtml = '';
+      if (fam === 'GLCD') {
+        const ts = Number(field.textSize) || 1;
+        sizeHtml = `
+          <button type="button" class="insp-chip ${ts === 1 ? 'active' : ''}" data-menu-font-size="1">1× (12px)</button>
+          <button type="button" class="insp-chip ${ts === 2 ? 'active' : ''}" data-menu-font-size="2">2× (20px)</button>
+        `;
+      } else if (fam === 'BITMAP') {
+        sizeHtml = `
+          <button type="button" class="insp-chip ${variant === '16' ? 'active' : ''}" data-menu-font-size="16">16 px</button>
+          <button type="button" class="insp-chip ${variant === '26' ? 'active' : ''}" data-menu-font-size="26">26 px</button>
+        `;
+      } else if (fam === 'SANS') {
+        sizeHtml = ['9', '12', '18'].map((pt) => `
+          <button type="button" class="insp-chip ${variant === pt ? 'active' : ''}" data-menu-font-size="${pt}">${pt} pt</button>
+        `).join('') + `
+          <button type="button" class="insp-bold-btn ${bold ? 'active' : ''}" data-menu-font-bold title="Negrita (Bold)">B</button>
+        `;
       }
+
+      menuFontCtrl.innerHTML = `
+        <div class="insp-font-head">
+          <span class="insp-font-title">Tipografía del menú</span>
+          <span class="insp-hint">${hPx} px (${summary})</span>
+        </div>
+        <div class="insp-font-family-row">
+          ${fams.map((f) => `
+            <button type="button" class="insp-font-chip ${fam === f.id ? 'active' : ''}" data-menu-font-family="${f.id}">${f.label}</button>
+          `).join('')}
+        </div>
+        <div class="insp-font-size-row">
+          <span style="font-size:9.5px;color:var(--muted);font-weight:600;margin-right:2px;">Tamaño:</span>
+          ${sizeHtml}
+        </div>
+      `;
     }
 
     const L = layout(field);
@@ -1225,6 +1249,64 @@
         if (set.dataset.menuSet === 'textSize') f.textSize = Number(set.dataset.value);
         else f.frame = set.dataset.value === '1';
       });
+      return;
+    }
+
+    const menuFamBtn = t.closest('[data-menu-font-family]');
+    if (menuFamBtn) {
+      const newFam = menuFamBtn.dataset.menuFontFamily;
+      mutate((f) => {
+        if (newFam === 'GLCD') {
+          f.font = 'GLCD';
+        } else if (newFam === 'BITMAP') {
+          f.font = 'FONT_16';
+          f.textSize = 1;
+        } else if (newFam === 'SANS') {
+          f.font = 'SANS_9';
+          f.textSize = 1;
+        }
+      }, true);
+      sync();
+      return;
+    }
+
+    const menuSizeBtn = t.closest('[data-menu-font-size]');
+    if (menuSizeBtn) {
+      const sizeVal = menuSizeBtn.dataset.menuFontSize;
+      const fonts = window.JWPLCDesignerFonts;
+      const currFont = fonts?.normalizeId(field.font || 'GLCD') || 'GLCD';
+      const fam = fonts?.fontFamilyOf(currFont) || 'GLCD';
+      mutate((menu) => {
+        if (fam === 'GLCD') {
+          menu.textSize = Number(sizeVal) || 1;
+          menu.font = 'GLCD';
+        } else if (fam === 'BITMAP') {
+          menu.font = sizeVal === '26' ? 'FONT_26' : 'FONT_16';
+          menu.textSize = 1;
+        } else if (fam === 'SANS') {
+          const bold = fonts?.isBold(currFont) || false;
+          menu.font = fonts?.fontIdFrom('SANS', sizeVal, bold) || `SANS_${sizeVal}`;
+          menu.textSize = 1;
+        }
+      }, true);
+      sync();
+      return;
+    }
+
+    const menuBoldBtn = t.closest('[data-menu-font-bold]');
+    if (menuBoldBtn) {
+      const fonts = window.JWPLCDesignerFonts;
+      const currFont = fonts?.normalizeId(field.font || 'GLCD') || 'GLCD';
+      const fam = fonts?.fontFamilyOf(currFont) || 'GLCD';
+      if (fam === 'SANS') {
+        const variant = fonts?.fontSizeVariantOf(currFont, 1) || '9';
+        const newBold = !fonts?.isBold(currFont);
+        mutate((menu) => {
+          menu.font = fonts?.fontIdFrom('SANS', variant, newBold);
+          menu.textSize = 1;
+        }, true);
+        sync();
+      }
       return;
     }
     // Clic en el cuadro o en el texto de la fila: el texto elige el primer

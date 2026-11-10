@@ -8,6 +8,7 @@ Actualizado: `2026-11-02` (apertura de la línea)
 |---|---|---|---|
 | platform-jwplc | Base de la línea (`…/main`) | `v2.1.0-alpha.17/JWPLC-Sim/main` | `d007b44` (= `release/v2.1.x` = `main`, 2.1.0-alpha.16 + índices) |
 | platform-jwplc | Apertura | `v2.1.0-alpha.17/JWPLC-Sim/feature/apertura-linea` | plan, estado, workflows |
+| platform-jwplc | HMI Designer | `v2.1.0-alpha.17/JWPLC-Sim/feature/hmi-designer` | Selector tipográfico táctil unificado (Opción A), resolutores y tokens CSS |
 | JW-Libraries | Sincronización de `JW_*` | `PLATFORM_BASE_BRANCH` → esta línea | ver H1 |
 | jwplc-sim | Simulador | PR #15 (crash de Windows, Ctrl+T, interfaz) | fijado en `sim-regression`: `fd08f12` |
 

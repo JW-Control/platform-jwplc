@@ -201,9 +201,9 @@ Documentación completa: `docs/v2.1.0-alpha.17/A17_HMI_TEMAS_DESIGN_TOKENS_20261
   emite TEXT/VALUE; BOOL/BAR salen como `JWPLC_UITextField` provisional que reemplazan sus capas.
 - Tras tocar el codegen: `node tests/codegen-golden.cjs` (salida byte a byte) y
   `node tests/codegen-smoke.cjs`. Un cambio intencional: `--update` y revisar el diff.
-- Tras tocar JS/CSS: subir el `?v=` del archivo tocado (hoy 1793801300; `designer-codegen` y `designer-sketch-guide` 1793801800; `designer-icons-core` 1793801900; `ux-foundation` y `designer-icons` 1793802000; `designer-native-project`, `designer-project-integration-fix` y `designer-sketch-menu` 1793802100; `designer-openplc-host` 1793802500; `designer-openplc-bindings` 1793802600; `app`, `designer-bar`, `designer-bool`, `designer-field-visibility`, `designer-pages`, `designer-pixelmap-optimizer` y `desktop-responsive` 1793802300) en
+- Tras tocar JS/CSS: subir el `?v=` del archivo tocado (hoy 1793801300; `designer-codegen` y `designer-sketch-guide` 1793801800; `designer-icons-core` 1793801900; `ux-foundation` y `designer-icons` 1793802000; `designer-native-project`, `designer-project-integration-fix` y `designer-sketch-menu` 1793802100; `designer-openplc-host` 1793802500; `designer-openplc-bindings` 1793802600; `app`, `designer-bar`, `designer-bool`, `designer-field-visibility`, `designer-pages`, `designer-pixelmap-optimizer` y `desktop-responsive` 1793802300; `styles.css`, `designer-fonts`, `designer-field-inspector`, `designer-menu` 1793803100) en
   `index.html`/`desktop.html`/`ux-foundation.js`/`designer-field-visibility.js` y `CACHE_NAME` en
-  `service-worker.js` (hoy `jwplc-hmi-designer-a16-v55`).
+  `service-worker.js` (hoy `jwplc-hmi-designer-a17-v2`).
 - Versión visible: `2.1.0-alpha.17` (título, `.brand-badge`, `.gate` de la barra de estado, panel «Estado»,
   `electron/package.json`). El comentario `// API pública JWPLC_UI · Alpha11 A11-4` del header generado es un
   marcador interno de las capas del codegen: no cambiarlo.
@@ -222,6 +222,7 @@ Documentación completa: `docs/v2.1.0-alpha.17/A17_HMI_TEMAS_DESIGN_TOKENS_20261
 ```bash
 for f in poc/*.js; do node --check "$f" || echo "FAIL $f"; done
 node tests/codegen-smoke.cjs            # genera headers y los compila contra el package
+node tests/fonts-resolver.test.cjs      # familias tipográficas, variantes contextuales y alturas px
 node tests/value-format-parity.cjs      # formato de VALUE: JWPLC_UI_Format.cpp real vs Designer
 node tests/inspector-smoke.cjs          # inspector TEXT/VALUE/BOOL/BAR + paridad BAR
 node tests/menu-host-sim.cjs            # MENU: JWPLC_UI_Menu.cpp real en host (g++)
