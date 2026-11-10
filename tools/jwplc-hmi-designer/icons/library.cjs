@@ -274,7 +274,7 @@ const ICONS = [
   },
   // ------------------------------------------------------------- Pilotos y señales
   {
-    id: 'pilotos/piloto', name: 'Piloto luminoso', category: 'pilotos', sizes: [24, 32, 48],
+    id: 'pilotos/piloto', name: 'Piloto luminoso', category: 'pilotos', sizes: [24, 32, 48, 64],
     states: [
       { name: 'Apagado', colors: { W: C.white, M: C.light, D: C.dark, S: C.darker, L: C.dark, H: C.mid } },
       { name: 'Encendido', colors: { W: C.white, M: C.light, D: C.dark, S: C.darker, L: C.green, H: C.greenHi } }
@@ -289,7 +289,7 @@ const ICONS = [
     }
   },
   {
-    id: 'pilotos/baliza', name: 'Torre de señalización', category: 'pilotos', sizes: [24, 32, 48],
+    id: 'pilotos/baliza', name: 'Torre de señalización', category: 'pilotos', sizes: [24, 32, 48, 64, 96],
     states: withColors([
       { name: 'Apagada', colors: { B: C.blueDim, R: C.redDim, Y: C.yellowDim, G: C.greenDim } },
       { name: 'Verde', colors: { B: C.blueDim, R: C.redDim, Y: C.yellowDim, G: C.green } },

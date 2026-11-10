@@ -19,7 +19,7 @@ const HERE = __dirname;
 const DESIGNER = path.resolve(HERE, '..');
 const CATALOG = path.join(DESIGNER, 'poc', 'designer-icon-catalog.js');
 const SHEET = path.join(HERE, 'catalogo.png');
-const MAX_SIZE = 64;
+const MAX_SIZE = 96;
 const MAX_STATES = 16;
 
 // Rasteriza un icono a `size` px: imágenes 4 bpp únicas + paleta por estado (con subframes si es animado).

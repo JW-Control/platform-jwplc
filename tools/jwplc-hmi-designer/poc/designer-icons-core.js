@@ -9,7 +9,7 @@
 })(typeof self !== 'undefined' ? self : this, () => {
   'use strict';
 
-  const MAX_SIZE = 64;
+  const MAX_SIZE = 96;
   const MAX_STATES = 16;
 
   function base64ToBytes(b64) {

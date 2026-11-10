@@ -40,6 +40,7 @@
     return /^[A-Za-z_]/.test(cleaned) ? cleaned : `_${cleaned}`;
   };
   const css565 = (v) => `rgb(${((v >> 11) & 0x1F) * 255 / 31 | 0}, ${((v >> 5) & 0x3F) * 255 / 63 | 0}, ${(v & 0x1F) * 255 / 31 | 0})`;
+  const rgb565Raw = (v) => `${((v >> 11) & 0x1F) * 255 / 31 | 0}, ${((v >> 5) & 0x3F) * 255 / 63 | 0}, ${(v & 0x1F) * 255 / 31 | 0}`;
 
   // ---------------------------------------------------------------------------
   // Datos: catálogo + copia del proyecto
@@ -175,11 +176,86 @@
     .pilot-states-control { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
     .pilot-states-btn { width: 28px; height: 28px; border-radius: 4px; border: 1px solid rgba(255,255,255,.2); background: #1a2530; color: #fff; font-weight: bold; cursor: pointer; }
     .pilot-states-btn:hover { background: #26384a; }
-    .baliza-tier-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 6px; background: rgba(255,255,255,.03); border-radius: 4px; margin-bottom: 4px; border: 1px solid rgba(255,255,255,.06); }
-    .baliza-tier-info { display: flex; align-items: center; gap: 6px; font-size: 11.5px; }
-    .baliza-tier-info i { display: inline-block; width: 12px; height: 12px; border-radius: 2px; }
-    .baliza-tier-toggle { padding: 2px 8px; font-size: 11px; border-radius: 3px; cursor: pointer; border: 1px solid rgba(255,255,255,.15); background: #131c24; color: #bbb; }
-    .baliza-tier-toggle.active { background: #007acc; color: #fff; border-color: #38a5ff; font-weight: 700; }
+    .baliza-tier-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 7px 10px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      margin-bottom: 5px;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.15s ease;
+    }
+    .baliza-tier-item:hover {
+      background: var(--panel-3);
+      border-color: var(--line-soft);
+      transform: translateY(-1px);
+    }
+    .baliza-tier-item.is-on {
+      background: linear-gradient(90deg, rgba(var(--tier-rgb), 0.12) 0%, var(--panel) 100%);
+      border-color: rgba(var(--tier-rgb), 0.5);
+      box-shadow: inset 3px 0 0 var(--tier-col), 0 2px 6px rgba(0,0,0,0.25);
+    }
+    .baliza-tier-left {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+    }
+    .baliza-tier-led {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+      background: var(--tier-col);
+      opacity: 0.35;
+      border: 1px solid rgba(255,255,255,0.15);
+      transition: all 0.15s ease;
+      flex-shrink: 0;
+    }
+    .baliza-tier-item.is-on .baliza-tier-led {
+      opacity: 1;
+      border-color: rgba(255,255,255,0.7);
+      box-shadow: 0 0 10px var(--tier-col), 0 0 3px #ffffff;
+    }
+    .baliza-tier-name {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      transition: color 0.15s ease;
+    }
+    .baliza-tier-item.is-on .baliza-tier-name {
+      color: #ffffff;
+    }
+    .baliza-tier-name small {
+      font-size: 10.5px;
+      opacity: 0.7;
+      font-weight: 500;
+      margin-left: 2px;
+    }
+    .baliza-tier-pill {
+      font-size: 9.5px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      padding: 2.5px 8px;
+      border-radius: 4px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      color: var(--muted);
+      transition: all 0.15s ease;
+    }
+    .baliza-tier-item.is-on .baliza-tier-pill {
+      background: rgba(var(--tier-rgb), 0.2);
+      border-color: rgba(var(--tier-rgb), 0.6);
+      color: var(--tier-col);
+      box-shadow: 0 0 6px rgba(var(--tier-rgb), 0.3);
+    }
+    .baliza-tier-row { display: contents; }
+    .baliza-tier-info { display: contents; }
+    .baliza-tier-toggle { cursor: pointer; }
     .color-swatch-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 4px; border: 1px solid rgba(255,255,255,.15); background: #121820; font-size: 11px; cursor: pointer; color: #fff; }
     .color-swatch-chip i { width: 12px; height: 12px; border-radius: 2px; border: 1px solid rgba(255,255,255,.3); }
     .color-swatch-chip.active { border-color: #52c9ff; background: rgba(82,201,255,.15); }
@@ -492,8 +568,6 @@
                 <button type="button" class="insp-chip" data-pilot-states-set="8">8</button>
               </div>
             </div>
-            <span class="bar-visual-group-title insp-gap">Estados configurados</span>
-            <div data-pilot-states-list class="pilot-states-list"></div>
           </div>
 
           <!-- Configuración de la Torre de Señalización (Baliza) en Forma -->
@@ -514,14 +588,25 @@
             <div class="bar-card-section-title">Estados <small style="opacity:.7">· clic para verlo en el lienzo</small></div>
             <div class="icon-states" data-icon-states></div>
           </div>
+          <!-- Nombres de estados de Piloto (solo si es piloto) -->
+          <div class="bar-card" data-icon-pilot-names-card hidden>
+            <div class="bar-card-section-title">Nombres de Estados <small style="opacity:.7">· personalización</small></div>
+            <div data-pilot-states-list style="margin-top:6px"></div>
+          </div>
           <!-- Torre de Señalización: prueba de pisos en vivo (Baliza) -->
           <div class="bar-card" data-icon-baliza-content hidden>
             <div class="bar-card-section-title">Pisos de la Torre <small style="opacity:.7">· prueba en vivo en el lienzo</small></div>
             <div data-baliza-tiers-list style="margin-top:6px"></div>
-            <div class="insp-chip-row" style="margin-top:8px;gap:6px">
-              <button type="button" class="insp-chip" data-baliza-quick="all-on" title="Encender todos los pisos">Todos ON</button>
-              <button type="button" class="insp-chip" data-baliza-quick="all-off" title="Apagar todos los pisos">Todos OFF</button>
-              <button type="button" class="insp-chip" data-baliza-quick="cycle" title="Alternar combinaciones">Alternar</button>
+            <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:6px;margin-top:10px">
+              <button type="button" class="bar-visual-btn" data-baliza-quick="all-on" title="Encender todos los pisos" style="padding:6px 4px;font-size:10px;gap:2px">
+                <span style="color:#00e676;font-weight:700">⚡ Todos ON</span>
+              </button>
+              <button type="button" class="bar-visual-btn" data-baliza-quick="all-off" title="Apagar todos los pisos" style="padding:6px 4px;font-size:10px;gap:2px">
+                <span style="color:var(--muted);font-weight:600">⚪ Todos OFF</span>
+              </button>
+              <button type="button" class="bar-visual-btn" data-baliza-quick="cycle" title="Alternar combinaciones" style="padding:6px 4px;font-size:10px;gap:2px">
+                <span style="color:#52c9ff;font-weight:600">🔀 Alternar</span>
+              </button>
             </div>
           </div>
           <div class="bar-card">
@@ -986,19 +1071,22 @@
         pilotCard.querySelectorAll('[data-pilot-states-set]').forEach((b) => {
           b.classList.toggle('active', Number(b.dataset.pilotStatesSet) === effectiveCount);
         });
+      }
+    }
 
-        const pilotList = pilotCard.querySelector('[data-pilot-states-list]');
+    // --- Piloto en panel Contenido (Nombres de estados) ---
+    const pilotNamesCard = section.querySelector('[data-icon-pilot-names-card]');
+    if (pilotNamesCard) {
+      pilotNamesCard.hidden = !isPilot;
+      if (isPilot) {
+        const pilotList = pilotNamesCard.querySelector('[data-pilot-states-list]');
         if (pilotList) {
           pilotList.innerHTML = Array.from({ length: effectiveCount }, (_, idx) => {
-            const cVal = core.to565(field.stateColors[idx] !== undefined ? field.stateColors[idx] : (idx === 0 ? 0x4208 : 0x07E0));
-            const isActColor = activeColorKey === `pilotState:${idx}`;
-            return `<div class="pilot-state-row" style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
-              <span style="font-size:11px;font-weight:700;width:18px;text-align:center;opacity:.8">${idx}</span>
-              <input class="field-input" data-pilot-state-name="${idx}" value="${escapeHtml(names[idx] || `Estado ${idx}`)}" placeholder="Nombre" style="flex:1" maxlength="20" />
-              <button type="button" class="insp-chip${isActColor ? ' active' : ''}" data-pilot-state-idx="${idx}" title="Cambiar color del estado ${idx}" style="padding:4px 8px">
-                <i style="display:inline-block;width:12px;height:12px;border-radius:2px;background:${css565(cVal)};border:1px solid rgba(255,255,255,.3)"></i>
-              </button>
-              <button type="button" class="insp-chip${idx === curState ? ' active' : ''}" data-icon-state="${idx}" title="Probar estado en lienzo">Probar</button>
+            const defName = idx === 0 ? 'Apagado' : idx === 1 ? 'Encendido' : `Estado ${idx}`;
+            const curName = (field.stateNames && field.stateNames[idx]) || names[idx] || defName;
+            return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+              <span style="font-size:11px;font-weight:700;width:24px;text-align:center;color:var(--muted);background:rgba(255,255,255,0.05);padding:3px 0;border-radius:4px;border:1px solid rgba(255,255,255,0.08)">${idx}</span>
+              <input class="field-input" data-pilot-state-name="${idx}" value="${escapeHtml(curName)}" placeholder="${escapeHtml(defName)}" style="flex:1" maxlength="20" />
             </div>`;
           }).join('');
         }
@@ -1033,14 +1121,13 @@
             const cVal = core.to565(field.tierColors[t] !== undefined ? field.tierColors[t] : 0xFFFF);
             const isTierOn = Boolean((Number(field.iconState || 0) >> t) & 1);
             const isColorActive = activeColorKey === `balizaTier:${t}`;
-            listHtml += `<div class="baliza-tier-row">
-              <div class="baliza-tier-info">
-                <i style="background:${css565(cVal)}"></i>
-                <strong>Piso ${t + 1} (${tierLabels[t]})</strong>
+            listHtml += `<div class="baliza-tier-item${isTierOn ? ' is-on' : ''}" data-baliza-toggle-tier="${t}" style="--tier-col:${css565(cVal)};--tier-rgb:${rgb565Raw(cVal)};">
+              <div class="baliza-tier-left">
+                <span class="baliza-tier-led"></span>
+                <span class="baliza-tier-name">Piso ${t + 1} <small>(${tierLabels[t]})</small></span>
               </div>
-              <div style="display:flex;align-items:center;gap:6px">
-                <button type="button" class="baliza-tier-toggle${isTierOn ? ' active' : ''}" data-baliza-toggle-tier="${t}">${isTierOn ? 'ENCENDIDO' : 'APAGADO'}</button>
-                <button type="button" class="insp-chip${isColorActive ? ' active' : ''}" data-baliza-tier-color-idx="${t}" title="Editar color en Apariencia">Color</button>
+              <div class="baliza-tier-status">
+                <span class="baliza-tier-pill baliza-tier-toggle${isTierOn ? ' active' : ''}">${isTierOn ? 'ENCENDIDO' : 'APAGADO'}</span>
               </div>
             </div>`;
           }

@@ -22,8 +22,8 @@ public:
     static const JWPLC_UIIcon* compresor(uint8_t size = 24); // Compresor [24, 32, 48 px]
 
     // --- Pilotos y señales ---
-    static const JWPLC_UIIcon* piloto(uint8_t size = 24); // Piloto luminoso [24, 32, 48 px]
-    static const JWPLC_UIIcon* baliza(uint8_t size = 24); // Torre de señalización [24, 32, 48 px]
+    static const JWPLC_UIIcon* piloto(uint8_t size = 24); // Piloto luminoso [24, 32, 48, 64 px]
+    static const JWPLC_UIIcon* baliza(uint8_t size = 24); // Torre de señalización [24, 32, 48, 64, 96 px]
 
     // --- Válvulas ---
     static const JWPLC_UIIcon* valvula(uint8_t size = 24); // Válvula [24, 32, 48, 64 px]

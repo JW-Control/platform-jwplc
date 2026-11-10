@@ -82,6 +82,23 @@ assert.strictEqual(
   'PASS data-baliza-tiers-list no está en Forma (se movió a Contenido)'
 );
 
+// 1.5 Piloto en Forma: solo modo y cantidad de estados (sin lista que sature)
+assert.ok(
+  inspectorHtml.includes('data-icon-pilot-card'),
+  'PASS tarjeta piloto en Forma presente'
+);
+assert.ok(
+  inspectorHtml.includes('data-pilot-mode'),
+  'PASS selector de modo en Forma presente'
+);
+const pilotCardMatch = inspectorHtml.match(/<div class="bar-card" data-icon-pilot-card[\s\S]*?<\/div>\s*<\/div>/);
+assert.ok(pilotCardMatch, 'debe encontrar la tarjeta pilotCard en Forma');
+assert.strictEqual(
+  pilotCardMatch[0].includes('data-pilot-states-list'),
+  false,
+  'PASS data-pilot-states-list no está en Forma (se movió a Contenido)'
+);
+
 
 // --- FASE 2: Matriz 3x3 en Contenido (design:content) ---
 console.log('FASE 2: Pestaña Contenido (design:content) y Matriz 3x3');
@@ -130,6 +147,16 @@ assert.ok(
 assert.ok(
   iconsJsContent.includes('balizaContent.querySelector(\'[data-baliza-tiers-list]\')'),
   'PASS data-baliza-tiers-list se renderiza dentro de balizaContent en Contenido'
+);
+
+// 2.6 Piloto en Contenido: tarjeta de nombres de estados
+assert.ok(
+  inspectorHtml.includes('data-icon-pilot-names-card'),
+  'PASS tarjeta de nombres de estados de piloto [data-icon-pilot-names-card] presente en Contenido'
+);
+assert.ok(
+  iconsJsContent.includes('pilotNamesCard.querySelector(\'[data-pilot-states-list]\')'),
+  'PASS data-pilot-states-list se renderiza dentro de pilotNamesCard en Contenido'
 );
 
 

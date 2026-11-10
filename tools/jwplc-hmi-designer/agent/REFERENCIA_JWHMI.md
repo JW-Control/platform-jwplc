@@ -269,8 +269,8 @@ El estado `k` de la variable muestra la imagen `k` (bool: 0 = false, 1 = true). 
 | `bombas/bomba` | Bomba | 24, 32, 48, 64 | Parado · En marcha · Falla |
 | `bombas/ventilador` | Ventilador | 24, 32, 48, 64 | Parado · En marcha · Falla |
 | `bombas/compresor` | Compresor | 24, 32, 48 | Parado · En marcha · Falla |
-| `pilotos/piloto` | Piloto luminoso | 24, 32, 48 | Apagado · Encendido |
-| `pilotos/baliza` | Torre de señalización | 24, 32, 48 | Apagada · Verde · Ámbar · Ámbar+Verde · Rojo · Rojo+Verde · Rojo+Ámbar · Rojo+Ámbar+Verde · Azul · Azul+Verde · Azul+Ámbar · Azul+Ámbar+Verde · Azul+Rojo · Azul+Rojo+Verde · Azul+Rojo+Ámbar · Azul+Rojo+Ámbar+Verde |
+| `pilotos/piloto` | Piloto luminoso | 24, 32, 48, 64 | Apagado · Encendido |
+| `pilotos/baliza` | Torre de señalización | 24, 32, 48, 64, 96 | Apagada · Verde · Ámbar · Ámbar+Verde · Rojo · Rojo+Verde · Rojo+Ámbar · Rojo+Ámbar+Verde · Azul · Azul+Verde · Azul+Ámbar · Azul+Ámbar+Verde · Azul+Rojo · Azul+Rojo+Verde · Azul+Rojo+Ámbar · Azul+Rojo+Ámbar+Verde |
 | `valvulas/valvula` | Válvula | 24, 32, 48, 64 | Cerrada · Abierta · Falla |
 | `valvulas/valvula_motorizada` | Válvula motorizada | 24, 32, 48, 64 | Cerrada · Abierta · Falla |
 | `valvulas/valvula_solenoide` | Electroválvula | 24, 32, 48 | Cerrada · Abierta · Falla |

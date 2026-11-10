@@ -31,7 +31,7 @@ for (const icon of catalog.icons) {
   if (icon.stateNames.length < 2 || icon.stateNames.length > core.MAX_STATES) problems.push(`${icon.id}: ${icon.stateNames.length} estados`);
   for (const [size, entry] of Object.entries(icon.sizes)) {
     const where = `${icon.id}@${size}`;
-    if (![24, 32, 48, 64].includes(Number(size)) || entry.width !== Number(size) || entry.height !== Number(size)) problems.push(`${where}: tamaño`);
+    if (![24, 32, 48, 64, 96].includes(Number(size)) || entry.width !== Number(size) || entry.height !== Number(size)) problems.push(`${where}: tamaño`);
     if (entry.states.length !== icon.stateNames.length) problems.push(`${where}: estados ${entry.states.length} != nombres ${icon.stateNames.length}`);
     entry.images.forEach((b64, i) => {
       if (core.base64ToBytes(b64).length !== entry.height * Math.ceil(entry.width / 2)) problems.push(`${where}: imagen ${i} con largo incorrecto`);
