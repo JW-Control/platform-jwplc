@@ -129,6 +129,10 @@
     </aside>
 
     <section class="editor-panel">
+      <!-- Splitters interactivos de ancho de paneles -->
+      <div id="resizerLeft" class="layout-resizer layout-resizer-vertical layout-resizer-left" title="Arrastrar para redimensionar panel izquierdo (Doble clic para restablecer)"></div>
+      <div id="resizerRight" class="layout-resizer layout-resizer-vertical layout-resizer-right" title="Arrastrar para redimensionar panel derecho (Doble clic para restablecer)"></div>
+
       <div class="tabs page-tabs">
         <button class="tab active">Principal</button>
         <button class="tab add-tab" disabled>＋</button>
@@ -2061,6 +2065,8 @@
   </main>
 
   <section class="code-panel">
+    <!-- Splitter interactivo de altura de barra inferior -->
+    <div id="resizerBottom" class="layout-resizer layout-resizer-horizontal layout-resizer-bottom" title="Arrastrar para redimensionar barra inferior (Doble clic para restablecer)"></div>
     <div class="tabs bottom-tabs">
       <button id="statusTab" class="tab active">Estado / Problemas</button>
       <button id="contractTab" class="tab">Código generado</button>
@@ -2114,9 +2120,10 @@
   <script src="./designer-icon-catalog.js?v=1793801700"></script>
   <script src="./designer-icons-core.js?v=1793801900"></script>
   <script src="./designer-dialog.js?v=1793801300"></script>
-  <script src="./app.js?v=1793803000"></script>
+  <script src="./designer-layout-resizer.js?v=1793803200"></script>
+  <script src="./app.js?v=1793803100"></script>
   <script src="./ux-foundation.js?v=1793802000"></script>
-  <script src="./designer-codegen.js?v=1793801800"></script>
+  <script src="./designer-codegen.js?v=1793803100"></script>
 
   
 

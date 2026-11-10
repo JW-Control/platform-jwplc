@@ -111,15 +111,15 @@ body.layout-compact {
 /* ------------------------------------------------------------------ */
 
 body.layout-wide {
-  grid-template-rows: 58px minmax(0, 1fr) 150px 28px;
+  grid-template-rows: 58px minmax(0, 1fr) var(--bottom-panel-height, 150px) 28px;
 }
 
 body.layout-wide.bottom-collapsed {
-  grid-template-rows: 58px minmax(0, 1fr) 38px 28px;
+  grid-template-rows: 58px minmax(0, 1fr) 38px 28px !important;
 }
 
 .layout-wide .workspace {
-  grid-template-columns: var(--responsive-left-wide) minmax(650px, 1fr) var(--responsive-right-wide) !important;
+  grid-template-columns: var(--left-panel-width, var(--responsive-left-wide)) minmax(350px, 1fr) var(--right-panel-width, var(--responsive-right-wide)) !important;
 }
 
 .layout-wide .brand h1 { font-size: 15.5px; }
@@ -144,7 +144,7 @@ body.layout-medium {
 }
 
 body.layout-medium:not(.bottom-collapsed) {
-  grid-template-rows: 52px minmax(0, 1fr) 122px 26px;
+  grid-template-rows: 52px minmax(0, 1fr) var(--bottom-panel-height, 122px) 26px;
 }
 
 .layout-medium .topbar {
@@ -206,7 +206,7 @@ body.layout-medium:not(.bottom-collapsed) {
 .layout-medium .responsive-overflow { display: block; }
 
 .layout-medium .workspace {
-  grid-template-columns: var(--responsive-left-medium) minmax(0, 1fr) var(--responsive-right-medium) !important;
+  grid-template-columns: var(--left-panel-width, var(--responsive-left-medium)) minmax(0, 1fr) var(--right-panel-width, var(--responsive-right-medium)) !important;
 }
 
 .layout-medium .left-panel,
