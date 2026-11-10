@@ -306,6 +306,20 @@ public:
     // Columnas del área de trazado (= muestras visibles en una pantalla).
     int16_t plotWidth() const { return (int16_t)(_w - 2 - (_scale ? SCALE_W : 0)); }
 
+    // Muestreo, grosor y auto-escala configurables
+    uint16_t sampleIntervalMs() const { return _sampleIntervalMs; }
+    void setSampleIntervalMs(uint16_t ms) { _sampleIntervalMs = ms > 0 ? ms : 1000; }
+
+    uint8_t lineWidth() const { return _lineWidth; }
+    void setLineWidth(uint8_t w) { _lineWidth = (w == 1) ? 1 : 2; }
+
+    bool autoScale() const { return _autoScale; }
+    void setAutoScale(bool enable) { _autoScale = enable; }
+
+    // Consulta histórica desde tarjeta MicroSD por diezmado en streaming.
+    // Utiliza un buffer de salida pre-reservado para no saturar la RAM.
+    bool querySDHistory(const char *filename, uint32_t startSec, uint32_t durationSec, float *outBuffer, uint16_t outPoints);
+
 private:
     static const int16_t SCALE_W = 26;
     static const uint8_t GAP = 6;     // columnas que se borran por delante
@@ -340,6 +354,9 @@ private:
     uint8_t _scaleDecimals = 0;
     float _thrValue[MAX_THRESHOLDS] = {0};
     bool _full = true;
+    uint16_t _sampleIntervalMs = 1000;
+    uint8_t _lineWidth = 2;
+    bool _autoScale = true;
 };
 
 // ---------------------------------------------------------------- teclado

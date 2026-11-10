@@ -101,6 +101,7 @@
             "BOOL",
             "BAR",
             "ICON",
+            "TREND",
             "MENU",
             "EVENT_LOG",
             "RAW_TEXT",
@@ -1963,6 +1964,249 @@
               "x",
               "y",
               "iconId"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "TREND"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "type": {
+                "const": "TREND"
+              },
+              "name": {
+                "description": "Nombre visible en la lista de objetos del Designer (no llega al C++).",
+                "type": "string"
+              },
+              "id": {
+                "description": "Identificador C++ del objeto (único en el proyecto). Si falta se genera FIELD_<TIPO>_<n>.",
+                "type": "string",
+                "pattern": "^([A-Za-z_][A-Za-z0-9_]*)?$"
+              },
+              "page": {
+                "description": "Página (id) donde se dibuja.",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 15,
+                "default": 0
+              },
+              "layerOrder": {
+                "description": "Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9999
+              },
+              "hidden": {
+                "description": "Oculto en el lienzo y fuera del header.",
+                "type": "boolean"
+              },
+              "locked": {
+                "description": "Bloqueado en el lienzo (no se puede mover con el ratón).",
+                "type": "boolean"
+              },
+              "cornerRadius": {
+                "description": "Lo agrega el Designer al abrir (sólo lo usan RECT y MENU).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 85
+              },
+              "x": {
+                "description": "Esquina superior izquierda, X (px).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 319
+              },
+              "y": {
+                "description": "Esquina superior izquierda, Y (px).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 169
+              },
+              "width": {
+                "description": "Ancho total del widget (px).",
+                "type": "integer",
+                "minimum": 40,
+                "maximum": 320,
+                "default": 200
+              },
+              "height": {
+                "description": "Alto total del widget (px).",
+                "type": "integer",
+                "minimum": 30,
+                "maximum": 170,
+                "default": 80
+              },
+              "variable": {
+                "description": "Variable analógica C++ a graficar.",
+                "type": "string",
+                "pattern": "^([A-Za-z_][A-Za-z0-9_]*)?$",
+                "default": "temperatura"
+              },
+              "title": {
+                "description": "Título / Identificador de la curva.",
+                "type": "string",
+                "default": "TEND"
+              },
+              "unit": {
+                "description": "Unidad de la variable.",
+                "type": "string",
+                "default": ""
+              },
+              "sampleIntervalMs": {
+                "description": "Periodo de muestreo en ms (ej. 1000 = 1 muestra/s, 100 = 10 Hz).",
+                "type": "integer",
+                "minimum": 50,
+                "maximum": 60000,
+                "default": 1000
+              },
+              "visibleSamples": {
+                "description": "Puntos visibles en la ventana en vivo.",
+                "type": "integer",
+                "minimum": 20,
+                "maximum": 320,
+                "default": 150
+              },
+              "scaleMode": {
+                "description": "AUTO: auto-escala dinámica con 3 guías. MANUAL: escala fija con minValue y maxValue.",
+                "enum": [
+                  "AUTO",
+                  "MANUAL"
+                ],
+                "default": "AUTO"
+              },
+              "minValue": {
+                "description": "Valor mínimo en escala MANUAL.",
+                "type": "number",
+                "default": 0
+              },
+              "maxValue": {
+                "description": "Valor máximo en escala MANUAL.",
+                "type": "number",
+                "default": 100
+              },
+              "decimals": {
+                "description": "Decimales mostrados en las etiquetas del eje Y.",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 3,
+                "default": 1
+              },
+              "lineWidth": {
+                "description": "Grosor de la curva en píxeles.",
+                "enum": [
+                  1,
+                  2
+                ],
+                "default": 2
+              },
+              "showAxes": {
+                "description": "Muestra el eje Y y las 3 líneas guía de referencia.",
+                "type": "boolean",
+                "default": true
+              },
+              "showTimeAxis": {
+                "description": "Muestra marcas de tiempo en el eje X.",
+                "type": "boolean",
+                "default": true
+              },
+              "enableSD": {
+                "description": "Activa el registro continuo en tarjeta MicroSD.",
+                "type": "boolean",
+                "default": false
+              },
+              "sdIntervalMs": {
+                "description": "Periodo de volcado a la tarjeta MicroSD.",
+                "type": "integer",
+                "minimum": 100,
+                "maximum": 60000,
+                "default": 1000
+              },
+              "curveColor": {
+                "description": "Color de la línea de tendencia. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 64800
+              },
+              "axesColor": {
+                "description": "Color de los ejes y guías horizontales. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 16904
+              },
+              "gridColor": {
+                "description": "Color de la rejilla secundaria. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 8452
+              },
+              "textColor": {
+                "description": "Color de las etiquetas de los ejes. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 57182
+              },
+              "backgroundColor": {
+                "description": "Fondo del área de la gráfica. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 0
+              }
+            },
+            "required": [
+              "type",
+              "x",
+              "y"
             ]
           }
         },

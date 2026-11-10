@@ -3191,3 +3191,22 @@ body.is-resizing-row * {
   display: none !important;
 }
 
+/* Alpha17 · Inspector del widget TREND (Gráfica de Tendencia) */
+#trendInspectorSection {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+#trendInspectorSection[hidden] {
+  display: none !important;
+}
+.trend-color-swatch {
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.25));
+  box-shadow: 0 0 2px rgba(0, 0, 0, 0.4);
+}
+[data-trend-manual-range] {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+

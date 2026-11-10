@@ -154,7 +154,7 @@ function noGlyph(report, at, text) {
 function cppType(field) {
   if (field.type === 'TEXT') return 'char[]';
   if (field.type === 'BOOL') return 'bool';
-  if (field.type === 'BAR') return 'float';
+  if (field.type === 'BAR' || field.type === 'TREND') return 'float';
   if (field.type === 'ICON') return field.iconVarType === 'uint8' ? 'uint8_t' : 'bool';
   if (field.type === 'VALUE') {
     if (field.valueKind === 'DATETIME') return null;
@@ -186,7 +186,8 @@ function validateField(field, i, project, report) {
     case 'BOOL':
     case 'BAR':
     case 'ICON':
-      noGlyph(report, where, `${field.label || ''}${field.unit || ''}${field.falseText || ''}${field.trueText || ''}${field.barLabel || ''}${field.barUnit || ''}`);
+    case 'TREND':
+      noGlyph(report, where, `${field.label || ''}${field.unit || ''}${field.falseText || ''}${field.trueText || ''}${field.barLabel || ''}${field.barUnit || ''}${field.title || ''}`);
       break;
     case 'RAW_TEXT':
       if (field.font === 'GLCD') noGlyph(report, `${where}.text`, field.text);
@@ -210,6 +211,11 @@ function validateField(field, i, project, report) {
     }
     if (field.barFillMode && !['SOLID', 'GRADIENT'].includes(field.barFillMode)) {
       report.warn(`${where}.barFillMode`, 'modo de relleno no válido; se usará SOLID');
+    }
+  }
+  if (field.type === 'TREND') {
+    if (field.scaleMode === 'MANUAL' && Number(field.maxValue) <= Number(field.minValue)) {
+      report.error(`${where}.maxValue`, `maxValue (${field.maxValue}) debe ser mayor que minValue (${field.minValue})`);
     }
   }
   if (field.type === 'ICON') validateIcon(field, where, project, report);

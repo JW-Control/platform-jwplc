@@ -274,6 +274,7 @@
         loadScript('./designer-field-inspector.js?v=1793803100', () => {
           loadScript('./designer-menu.js?v=1793803100');
           loadScript('./designer-event-log.js?v=1793802700');
+          loadScript('./designer-trend.js?v=1793807000');
           loadScript('./designer-icons.js?v=1793806100');
           loadScript('./designer-idle.js?v=1793801300');
           loadScript('./designer-runtime.js?v=1793810000');

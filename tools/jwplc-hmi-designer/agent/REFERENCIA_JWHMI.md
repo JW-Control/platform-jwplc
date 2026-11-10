@@ -272,7 +272,7 @@ El estado `k` de la variable muestra la imagen `k` (bool: 0 = false, 1 = true). 
 | `pilotos/piloto` | Piloto luminoso | 24, 32, 48 | Apagado · Encendido |
 | `pilotos/baliza` | Torre de señalización | 24, 32, 48 | Apagada · Verde · Ámbar · Ámbar+Verde · Rojo · Rojo+Verde · Rojo+Ámbar · Rojo+Ámbar+Verde · Azul · Azul+Verde · Azul+Ámbar · Azul+Ámbar+Verde · Azul+Rojo · Azul+Rojo+Verde · Azul+Rojo+Ámbar · Azul+Rojo+Ámbar+Verde |
 | `valvulas/valvula` | Válvula | 24, 32, 48, 64 | Cerrada · Abierta · Falla |
-| `valvulas/valvula_motorizada` | Válvula motorizada | 24, 32, 48 | Cerrada · Abierta · Falla |
+| `valvulas/valvula_motorizada` | Válvula motorizada | 24, 32, 48, 64 | Cerrada · Abierta · Falla |
 | `valvulas/valvula_solenoide` | Electroválvula | 24, 32, 48 | Cerrada · Abierta · Falla |
 | `equipos/piston` | Pistón neumático | 24, 32, 48, 64 | Retraído · En movimiento · Extendido · Falla |
 | `equipos/piston_vertical` | Pistón vertical | 24, 32, 48, 64 | Retraído · En movimiento · Extendido · Falla |
@@ -291,6 +291,41 @@ El estado `k` de la variable muestra la imagen `k` (bool: 0 = false, 1 = true). 
 | `botones/paro_emergencia` | Paro de emergencia | 24, 32, 48 | Normal · Activado |
 | `botones/selector` | Selector 0-1 | 24, 32, 48 | Posición 0 · Posición 1 |
 | `botones/contacto` | Contacto / interruptor | 24, 32, 48 | Abierto · Cerrado |
+
+### `TREND`
+
+Gráfica de tendencia temporal (JWPLC_UITrend). Declara `float`. Soporta auto-escala dinámica o fija, muestreo configurable y registro opcional en MicroSD.
+
+| Propiedad | Tipo / valores | Por defecto | Descripción |
+|---|---|---|---|
+| `type` **(obligatoria)** | texto |  | Tipo de objeto. |
+| `name` | texto |  | Nombre visible en la lista de objetos del Designer (no llega al C++). |
+| `id` | identificador C++ |  | Identificador C++ del objeto (único en el proyecto). Si falta se genera FIELD_<TIPO>_<n>. |
+| `page` | entero 0..15 | `0` | Página (id) donde se dibuja. |
+| `layerOrder` | entero 0..9999 |  | Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima). |
+| `x` **(obligatoria)** | entero 0..319 |  | Esquina superior izquierda, X (px). |
+| `y` **(obligatoria)** | entero 0..169 |  | Esquina superior izquierda, Y (px). |
+| `width` | entero 40..320 | `200` | Ancho total del widget (px). |
+| `height` | entero 30..170 | `80` | Alto total del widget (px). |
+| `variable` | identificador C++ | `"temperatura"` | Variable analógica C++ a graficar. |
+| `title` | texto | `"TEND"` | Título / Identificador de la curva. |
+| `unit` | texto | `""` | Unidad de la variable. |
+| `sampleIntervalMs` | entero 50..60000 | `1000` | Periodo de muestreo en ms (ej. 1000 = 1 muestra/s, 100 = 10 Hz). |
+| `visibleSamples` | entero 20..320 | `150` | Puntos visibles en la ventana en vivo. |
+| `scaleMode` | `"AUTO"` · `"MANUAL"` | `"AUTO"` | AUTO: auto-escala dinámica con 3 guías. MANUAL: escala fija con minValue y maxValue. |
+| `minValue` | número | `0` | Valor mínimo en escala MANUAL. |
+| `maxValue` | número | `100` | Valor máximo en escala MANUAL. |
+| `decimals` | entero 0..3 | `1` | Decimales mostrados en las etiquetas del eje Y. |
+| `lineWidth` | `1` · `2` | `2` | Grosor de la curva en píxeles. |
+| `showAxes` | bool | `true` | Muestra el eje Y y las 3 líneas guía de referencia. |
+| `showTimeAxis` | bool | `true` | Muestra marcas de tiempo en el eje X. |
+| `enableSD` | bool | `false` | Activa el registro continuo en tarjeta MicroSD. |
+| `sdIntervalMs` | entero 100..60000 | `1000` | Periodo de volcado a la tarjeta MicroSD. |
+| `curveColor` | color | `0xFD20` | Color de la línea de tendencia. |
+| `axesColor` | color | `0x4208` | Color de los ejes y guías horizontales. |
+| `gridColor` | color | `0x2104` | Color de la rejilla secundaria. |
+| `textColor` | color | `0xDF5E` | Color de las etiquetas de los ejes. |
+| `backgroundColor` | color | `0x0000` | Fondo del área de la gráfica. |
 
 ### `MENU`
 

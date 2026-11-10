@@ -17,7 +17,8 @@ enum JWPLC_UIFieldType : uint8_t
     JWPLC_UI_FIELD_BOOL,
     JWPLC_UI_FIELD_BAR,
     JWPLC_UI_FIELD_ICON,
-    JWPLC_UI_FIELD_CIRCULAR
+    JWPLC_UI_FIELD_CIRCULAR,
+    JWPLC_UI_FIELD_TREND
 };
 
 enum JWPLC_UIFieldLayout : uint8_t
@@ -447,6 +448,58 @@ struct JWPLC_UICircularStyle
     }
 };
 
+#define JWPLC_UI_HAS_TREND 1
+
+struct JWPLC_UITrendConfig
+{
+    uint16_t sampleIntervalMs;
+    uint16_t visibleSamples;
+    uint8_t scaleMode; // 0 = AUTO, 1 = MANUAL
+    uint8_t decimals;
+    uint8_t lineWidth;
+    bool showAxes;
+    bool showTime;
+    bool enableSD;
+    uint16_t sdIntervalMs;
+    uint16_t curveColor;
+    uint16_t axesColor;
+    uint16_t gridColor;
+    uint16_t textColor;
+    uint16_t backgroundColor;
+
+    constexpr JWPLC_UITrendConfig(
+        uint16_t sampleIntervalMsVal = 1000,
+        uint16_t visibleSamplesVal = 150,
+        uint8_t scaleModeVal = 0,
+        uint8_t decimalsVal = 1,
+        uint8_t lineWidthVal = 2,
+        bool showAxesVal = true,
+        bool showTimeVal = true,
+        bool enableSDVal = false,
+        uint16_t sdIntervalMsVal = 1000,
+        uint16_t curveColorVal = 0xFD20,
+        uint16_t axesColorVal = 0x4208,
+        uint16_t gridColorVal = 0x2104,
+        uint16_t textColorVal = 0xDF5E,
+        uint16_t backgroundColorVal = 0x0000)
+        : sampleIntervalMs(sampleIntervalMsVal),
+          visibleSamples(visibleSamplesVal),
+          scaleMode(scaleModeVal),
+          decimals(decimalsVal),
+          lineWidth(lineWidthVal),
+          showAxes(showAxesVal),
+          showTime(showTimeVal),
+          enableSD(enableSDVal),
+          sdIntervalMs(sdIntervalMsVal),
+          curveColor(curveColorVal),
+          axesColor(axesColorVal),
+          gridColor(gridColorVal),
+          textColor(textColorVal),
+          backgroundColor(backgroundColorVal)
+    {
+    }
+};
+
 struct JWPLC_UIRange
 {
     float min;
@@ -494,6 +547,7 @@ struct JWPLC_UIField
     // Medidor circular (JWPLC_UICircularField)
     JWPLC_UICircularStyle circularStyle = JWPLC_UICircularStyle();
     JWPLC_UIBarConfig barConfig = JWPLC_UIBarConfig();
+    JWPLC_UITrendConfig trendConfig = JWPLC_UITrendConfig();
 
     JWPLC_UIField(
         JWPLC_UIFieldMeta metaValue = JWPLC_UIFieldMeta(),
@@ -603,6 +657,15 @@ JWPLC_UIField JWPLC_UICircularField(
     uint8_t page = 0,
     JWPLC_UIColors colors = JWPLC_UIColors());
 
+JWPLC_UIField JWPLC_UITrendField(
+    uint8_t id,
+    JWPLC_UIRect rect,
+    JWPLC_UIText text = JWPLC_UIText(),
+    JWPLC_UIRange range = JWPLC_UIRange(),
+    JWPLC_UITrendConfig trendConfig = JWPLC_UITrendConfig(),
+    uint8_t page = 0,
+    JWPLC_UIColors colors = JWPLC_UIColors());
+
 // ---------------------------------------------------------------------
 // Helpers cortos para el caso comun.
 // ---------------------------------------------------------------------
@@ -662,6 +725,7 @@ namespace JWPLCUI
     bool setText(uint8_t fieldId, const char *value);
     bool setBool(uint8_t fieldId, bool value);
     bool setBar(uint8_t fieldId, float value);
+    bool setTrend(uint8_t fieldId, float value);
     // ICON: estado 0..stateCount-1 (fuera de rango se ve el último estado).
     bool setIconState(uint8_t fieldId, uint8_t state);
 

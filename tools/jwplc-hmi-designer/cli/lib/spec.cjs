@@ -196,6 +196,35 @@ const TYPES = {
       capacity: int(1, 39, 'Uso interno.', { default: 1, internal: true })
     }
   },
+  TREND: {
+    group: 'campo',
+    desc: 'Gráfica de tendencia temporal (JWPLC_UITrend). Declara `float`. Soporta auto-escala dinámica o fija, muestreo configurable y registro opcional en MicroSD.',
+    props: {
+      ...BASE,
+      ...POS,
+      width: int(40, SCREEN.width, 'Ancho total del widget (px).', { default: 200 }),
+      height: int(30, SCREEN.height, 'Alto total del widget (px).', { default: 80 }),
+      variable: { kind: 'symbol', desc: 'Variable analógica C++ a graficar.', default: 'temperatura' },
+      title: str('Título / Identificador de la curva.', { default: 'TEND' }),
+      unit: str('Unidad de la variable.', { default: '' }),
+      sampleIntervalMs: int(50, 60000, 'Periodo de muestreo en ms (ej. 1000 = 1 muestra/s, 100 = 10 Hz).', { default: 1000 }),
+      visibleSamples: int(20, SCREEN.width, 'Puntos visibles en la ventana en vivo.', { default: 150 }),
+      scaleMode: oneOf(['AUTO', 'MANUAL'], 'AUTO: auto-escala dinámica con 3 guías. MANUAL: escala fija con minValue y maxValue.', { default: 'AUTO' }),
+      minValue: num('Valor mínimo en escala MANUAL.', { default: 0 }),
+      maxValue: num('Valor máximo en escala MANUAL.', { default: 100 }),
+      decimals: int(0, 3, 'Decimales mostrados en las etiquetas del eje Y.', { default: 1 }),
+      lineWidth: oneOf([1, 2], 'Grosor de la curva en píxeles.', { default: 2 }),
+      showAxes: bool('Muestra el eje Y y las 3 líneas guía de referencia.', { default: true }),
+      showTimeAxis: bool('Muestra marcas de tiempo en el eje X.', { default: true }),
+      enableSD: bool('Activa el registro continuo en tarjeta MicroSD.', { default: false }),
+      sdIntervalMs: int(100, 60000, 'Periodo de volcado a la tarjeta MicroSD.', { default: 1000 }),
+      curveColor: color('Color de la línea de tendencia.', { default: 0xFD20 }),
+      axesColor: color('Color de los ejes y guías horizontales.', { default: 0x4208 }),
+      gridColor: color('Color de la rejilla secundaria.', { default: 0x2104 }),
+      textColor: color('Color de las etiquetas de los ejes.', { default: 0xDF5E }),
+      backgroundColor: color('Fondo del área de la gráfica.', { default: 0x0000 })
+    }
+  },
   MENU: {
     group: 'menu',
     desc: 'Árbol de menús para ver y editar variables con la botonera. Uno por página, hasta 4 en el proyecto, 64 nodos y 3 niveles.',
@@ -378,6 +407,6 @@ const TARGET = Object.freeze({ display: 'ST7789', width: 320, height: 170, rotat
 
 module.exports = {
   SCREEN, LIMITS, NAMED_COLORS, FONTS, TYPES, MENU_NODE, MENU_COLORS, MENU_KINDS, PAGE, DISPLAY, PIXELMAP, PROJECT, TARGET,
-  FIELD_TYPES: ['TEXT', 'VALUE', 'BOOL', 'BAR', 'ICON'],
+  FIELD_TYPES: ['TEXT', 'VALUE', 'BOOL', 'BAR', 'ICON', 'TREND'],
   SHAPE_TYPES: Object.keys(SHAPE_DESC)
 };

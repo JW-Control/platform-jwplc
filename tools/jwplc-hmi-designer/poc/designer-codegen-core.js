@@ -266,10 +266,61 @@
       `    JWPLC_UIBarField(\n        ${id},\n        ${rect},\n        JWPLC_UIText(${label}, ${unit}),\n        JWPLC_UIRange(${cppFloat(field.barMin)}, ${cppFloat(field.barMax)}),\n        JWPLC_UIBarStyle(\n            ${field.labelSize},\n            ${cppBool(field.frame)},\n            JWPLC_UI_LAYOUT_${field.layout}),\n        ${field.page || 0},\n        ${colorsBlock(field.labelColor, field.valueColor, field.trackColor || field.backgroundColor, field.frameColor)}${configBlock})`;
   }
 
+  function trendFieldBlock(field, id) {
+    const width = Math.max(40, Math.trunc(Number(field.width || field.w) || 200));
+    const height = Math.max(30, Math.trunc(Number(field.height || field.h) || 80));
+    const rect = `JWPLC_UIRect(${field.x}, ${field.y}, ${width}, ${height})`;
+    const title = textOrNull(field.title || field.label);
+    const unit = textOrNull(field.unit);
+    const minVal = Number(field.minValue) || 0;
+    const maxVal = Number(field.maxValue) || 100;
+    const sampleMs = Math.max(50, Math.trunc(Number(field.sampleIntervalMs) || 1000));
+    const visiblePts = Math.max(20, Math.trunc(Number(field.visibleSamples) || 150));
+    const scaleMode = field.scaleMode === 'MANUAL' ? 1 : 0;
+    const decimals = Math.max(0, Math.min(3, Math.trunc(Number(field.decimals) || 1)));
+    const lineW = Number(field.lineWidth) === 1 ? 1 : 2;
+    const showAxes = cppBool(field.showAxes !== false);
+    const showTime = cppBool(field.showTimeAxis !== false);
+    const enableSD = cppBool(Boolean(field.enableSD));
+    const sdIntervalMs = Math.max(100, Math.trunc(Number(field.sdIntervalMs) || 1000));
+    const curveColor = hex565(field.curveColor || 0xFD20);
+    const axesColor = hex565(field.axesColor || 0x4208);
+    const gridColor = hex565(field.gridColor || 0x2104);
+    const textColor = hex565(field.textColor || 0xDF5E);
+    const bgColor = hex565(field.backgroundColor || 0x0000);
+
+    const styleHeader = `    // Gráfica de Tendencia (${width}x${height}) - Muestreo: ${sampleMs}ms - Escala: ${field.scaleMode || 'AUTO'}\n`;
+
+    return `${styleHeader}` +
+      `    JWPLC_UITrendField(\n` +
+      `        ${id},\n` +
+      `        ${rect},\n` +
+      `        JWPLC_UIText(${title}, ${unit}),\n` +
+      `        JWPLC_UIRange(${cppFloat(minVal)}, ${cppFloat(maxVal)}),\n` +
+      `        JWPLC_UITrendConfig(\n` +
+      `            ${sampleMs},\n` +
+      `            ${visiblePts},\n` +
+      `            ${scaleMode},\n` +
+      `            ${decimals},\n` +
+      `            ${lineW},\n` +
+      `            ${showAxes},\n` +
+      `            ${showTime},\n` +
+      `            ${enableSD},\n` +
+      `            ${sdIntervalMs},\n` +
+      `            ${curveColor},\n` +
+      `            ${axesColor},\n` +
+      `            ${gridColor},\n` +
+      `            ${textColor},\n` +
+      `            ${bgColor}),\n` +
+      `        ${field.page || 0},\n` +
+      `        ${colorsBlock(field.labelColor || 0xFFFF, field.curveColor || 0xFD20, field.backgroundColor || 0x0000, field.axesColor || 0x4208)})`;
+  }
+
   function fieldBlock(field, id) {
     if (field.type === 'VALUE') return valueFieldBlock(field, id);
     if (field.type === 'BOOL') return boolFieldBlock(field, id);
     if (field.type === 'BAR') return barFieldBlock(field, id);
+    if (field.type === 'TREND') return trendFieldBlock(field, id);
     return textFieldBlock(field, id);
   }
 
@@ -287,7 +338,7 @@
 
   function variableDeclaration(field, variable) {
     if (field.type === 'VALUE') return valueDeclaration(field, variable);
-    if (field.type === 'BAR') return `float ${variable} = 0.0f;`;
+    if (field.type === 'BAR' || field.type === 'TREND') return `float ${variable} = 0.0f;`;
     if (field.type === 'BOOL') return `bool ${variable} = false;`;
     return textDeclaration(field, variable);
   }
@@ -297,6 +348,7 @@
     if (field.type === 'VALUE') return `JWPLC_Display.setValue(${id}, ${variable});`;
     if (field.type === 'BOOL') return `JWPLC_Display.setBool(${id}, ${variable});`;
     if (field.type === 'BAR') return `JWPLC_Display.setBar(${id}, ${variable});`;
+    if (field.type === 'TREND') return `JWPLC_Display.setTrend(${id}, ${variable});`;
     return `JWPLC_Display.setText(${id}, ${variable});`;
   }
 
@@ -317,6 +369,7 @@
     boolFieldBlock,
     boolStateColorsOn,
     barFieldBlock,
+    trendFieldBlock,
     fontCppSymbol,
     styleFontsArgs,
     fieldBlock,

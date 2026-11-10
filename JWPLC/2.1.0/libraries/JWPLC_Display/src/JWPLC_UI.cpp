@@ -1952,6 +1952,33 @@ namespace JWPLCUI
         return true;
     }
 
+    bool setTrend(uint8_t fieldId, float value)
+    {
+        FieldRuntime *field = findField(fieldId);
+
+        if (field == nullptr || field->def.meta.type != JWPLC_UI_FIELD_TREND)
+        {
+            return false;
+        }
+
+        if (field->hasValue && field->barValue == value)
+        {
+            jwplcH3E1RecordSetter(
+                fieldId,
+                false);
+            return true;
+        }
+
+        field->barValue = value;
+        field->hasValue = true;
+        markFieldDirty(*field);
+
+        jwplcH3E1RecordSetter(
+            fieldId,
+            true);
+        return true;
+    }
+
     void setRefreshMode(JWPLC_UIRefreshMode mode)
     {
         g_refreshMode = mode;
@@ -2189,6 +2216,11 @@ bool JWPLC_DisplayClass::setBool(uint8_t fieldId, bool value)
 bool JWPLC_DisplayClass::setBar(uint8_t fieldId, float value)
 {
     return JWPLCUI::setBar(fieldId, value);
+}
+
+bool JWPLC_DisplayClass::setTrend(uint8_t fieldId, float value)
+{
+    return JWPLCUI::setTrend(fieldId, value);
 }
 
 bool JWPLC_DisplayClass::setIconState(uint8_t fieldId, uint8_t state)

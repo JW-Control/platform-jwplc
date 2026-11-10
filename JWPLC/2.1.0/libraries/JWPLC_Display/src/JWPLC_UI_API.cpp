@@ -374,6 +374,28 @@ JWPLC_UIField JWPLC_UICircularField(
     return field;
 }
 
+JWPLC_UIField JWPLC_UITrendField(
+    uint8_t id,
+    JWPLC_UIRect rect,
+    JWPLC_UIText text,
+    JWPLC_UIRange range,
+    JWPLC_UITrendConfig trendConfig,
+    uint8_t page,
+    JWPLC_UIColors colors)
+{
+    JWPLC_UIField field(
+        JWPLC_UIFieldMeta(id, page, JWPLC_UI_FIELD_TREND),
+        rect,
+        text,
+        JWPLC_UIStyle(1, 1, trendConfig.showAxes, JWPLC_UI_LAYOUT_STACKED),
+        colors,
+        JWPLC_UIValueFormat(),
+        JWPLC_UIBoolText(),
+        range);
+    field.trendConfig = trendConfig;
+    return field;
+}
+
 JWPLC_UIField JWPLC_UIValueField(
     uint8_t id,
     int16_t x,

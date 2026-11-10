@@ -55,6 +55,7 @@
       if (field.type === 'MENU') return 'MENU';
       if (field.type === 'EVENT_LOG') return 'EVENT_LOG';
       if (field.type === 'ICON') return 'ICON';
+      if (field.type === 'TREND') return 'TREND';
       if (SHAPE_TYPES.includes(field.type)) return 'SHAPE';
       return 'FIELD';
     }
@@ -75,6 +76,7 @@
     setSectionVisible(document.getElementById('menuInspectorSection'), mode === 'MENU');
     setSectionVisible(document.getElementById('eventLogInspectorSection'), mode === 'EVENT_LOG');
     setSectionVisible(document.getElementById('iconInspectorSection'), mode === 'ICON');
+    setSectionVisible(document.getElementById('trendInspectorSection'), mode === 'TREND');
     setSectionVisible(fieldSection, mode === 'FIELD');
     setSectionVisible(shapeSection, mode === 'SHAPE');
     setSectionVisible(rawSection, mode === 'RAW');

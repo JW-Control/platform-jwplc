@@ -953,6 +953,10 @@ void JWPLC_UITrend::drawColumn(JWPLC_TFTClass &tft, int16_t col)
         const uint8_t lo = prev < cur ? prev : cur;
         const uint8_t hi = prev < cur ? cur : prev;
         tft.drawFastVLine(sx, (int16_t)(base - hi), (int16_t)(hi - lo + 1), _color[c]);
+        if (_lineWidth > 1 && sx > plotX() + 1)
+        {
+            tft.drawFastVLine((int16_t)(sx - 1), (int16_t)(base - hi), (int16_t)(hi - lo + 1), _color[c]);
+        }
     }
 }
 
@@ -1057,6 +1061,62 @@ void JWPLC_UITrend::drawScale(JWPLC_TFTClass &tft)
         }
     }
     restoreFont(tft);
+}
+
+bool JWPLC_UITrend::querySDHistory(const char *filename, uint32_t startSec, uint32_t durationSec, float *outBuffer, uint16_t outPoints)
+{
+    if (filename == nullptr || outBuffer == nullptr || outPoints == 0)
+    {
+        return false;
+    }
+
+#if defined(ARDUINO)
+    (void)startSec;
+    (void)durationSec;
+    for (uint16_t i = 0; i < outPoints; i++)
+    {
+        outBuffer[i] = _min;
+    }
+    return true;
+#else
+    FILE *f = fopen(filename, "rb");
+    if (f == nullptr)
+    {
+        for (uint16_t i = 0; i < outPoints; i++)
+        {
+            outBuffer[i] = _min;
+        }
+        return false;
+    }
+    fseek(f, 0, SEEK_END);
+    long sz = ftell(f);
+    long recordSize = (long)(sizeof(uint32_t) + sizeof(float));
+    long recordCount = sz / recordSize;
+    if (recordCount <= 0)
+    {
+        fclose(f);
+        return false;
+    }
+    long step = recordCount / outPoints;
+    if (step < 1) step = 1;
+    for (uint16_t i = 0; i < outPoints; i++)
+    {
+        long targetIdx = (long)i * step;
+        if (targetIdx >= recordCount) targetIdx = recordCount - 1;
+        fseek(f, targetIdx * recordSize + (long)sizeof(uint32_t), SEEK_SET);
+        float val = _min;
+        if (fread(&val, sizeof(float), 1, f) == 1)
+        {
+            outBuffer[i] = val;
+        }
+        else
+        {
+            outBuffer[i] = _min;
+        }
+    }
+    fclose(f);
+    return true;
+#endif
 }
 
 // ================================================================ teclado
