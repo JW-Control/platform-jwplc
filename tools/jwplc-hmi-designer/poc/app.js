@@ -2589,8 +2589,46 @@
     let fieldH;
     let valueX;
     let valueY;
+    let labelX = field.x + lead;
+    let labelY = field.y + lead;
 
-    if (field.layout === 'STACKED') {
+    if (field.type === 'ICON' && (field.alignV || field.alignH)) {
+      const availW = Math.max(labelBounds.width, valueBounds.width);
+      if (field.layout === 'STACKED') {
+        fieldW = lead + pad + availW;
+        fieldH = lead + pad + (labelBounds.height > 0 ? labelBounds.height + FIELD_GAP : 0) + valueBounds.height;
+        if (field.alignH === 'RIGHT') {
+          labelX = field.x + lead + (availW - labelBounds.width);
+          valueX = field.x + lead + (availW - valueBounds.width);
+        } else if (field.alignH === 'CENTER') {
+          labelX = field.x + lead + Math.floor((availW - labelBounds.width) / 2);
+          valueX = field.x + lead + Math.floor((availW - valueBounds.width) / 2);
+        } else {
+          labelX = field.x + lead;
+          valueX = field.x + lead;
+        }
+        if (field.alignV === 'BOTTOM') {
+          valueY = field.y + lead;
+          labelY = valueY + valueBounds.height + (labelBounds.height > 0 ? FIELD_GAP : 0);
+        } else {
+          labelY = field.y + lead;
+          valueY = labelY + (labelBounds.height > 0 ? labelBounds.height + FIELD_GAP : 0);
+        }
+      } else {
+        const maxH = Math.max(labelBounds.height, valueBounds.height);
+        fieldW = lead + pad + (labelBounds.width > 0 ? labelBounds.width + FIELD_GAP : 0) + valueBounds.width;
+        fieldH = lead + pad + maxH;
+        labelY = field.y + lead + Math.floor((maxH - labelBounds.height) / 2);
+        valueY = field.y + lead + Math.floor((maxH - valueBounds.height) / 2);
+        if (field.alignH === 'RIGHT') {
+          valueX = field.x + lead;
+          labelX = valueX + valueBounds.width + (labelBounds.width > 0 ? FIELD_GAP : 0);
+        } else {
+          labelX = field.x + lead;
+          valueX = labelX + (labelBounds.width > 0 ? labelBounds.width + FIELD_GAP : 0);
+        }
+      }
+    } else if (field.layout === 'STACKED') {
       const valueAndUnitW = valueBounds.width + (unitBounds.width > 0 ? FIELD_GAP + unitBounds.width : 0);
       fieldW = lead + pad + Math.max(labelBounds.width, valueAndUnitW);
       fieldH = lead + pad + labelBounds.height + (labelBounds.height > 0 ? FIELD_GAP : 0) + Math.max(valueBounds.height, unitBounds.height);
@@ -2611,6 +2649,8 @@
       fieldH,
       valueX,
       valueY,
+      labelX,
+      labelY,
       valueW: valueBounds.width,
       valueH: valueBounds.height,
       labelBounds,
@@ -2643,7 +2683,9 @@
     }
     const textBg = (isTrans && stateBg === null) ? null : background;
     if (field.label) {
-      drawTextWithFont(buffer, field.label, field.x + FIELD_PADDING, field.y + FIELD_PADDING, field.labelColor, textBg, field.labelSize, field.labelFont);
+      const lx = (g.labelX !== undefined) ? g.labelX : field.x + FIELD_PADDING;
+      const ly = (g.labelY !== undefined) ? g.labelY : field.y + FIELD_PADDING;
+      drawTextWithFont(buffer, field.label, lx, ly, field.labelColor, textBg, field.labelSize, field.labelFont);
     }
     if (field.unit) {
       drawTextWithFont(buffer, field.unit, g.valueX + g.valueW + FIELD_GAP, g.valueY, field.labelColor, textBg, field.labelSize, field.labelFont);

@@ -415,63 +415,26 @@
       <div class="insp-body">
         <div class="insp-panel" data-icon-panel="design:shape">
           <div class="bar-card">
-            <div class="icon-current">
-              <canvas data-icon-current></canvas>
-              <div>
-                <strong data-icon-readout="name">—</strong>
-                <div class="insp-note" data-icon-readout="category"></div>
-              </div>
-            </div>
-            <div class="bar-card-section-title insp-gap" style="margin-top:6px" data-icon-quick-states-title>Estado actual <small style="opacity:.7">· clic para probar</small></div>
-            <div class="insp-chip-row" data-icon-quick-states></div>
-            <label class="field-label insp-gap">Icono
-              <select class="field-input" data-icon-prop="iconId"></select>
-            </label>
+            <div class="bar-card-section-title">Tamaño</div>
+            <div class="insp-chip-row" data-icon-sizes></div>
           </div>
-          <!-- Configuración del Piloto Modular (solo si es piloto) -->
-          <div class="bar-card" data-icon-pilot-card hidden>
-            <div class="bar-card-section-title">Configuración del Piloto</div>
-            <span class="bar-visual-group-title">Modo</span>
+          <div class="bar-card">
             <div class="bar-visual-grid-2">
-              <button type="button" class="bar-visual-btn" data-pilot-mode="bool"><strong>ON / OFF</strong><span>Variable bool (2 estados)</span></button>
-              <button type="button" class="bar-visual-btn" data-pilot-mode="uint8"><strong>Multi-estado</strong><span>Variable uint8_t</span></button>
-            </div>
-            <div data-pilot-states-section class="insp-gap" hidden>
-              <span class="bar-visual-group-title">Cantidad de estados</span>
-              <div class="insp-chip-row" data-pilot-states-quick>
-                <button type="button" class="insp-chip" data-pilot-states-set="2">2</button>
-                <button type="button" class="insp-chip" data-pilot-states-set="3">3</button>
-                <button type="button" class="insp-chip" data-pilot-states-set="4">4</button>
-                <button type="button" class="insp-chip" data-pilot-states-set="5">5</button>
-                <button type="button" class="insp-chip" data-pilot-states-set="6">6</button>
-                <button type="button" class="insp-chip" data-pilot-states-set="8">8</button>
+              <div>
+                <span class="bar-visual-group-title" style="margin-bottom:4px;display:block">Marco</span>
+                <div class="bar-visual-grid-2">
+                  <button type="button" class="bar-visual-btn" data-icon-set="frame" data-value="0"><span>Sin marco</span></button>
+                  <button type="button" class="bar-visual-btn" data-icon-set="frame" data-value="1"><span>Con marco</span></button>
+                </div>
+              </div>
+              <div>
+                <span class="bar-visual-group-title" style="margin-bottom:4px;display:block">Fondo</span>
+                <div class="bar-visual-grid-2">
+                  <button type="button" class="bar-visual-btn" data-icon-set="transparentBackground" data-value="0"><span>Color</span></button>
+                  <button type="button" class="bar-visual-btn" data-icon-set="transparentBackground" data-value="1"><span>Sin fondo</span></button>
+                </div>
               </div>
             </div>
-            <span class="bar-visual-group-title insp-gap">Estados configurados</span>
-            <div data-pilot-states-list class="pilot-states-list"></div>
-            <div class="color-presets-row insp-gap">
-              <span style="font-size:10px;opacity:.7;line-height:20px">Paletas rápidas:</span>
-              <button type="button" class="color-preset-pill" data-apply-color="0x07E0">Verde</button>
-              <button type="button" class="color-preset-pill" data-apply-color="0xF800">Rojo</button>
-              <button type="button" class="color-preset-pill" data-apply-color="0xFDE0">Ámbar</button>
-              <button type="button" class="color-preset-pill" data-apply-color="0x041F">Azul</button>
-              <button type="button" class="color-preset-pill" data-apply-color="0xFFFF">Blanco</button>
-              <button type="button" class="color-preset-pill" data-apply-color="0x4208">Apagado</button>
-            </div>
-          </div>
-
-          <!-- Configuración de la Torre de Señalización (Baliza) -->
-          <div class="bar-card" data-icon-baliza-card hidden>
-            <div class="bar-card-section-title">Torre de Señalización (Baliza)</div>
-            <span class="bar-visual-group-title">Cantidad de pisos</span>
-            <div class="insp-chip-row" data-baliza-tier-count-group>
-              <button type="button" class="insp-chip" data-baliza-tier-count="1">1 Piso</button>
-              <button type="button" class="insp-chip" data-baliza-tier-count="2">2 Pisos</button>
-              <button type="button" class="insp-chip" data-baliza-tier-count="3">3 Pisos</button>
-              <button type="button" class="insp-chip active" data-baliza-tier-count="4">4 Pisos</button>
-            </div>
-            <span class="bar-visual-group-title insp-gap">Pisos (prueba en vivo y color)</span>
-            <div data-baliza-tiers-list></div>
           </div>
           <!-- Velocidad de animación (slider de 4 niveles con animación y FPS) -->
           <div class="bar-card" data-icon-anim-card hidden>
@@ -498,25 +461,41 @@
             </div>
           </div>
 
-          <div class="bar-card">
-            <div class="bar-card-section-title">Tamaño</div>
-            <div class="insp-chip-row" data-icon-sizes></div>
-            <div class="insp-note">Tamaños dibujados para este icono. Cambiar el tamaño no deforma: usa otra imagen.</div>
-          </div>
-          <div class="bar-card">
-            <div class="bar-card-section-title">Marco</div>
+          <!-- Configuración del Piloto Modular (solo si es piloto) -->
+          <div class="bar-card" data-icon-pilot-card hidden>
+            <div class="bar-card-section-title">Configuración del Piloto</div>
+            <span class="bar-visual-group-title">Modo</span>
             <div class="bar-visual-grid-2">
-              <button type="button" class="bar-visual-btn" data-icon-set="frame" data-value="0"><span>Sin marco</span></button>
-              <button type="button" class="bar-visual-btn" data-icon-set="frame" data-value="1"><span>Con marco</span></button>
+              <button type="button" class="bar-visual-btn" data-pilot-mode="bool"><strong>ON / OFF</strong><span>Variable bool (2 estados)</span></button>
+              <button type="button" class="bar-visual-btn" data-pilot-mode="uint8"><strong>Multi-estado</strong><span>Variable uint8_t</span></button>
             </div>
+            <div data-pilot-states-section class="insp-gap" hidden>
+              <span class="bar-visual-group-title">Cantidad de estados</span>
+              <div class="insp-chip-row" data-pilot-states-quick>
+                <button type="button" class="insp-chip" data-pilot-states-set="2">2</button>
+                <button type="button" class="insp-chip" data-pilot-states-set="3">3</button>
+                <button type="button" class="insp-chip" data-pilot-states-set="4">4</button>
+                <button type="button" class="insp-chip" data-pilot-states-set="5">5</button>
+                <button type="button" class="insp-chip" data-pilot-states-set="6">6</button>
+                <button type="button" class="insp-chip" data-pilot-states-set="8">8</button>
+              </div>
+            </div>
+            <span class="bar-visual-group-title insp-gap">Estados configurados</span>
+            <div data-pilot-states-list class="pilot-states-list"></div>
           </div>
-          <div class="bar-card">
-            <div class="bar-card-section-title">Fondo</div>
-            <div class="bar-visual-grid-2">
-              <button type="button" class="bar-visual-btn" data-icon-set="transparentBackground" data-value="0"><span>Con color de fondo</span></button>
-              <button type="button" class="bar-visual-btn" data-icon-set="transparentBackground" data-value="1"><span>Sin fondo</span></button>
+
+          <!-- Configuración de la Torre de Señalización (Baliza) -->
+          <div class="bar-card" data-icon-baliza-card hidden>
+            <div class="bar-card-section-title">Torre de Señalización (Baliza)</div>
+            <span class="bar-visual-group-title">Cantidad de pisos</span>
+            <div class="insp-chip-row" data-baliza-tier-count-group>
+              <button type="button" class="insp-chip" data-baliza-tier-count="1">1 Piso</button>
+              <button type="button" class="insp-chip" data-baliza-tier-count="2">2 Pisos</button>
+              <button type="button" class="insp-chip" data-baliza-tier-count="3">3 Pisos</button>
+              <button type="button" class="insp-chip active" data-baliza-tier-count="4">4 Pisos</button>
             </div>
-            <div class="insp-note">Sin fondo se ve lo que hay debajo (figuras, texto fijo). Lo que cambia entre estados sigue usando el color de fondo para no dejar restos en la TFT.</div>
+            <span class="bar-visual-group-title insp-gap">Pisos (prueba en vivo y activación)</span>
+            <div data-baliza-tiers-list></div>
           </div>
         </div>
 
@@ -528,15 +507,28 @@
           <div class="bar-card">
             <div class="bar-card-section-title">Etiqueta (opcional)</div>
             <label class="field-label">Texto<input class="field-input" data-icon-prop="label" type="text" maxlength="24" placeholder="Sin etiqueta" /></label>
-            <span class="bar-visual-group-title insp-gap">Posición</span>
-            <div class="bar-visual-grid-2">
-              <button type="button" class="bar-visual-btn" data-icon-set="layout" data-value="STACKED"><span>Arriba del icono</span></button>
-              <button type="button" class="bar-visual-btn" data-icon-set="layout" data-value="INLINE"><span>A la izquierda</span></button>
-            </div>
-            <span class="bar-visual-group-title insp-gap">Tamaño de texto</span>
-            <div class="bar-visual-grid-2">
-              <button type="button" class="bar-visual-btn" data-icon-set="labelSize" data-value="1"><strong>Aa</strong><span>1×</span></button>
-              <button type="button" class="bar-visual-btn" data-icon-set="labelSize" data-value="2"><strong style="font-size:15px">Aa</strong><span>2×</span></button>
+            <div class="bar-align-matrix-row" style="margin-top:8px;">
+              <div class="bar-matrix-col">
+                <span class="bar-matrix-label">Alineación (3×3)</span>
+                <div class="align-matrix-3x3" data-icon-matrix-wrap>
+                  <button type="button" class="matrix-cell" data-align-v="TOP" data-align-h="LEFT" title="Arriba Izquierda">↖</button>
+                  <button type="button" class="matrix-cell active" data-align-v="TOP" data-align-h="CENTER" title="Arriba Centro">↑</button>
+                  <button type="button" class="matrix-cell" data-align-v="TOP" data-align-h="RIGHT" title="Arriba Derecha">↗</button>
+                  <button type="button" class="matrix-cell" data-align-v="MID" data-align-h="LEFT" title="Medio Izquierda">←</button>
+                  <button type="button" class="matrix-cell" data-align-v="MID" data-align-h="CENTER" title="Centro">·</button>
+                  <button type="button" class="matrix-cell" data-align-v="MID" data-align-h="RIGHT" title="Medio Derecha">→</button>
+                  <button type="button" class="matrix-cell" data-align-v="BOTTOM" data-align-h="LEFT" title="Abajo Izquierda">↙</button>
+                  <button type="button" class="matrix-cell" data-align-v="BOTTOM" data-align-h="CENTER" title="Abajo Centro">↓</button>
+                  <button type="button" class="matrix-cell" data-align-v="BOTTOM" data-align-h="RIGHT" title="Abajo Derecha">↘</button>
+                </div>
+              </div>
+              <div class="bar-options-col">
+                <span class="bar-visual-group-title" style="margin-bottom:4px;display:block">Tamaño texto</span>
+                <div class="bar-visual-grid-2">
+                  <button type="button" class="bar-visual-btn" data-icon-set="labelSize" data-value="1"><strong>Aa</strong><span>1×</span></button>
+                  <button type="button" class="bar-visual-btn" data-icon-set="labelSize" data-value="2"><strong style="font-size:14px">Aa</strong><span>2×</span></button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -544,18 +536,14 @@
         <div class="insp-panel" data-icon-panel="design:appearance" hidden>
           <div class="menu-case">
             <div class="bar-card-section-title">Vista</div>
-            <div class="menu-case-body field-case-body zone-host is-below" data-icon-case-body="single">
+            <div class="menu-case-body field-case-body zone-host" data-icon-case-body="single">
               <canvas class="menu-case-canvas field-case-canvas" data-icon-case="single"></canvas>
               <div class="menu-case-legend" data-icon-case-legend></div>
             </div>
           </div>
           <div class="menu-palette">
-            <div class="insp-note">Clic en una fila (texto o cuadro) para editar ese color: el contorno y el ▶ marcan lo que cambia en la vista.</div>
+            <div class="insp-note" style="margin-bottom:6px">Clic en un componente de la derecha para editar su color.</div>
             <div data-icon-color-editor></div>
-            <div class="bar-card insp-gap" data-icon-presets-card style="margin-top:10px">
-              <div class="bar-card-section-title" data-icon-presets-title>Paleta rápida</div>
-              <div class="color-presets-row" data-icon-presets-row style="margin-top:4px;flex-wrap:wrap;gap:6px"></div>
-            </div>
           </div>
         </div>
 
@@ -650,10 +638,13 @@
   });
   if (colorEditor) section.querySelector('[data-icon-color-editor]').appendChild(colorEditor.el);
 
-  // Selector de icono agrupado por categoría.
-  section.querySelector('[data-icon-prop="iconId"]').innerHTML = catalog.categories.map((c) =>
-    `<optgroup label="${escapeHtml(c.name)}">${catalog.icons.filter((i) => i.category === c.id)
-      .map((i) => `<option value="${i.id}">${escapeHtml(i.name)}</option>`).join('')}</optgroup>`).join('');
+  // Selector de icono agrupado por categoría (si está presente).
+  const iconIdSelect = section.querySelector('[data-icon-prop="iconId"]');
+  if (iconIdSelect) {
+    iconIdSelect.innerHTML = catalog.categories.map((c) =>
+      `<optgroup label="${escapeHtml(c.name)}">${catalog.icons.filter((i) => i.category === c.id)
+        .map((i) => `<option value="${i.id}">${escapeHtml(i.name)}</option>`).join('')}</optgroup>`).join('');
+  }
 
   function mutate(fn, commit = true) {
     const field = selectedIcon();
@@ -727,10 +718,11 @@
     const w = Math.max(1, Math.min(out.width, Math.ceil(out.g.fieldW)));
     const h = Math.max(1, Math.min(out.height, Math.ceil(out.g.fieldH)));
 
-    body.classList.add('is-below');
-    body.dataset.placement = 'below';
+    body.classList.remove('is-below');
+    body.dataset.placement = 'right';
 
-    const scale = 2;
+    // Escala grande y nítida (3x para iconos pequeños, 2x para medianos/grandes)
+    const scale = (w <= 36 && h <= 36) ? 3 : 2;
     if (canvas.width !== w * scale) canvas.width = w * scale;
     if (canvas.height !== h * scale) canvas.height = h * scale;
     canvas.dataset.logicalW = String(w);
@@ -858,6 +850,13 @@
           : prop === 'layout' ? b.dataset.value === (field.layout === 'INLINE' ? 'INLINE' : 'STACKED')
             : b.dataset.value === (field.iconVarType === 'uint8' ? 'uint8' : 'bool');
       b.classList.toggle('active', value);
+    });
+
+    // Matriz 3x3 de alineación de etiqueta
+    const curAlignV = field.alignV || (field.layout === 'INLINE' ? 'MID' : 'TOP');
+    const curAlignH = field.alignH || 'CENTER';
+    section.querySelectorAll('[data-icon-matrix-wrap] .matrix-cell').forEach((c) => {
+      c.classList.toggle('active', c.dataset.alignV === curAlignV && c.dataset.alignH === curAlignH);
     });
 
     // Ocultar "Estado actual" tanto en Baliza como en Piloto (ambos tienen su control interactivo de estados en Forma)
@@ -1165,6 +1164,19 @@
     const action = t.closest('[data-icon-action]')?.dataset.iconAction;
     if (action === 'duplicate') { editor()?.duplicateSelectedField?.(); return; }
     if (action === 'delete') { editor()?.deleteSelectedField?.(); return; }
+    const matrixCell = t.closest('[data-icon-matrix-wrap] .matrix-cell');
+    if (matrixCell) {
+      const v = matrixCell.dataset.alignV || 'TOP';
+      const h = matrixCell.dataset.alignH || 'LEFT';
+      mutate((f) => {
+        f.alignV = v;
+        f.alignH = h;
+        f.layout = v === 'MID' ? 'INLINE' : 'STACKED';
+        f.align = h;
+      });
+      sync();
+      return;
+    }
     const setBtn = t.closest('[data-icon-set]');
     if (setBtn) {
       const prop = setBtn.dataset.iconSet;
