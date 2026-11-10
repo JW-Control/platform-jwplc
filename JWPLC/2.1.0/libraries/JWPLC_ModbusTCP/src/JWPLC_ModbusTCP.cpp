@@ -57,6 +57,8 @@ JWPLC_ModbusTCPClass::JWPLC_ModbusTCPClass()
       _unitId(JWPLC_MODBUS_TCP_DEFAULT_UNIT_ID),
       _port(JWPLC_MODBUS_TCP_DEFAULT_PORT),
       _frameTimeoutMs(JWPLC_MODBUS_TCP_FRAME_TIMEOUT_MS),
+      _clientIdleTimeoutMs(JWPLC_MODBUS_TCP_CLIENT_IDLE_TIMEOUT_MS),
+      _strictUnitId(false),
       _lastRxMs(0),
       _lastListenAttemptMs(0),
       _rxIntConfigured(false),
@@ -88,6 +90,10 @@ JWPLC_ModbusTCPClass::JWPLC_ModbusTCPClass()
     memset(_rxBuffer, 0, sizeof(_rxBuffer));
     memset(_txBuffer, 0, sizeof(_txBuffer));
     memset(&_stats, 0, sizeof(_stats));
+    memset(_peerPort, 0, sizeof(_peerPort));
+    memset(_peerLastRxMs, 0, sizeof(_peerLastRxMs));
+    _peerSocket = MAX_SOCK_NUM;
+    _peerMask = 0;
 #if JWPLC_MODBUS_TCP_ENABLE_PROFILE_HOOKS
     memset(&_rxLoadProfile, 0, sizeof(_rxLoadProfile));
     _rxLoadProfile.state = _rxLoadState;
@@ -123,6 +129,7 @@ bool JWPLC_ModbusTCPClass::beginServer(uint8_t unitId, uint16_t port)
     _serverListening = false;
     _clientActive = false;
     _client = EthernetClient();
+    forgetAllPeers();
     _lastListenAttemptMs = 0;
     resetRx();
     resetRxIntSoftware();
@@ -163,6 +170,7 @@ void JWPLC_ModbusTCPClass::task()
         _serverListening = false;
         _clientActive = false;
         _client = EthernetClient();
+        forgetAllPeers(); // los handles de sockets anteriores ya no valen
         resetRx();
         resetRxIntSoftware();
         _serverState = JWPLC_MODBUS_TCP_SERVER_WAIT_ETHERNET;
@@ -197,7 +205,9 @@ bool JWPLC_ModbusTCPClass::serverReady() const
 
 bool JWPLC_ModbusTCPClass::clientConnected() const
 {
-    return _clientActive;
+    // Con varios clientes, el Server atiende uno por trama y deja los demás en
+    // espera sin cerrarlos: hay cliente mientras quede alguna conexión.
+    return _clientActive || _peerMask != 0;
 }
 
 uint8_t JWPLC_ModbusTCPClass::unitId() const
@@ -223,6 +233,36 @@ void JWPLC_ModbusTCPClass::setFrameTimeoutMs(uint32_t timeoutMs)
 uint32_t JWPLC_ModbusTCPClass::frameTimeoutMs() const
 {
     return _frameTimeoutMs;
+}
+
+void JWPLC_ModbusTCPClass::setClientIdleTimeoutMs(uint32_t timeoutMs)
+{
+    _clientIdleTimeoutMs = timeoutMs;
+}
+
+uint32_t JWPLC_ModbusTCPClass::clientIdleTimeoutMs() const
+{
+    return _clientIdleTimeoutMs;
+}
+
+void JWPLC_ModbusTCPClass::setStrictUnitId(bool strict)
+{
+    _strictUnitId = strict;
+}
+
+bool JWPLC_ModbusTCPClass::strictUnitId() const
+{
+    return _strictUnitId;
+}
+
+bool JWPLC_ModbusTCPClass::unitIdAccepted(uint8_t unitId) const
+{
+    if (unitId == _unitId)
+    {
+        return true;
+    }
+
+    return !_strictUnitId && (unitId == 0x00U || unitId == 0xFFU);
 }
 
 void JWPLC_ModbusTCPClass::setCoils(uint8_t *bits, uint16_t count)
@@ -951,8 +991,70 @@ void JWPLC_ModbusTCPClass::finishRxIntService(bool rxDataKnownPending)
 #endif
 }
 
+void JWPLC_ModbusTCPClass::forgetPeer(uint8_t socket)
+{
+    if (socket >= MAX_SOCK_NUM)
+    {
+        return;
+    }
+
+    _peers[socket] = EthernetClient();
+    _peerPort[socket] = 0;
+    _peerLastRxMs[socket] = 0;
+    _peerMask = (uint8_t)(_peerMask & ~(1U << socket));
+}
+
+void JWPLC_ModbusTCPClass::forgetAllPeers()
+{
+    for (uint8_t i = 0; i < MAX_SOCK_NUM; ++i)
+    {
+        forgetPeer(i);
+    }
+
+    _peerSocket = MAX_SOCK_NUM;
+}
+
+void JWPLC_ModbusTCPClass::notePeerActivity(uint32_t nowMs)
+{
+    if (_peerSocket < MAX_SOCK_NUM)
+    {
+        _peerLastRxMs[_peerSocket] = nowMs;
+    }
+}
+
+// Cierra una conexión en espera que lleva _clientIdleTimeoutMs sin peticiones.
+// Usa el mismo cierre cooperativo que dropClient(): el handle conserva el token
+// de lease, así que si el socket ya se cerró o pertenece a otra conexión no se
+// toca. Devuelve true si inició un cierre (la pasada termina ahí).
+bool JWPLC_ModbusTCPClass::reapIdlePeer(uint32_t nowMs)
+{
+    if (_clientIdleTimeoutMs == 0 || _peerMask == 0)
+    {
+        return false;
+    }
+
+    for (uint8_t i = 0; i < MAX_SOCK_NUM; ++i)
+    {
+        if ((_peerMask & (1U << i)) == 0 ||
+            (uint32_t)(nowMs - _peerLastRxMs[i]) < _clientIdleTimeoutMs)
+        {
+            continue;
+        }
+
+        _client = _peers[i];
+        _peerSocket = i;
+        _clientActive = true;
+        dropClient();
+        return true;
+    }
+
+    return false;
+}
+
 void JWPLC_ModbusTCPClass::dropClient()
 {
+    forgetPeer(_peerSocket);
+    _peerSocket = MAX_SOCK_NUM;
     // No perder la identidad del socket mientras falte mutex.
     _jwplcDropPending = _jwplcDropPending || (bool)_client;
     _clientActive = false;
@@ -1038,6 +1140,11 @@ void JWPLC_ModbusTCPClass::serviceServer()
 
     if (!_clientActive)
     {
+        if (reapIdlePeer(now))
+        {
+            return;
+        }
+
         if (!acquireBus(20))
         {
             return;
@@ -1046,20 +1153,41 @@ void JWPLC_ModbusTCPClass::serviceServer()
         EthernetClient candidate = _server.available();
 
         bool intConfigured = false;
+        uint16_t peerPort = 0;
         if (candidate)
         {
             intConfigured =
                 configureRxIntLocked(
                     candidate.getSocketNumber());
+            peerPort = candidate.remotePort();
         }
 
         releaseBus();
 
         if (candidate)
         {
+            // Un socket con datos puede ser una conexión nueva o una que quedó
+            // en espera entre tramas: solo la nueva cuenta en clientConnections.
+            const uint8_t socket = candidate.getSocketNumber();
+            bool newConnection = true;
+            if (socket < MAX_SOCK_NUM)
+            {
+                newConnection = (_peerMask & (1U << socket)) == 0 ||
+                                _peerPort[socket] != peerPort;
+                _peers[socket] = candidate;
+                _peerPort[socket] = peerPort;
+                _peerLastRxMs[socket] = now;
+                _peerMask = (uint8_t)(_peerMask | (1U << socket));
+            }
+            _peerSocket = socket;
+            _lastRxMs = now;
+
             _client = candidate;
             _clientActive = true;
-            _stats.clientConnections++;
+            if (newConnection)
+            {
+                _stats.clientConnections++;
+            }
             _serverState = JWPLC_MODBUS_TCP_SERVER_CLIENT_ACTIVE;
             resetRx();
 
@@ -1126,7 +1254,14 @@ void JWPLC_ModbusTCPClass::serviceServer()
 
     if (availableBytes <= 0)
     {
-        if (!connected)
+        // Entre tramas y sin actividad reciente, el cliente deja paso a otros
+        // sockets con peticiones esperando: queda en espera sin cerrarse y se
+        // vuelve a atender cuando envíe algo (EthernetServer::available()).
+        const bool park =
+            connected && _rxLength == 0 &&
+            (uint32_t)(now - _lastRxMs) >= JWPLC_MODBUS_TCP_HANDOVER_IDLE_MS;
+
+        if (!connected || park)
         {
             disableRxIntLocked();
         }
@@ -1145,6 +1280,14 @@ void JWPLC_ModbusTCPClass::serviceServer()
         {
             dropClient(); // owns valid token or defers safely
             if (_jwplcDropPending) return;
+        }
+        else if (park)
+        {
+            _client = EthernetClient();
+            _clientActive = false;
+            _peerSocket = MAX_SOCK_NUM;
+            resetRxIntSoftware();
+            _serverState = JWPLC_MODBUS_TCP_SERVER_LISTENING;
         }
         return;
     }
@@ -1292,6 +1435,7 @@ void JWPLC_ModbusTCPClass::serviceServer()
     }
 
     _stats.rxFrames++;
+    notePeerActivity(now);
     noteRxIntFrameActivity(now);
 
     uint16_t responseLength = 0;
@@ -1328,7 +1472,7 @@ bool JWPLC_ModbusTCPClass::processRequest(uint16_t aduLength, uint16_t &response
     }
 
     const uint8_t requestUnitId = _rxBuffer[6];
-    if (requestUnitId != _unitId)
+    if (!unitIdAccepted(requestUnitId))
     {
         setError(JWPLC_MODBUS_TCP_UNIT_ID_MISMATCH);
         return false;
