@@ -44,14 +44,14 @@
 - Modificar: `tools/jwplc-hmi-designer/poc/designer-icons.js`
 - Modificar: `tools/jwplc-hmi-designer/poc/styles.css`
 
-- [ ] **Paso 1.1:** En el template HTML de `iconInspectorSection` en `designer-icons.js`:
+- [x] **Paso 1.1:** En el template HTML de `iconInspectorSection` en `designer-icons.js`:
   - Eliminar el bloque inicial `.icon-current` (canvas redundante, nombres y select `<select data-icon-prop="iconId">`).
   - Fusionar las tarjetas de **Marco** y **Fondo** en una sola tarjeta compacta `.bar-card` con grid de 2 columnas (`.bar-visual-grid-2`), retirando las notas largas `.insp-note`.
-- [ ] **Paso 1.2:** En `patchInspector()` de `designer-icons.js`:
+- [x] **Paso 1.2:** En `patchInspector()` de `designer-icons.js`:
   - Retirar las referencias al select de `iconId` y lectura de icono actual.
   - Asegurar que `data-icon-anim-card` se oculte (`animCard.hidden = !hasAnim`) para iconos no animados.
   - Para `isPilot` y `isBaliza`, asegurar que los selectores de modo y cantidad de pisos se muestren de forma compacta sin forzar scroll.
-- [ ] **Paso 1.3:** Verificar con `node --check tools/jwplc-hmi-designer/poc/designer-icons.js`.
+- [x] **Paso 1.3:** Verificar con `node --check tools/jwplc-hmi-designer/poc/designer-icons.js`.
 
 ---
 
@@ -61,15 +61,15 @@
 - Modificar: `tools/jwplc-hmi-designer/poc/designer-icons.js`
 - Modificar: `tools/jwplc-hmi-designer/poc/app.js`
 
-- [ ] **Paso 2.1:** En el template HTML del panel `design:content` en `designer-icons.js`:
+- [x] **Paso 2.1:** En el template HTML del panel `design:content` en `designer-icons.js`:
   - Reemplazar los botones de posición (`STACKED` / `INLINE`) por la estructura `bar-align-matrix-row` conteniendo la matriz `align-matrix-3x3` con 9 botones (`data-align-v` = `TOP`, `MID`, `BOTTOM` y `data-align-h` = `LEFT`, `CENTER`, `RIGHT`).
   - Colocar a su lado la columna de tamaño de texto de etiqueta (`1×`, `2×`).
-- [ ] **Paso 2.2:** En `designer-icons.js`, registrar listeners para los botones de la matriz 3×3:
+- [x] **Paso 2.2:** En `designer-icons.js`, registrar listeners para los botones de la matriz 3×3:
   - Al hacer clic en una celda, actualizar `field.alignV`, `field.alignH`, `field.layout` (`field.alignV === 'MID' ? 'INLINE' : 'STACKED'`) y `field.align = field.alignH`.
   - En `patchInspector()`, actualizar la clase `.active` de la celda seleccionada según `field.alignV` y `field.alignH`.
-- [ ] **Paso 2.3:** En `app.js:computeFieldGeometry()` y `drawField()`:
+- [x] **Paso 2.3:** En `app.js:computeFieldGeometry()` y `drawField()`:
   - Asegurar que cuando `field.type === 'ICON'`, la etiqueta respete el alineamiento horizontal y vertical indicado en la matriz (arriba centrado/izq/der, en medio izq/der, o abajo centrado/izq/der).
-- [ ] **Paso 2.4:** Verificar con `node --check tools/jwplc-hmi-designer/poc/designer-icons.js` y `node --check tools/jwplc-hmi-designer/poc/app.js`.
+- [x] **Paso 2.4:** Verificar con `node --check tools/jwplc-hmi-designer/poc/designer-icons.js` y `node --check tools/jwplc-hmi-designer/poc/app.js`.
 
 ---
 
@@ -79,16 +79,16 @@
 - Modificar: `tools/jwplc-hmi-designer/poc/designer-icons.js`
 - Modificar: `tools/jwplc-hmi-designer/poc/styles.css`
 
-- [ ] **Paso 3.1:** En el template HTML del panel `design:appearance`:
+- [x] **Paso 3.1:** En el template HTML del panel `design:appearance`:
   - Retirar la clase `is-below` de `data-icon-case-body="single"` para permitir layout horizontal flex (icono a la izquierda, leyenda a la derecha).
   - Eliminar por completo el bloque `.bar-card data-icon-presets-card` (paleta rápida).
   - Dejar únicamente el contenedor del editor de color grande `[data-icon-color-editor]`.
-- [ ] **Paso 3.2:** En `drawAppearance()` y `patchInspector()` de `designer-icons.js`:
+- [x] **Paso 3.2:** En `drawAppearance()` y `patchInspector()` de `designer-icons.js`:
   - Retirar `body.classList.add('is-below')`.
   - Configurar escala visual nítida para el canvas (`scale = 2` o `3` si el icono es de 24 o 32 px para que se aprecie con claridad).
   - Retirar lógica y selectores vinculados a `presetsCard`, `presetsTitle` y `presetsRow`.
-- [ ] **Paso 3.3:** En `styles.css`, ajustar estilos para `.icon-case-body` si se necesita un ancho o padding óptimo a dos columnas.
-- [ ] **Paso 3.4:** Verificar con `node --check tools/jwplc-hmi-designer/poc/designer-icons.js`.
+- [x] **Paso 3.3:** En `styles.css`, ajustar estilos para `.icon-case-body` si se necesita un ancho o padding óptimo a dos columnas.
+- [x] **Paso 3.4:** Verificar con `node --check tools/jwplc-hmi-designer/poc/designer-icons.js`.
 
 ---
 
@@ -98,14 +98,14 @@
 - Crear: `tools/jwplc-hmi-designer/tests/icon-inspector.test.cjs`
 - Modificar: `tools/jwplc-hmi-designer/tests/run-all.cjs`
 
-- [ ] **Paso 4.1:** Escribir prueba unitaria `icon-inspector.test.cjs` que valide:
+- [x] **Paso 4.1:** Escribir prueba unitaria `icon-inspector.test.cjs` que valide:
   - Ausencia de selector redundante de icono en el DOM de Forma.
   - Presencia y 9 celdas operativas de la matriz 3×3 en Contenido.
   - Ausencia de tarjeta de paleta rápida en Apariencia.
   - Presencia del editor de color grande en Apariencia.
   - Comportamiento de iconos animados vs no animados (visibilidad de velocidad).
-- [ ] **Paso 4.2:** Registrar `icon-inspector.test.cjs` en `tools/jwplc-hmi-designer/tests/run-all.cjs`.
-- [ ] **Paso 4.3:** Ejecutar todas las suites de prueba de la herramienta:
+- [x] **Paso 4.2:** Registrar `icon-inspector.test.cjs` en `tools/jwplc-hmi-designer/tests/run-all.cjs`.
+- [x] **Paso 4.3:** Ejecutar todas las suites de prueba de la herramienta:
   - `node tools/jwplc-hmi-designer/tests/icon-inspector.test.cjs`
   - `node tools/jwplc-hmi-designer/tests/codegen-core.test.cjs`
   - `node tools/jwplc-hmi-designer/tests/toolbar-dropdowns.test.cjs`
