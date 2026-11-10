@@ -419,16 +419,28 @@
             <div class="insp-chip-row" data-icon-sizes></div>
           </div>
           <div class="bar-card">
-            <div class="bar-visual-grid-2">
-              <div>
-                <span class="bar-visual-group-title" style="margin-bottom:4px;display:block">Marco</span>
+            <div style="display:grid;grid-template-columns:1fr 1px 1fr;gap:12px;align-items:stretch">
+              <!-- Sección Marco -->
+              <div style="display:flex;flex-direction:column;gap:6px">
+                <div style="display:flex;align-items:center;gap:6px">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#52c9ff" stroke-width="2.2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+                  <span class="bar-visual-group-title" style="font-weight:700;color:#cce4f7;letter-spacing:0.3px">Marco</span>
+                </div>
                 <div class="bar-visual-grid-2">
                   <button type="button" class="bar-visual-btn" data-icon-set="frame" data-value="0"><span>Sin marco</span></button>
                   <button type="button" class="bar-visual-btn" data-icon-set="frame" data-value="1"><span>Con marco</span></button>
                 </div>
               </div>
-              <div>
-                <span class="bar-visual-group-title" style="margin-bottom:4px;display:block">Fondo</span>
+
+              <!-- Divisor vertical entre Marco y Fondo -->
+              <div style="background:rgba(255,255,255,0.12);width:1px;margin:2px 0;align-self:stretch" data-icon-mf-divider></div>
+
+              <!-- Sección Fondo -->
+              <div style="display:flex;flex-direction:column;gap:6px">
+                <div style="display:flex;align-items:center;gap:6px">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ffb74d" stroke-width="2.2"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>
+                  <span class="bar-visual-group-title" style="font-weight:700;color:#cce4f7;letter-spacing:0.3px">Fondo</span>
+                </div>
                 <div class="bar-visual-grid-2">
                   <button type="button" class="bar-visual-btn" data-icon-set="transparentBackground" data-value="0"><span>Color</span></button>
                   <button type="button" class="bar-visual-btn" data-icon-set="transparentBackground" data-value="1"><span>Sin fondo</span></button>
@@ -484,7 +496,7 @@
             <div data-pilot-states-list class="pilot-states-list"></div>
           </div>
 
-          <!-- Configuración de la Torre de Señalización (Baliza) -->
+          <!-- Configuración de la Torre de Señalización (Baliza) en Forma -->
           <div class="bar-card" data-icon-baliza-card hidden>
             <div class="bar-card-section-title">Torre de Señalización (Baliza)</div>
             <span class="bar-visual-group-title">Cantidad de pisos</span>
@@ -494,8 +506,6 @@
               <button type="button" class="insp-chip" data-baliza-tier-count="3">3 Pisos</button>
               <button type="button" class="insp-chip active" data-baliza-tier-count="4">4 Pisos</button>
             </div>
-            <span class="bar-visual-group-title insp-gap">Pisos (prueba en vivo y activación)</span>
-            <div data-baliza-tiers-list></div>
           </div>
         </div>
 
@@ -503,6 +513,16 @@
           <div class="bar-card" data-icon-states-card>
             <div class="bar-card-section-title">Estados <small style="opacity:.7">· clic para verlo en el lienzo</small></div>
             <div class="icon-states" data-icon-states></div>
+          </div>
+          <!-- Torre de Señalización: prueba de pisos en vivo (Baliza) -->
+          <div class="bar-card" data-icon-baliza-content hidden>
+            <div class="bar-card-section-title">Pisos de la Torre <small style="opacity:.7">· prueba en vivo en el lienzo</small></div>
+            <div data-baliza-tiers-list style="margin-top:6px"></div>
+            <div class="insp-chip-row" style="margin-top:8px;gap:6px">
+              <button type="button" class="insp-chip" data-baliza-quick="all-on" title="Encender todos los pisos">Todos ON</button>
+              <button type="button" class="insp-chip" data-baliza-quick="all-off" title="Apagar todos los pisos">Todos OFF</button>
+              <button type="button" class="insp-chip" data-baliza-quick="cycle" title="Alternar combinaciones">Alternar</button>
+            </div>
           </div>
           <div class="bar-card">
             <div class="bar-card-section-title">Etiqueta (opcional)</div>
@@ -542,7 +562,10 @@
             </div>
           </div>
           <div class="menu-palette">
-            <div class="insp-note" style="margin-bottom:6px">Clic en un componente de la derecha para editar su color.</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+              <span class="insp-note" style="margin:0">Clic en un componente para editar su color.</span>
+              <button type="button" class="insp-chip" data-icon-reset-color title="Restablecer color por defecto del componente activo" style="font-size:10px;padding:2px 8px;cursor:pointer">↺ Color por defecto</button>
+            </div>
             <div data-icon-color-editor></div>
           </div>
         </div>
@@ -679,12 +702,44 @@
       `// jwplcUIUpdate() (generado) llama:\n${core.iconSetter(id, variable, field)}`;
   }
 
-    const SPEED_CONFIG = {
-    1: { label: 'Muy lento', fps: '4 FPS', ms: 250, spinDur: '2.0s' },
-    2: { label: 'Lento', fps: '7 FPS', ms: 140, spinDur: '1.2s' },
-    3: { label: 'Rápido', fps: '12 FPS', ms: 80, spinDur: '0.6s' },
-    4: { label: 'Muy rápido', fps: '20 FPS', ms: 50, spinDur: '0.25s' }
+  const SPEED_CONFIG = {
+    1: { label: 'Muy lento', fps: '4 FPS', ms: 250, spinDur: '2.2s', color: '#64b5f6', bg: 'rgba(100,181,246,0.15)', border: 'rgba(100,181,246,0.4)' },
+    2: { label: 'Lento', fps: '7 FPS', ms: 140, spinDur: '1.3s', color: '#00e5ff', bg: 'rgba(0,229,255,0.15)', border: 'rgba(0,229,255,0.4)' },
+    3: { label: 'Rápido', fps: '12 FPS', ms: 80, spinDur: '0.55s', color: '#00e676', bg: 'rgba(0,230,118,0.15)', border: 'rgba(0,230,118,0.4)' },
+    4: { label: 'Muy rápido', fps: '20 FPS', ms: 50, spinDur: '0.22s', color: '#ff9100', bg: 'rgba(255,145,0,0.18)', border: 'rgba(255,145,0,0.45)' }
   };
+
+  function updateSpeedUI(lvl) {
+    const cfg = SPEED_CONFIG[lvl];
+    if (!cfg || !section) return;
+    const lbl = section.querySelector('[data-anim-speed-label]');
+    if (lbl) {
+      lbl.textContent = cfg.label;
+      lbl.style.color = cfg.color;
+    }
+    const badge = section.querySelector('[data-anim-fps-badge]');
+    if (badge) {
+      badge.textContent = cfg.fps;
+      badge.style.color = cfg.color;
+      badge.style.background = cfg.bg;
+      badge.style.border = `1px solid ${cfg.border}`;
+    }
+    const indicator = section.querySelector('.anim-speed-indicator');
+    if (indicator) {
+      indicator.style.background = cfg.bg;
+      indicator.style.borderColor = cfg.border;
+    }
+    const spinner = section.querySelector('.anim-spinner-icon');
+    if (spinner) {
+      spinner.style.setProperty('--anim-spin-duration', cfg.spinDur);
+      spinner.setAttribute('stroke', cfg.color);
+      spinner.style.stroke = cfg.color;
+    }
+    const slider = section.querySelector('[data-icon-anim-slider]');
+    if (slider) {
+      slider.style.accentColor = cfg.color;
+    }
+  }
 
   let cachedZones = null;
 
@@ -699,6 +754,7 @@
     const isBaliza = field.iconId === 'pilotos/baliza';
 
     const preview = { ...field, x: 0, y: 0 };
+    delete preview.bodyColor;
     if (isBaliza) {
       const tCount = Math.max(1, Math.min(4, Number(field.tierCount || 4)));
       preview.iconState = (1 << tCount) - 1; // Encender todos los pisos configurados para que los colores se vean en la vista
@@ -749,7 +805,9 @@
     const inset = field.frame ? 1 : 0;
     const labelRects = [];
     if (g.labelBounds && g.labelBounds.width > 0) {
-      labelRects.push({ x: 3, y: 3, w: g.labelBounds.width, h: g.labelBounds.height });
+      const lx = g.labelX !== undefined ? Math.round(g.labelX) : 3;
+      const ly = g.labelY !== undefined ? Math.round(g.labelY) : 3;
+      labelRects.push({ x: lx, y: ly, w: g.labelBounds.width, h: g.labelBounds.height });
     }
     const iconRect = { x: Math.round(g.valueX), y: Math.round(g.valueY), w: Math.max(1, Math.round(g.valueW)), h: Math.max(1, Math.round(g.valueH)) };
     const background = { rects: [{ x: inset, y: inset, w: w - 2 * inset, h: h - 2 * inset, inset: true }] };
@@ -757,7 +815,6 @@
     cachedZones = {
       frameColor: { rects: [{ x: 0, y: 0, w, h }] },
       labelColor: { rects: labelRects.length ? labelRects : [iconRect] },
-      bodyColor: { rects: [iconRect] },
       backgroundColor: background
     };
     if (isBaliza) {
@@ -948,7 +1005,7 @@
       }
     }
 
-    // --- Baliza en panel Forma ---
+    // --- Baliza en panel Forma (Cantidad de pisos) ---
     const balizaCard = section.querySelector('[data-icon-baliza-card]');
     if (balizaCard) {
       balizaCard.hidden = !isBaliza;
@@ -959,9 +1016,17 @@
         balizaCard.querySelectorAll('[data-baliza-tier-count]').forEach((b) => {
           b.classList.toggle('active', Number(b.dataset.balizaTierCount) === tierCount);
         });
+      }
+    }
 
+    // --- Baliza en panel Contenido (Prueba de pisos en vivo) ---
+    const balizaContent = section.querySelector('[data-icon-baliza-content]');
+    if (balizaContent) {
+      balizaContent.hidden = !isBaliza;
+      if (isBaliza) {
+        const tierCount = Math.max(1, Math.min(4, Number(field.tierCount || 4)));
         const tierLabels = ['Verde', 'Ámbar', 'Rojo', 'Azul'];
-        const listEl = balizaCard.querySelector('[data-baliza-tiers-list]');
+        const listEl = balizaContent.querySelector('[data-baliza-tiers-list]');
         if (listEl) {
           let listHtml = '';
           for (let t = tierCount - 1; t >= 0; t -= 1) {
@@ -975,7 +1040,7 @@
               </div>
               <div style="display:flex;align-items:center;gap:6px">
                 <button type="button" class="baliza-tier-toggle${isTierOn ? ' active' : ''}" data-baliza-toggle-tier="${t}">${isTierOn ? 'ENCENDIDO' : 'APAGADO'}</button>
-                <button type="button" class="insp-chip${isColorActive ? ' active' : ''}" data-baliza-tier-color-idx="${t}">Color</button>
+                <button type="button" class="insp-chip${isColorActive ? ' active' : ''}" data-baliza-tier-color-idx="${t}" title="Editar color en Apariencia">Color</button>
               </div>
             </div>`;
           }
@@ -1030,15 +1095,9 @@
         else if (curMs >= 110) lvl = 2;
         else if (curMs >= 65) lvl = 3;
         else lvl = 4;
-        const cfg = SPEED_CONFIG[lvl];
         const slider = animCard.querySelector('[data-icon-anim-slider]');
         if (slider && document.activeElement !== slider) slider.value = String(lvl);
-        const lbl = animCard.querySelector('[data-anim-speed-label]');
-        if (lbl) lbl.textContent = cfg.label;
-        const badge = animCard.querySelector('[data-anim-fps-badge]');
-        if (badge) badge.textContent = cfg.fps;
-        const spinner = animCard.querySelector('.anim-spinner-icon');
-        if (spinner) spinner.style.setProperty('--anim-spin-duration', cfg.spinDur);
+        updateSpeedUI(lvl);
       }
     }
 
@@ -1075,16 +1134,6 @@
           color: cVal
         });
       }
-    } else {
-      const bColor = field.bodyColor !== undefined ? (core.to565(field.bodyColor) || 0) : 0x5555;
-      legendRows.push({
-        key: 'bodyColor',
-        label: 'Icono / Cuerpo',
-        letter: 'C',
-        name: 'Icono / Cuerpo',
-        desc: field.bodyColor !== undefined ? 'color personalizado' : 'color original',
-        color: bColor
-      });
     }
 
     // Elementos de campo
@@ -1164,6 +1213,30 @@
     const action = t.closest('[data-icon-action]')?.dataset.iconAction;
     if (action === 'duplicate') { editor()?.duplicateSelectedField?.(); return; }
     if (action === 'delete') { editor()?.deleteSelectedField?.(); return; }
+    const resetColorBtn = t.closest('[data-icon-reset-color]');
+    if (resetColorBtn) {
+      mutate((f) => {
+        if (activeColorKey === 'bodyColor') {
+          delete f.bodyColor;
+        } else if (activeColorKey === 'labelColor') {
+          f.labelColor = 0xFFFF;
+        } else if (activeColorKey === 'backgroundColor') {
+          f.backgroundColor = 0x0000;
+        } else if (activeColorKey === 'frameColor') {
+          f.frameColor = 0x52C9FF;
+        } else if (activeColorKey.startsWith('pilotState:')) {
+          const idx = Number(activeColorKey.split(':')[1]);
+          const defaultPaletteColors = [0x4208, 0x07E0, 0xF800, 0xFDE0, 0x041F, 0xFFFF, 0x07FF, 0x8010];
+          if (Array.isArray(f.stateColors)) f.stateColors[idx] = defaultPaletteColors[idx] || 0x07E0;
+        } else if (activeColorKey.startsWith('balizaTier:')) {
+          const idx = Number(activeColorKey.split(':')[1]);
+          const defaultTierColors = [0x07E0, 0xFDE0, 0xF800, 0x041F];
+          if (Array.isArray(f.tierColors)) f.tierColors[idx] = defaultTierColors[idx] || 0xFFFF;
+        }
+      });
+      sync();
+      return;
+    }
     const matrixCell = t.closest('[data-icon-matrix-wrap] .matrix-cell');
     if (matrixCell) {
       const v = matrixCell.dataset.alignV || 'TOP';
@@ -1295,10 +1368,32 @@
       return;
     }
 
-    // Baliza tier color chip
+    // Baliza quick presets (Todos ON / Todos OFF / Alternar)
+    const balizaQuickBtn = t.closest('[data-baliza-quick]');
+    if (balizaQuickBtn) {
+      const act = balizaQuickBtn.dataset.balizaQuick;
+      const count = Math.max(1, Math.min(4, Number(field.tierCount || 4)));
+      const maxMask = (1 << count) - 1;
+      mutate((f) => {
+        if (act === 'all-on') {
+          f.iconState = maxMask;
+        } else if (act === 'all-off') {
+          f.iconState = 0;
+        } else if (act === 'cycle') {
+          const cur = Number(f.iconState || 0);
+          f.iconState = ((cur + 1) % (1 << count)) & maxMask;
+        }
+      });
+      sync();
+      return;
+    }
+
+    // Baliza tier color chip (salta directamente a Apariencia)
     const balizaTierColorBtn = t.closest('[data-baliza-tier-color-idx]');
     if (balizaTierColorBtn) {
       activeColorKey = `balizaTier:${balizaTierColorBtn.dataset.balizaTierColorIdx}`;
+      tabs.sub = 'appearance';
+      applyTabs();
       sync();
       return;
     }
@@ -1321,27 +1416,6 @@
       return;
     }
 
-    // Body color activate chip
-    const bodyColorAct = t.closest('[data-body-color-activate]');
-    if (bodyColorAct) {
-      activeColorKey = 'bodyColor';
-      sync();
-      return;
-    }
-
-    // Body color preset
-    const bodyPresetBtn = t.closest('[data-body-color-preset]');
-    if (bodyPresetBtn) {
-      const preset = bodyPresetBtn.dataset.bodyColorPreset;
-      mutate((f) => {
-        if (preset === 'reset') delete f.bodyColor;
-        else f.bodyColor = preset;
-      });
-      activeColorKey = 'bodyColor';
-      sync();
-      return;
-    }
-
     const page = t.closest('[data-icon-page]');
     if (page) { editor()?.moveSelectedFieldToPage?.(Number(page.dataset.iconPage)); }
   });
@@ -1359,12 +1433,7 @@
       const lvl = Math.max(1, Math.min(4, Number(t.value) || 3));
       const cfg = SPEED_CONFIG[lvl];
       mutate((f) => { f.animIntervalMs = cfg.ms; }, commit);
-      const lbl = section.querySelector('[data-anim-speed-label]');
-      if (lbl) lbl.textContent = cfg.label;
-      const badge = section.querySelector('[data-anim-fps-badge]');
-      if (badge) badge.textContent = cfg.fps;
-      const spinner = section.querySelector('.anim-spinner-icon');
-      if (spinner) spinner.style.setProperty('--anim-spin-duration', cfg.spinDur);
+      updateSpeedUI(lvl);
       return;
     }
     if (t.matches('[data-tier-prop="variable"]')) {

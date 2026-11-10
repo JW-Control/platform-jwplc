@@ -437,11 +437,19 @@ static void jwplcHMIDrawMicroText(JWPLC_TFTClass &tft, int16_t x, int16_t y, con
     const cy = (field.y + field.y2) / 2;
     const rx = Math.abs(field.x2 - field.x) / 2;
     const ry = Math.abs(field.y2 - field.y) / 2;
-    const numSides = field.type === 'TRIANGLE' ? 3 : field.type === 'RECT' ? 4 : Math.max(3, Math.min(20, Math.trunc(Number(field.sides) || 5)));
+    const numSides = field.type === 'TRIANGLE' ? 3 : field.type === 'RECT' ? 4 : field.type === 'ELLIPSE' ? 24 : Math.max(3, Math.min(20, Math.trunc(Number(field.sides) || 5)));
+    const rot = ((Number(field.rotation) || 0) % 360 + 360) % 360;
+    const rotRad = (rot * Math.PI) / 180;
+    const cosR = Math.cos(rotRad);
+    const sinR = Math.sin(rotRad);
     const pts = [];
     for (let i = 0; i < numSides; i++) {
       const angle = (i * 2 * Math.PI / numSides) - Math.PI / 2;
-      pts.push({ x: Math.round(cx + rx * Math.cos(angle)), y: Math.round(cy + ry * Math.sin(angle)) });
+      const lx = rx * Math.cos(angle);
+      const ly = ry * Math.sin(angle);
+      const rxRot = lx * cosR - ly * sinR;
+      const ryRot = lx * sinR + ly * cosR;
+      pts.push({ x: Math.round(cx + rxRot), y: Math.round(cy + ryRot) });
     }
     return pts;
   }
@@ -542,7 +550,7 @@ static void jwplcHMIDrawMicroText(JWPLC_TFTClass &tft, int16_t x, int16_t y, con
       return { lines, helpers };
     }
 
-    if (field.type === 'ELLIPSE') {
+    if (field.type === 'ELLIPSE' && rot === 0) {
       const cx = Math.round(Math.min(field.x, field.x2) + Math.abs(field.x2 - field.x) / 2);
       const cy = Math.round(Math.min(field.y, field.y2) + Math.abs(field.y2 - field.y) / 2);
       const rx = Math.round(Math.abs(field.x2 - field.x) / 2);
@@ -572,7 +580,7 @@ static void jwplcHMIDrawMicroText(JWPLC_TFTClass &tft, int16_t x, int16_t y, con
       return { lines, helpers };
     }
 
-    if (['RECT', 'TRIANGLE', 'POLYGON'].includes(field.type)) {
+    if (['RECT', 'TRIANGLE', 'POLYGON', 'ELLIPSE'].includes(field.type)) {
       const pts = shapeVertices(field);
       if (field.fill && pts.length >= 3) {
         helpers.add('swap');

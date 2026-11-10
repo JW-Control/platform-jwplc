@@ -19,6 +19,8 @@ function check(condition, message) {
 
 const build = spawnSync(process.execPath, [path.join(__dirname, '..', 'icons', 'build-catalog.cjs'), '--check'], { encoding: 'utf8' });
 check(build.status === 0, `catálogo al día con icons/library.cjs (si falla: node icons/build-catalog.cjs)${build.status ? `\n${build.stdout}${build.stderr}` : ''}`);
+const exportCpp = spawnSync(process.execPath, [path.join(__dirname, '..', 'icons', 'export-cpp-library.cjs'), '--check'], { encoding: 'utf8' });
+check(exportCpp.status === 0, `biblioteca C++ JWPLC_Icons al día (si falla: node icons/export-cpp-library.cjs)${exportCpp.status ? `\n${exportCpp.stdout}${exportCpp.stderr}` : ''}`);
 
 const problems = [];
 const ids = new Set();
@@ -60,6 +62,12 @@ const bombaCpp = core.assetBlock({ id: bomba.id, name: bomba.name, stateNames: b
 check(bombaCpp.includes('JWPLC_UIIconFrame') && bombaCpp.includes('ST1_FRAMES'), 'codegen C++ genera tablas de fotogramas para iconos animados');
 const twoStatePilots = ['piloto'];
 check(twoStatePilots.every((p) => catalog.icons.find((i) => i.id === 'pilotos/' + p)?.stateNames?.length === 2), 'los pilotos estándar tienen 2 estados base para variables bool');
+
+check(catalog.icons.every((i) => core.isCatalogIcon(i.id) && typeof core.methodFor(i.id) === 'string'), 'los 28 iconos tienen método nativo en JWPLC_Icons');
+check(core.iconCallFor('motores/motor', 32) === 'JWPLC_Icons.motor(32)', 'iconCallFor genera llamada limpia JWPLC_Icons.<método>(size)');
+const testField = { type: 'ICON', x: 10, y: 20, label: 'Motor', labelSize: 1, frame: false, layout: 'STACKED', page: 0, labelColor: 0xFFFF, valueColor: 0xFFFF, backgroundColor: 0x0000, frameColor: 0x52C9 };
+const testBlock = core.iconFieldBlock(testField, 'FIELD_ICON_1', core.iconCallFor('motores/motor', 24), (s) => s);
+check(testBlock.includes('JWPLC_Icons.motor(24)') && !testBlock.includes('&JWPLC_Icons'), 'iconFieldBlock pasa JWPLC_Icons.motor(24) como puntero directo sin ampersand');
 
 console.log(failures ? `\n${failures} verificación(es) fallaron.` : '\nTodas las verificaciones pasaron.');
 process.exit(failures ? 1 : 0);

@@ -220,6 +220,16 @@ const boolCustomFont = core.boolFieldBlock({
 check(/JWPLC_UIBoolStyle\(\s*2,\s*1,\s*false,\s*JWPLC_UI_LAYOUT_INLINE,\s*JWPLC_UI_ALIGN_CENTER,\s*&JWPLC_FONT_16,\s*&JWPLC_FONT_26\)/.test(boolCustomFont),
   'BOOL: emite &JWPLC_FONT_16 y &JWPLC_FONT_26 en JWPLC_UIBoolStyle');
 
+const iconsCore = require(path.join(POC, 'designer-icons-core.js'));
+const iconField = {
+  ...COLORS, type: 'ICON', x: 10, y: 15, label: 'Bomba 1', labelSize: 1, frame: true,
+  layout: 'STACKED', page: 0
+};
+const iconBlockNative = iconsCore.iconFieldBlock(iconField, 'FIELD_ICON_BOMBA', iconsCore.iconCallFor('bombas/bomba', 32), (s) => s);
+check(iconBlockNative.includes('JWPLC_Icons.bomba(32)') && !iconBlockNative.includes('&JWPLC_Icons'), 'ICON: genera llamada de biblioteca JWPLC_Icons.bomba(32) sin ampersand');
+const iconBlockFallback = iconsCore.iconFieldBlock(iconField, 'FIELD_ICON_CUSTOM', 'CUSTOM_ICON_SYMBOL', (s) => s);
+check(iconBlockFallback.includes('&CUSTOM_ICON_SYMBOL'), 'ICON: símbolo custom mantiene & como fallback');
+
 console.log('MENU (sin DOM)');
 const menuApi = loadMenuModule();
 check(Boolean(menuApi?.generate), 'designer-menu.js carga sin DOM');

@@ -32,38 +32,53 @@ const CATEGORIES = [
 ];
 
 function drawBalizaTiers(g, tiers = 4) {
-  // Base y mástil inferior
-  g.rect('M', 45, 80, 10, 14);
-  g.rect('O', 32, 94, 36, 6, 2);
-  g.rect('O', 32, 80, 36, 3);
+  // Base de montaje industrial (ancha y metálica con orificios para pernos)
+  g.rect('P', 25, 93, 50, 5, 2);
+  g.circle('K', 29, 95, 2);
+  g.circle('K', 71, 95, 2);
 
-  // Piso 1: Verde (y = 64..80)
-  g.rect('G', 34, 64, 32, 16, 2);
+  // Mástil tubular de aluminio
+  g.rect('P', 44, 77, 12, 16);
+  g.line('H', 48, 77, 48, 93, Math.max(g.px(1), 2));
+
+  // Zócalo de acople / módulo acústico (buzzer)
+  g.rect('O', 40, 74, 20, 3);
+  g.box('O', 'K', 32, 65, 36, 9, 2);
+  g.line('P', 38, 68, 62, 68, Math.max(g.px(1), 1));
+  g.line('P', 40, 71, 60, 71, Math.max(g.px(1), 1));
+
+  // Pisos luminosos
+  // Piso 1: Verde (y = 51..64)
+  g.rect('G', 34, 51, 32, 13, 1);
+  g.line('H', 38, 52, 38, 63, Math.max(g.px(1), 2));
   if (tiers === 1) {
-    g.rect('O', 30, 59, 40, 5, 2);
+    g.rect('O', 31, 46, 38, 5, 3);
     return;
   }
-  g.rect('O', 32, 62, 36, 3);
+  g.rect('O', 32, 49, 36, 2);
 
-  // Piso 2: Ámbar (y = 46..62)
-  g.rect('Y', 34, 46, 32, 16, 2);
+  // Piso 2: Ámbar (y = 36..49)
+  g.rect('Y', 34, 36, 32, 13, 1);
+  g.line('H', 38, 37, 38, 48, Math.max(g.px(1), 2));
   if (tiers === 2) {
-    g.rect('O', 30, 41, 40, 5, 2);
+    g.rect('O', 31, 31, 38, 5, 3);
     return;
   }
-  g.rect('O', 32, 44, 36, 3);
+  g.rect('O', 32, 34, 36, 2);
 
-  // Piso 3: Rojo (y = 28..44)
-  g.rect('R', 34, 28, 32, 16, 2);
+  // Piso 3: Rojo (y = 21..34)
+  g.rect('R', 34, 21, 32, 13, 1);
+  g.line('H', 38, 22, 38, 33, Math.max(g.px(1), 2));
   if (tiers === 3) {
-    g.rect('O', 30, 23, 40, 5, 2);
+    g.rect('O', 31, 16, 38, 5, 3);
     return;
   }
-  g.rect('O', 32, 26, 36, 3);
+  g.rect('O', 32, 19, 36, 2);
 
-  // Piso 4: Azul (y = 10..26)
-  g.rect('B', 34, 10, 32, 16, 2);
-  g.rect('O', 30, 6, 40, 5, 2);
+  // Piso 4: Azul (y = 6..19)
+  g.rect('B', 34, 6, 32, 13, 1);
+  g.line('H', 38, 7, 38, 18, Math.max(g.px(1), 2));
+  g.rect('O', 31, 2, 38, 5, 3);
 }
 
 const ICONS = [
@@ -71,48 +86,57 @@ const ICONS = [
   {
     id: 'motores/motor', name: 'Motor trifásico', category: 'motores', sizes: [24, 32, 48, 64],
     states: [
-      { name: 'Parado', colors: { O: C.darker, S: C.gray, F: C.light, T: C.dark, C: C.darker, W: C.white, K: C.black } },
-      { name: 'En marcha', intervalMs: 120, frameCount: 4, colors: { O: C.darker, S: C.green, F: C.greenHi, T: C.dark, C: C.darker, W: C.white, K: C.black } },
-      { name: 'Falla', colors: { O: C.darker, S: C.red, F: C.redHi, T: C.dark, C: C.darker, W: C.white, K: C.black } }
+      { name: 'Parado', colors: { O: C.steel, S: C.mid, F: C.white, T: C.steel, C: C.mid, W: C.white, K: C.dark, M: C.light } },
+      { name: 'En marcha', intervalMs: 120, frameCount: 4, colors: { O: C.steel, S: C.green, F: C.greenHi, T: C.steel, C: C.mid, W: C.white, K: C.dark, M: C.light } },
+      { name: 'Falla', colors: { O: C.steel, S: C.red, F: C.redHi, T: C.steel, C: C.mid, W: C.white, K: C.dark, M: C.light } }
     ],
     draw(g, st, f = 0) {
       // Patas de montaje inferiores (B3)
-      g.box('O', 'T', 20, 78, 16, 12, 1);
-      g.box('O', 'T', 56, 78, 16, 12, 1);
-      g.circle('K', 28, 84, 2);
-      g.circle('K', 64, 84, 2);
+      g.box('O', 'T', 18, 78, 18, 12, 1);
+      g.box('O', 'T', 54, 78, 18, 12, 1);
+      g.circle('K', 27, 84, 2);
+      g.circle('K', 63, 84, 2);
 
       // Carcasa cilíndrica del estator con aletas
-      g.box('O', 'S', 22, 32, 50, 46, 2);
-      [42, 52, 62, 72].forEach((y) => g.line('F', 23, y, 71, y, Math.max(g.px(1), 3)));
+      g.box('O', 'S', 22, 30, 48, 48, 2);
+      [38, 46, 54, 62, 70].forEach((y) => g.line('F', 23, y, 69, y, Math.max(g.px(1), 3)));
 
-      // Caja de bornes superior
-      g.box('O', 'T', 34, 16, 26, 16, 2);
-      g.line('F', 36, 24, 58, 24, Math.max(g.px(1), 2));
+      // Cáncamo de elevación superior (lifting eye bolt)
+      g.arc('M', 46, 12, 6, Math.max(g.px(1), 2), 140, 400);
+      g.line('O', 44, 18, 48, 18, Math.max(g.px(1), 2));
 
-      // Tapa trasera y ventilador (izquierda)
-      g.box('O', 'C', 8, 34, 14, 42, 3);
+      // Caja de bornes superior con placa
+      g.box('O', 'T', 30, 16, 30, 14, 2);
+      g.line('M', 32, 23, 58, 23, Math.max(g.px(1), 2));
+
+      // Tapa trasera y cubreventilador (izquierda)
+      g.box('O', 'C', 8, 32, 14, 44, 3);
+      [38, 44, 50, 56, 62, 68].forEach((y) => g.line('K', 9, y, 11, y, Math.max(g.px(1), 1)));
       const fanOffset = (st === 1 ? f * 45 : 0);
-      const fanBlade = [[15, 55], [11, 46], [19, 44]];
-      [0, 90, 180, 270].forEach((deg) => g.poly('F', g.rotate(fanBlade, 15, 55, deg + fanOffset)));
-      g.circle('K', 15, 55, 3);
+      const fanBlade = [[15, 54], [11, 45], [19, 43]];
+      [0, 90, 180, 270].forEach((deg) => g.poly('F', g.rotate(fanBlade, 15, 54, deg + fanOffset)));
+      g.circle('K', 15, 54, 3);
 
       // Tapa delantera (derecha)
-      g.rect('O', 72, 36, 6, 38, 1);
+      g.rect('O', 70, 34, 6, 40, 1);
+      g.rect('M', 71, 35, 4, 38, 1);
 
       // Eje de transmisión frontal
-      g.box('O', 'W', 78, 48, 16, 14, 1);
+      g.rect('W', 76, 47, 18, 16, 1);
+      g.line('O', 76, 47, 94, 47, Math.max(g.px(1), 2));
+      g.line('O', 76, 63, 94, 63, Math.max(g.px(1), 2));
+      g.line('O', 94, 47, 94, 63, Math.max(g.px(1), 2));
       const keyY = (st === 1) ? [49, 53, 58, 53][f % 4] : 51;
       const keyCol = (st === 1 && f % 2 === 1) ? 'F' : 'K';
-      g.line(keyCol, 80, keyY, 92, keyY, Math.max(g.px(1), 3));
+      g.line(keyCol, 78, keyY, 92, keyY, Math.max(g.px(1), 2));
     }
   },
   {
     id: 'motores/motorreductor', name: 'Motorreductor', category: 'motores', sizes: [24, 32, 48, 64],
     states: [
-      { name: 'Parado', colors: { O: C.darker, S: C.gray, F: C.light, T: C.dark, G: C.darker, W: C.white, K: C.black } },
-      { name: 'En marcha', intervalMs: 130, frameCount: 4, colors: { O: C.darker, S: C.green, F: C.greenHi, T: C.dark, G: C.darker, W: C.white, K: C.black } },
-      { name: 'Falla', colors: { O: C.darker, S: C.red, F: C.redHi, T: C.dark, G: C.darker, W: C.white, K: C.black } }
+      { name: 'Parado', colors: { O: C.steel, S: C.mid, F: C.white, T: C.steel, G: C.mid, W: C.white, K: C.dark } },
+      { name: 'En marcha', intervalMs: 130, frameCount: 4, colors: { O: C.steel, S: C.green, F: C.greenHi, T: C.steel, G: C.mid, W: C.white, K: C.dark } },
+      { name: 'Falla', colors: { O: C.steel, S: C.red, F: C.redHi, T: C.steel, G: C.mid, W: C.white, K: C.dark } }
     ],
     draw(g, st, f = 0) {
       // Motor a la izquierda
@@ -145,18 +169,53 @@ const ICONS = [
     }
   },
   {
-    id: 'motores/motor_dos_sentidos', name: 'Motor dos sentidos', category: 'motores', sizes: [24, 32, 48],
+    id: 'motores/motor_dos_sentidos', name: 'Motor dos sentidos', category: 'motores', sizes: [24, 32, 48, 64],
     states: [
-      { name: 'Parado', colors: { O: C.light, S: C.gray, T: C.black, A: C.gray } },
-      { name: 'Adelante', colors: { O: C.light, S: C.green, T: C.black, A: C.white } },
-      { name: 'Atrás', colors: { O: C.light, S: C.amber, T: C.black, A: C.white } }
+      { name: 'Parado', colors: { O: C.steel, S: C.mid, F: C.white, T: C.steel, C: C.mid, W: C.white, K: C.dark, A: C.gray, B: C.gray } },
+      { name: 'Adelante', intervalMs: 120, frameCount: 4, colors: { O: C.steel, S: C.green, F: C.greenHi, T: C.steel, C: C.mid, W: C.white, K: C.dark, A: C.greenHi, B: C.dark } },
+      { name: 'Atrás', intervalMs: 120, frameCount: 4, colors: { O: C.steel, S: C.amber, F: C.yellowHi, T: C.steel, C: C.mid, W: C.white, K: C.dark, A: C.dark, B: C.yellowHi } }
     ],
-    draw(g, st) {
-      g.disc('O', 'S', 50, 56, 40);
-      g.polyline('T', [[33, 73], [33, 41], [50, 61], [67, 41], [67, 73]], Math.max(g.px(2), 8));
-      const w = Math.max(g.px(2), 7);
-      if (st === 1) { g.line('A', 22, 8, 74, 8, w); g.poly('A', [[70, 0], [90, 8], [70, 16]]); }
-      if (st === 2) { g.line('A', 26, 8, 78, 8, w); g.poly('A', [[30, 0], [10, 8], [30, 16]]); }
+    draw(g, st, f = 0) {
+      // Patas B3
+      g.box('O', 'T', 18, 80, 18, 12, 1);
+      g.box('O', 'T', 54, 80, 18, 12, 1);
+      g.circle('K', 27, 86, 2);
+      g.circle('K', 63, 86, 2);
+
+      // Estator cilíndrico
+      g.box('O', 'S', 22, 34, 48, 46, 2);
+      [43, 52, 61, 70].forEach((y) => g.line('F', 23, y, 69, y, Math.max(g.px(1), 3)));
+
+      // Caja de bornes
+      g.box('O', 'T', 34, 22, 24, 13, 2);
+
+      // Cubreventilador (izquierda)
+      g.box('O', 'C', 8, 36, 14, 42, 3);
+      const fanOffset = (st === 1) ? f * 45 : (st === 2) ? -f * 45 : 0;
+      const fanBlade = [[15, 57], [11, 48], [19, 46]];
+      [0, 90, 180, 270].forEach((deg) => g.poly('F', g.rotate(fanBlade, 15, 57, deg + fanOffset)));
+      g.circle('K', 15, 57, 3);
+
+      // Tapa delantera
+      g.rect('O', 70, 38, 6, 38, 1);
+
+      // Eje de transmisión frontal
+      g.rect('W', 76, 49, 18, 16, 1);
+      g.line('O', 76, 49, 94, 49, Math.max(g.px(1), 2));
+      g.line('O', 76, 65, 94, 65, Math.max(g.px(1), 2));
+      g.line('O', 94, 49, 94, 65, Math.max(g.px(1), 2));
+      const keyY = (st === 1) ? [51, 55, 60, 55][f % 4] : (st === 2) ? [60, 55, 51, 55][f % 4] : 54;
+      const keyCol = (st !== 0 && f % 2 === 1) ? 'F' : 'K';
+      g.line(keyCol, 78, keyY, 92, keyY, Math.max(g.px(1), 2));
+
+      // Flechas de rotación doble (superior, y = 4..20)
+      // Flecha Adelante (CW): hacia la derecha
+      g.line('A', 50, 8, 70, 8, Math.max(g.px(2), 4));
+      g.poly('A', [[68, 3], [78, 8], [68, 13]]);
+
+      // Flecha Atrás (CCW): hacia la izquierda
+      g.line('B', 30, 16, 50, 16, Math.max(g.px(2), 4));
+      g.poly('B', [[32, 11], [22, 16], [32, 21]]);
     }
   },
   // ------------------------------------------------------------- Bombas y ventiladores
@@ -231,24 +290,24 @@ const ICONS = [
   },
   {
     id: 'pilotos/baliza', name: 'Torre de señalización', category: 'pilotos', sizes: [24, 32, 48],
-    states: [
-      { name: 'Apagada', colors: { O: C.light, M: C.darker, B: C.blueDim, R: C.redDim, Y: C.yellowDim, G: C.greenDim } },
-      { name: 'Verde', colors: { O: C.light, M: C.darker, B: C.blueDim, R: C.redDim, Y: C.yellowDim, G: C.green } },
-      { name: 'Ámbar', colors: { O: C.light, M: C.darker, B: C.blueDim, R: C.redDim, Y: C.amber, G: C.greenDim } },
-      { name: 'Ámbar+Verde', colors: { O: C.light, M: C.darker, B: C.blueDim, R: C.redDim, Y: C.amber, G: C.green } },
-      { name: 'Rojo', colors: { O: C.light, M: C.darker, B: C.blueDim, R: C.red, Y: C.yellowDim, G: C.greenDim } },
-      { name: 'Rojo+Verde', colors: { O: C.light, M: C.darker, B: C.blueDim, R: C.red, Y: C.yellowDim, G: C.green } },
-      { name: 'Rojo+Ámbar', colors: { O: C.light, M: C.darker, B: C.blueDim, R: C.red, Y: C.amber, G: C.greenDim } },
-      { name: 'Rojo+Ámbar+Verde', colors: { O: C.light, M: C.darker, B: C.blueDim, R: C.red, Y: C.amber, G: C.green } },
-      { name: 'Azul', colors: { O: C.light, M: C.darker, B: C.cyan, R: C.redDim, Y: C.yellowDim, G: C.greenDim } },
-      { name: 'Azul+Verde', colors: { O: C.light, M: C.darker, B: C.cyan, R: C.redDim, Y: C.yellowDim, G: C.green } },
-      { name: 'Azul+Ámbar', colors: { O: C.light, M: C.darker, B: C.cyan, R: C.redDim, Y: C.amber, G: C.greenDim } },
-      { name: 'Azul+Ámbar+Verde', colors: { O: C.light, M: C.darker, B: C.cyan, R: C.redDim, Y: C.amber, G: C.green } },
-      { name: 'Azul+Rojo', colors: { O: C.light, M: C.darker, B: C.cyan, R: C.red, Y: C.yellowDim, G: C.greenDim } },
-      { name: 'Azul+Rojo+Verde', colors: { O: C.light, M: C.darker, B: C.cyan, R: C.red, Y: C.yellowDim, G: C.green } },
-      { name: 'Azul+Rojo+Ámbar', colors: { O: C.light, M: C.darker, B: C.cyan, R: C.red, Y: C.amber, G: C.greenDim } },
-      { name: 'Azul+Rojo+Ámbar+Verde', colors: { O: C.light, M: C.darker, B: C.cyan, R: C.red, Y: C.amber, G: C.green } }
-    ],
+    states: withColors([
+      { name: 'Apagada', colors: { B: C.blueDim, R: C.redDim, Y: C.yellowDim, G: C.greenDim } },
+      { name: 'Verde', colors: { B: C.blueDim, R: C.redDim, Y: C.yellowDim, G: C.green } },
+      { name: 'Ámbar', colors: { B: C.blueDim, R: C.redDim, Y: C.amber, G: C.greenDim } },
+      { name: 'Ámbar+Verde', colors: { B: C.blueDim, R: C.redDim, Y: C.amber, G: C.green } },
+      { name: 'Rojo', colors: { B: C.blueDim, R: C.red, Y: C.yellowDim, G: C.greenDim } },
+      { name: 'Rojo+Verde', colors: { B: C.blueDim, R: C.red, Y: C.yellowDim, G: C.green } },
+      { name: 'Rojo+Ámbar', colors: { B: C.blueDim, R: C.red, Y: C.amber, G: C.greenDim } },
+      { name: 'Rojo+Ámbar+Verde', colors: { B: C.blueDim, R: C.red, Y: C.amber, G: C.green } },
+      { name: 'Azul', colors: { B: C.cyan, R: C.redDim, Y: C.yellowDim, G: C.greenDim } },
+      { name: 'Azul+Verde', colors: { B: C.cyan, R: C.redDim, Y: C.yellowDim, G: C.green } },
+      { name: 'Azul+Ámbar', colors: { B: C.cyan, R: C.redDim, Y: C.amber, G: C.greenDim } },
+      { name: 'Azul+Ámbar+Verde', colors: { B: C.cyan, R: C.redDim, Y: C.amber, G: C.green } },
+      { name: 'Azul+Rojo', colors: { B: C.cyan, R: C.red, Y: C.yellowDim, G: C.greenDim } },
+      { name: 'Azul+Rojo+Verde', colors: { B: C.cyan, R: C.red, Y: C.yellowDim, G: C.green } },
+      { name: 'Azul+Rojo+Ámbar', colors: { B: C.cyan, R: C.red, Y: C.amber, G: C.greenDim } },
+      { name: 'Azul+Rojo+Ámbar+Verde', colors: { B: C.cyan, R: C.red, Y: C.amber, G: C.green } }
+    ], { O: C.mid, P: C.steel, H: C.white, K: C.darker }),
     draw(g) {
       drawBalizaTiers(g, 4);
     },
@@ -279,18 +338,77 @@ const ICONS = [
     }
   },
   {
-    id: 'valvulas/valvula_motorizada', name: 'Válvula motorizada', category: 'valvulas', sizes: [24, 32, 48],
+    id: 'valvulas/valvula_motorizada', name: 'Válvula motorizada', category: 'valvulas', sizes: [24, 32, 48, 64],
     states: [
-      { name: 'Cerrada', colors: { O: C.light, S: C.gray, B: C.dark, T: C.light } },
-      { name: 'Abierta', colors: { O: C.light, S: C.green, B: C.dark, T: C.light } },
-      { name: 'Falla', colors: { O: C.light, S: C.red, B: C.dark, T: C.light } }
+      { name: 'Cerrada', colors: { O: C.steel, S: C.gray, F: C.mid, T: C.steel, C: C.mid, W: C.white, K: C.dark, M: C.light } },
+      { name: 'Abierta', intervalMs: 120, frameCount: 4, colors: { O: C.steel, S: C.green, F: C.greenHi, T: C.steel, C: C.mid, W: C.white, K: C.dark, M: C.light } },
+      { name: 'Falla', colors: { O: C.steel, S: C.red, F: C.redHi, T: C.steel, C: C.mid, W: C.white, K: C.dark, M: C.light } }
     ],
-    draw(g) {
-      g.shape('O', 'S', [[6, 46], [50, 70], [6, 94]]);
-      g.shape('O', 'S', [[94, 46], [50, 70], [94, 94]]);
-      g.line('O', 50, 70, 50, 34, Math.max(g.px(1), g.o * 1.5));
-      g.disc('O', 'B', 50, 22, 20);
-      g.polyline('T', [[40, 30], [40, 15], [50, 25], [60, 15], [60, 30]], Math.max(g.px(1), 5));
+    draw(g, st, f = 0) {
+      // 1. Bridas de conexión (izquierda y derecha con pernos)
+      g.box('O', 'T', 8, 54, 10, 36, 1);
+      g.box('O', 'T', 82, 54, 10, 36, 1);
+      g.circle('K', 13, 62, 1);
+      g.circle('K', 13, 82, 1);
+      g.circle('K', 87, 62, 1);
+      g.circle('K', 87, 82, 1);
+
+      // 2. Conos de paso / cuerpo de válvula
+      g.shape('O', 'S', [[18, 56], [50, 72], [18, 88]]);
+      g.shape('O', 'S', [[82, 56], [50, 72], [82, 88]]);
+
+      // Asiento central de válvula
+      g.box('O', 'T', 44, 66, 12, 14, 2);
+
+      // Flujo dinámico o vástago cerrado
+      if (st === 1) {
+        const pulseOffset = (f % 4) * 2;
+        g.line('F', 46, 72, 54, 72, Math.max(g.px(1), 3));
+        g.line('F', 24 + pulseOffset, 72, 34 + pulseOffset, 72, Math.max(g.px(1), 2));
+        g.line('F', 66 + pulseOffset, 72, 76 + pulseOffset, 72, Math.max(g.px(1), 2));
+      } else if (st === 0) {
+        g.line('K', 50, 64, 50, 78, Math.max(g.px(1), 3));
+        g.line('F', 24, 72, 32, 72, Math.max(g.px(1), 2));
+      } else {
+        g.line('F', 46, 68, 54, 76, Math.max(g.px(1), 2));
+        g.line('F', 46, 76, 54, 68, Math.max(g.px(1), 2));
+      }
+
+      // 3. Columna de bonete (yoke) y vástago
+      g.line('O', 45, 54, 45, 38, Math.max(g.px(1), 2));
+      g.line('O', 55, 54, 55, 38, Math.max(g.px(1), 2));
+      g.rect('W', 48, 38, 4, 16, 1);
+      g.rect('O', 40, 52, 20, 4, 1);
+
+      // 4. Caja de engranajes del actuador motorizado
+      g.box('O', 'T', 34, 24, 32, 14, 2);
+      g.line('M', 36, 31, 64, 31, Math.max(g.px(1), 1));
+
+      // 5. Motor eléctrico acoplado (a la izquierda con aletas)
+      g.box('O', 'C', 14, 12, 22, 18, 2);
+      [16, 20, 24, 28].forEach((x) => g.line('K', x, 14, x, 28, Math.max(g.px(1), 1)));
+      g.rect('O', 10, 14, 4, 14, 1);
+
+      // 6. Visor de posición continuo (superior centro)
+      g.box('O', 'K', 42, 6, 16, 18, 2);
+      if (st === 1) {
+        const rot = (f % 4) * 45;
+        const blade = [[50, 15], [47, 9], [53, 9]];
+        [0, 90, 180, 270].forEach((a) => g.poly('F', g.rotate(blade, 50, 15, a + rot)));
+        g.circle('W', 50, 15, 2);
+      } else if (st === 0) {
+        g.line('M', 44, 15, 56, 15, Math.max(g.px(1), 3));
+        g.circle('W', 50, 15, 2);
+      } else {
+        g.line('F', 44, 10, 56, 20, Math.max(g.px(1), 2));
+        g.line('F', 44, 20, 56, 10, Math.max(g.px(1), 2));
+        g.circle('W', 50, 15, 2);
+      }
+
+      // 7. Volante manual (handwheel, a la derecha)
+      g.line('O', 66, 31, 74, 31, Math.max(g.px(1), 2));
+      g.ellipse('O', 'M', 76, 31, 4, 10);
+      g.line('K', 76, 23, 76, 39, Math.max(g.px(1), 1));
     }
   },
   {

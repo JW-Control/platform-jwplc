@@ -332,16 +332,65 @@
       assets.map(assetBlock).join('\n\n') + '\n';
   }
 
+  const METHOD_MAP = Object.freeze({
+    'motores/motor': 'motor',
+    'motores/motorreductor': 'motorreductor',
+    'motores/motor_dos_sentidos': 'motorDosSentidos',
+    'bombas/bomba': 'bomba',
+    'bombas/ventilador': 'ventilador',
+    'bombas/compresor': 'compresor',
+    'pilotos/piloto': 'piloto',
+    'pilotos/baliza': 'baliza',
+    'valvulas/valvula': 'valvula',
+    'valvulas/valvula_motorizada': 'valvulaMotorizada',
+    'valvulas/valvula_solenoide': 'valvulaSolenoide',
+    'equipos/piston': 'piston',
+    'equipos/piston_vertical': 'pistonVertical',
+    'equipos/tanque': 'tanque',
+    'equipos/silo': 'silo',
+    'equipos/resistencia': 'resistencia',
+    'equipos/agitador': 'agitador',
+    'equipos/transportador': 'transportador',
+    'sensores/proximidad': 'proximidad',
+    'sensores/termometro': 'termometro',
+    'sensores/manometro': 'manometro',
+    'alarmas/alarma': 'alarma',
+    'alarmas/campana': 'campana',
+    'alarmas/sirena': 'sirena',
+    'botones/pulsador': 'pulsador',
+    'botones/paro_emergencia': 'paroEmergencia',
+    'botones/selector': 'selector',
+    'botones/contacto': 'contacto'
+  });
+
+  function methodFor(iconId) {
+    if (!iconId) return null;
+    if (METHOD_MAP[iconId]) return METHOD_MAP[iconId];
+    const base = iconId.includes('/') ? iconId.split('/')[1] : iconId;
+    return base.replace(/_([a-z0-9])/g, (_, ch) => ch.toUpperCase());
+  }
+
+  function isCatalogIcon(iconId) {
+    return Boolean(METHOD_MAP[iconId]);
+  }
+
+  function iconCallFor(iconId, size = 24) {
+    const method = methodFor(iconId);
+    return method ? `JWPLC_Icons.${method}(${size})` : null;
+  }
+
   function hex565(value) {
     const num = Number(value);
     return hex(Number.isFinite(num) ? num & 0xFFFF : 0, 4);
   }
 
-  // field: ICON del Designer; symbol: el JWPLC_UIIcon de su icono y tamaño.
-  function iconFieldBlock(field, id, symbol, cppString) {
+  // field: ICON del Designer; symbolOrCall: el JWPLC_UIIcon de su icono y tamaño o la llamada JWPLC_Icons.<method>(size).
+  function iconFieldBlock(field, id, symbolOrCall, cppString) {
     const label = field.label ? `"${cppString(field.label)}"` : 'nullptr';
     const layout = field.layout === 'INLINE' ? 'INLINE' : 'STACKED';
-    return `    JWPLC_UIIconField(\n        ${id},\n        JWPLC_UIRect(${field.x}, ${field.y}),\n        &${symbol},\n        JWPLC_UIText(${label}),\n        JWPLC_UIIconStyle(\n            ${Math.max(1, Number(field.labelSize) || 1)},\n            ${field.frame ? 'true' : 'false'},\n            JWPLC_UI_LAYOUT_${layout}),\n        ${field.page || 0},\n        JWPLC_UIColors(\n            ${hex565(field.labelColor)},\n            ${hex565(field.valueColor)},\n            ${hex565(field.backgroundColor)},\n            ${hex565(field.frameColor)})${field.transparentBackground ? ',\n        true' : ''})`;
+    const isCall = typeof symbolOrCall === 'string' && symbolOrCall.startsWith('JWPLC_Icons.');
+    const iconExpr = isCall ? symbolOrCall : `&${symbolOrCall}`;
+    return `    JWPLC_UIIconField(\n        ${id},\n        JWPLC_UIRect(${field.x}, ${field.y}),\n        ${iconExpr},\n        JWPLC_UIText(${label}),\n        JWPLC_UIIconStyle(\n            ${Math.max(1, Number(field.labelSize) || 1)},\n            ${field.frame ? 'true' : 'false'},\n            JWPLC_UI_LAYOUT_${layout}),\n        ${field.page || 0},\n        JWPLC_UIColors(\n            ${hex565(field.labelColor)},\n            ${hex565(field.valueColor)},\n            ${hex565(field.backgroundColor)},\n            ${hex565(field.frameColor)})${field.transparentBackground ? ',\n        true' : ''})`;
   }
 
   // bool para 2 estados; uint8_t con más (0..N-1).
@@ -412,6 +461,10 @@
     iconCppType,
     iconDeclaration,
     stateNamesFor,
-    iconSetter
+    iconSetter,
+    METHOD_MAP,
+    methodFor,
+    isCatalogIcon,
+    iconCallFor
   });
 });

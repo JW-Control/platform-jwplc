@@ -29,7 +29,7 @@ assert.strictEqual(
   'PASS canvas redundante [data-icon-current] eliminado de Forma'
 );
 
-// 1.2 Tamaño, Marco y Fondo
+// 1.2 Tamaño, Marco y Fondo con divisor visual
 assert.ok(
   inspectorHtml.includes('data-icon-sizes'),
   'PASS selector de tamaño [data-icon-sizes] presente'
@@ -42,8 +42,12 @@ assert.ok(
   inspectorHtml.includes('data-icon-set="transparentBackground"'),
   'PASS toggle de fondo presente'
 );
+assert.ok(
+  inspectorHtml.includes('data-icon-mf-divider'),
+  'PASS divisor visual vertical entre Marco y Fondo presente'
+);
 
-// 1.3 Velocidad de animación
+// 1.3 Velocidad de animación reactiva con color y spinner
 assert.ok(
   inspectorHtml.includes('data-icon-anim-card'),
   'PASS tarjeta de velocidad de animación presente'
@@ -51,6 +55,31 @@ assert.ok(
 assert.ok(
   inspectorHtml.includes('data-icon-anim-slider'),
   'PASS slider de velocidad de animación presente'
+);
+assert.ok(
+  iconsJsContent.includes('updateSpeedUI'),
+  'PASS función updateSpeedUI presente para feedback dinámico'
+);
+assert.ok(
+  iconsJsContent.includes('spinDur:') && iconsJsContent.includes('color:'),
+  'PASS SPEED_CONFIG define color y duración de giro por cada nivel'
+);
+
+// 1.4 Baliza en Forma: solo cantidad de pisos (forma física, sin lista de pruebas)
+assert.ok(
+  inspectorHtml.includes('data-icon-baliza-card'),
+  'PASS tarjeta baliza en Forma presente'
+);
+assert.ok(
+  inspectorHtml.includes('data-baliza-tier-count'),
+  'PASS selector de cantidad de pisos en Forma presente'
+);
+const balizaCardMatch = inspectorHtml.match(/<div class="bar-card" data-icon-baliza-card[\s\S]*?<\/div>\s*<\/div>/);
+assert.ok(balizaCardMatch, 'debe encontrar la tarjeta balizaCard en Forma');
+assert.strictEqual(
+  balizaCardMatch[0].includes('data-baliza-tiers-list'),
+  false,
+  'PASS data-baliza-tiers-list no está en Forma (se movió a Contenido)'
 );
 
 
@@ -89,6 +118,20 @@ assert.ok(
   'PASS selector de tamaño de etiqueta (1x, 2x) presente'
 );
 
+// 2.5 Baliza en Contenido: prueba de pisos en vivo
+assert.ok(
+  inspectorHtml.includes('data-icon-baliza-content'),
+  'PASS contenedor de baliza en Contenido [data-icon-baliza-content] presente'
+);
+assert.ok(
+  inspectorHtml.includes('data-baliza-quick="all-on"'),
+  'PASS botón Todos ON para prueba rápida de baliza presente'
+);
+assert.ok(
+  iconsJsContent.includes('balizaContent.querySelector(\'[data-baliza-tiers-list]\')'),
+  'PASS data-baliza-tiers-list se renderiza dentro de balizaContent en Contenido'
+);
+
 
 // --- FASE 3: Apariencia a 2 Columnas y Retiro de Paleta Rápida ---
 console.log('FASE 3: Pestaña Apariencia (design:appearance)');
@@ -120,10 +163,14 @@ assert.strictEqual(
   'PASS fila de presets rápidos [data-icon-presets-row] eliminada de Apariencia'
 );
 
-// 3.3 Editor de color grande presente
+// 3.3 Editor de color grande y botón de restablecer presentes
 assert.ok(
   inspectorHtml.includes('data-icon-color-editor'),
   'PASS contenedor del editor de color grande [data-icon-color-editor] presente'
+);
+assert.ok(
+  inspectorHtml.includes('data-icon-reset-color'),
+  'PASS botón [data-icon-reset-color] para restablecer color por defecto presente'
 );
 
 
@@ -148,6 +195,21 @@ assert.strictEqual(
   iconsJsContent.includes("body.classList.add('is-below')"),
   false,
   'PASS drawAppearance no fuerza is-below en el body de la vista'
+);
+
+// 4.4 Botón restablecer color por defecto y corrección de zona de etiqueta
+assert.ok(
+  iconsJsContent.includes('resetColorBtn') || iconsJsContent.includes('data-icon-reset-color'),
+  'PASS manejador de restablecer color por defecto presente en JS'
+);
+assert.ok(
+  iconsJsContent.includes('g.labelX !== undefined ? Math.round(g.labelX) : 3'),
+  'PASS labelRects en Apariencia sigue la posición dinámica g.labelX/Y calculada por el layout'
+);
+assert.strictEqual(
+  iconsJsContent.includes("key: 'bodyColor'"),
+  false,
+  'PASS color del cuerpo del icono no es editable (queda fijo por defecto)'
 );
 
 console.log('\nTodas las pruebas de estructura y optimización del inspector pasaron.');
