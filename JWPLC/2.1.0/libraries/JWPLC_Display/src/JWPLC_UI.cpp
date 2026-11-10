@@ -519,7 +519,49 @@ namespace
         int16_t autoW = 0;
         int16_t autoH = 0;
 
-        if (def.style.layout == JWPLC_UI_LAYOUT_STACKED)
+        if (def.meta.type == JWPLC_UI_FIELD_BAR && def.barConfig.orientation == JWPLC_UI_BAR_VERTICAL)
+        {
+            if (def.style.layout == JWPLC_UI_LAYOUT_STACKED)
+            {
+                int16_t contentW = (int16_t)valueW;
+                if ((int16_t)labelW > contentW) contentW = (int16_t)labelW;
+                if ((int16_t)unitW > contentW) contentW = (int16_t)unitW;
+
+                autoW = lead + pad + contentW;
+                autoH = lead + pad +
+                        (labelH > 0 ? (int16_t)labelH + FIELD_GAP : 0) +
+                        (int16_t)valueH +
+                        (unitW > 0 ? FIELD_GAP + (int16_t)unitH : 0);
+
+                field.fieldW = (def.rect.width == JWPLC_UI_AUTO) ? autoW : def.rect.width;
+                field.fieldH = (def.rect.height == JWPLC_UI_AUTO) ? autoH : def.rect.height;
+
+                int16_t availW = field.fieldW - lead - pad;
+                if (availW < (int16_t)valueW) availW = (int16_t)valueW;
+
+                field.valueX = def.rect.x + lead + (availW - (int16_t)valueW) / 2;
+                field.valueY = def.rect.y + lead + (labelH > 0 ? (int16_t)labelH + FIELD_GAP : 0);
+            }
+            else
+            {
+                int16_t maxH = (int16_t)valueH;
+                if ((int16_t)labelH > maxH) maxH = (int16_t)labelH;
+                if ((int16_t)unitH > maxH) maxH = (int16_t)unitH;
+
+                autoW = lead + pad +
+                        (labelW > 0 ? (int16_t)labelW + FIELD_GAP : 0) +
+                        (int16_t)valueW +
+                        (unitW > 0 ? FIELD_GAP + (int16_t)unitW : 0);
+                autoH = lead + pad + maxH;
+
+                field.fieldW = (def.rect.width == JWPLC_UI_AUTO) ? autoW : def.rect.width;
+                field.fieldH = (def.rect.height == JWPLC_UI_AUTO) ? autoH : def.rect.height;
+
+                field.valueX = def.rect.x + lead + (labelW > 0 ? (int16_t)labelW + FIELD_GAP : 0);
+                field.valueY = def.rect.y + lead + (maxH - (int16_t)valueH) / 2;
+            }
+        }
+        else if (def.style.layout == JWPLC_UI_LAYOUT_STACKED)
         {
             const int16_t valueAndUnitW =
                 (int16_t)valueW +
@@ -568,10 +610,13 @@ namespace
 
         field.fieldX = def.rect.x;
         field.fieldY = def.rect.y;
-        field.fieldW =
-            (def.rect.width == JWPLC_UI_AUTO) ? autoW : def.rect.width;
-        field.fieldH =
-            (def.rect.height == JWPLC_UI_AUTO) ? autoH : def.rect.height;
+        if (!(def.meta.type == JWPLC_UI_FIELD_BAR && def.barConfig.orientation == JWPLC_UI_BAR_VERTICAL))
+        {
+            field.fieldW =
+                (def.rect.width == JWPLC_UI_AUTO) ? autoW : def.rect.width;
+            field.fieldH =
+                (def.rect.height == JWPLC_UI_AUTO) ? autoH : def.rect.height;
+        }
 
         field.valueW = (int16_t)valueW;
         field.valueH =
@@ -1194,9 +1239,23 @@ namespace
                     def.style.colors.label,
                     background);
             }
+            int16_t lx = def.rect.x + FIELD_PADDING;
+            int16_t ly = def.rect.y + FIELD_PADDING;
+            if (def.meta.type == JWPLC_UI_FIELD_BAR &&
+                def.barConfig.orientation == JWPLC_UI_BAR_VERTICAL &&
+                def.style.layout == JWPLC_UI_LAYOUT_STACKED)
+            {
+                const int16_t lead = FIELD_PADDING;
+                const int16_t pad = (int16_t)fieldBottomRightPad(def);
+                const int16_t availW = field.fieldW - lead - pad;
+                if (availW > (int16_t)labelW)
+                {
+                    lx = def.rect.x + lead + (availW - (int16_t)labelW) / 2;
+                }
+            }
             tft.setCursor(
-                def.rect.x + FIELD_PADDING,
-                def.rect.y + FIELD_PADDING);
+                lx,
+                ly);
             tft.print(def.text.label);
             tft.setFont(JWPLC_FONT_GLCD);
         }
@@ -1218,9 +1277,23 @@ namespace
             tft.setTextColor(
                 def.style.colors.label,
                 background);
+            int16_t ux = field.valueX + field.valueW + FIELD_GAP;
+            int16_t uy = field.valueY;
+            if (def.meta.type == JWPLC_UI_FIELD_BAR &&
+                def.barConfig.orientation == JWPLC_UI_BAR_VERTICAL &&
+                def.style.layout == JWPLC_UI_LAYOUT_STACKED)
+            {
+                const int16_t lead = FIELD_PADDING;
+                const int16_t pad = (int16_t)fieldBottomRightPad(def);
+                const int16_t availW = field.fieldW - lead - pad;
+                ux = (availW > (int16_t)unitW)
+                         ? (def.rect.x + lead + (availW - (int16_t)unitW) / 2)
+                         : (def.rect.x + lead);
+                uy = field.valueY + field.valueH + FIELD_GAP;
+            }
             tft.setCursor(
-                field.valueX + field.valueW + FIELD_GAP,
-                field.valueY);
+                ux,
+                uy);
             tft.print(def.text.unit);
             tft.setFont(JWPLC_FONT_GLCD);
         }

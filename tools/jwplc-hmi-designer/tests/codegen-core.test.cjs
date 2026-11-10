@@ -96,6 +96,26 @@ const vertBar = core.barFieldBlock({
 check(/JWPLC_UIRect\(10, 20\)/.test(vertBar) &&
   /JWPLC_UIBarConfig\(\s*JWPLC_UI_BAR_VERTICAL,\s*JWPLC_UI_BAR_STYLE_BLOCKS,\s*0,\s*0,\s*false,\s*0xFFFF,\s*1,\s*16,\s*80\)/.test(vertBar),
   'BAR VERTICAL: grosor y largo en JWPLC_UIBarConfig, caja calculada por el firmware');
+const vertBarWithText = core.barFieldBlock({
+  ...COLORS,
+  type: 'BAR',
+  barOrientation: 'VERTICAL',
+  barStyle: 'SOLID',
+  showLabel: true,
+  barLabel: 'Tanque 1',
+  barUnit: 'm3',
+  x: 15,
+  y: 10,
+  barWidth: 20,
+  barHeight: 70,
+  barMin: 0,
+  barMax: 50,
+  page: 0
+}, 'B_TANK');
+check(/JWPLC_UIRect\(15, 10\)/.test(vertBarWithText) &&
+  /JWPLC_UIText\("Tanque 1", "m3"\)/.test(vertBarWithText) &&
+  /JWPLC_UIBarConfig\(\s*JWPLC_UI_BAR_VERTICAL,\s*JWPLC_UI_BAR_STYLE_SOLID,\s*0,\s*0,\s*false,\s*0xFFFF,\s*1,\s*20,\s*70\)/.test(vertBarWithText),
+  'BAR VERTICAL con etiqueta y unidad: emite texto y dimensiones en config');
 const thickBar = core.barFieldBlock({ ...COLORS, type: 'BAR', x: 1, y: 2, barWidth: 110, barHeight: 30, barMin: 0, barMax: 100, page: 0 }, 'B_THICK');
 check(/JWPLC_UIRect\(1, 2, 110, JWPLC_UI_AUTO\)/.test(thickBar) &&
   /JWPLC_UIBarConfig\(\s*JWPLC_UI_BAR_HORIZONTAL,\s*JWPLC_UI_BAR_STYLE_SOLID,\s*0,\s*0,\s*false,\s*0xFFFF,\s*1,\s*30,\s*0\)/.test(thickBar),

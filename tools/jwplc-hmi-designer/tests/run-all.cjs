@@ -17,6 +17,7 @@ const gpp = has('g++', ['--version']);
 const python = has(process.platform === 'win32' ? 'python' : 'python3', ['--version']);
 
 const TESTS = [
+  { file: 'toolbar-dropdowns.test.cjs', what: 'menús de la barra de herramientas: exclusividad mutua (variables, texto, iconos)' },
   { file: 'codegen-core.test.cjs', what: 'codegen puro en node (núcleo + MENU)' },
   { file: 'icon-catalog.test.cjs', what: 'catálogo de iconos al día y dentro de los límites del firmware' },
   { file: 'codegen-golden.cjs', what: 'headers generados == golden' },

@@ -24,6 +24,8 @@ A17_HMI_BAR_PLACA=PENDING
 | Borde | El nivel se calculaba sobre el ancho exterior y se llenaba antes del 100 % | Firmware y lienzo reparten el nivel en el interior del borde |
 | Esquinas | El firmware rellenaba en rectángulo | El relleno se recorta línea a línea con la misma fórmula del lienzo |
 | Bloques | El firmware usaba paso 4 en barras cortas y otro conteo | Paso 5 y `(largo + 1) / 5` bloques, como el lienzo |
+| Barra vertical con texto | Difería en alineación y la unidad salía a la derecha en firmware | Paridad total: la barra y la etiqueta se centran respecto al ancho máximo, y la unidad se ubica al pie |
+| Panel legacy | `barAppLegacyCard` permanecía oculto con listeners muertos | Retirado por completo de `designer-bar.js` |
 | Pruebas | Los stubs no tenían `setFont` ni rectángulos redondeados | Stubs ampliados y `tests/bar-host-sim.cjs` nuevo |
 
 También se quitó el código muerto del panel de degradado y `SCREEN_H` pasó de 240 a 170.
@@ -38,7 +40,7 @@ Los sketches existentes compilan igual.
 
 `[ejecutado]` con Chrome y g++ de Strawberry en Windows, sobre una copia con finales de línea LF:
 
-- 17 de 21 pruebas pasan, incluidas `codegen-golden` y `bar-host-sim` (16 verificaciones contra el `JWPLC_UI.cpp` real).
+- 17 de 21 pruebas pasan, incluidas `codegen-golden` y `bar-host-sim` (18 verificaciones contra el `JWPLC_UI.cpp` real).
 - Las 4 que fallan también fallan en la base `8019197e`. Ver abajo.
 
 | Prueba | Causa |
@@ -52,6 +54,4 @@ Los sketches existentes compilan igual.
 - `[no verificado]` Compilación real para ESP32 y prueba en placa: grosor, esquinas, borde y bloques.
 - `[no verificado]` Tiempo de scan con degradado o esquinas: se pinta línea a línea dentro de un `beginBatch`.
 - `JWPLC_Display` está en modo fuente; su `.a` debe regenerarse antes del cierre (`CLAUDE.md`, regla 4).
-- Barra vertical con etiqueta o unidad: la posición en el lienzo y en el firmware todavía difiere (el lienzo centra la barra y pone la unidad abajo).
-- El panel oculto `barAppLegacyCard` ya no aporta nada y se puede retirar.
 - Medidor circular con degradado: requiere soporte en firmware.

@@ -268,8 +268,8 @@
   toolBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     // Cierra los otros menús de la barra (Variables, Texto).
-    document.querySelectorAll('.var-dropdown-menu, .text-dropdown-menu').forEach((m) => { if (m !== block) m.style.display = 'none'; });
-    document.querySelectorAll('.var-dropdown-container.open, .text-dropdown-container.open').forEach((c) => c.classList.remove('open'));
+    document.querySelectorAll('.variable-dropdown-menu, .var-dropdown-menu, .text-dropdown-menu').forEach((m) => { if (m !== block) m.style.display = 'none'; });
+    document.querySelectorAll('.variable-dropdown-container.open, .var-dropdown-container.open, .text-dropdown-container.open').forEach((c) => c.classList.remove('open'));
     setMenuOpen(block.style.display === 'none');
   });
   document.addEventListener('click', (e) => {
