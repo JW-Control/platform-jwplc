@@ -75,11 +75,16 @@
     const plotW = Math.max(20, w - axisW - 6);
     const plotH = Math.max(20, h - timeH - 8);
 
-    // Margen de resguardo para que la curva no toque las guías superior e inferior
-    const guideMarginPx = Math.max(4, Math.min(10, Math.floor(plotH * 0.12)));
-    const upperGuideY = plotY + guideMarginPx;
-    const lowerGuideY = plotY + plotH - guideMarginPx;
-    const middleGuideY = Math.round((upperGuideY + lowerGuideY) / 2);
+    // Eje X horizontal base (el cero / floor de la escala)
+    const baseAxisY = plotY + plotH;
+    // Margen superior (100% / max de la escala)
+    const topGuideY = plotY + 4;
+    const activeH = Math.max(10, baseAxisY - topGuideY);
+
+    // Líneas guía puramente referenciales al 25% y 75% (y 50% central)
+    const guide75Y = Math.round(baseAxisY - 0.75 * activeH);
+    const guide50Y = Math.round(baseAxisY - 0.50 * activeH);
+    const guide25Y = Math.round(baseAxisY - 0.25 * activeH);
 
     return {
       x,
@@ -92,10 +97,17 @@
       plotY,
       plotW,
       plotH,
-      upperGuideY,
-      middleGuideY,
-      lowerGuideY,
-      guideMarginPx
+      baseAxisY,
+      topGuideY,
+      activeH,
+      guide75Y,
+      guide50Y,
+      guide25Y,
+      // Compatibilidad con identificadores anteriores
+      upperGuideY: guide75Y,
+      middleGuideY: guide50Y,
+      lowerGuideY: guide25Y,
+      guideMarginPx: 4
     };
   }
 

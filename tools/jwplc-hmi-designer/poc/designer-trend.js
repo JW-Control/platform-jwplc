@@ -193,39 +193,101 @@
             <div class="bar-card">
               <div class="bar-card-section-title">Presets rápidos de tamaño</div>
               <div class="bar-visual-grid-2">
-                <button type="button" class="bar-visual-btn" data-trend-preset="fullscreen">
+                <button type="button" class="bar-visual-btn" data-trend-preset="fullscreen" title="Ocupa el ancho útil de la pantalla (300 × 140 px)">
+                  <svg width="24" height="16" viewBox="0 0 24 16"><rect x="1" y="1" width="22" height="14" rx="2" stroke-width="1.5"/><line x1="4" y1="12" x2="20" y2="12" stroke-width="1" stroke-dasharray="2 1"/><polyline points="4,10 8,6 12,8 20,4" stroke-width="1.2"/></svg>
                   <strong>Pantalla Completa</strong>
                   <span style="font-size:10px; opacity:0.8;">300 × 140 px</span>
                 </button>
-                <button type="button" class="bar-visual-btn" data-trend-preset="compact">
+                <button type="button" class="bar-visual-btn" data-trend-preset="compact" title="Recuadro compacto para vistas compartidas (160 × 80 px)">
+                  <svg width="24" height="16" viewBox="0 0 24 16"><rect x="4" y="2" width="16" height="12" rx="2" stroke-width="1.5"/><polyline points="7,9 10,7 13,8 17,5" stroke-width="1.2"/></svg>
                   <strong>Recuadro Compacto</strong>
                   <span style="font-size:10px; opacity:0.8;">160 × 80 px</span>
                 </button>
+              </div>
+              <div class="insp-two insp-gap" style="margin-top:10px;">
+                <label class="field-label">Ancho (px)
+                  <input class="field-input" data-trend-prop="width" type="number" min="40" max="320" step="1" />
+                </label>
+                <label class="field-label">Alto (px)
+                  <input class="field-input" data-trend-prop="height" type="number" min="30" max="240" step="1" />
+                </label>
               </div>
             </div>
 
             <div class="bar-card">
               <div class="bar-card-section-title">Grosor de la curva</div>
               <div class="bar-visual-grid-2">
-                <button type="button" class="bar-visual-btn" data-trend-set="lineWidth" data-value="1"><span>1 px (Fino)</span></button>
-                <button type="button" class="bar-visual-btn" data-trend-set="lineWidth" data-value="2"><span>2 px (Nítido)</span></button>
+                <button type="button" class="bar-visual-btn" data-trend-set="lineWidth" data-value="1" title="Trazo fino de 1 px para máxima resolución temporal">
+                  <svg width="34" height="14" viewBox="0 0 34 14"><path d="M2,10 Q9,2 17,7 T32,4" stroke-width="1" fill="none"/></svg>
+                  <strong>1 px (Fino)</strong>
+                  <span style="font-size:10px; opacity:0.8;">Estándar (por defecto)</span>
+                </button>
+                <button type="button" class="bar-visual-btn" data-trend-set="lineWidth" data-value="2" title="Trazo nítido de 2 px para alta visibilidad a distancia">
+                  <svg width="34" height="14" viewBox="0 0 34 14"><path d="M2,10 Q9,2 17,7 T32,4" stroke-width="2.5" fill="none"/></svg>
+                  <strong>2 px (Nítido)</strong>
+                  <span style="font-size:10px; opacity:0.8;">Resaltado industrial</span>
+                </button>
               </div>
             </div>
 
             <div class="bar-card">
-              <div class="bar-card-section-title">Guías y Ejes</div>
-              <label class="field-label" style="flex-direction:row; justify-content:space-between; align-items:center;">
-                <span>Marco exterior del gráfico</span>
-                <input type="checkbox" data-trend-prop="frame" />
-              </label>
-              <label class="field-label insp-gap" style="flex-direction:row; justify-content:space-between; align-items:center;">
-                <span>Eje Y y 3 líneas guía (Auto/Manual)</span>
-                <input type="checkbox" data-trend-prop="showAxes" />
-              </label>
-              <label class="field-label insp-gap" style="flex-direction:row; justify-content:space-between; align-items:center;">
-                <span>Eje X con marcas de tiempo</span>
-                <input type="checkbox" data-trend-prop="showTimeAxis" />
-              </label>
+              <div class="bar-card-section-title">Marco exterior</div>
+              <div class="bar-visual-grid-2">
+                <button type="button" class="bar-visual-btn" data-trend-set="frame" data-value="true" title="Borde perimetral cerrado">
+                  <svg width="30" height="14" viewBox="0 0 30 14"><rect x="1.5" y="1.5" width="27" height="11" rx="1.5" stroke-width="1.5"/><rect x="5" y="4" width="20" height="6" fill="currentColor" opacity="0.2"/></svg>
+                  <strong>Con marco</strong>
+                  <span style="font-size:10px; opacity:0.8;">Borde perimetral</span>
+                </button>
+                <button type="button" class="bar-visual-btn" data-trend-set="frame" data-value="false" title="Sin borde exterior">
+                  <svg width="30" height="14" viewBox="0 0 30 14"><rect x="1.5" y="1.5" width="27" height="11" rx="1.5" stroke-width="1.5" stroke-dasharray="2 2" opacity="0.4"/><rect x="5" y="4" width="20" height="6" fill="currentColor" opacity="0.1"/></svg>
+                  <strong>Sin marco</strong>
+                  <span style="font-size:10px; opacity:0.8;">Fondo abierto</span>
+                </button>
+              </div>
+
+              <div class="bar-card-section-title insp-gap">Ejes de coordenadas (L)</div>
+              <div class="bar-visual-grid-2">
+                <button type="button" class="bar-visual-btn" data-trend-set="showAxes" data-value="true" title="Eje Y vertical de valores y eje X horizontal en el cero">
+                  <svg width="30" height="16" viewBox="0 0 30 16"><polyline points="5,2 5,13 27,13" stroke-width="2" fill="none"/><line x1="2" y1="5" x2="5" y2="5" stroke-width="1.5"/><line x1="2" y1="9" x2="5" y2="9" stroke-width="1.5"/><line x1="16" y1="13" x2="16" y2="15" stroke-width="1.5"/></svg>
+                  <strong>Ejes L Visibles</strong>
+                  <span style="font-size:10px; opacity:0.8;">Eje Y + Eje X (cero)</span>
+                </button>
+                <button type="button" class="bar-visual-btn" data-trend-set="showAxes" data-value="false" title="Ocultar ejes de coordenadas">
+                  <svg width="30" height="16" viewBox="0 0 30 16"><polyline points="5,2 5,13 27,13" stroke-width="1" stroke-dasharray="2 2" opacity="0.3" fill="none"/><path d="M7,10 Q15,4 25,8" stroke-width="1.2" fill="none"/></svg>
+                  <strong>Ocultos</strong>
+                  <span style="font-size:10px; opacity:0.8;">Solo gráfico puro</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="bar-card">
+              <div class="bar-card-section-title">Líneas guía referenciales</div>
+              <div class="bar-visual-grid-2">
+                <button type="button" class="bar-visual-btn" data-trend-set="showGuides" data-value="true" title="Líneas horizontales tenues referenciales al 25% y 75%">
+                  <svg width="30" height="16" viewBox="0 0 30 16"><line x1="3" y1="5" x2="27" y2="5" stroke-width="1" stroke-dasharray="3 2"/><line x1="3" y1="11" x2="27" y2="11" stroke-width="1" stroke-dasharray="3 2"/></svg>
+                  <strong>Guías 25% y 75%</strong>
+                  <span style="font-size:10px; opacity:0.8;">Líneas de referencia</span>
+                </button>
+                <button type="button" class="bar-visual-btn" data-trend-set="showGuides" data-value="false" title="Sin líneas guía intermedias">
+                  <svg width="30" height="16" viewBox="0 0 30 16"><rect x="3" y="3" width="24" height="10" rx="1" stroke-width="1" opacity="0.2" fill="none"/></svg>
+                  <strong>Sin guías</strong>
+                  <span style="font-size:10px; opacity:0.8;">Área despejada</span>
+                </button>
+              </div>
+
+              <div class="bar-card-section-title insp-gap">Eje de tiempo (X)</div>
+              <div class="bar-visual-grid-2">
+                <button type="button" class="bar-visual-btn" data-trend-set="showTimeAxis" data-value="true" title="Muestra las marcas de tiempo 0s y rango total en la base">
+                  <svg width="30" height="16" viewBox="0 0 30 16"><circle cx="7" cy="8" r="5" stroke-width="1.2"/><polyline points="7,5 7,8 9,8" stroke-width="1"/><line x1="16" y1="8" x2="28" y2="8" stroke-width="1.2"/><polyline points="25,6 28,8 25,10" stroke-width="1.2"/></svg>
+                  <strong>Marcas de tiempo</strong>
+                  <span style="font-size:10px; opacity:0.8;">0s y duración total</span>
+                </button>
+                <button type="button" class="bar-visual-btn" data-trend-set="showTimeAxis" data-value="false" title="Sin etiquetas de tiempo inferiores">
+                  <svg width="30" height="16" viewBox="0 0 30 16"><line x1="4" y1="12" x2="26" y2="12" stroke-width="1" opacity="0.3"/></svg>
+                  <strong>Sin tiempo</strong>
+                  <span style="font-size:10px; opacity:0.8;">Sin marcas de tiempo</span>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -506,12 +568,19 @@
       });
     });
 
-    // Visual buttons (lineWidth, scaleMode, decimals)
+    // Visual buttons (lineWidth, scaleMode, decimals, frame, showAxes, showGuides, showTimeAxis)
     section.querySelectorAll('[data-trend-set]').forEach((btn) => {
       btn.addEventListener('click', () => {
         const prop = btn.dataset.trendSet;
         const rawVal = btn.dataset.value;
-        const val = (prop === 'lineWidth' || prop === 'decimals') ? Number(rawVal) : rawVal;
+        let val;
+        if (prop === 'frame' || prop === 'showAxes' || prop === 'showGuides' || prop === 'showTimeAxis') {
+          val = (rawVal === 'true' || rawVal === '1');
+        } else if (prop === 'lineWidth' || prop === 'decimals') {
+          val = Number(rawVal);
+        } else {
+          val = rawVal;
+        }
         mutateField((f) => {
           f[prop] = val;
         });
@@ -644,8 +713,14 @@
     section.querySelectorAll('[data-trend-set]').forEach((btn) => {
       const prop = btn.dataset.trendSet;
       const val = btn.dataset.value;
-      const cur = String(f[prop]);
-      btn.classList.toggle('active', cur === val);
+      if (prop === 'frame' || prop === 'showAxes' || prop === 'showGuides' || prop === 'showTimeAxis') {
+        const isBtnTrue = (val === 'true' || val === '1');
+        const currentBool = f[prop] !== false;
+        btn.classList.toggle('active', currentBool === isBtnTrue);
+      } else {
+        const cur = String(f[prop]);
+        btn.classList.toggle('active', cur === val);
+      }
     });
 
     // Frequency chips

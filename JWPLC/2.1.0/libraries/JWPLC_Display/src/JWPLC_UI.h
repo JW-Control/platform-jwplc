@@ -466,13 +466,14 @@ struct JWPLC_UITrendConfig
     uint16_t gridColor;
     uint16_t textColor;
     uint16_t backgroundColor;
+    bool showGuides;
 
     constexpr JWPLC_UITrendConfig(
         uint16_t sampleIntervalMsVal = 1000,
         uint16_t visibleSamplesVal = 150,
         uint8_t scaleModeVal = 0,
         uint8_t decimalsVal = 1,
-        uint8_t lineWidthVal = 2,
+        uint8_t lineWidthVal = 1,
         bool showAxesVal = true,
         bool showTimeVal = true,
         bool enableSDVal = false,
@@ -481,7 +482,8 @@ struct JWPLC_UITrendConfig
         uint16_t axesColorVal = 0xFFFF,
         uint16_t gridColorVal = 0x4208,
         uint16_t textColorVal = 0xFFFF,
-        uint16_t backgroundColorVal = 0x0000)
+        uint16_t backgroundColorVal = 0x0000,
+        bool showGuidesVal = true)
         : sampleIntervalMs(sampleIntervalMsVal),
           visibleSamples(visibleSamplesVal),
           scaleMode(scaleModeVal),
@@ -495,7 +497,8 @@ struct JWPLC_UITrendConfig
           axesColor(axesColorVal),
           gridColor(gridColorVal),
           textColor(textColorVal),
-          backgroundColor(backgroundColorVal)
+          backgroundColor(backgroundColorVal),
+          showGuides(showGuidesVal)
     {
     }
 };

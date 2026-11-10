@@ -160,6 +160,9 @@ assert.strictEqual(trendProps.axesColor.default, 0xFFFF, 'Ejes deben ser color e
 assert.strictEqual(trendProps.textColor.default, 0xFFFF, 'Textos deben ser 0xFFFF blanco');
 assert.strictEqual(trendProps.gridColor.default, 0x4208, 'Guías deben ser 0x4208 gris tenue');
 assert.notStrictEqual(trendProps.axesColor.default, trendProps.gridColor.default, 'Ejes deben diferenciarse de las guías');
+assert.strictEqual(trendProps.lineWidth.default, 1, 'Grosor de curva por defecto debe ser 1 px');
+assert.strictEqual(trendProps.showGuides.default, true, 'Guías referenciales activadas por defecto');
 console.log('  PASS ejes diferenciados de las guías con color entero (0xFFFF vs 0x4208)');
+console.log('  PASS grosor 1 px por defecto y guías referenciales habilitadas');
 
 console.log('\nResultado: TODAS PASARON');

@@ -22,7 +22,8 @@ if (spec.TYPES.TREND) {
   const props = spec.TYPES.TREND.props;
   check(props.sampleIntervalMs && props.sampleIntervalMs.default === 1000, 'sampleIntervalMs default 1000 ms');
   check(props.scaleMode && props.scaleMode.default === 'AUTO', 'scaleMode default AUTO');
-  check(props.lineWidth && props.lineWidth.default === 2, 'lineWidth default 2');
+  check(props.lineWidth && props.lineWidth.default === 1, 'lineWidth default 1');
+  check(props.showGuides !== undefined && props.showGuides.default === true, 'showGuides default true');
   check(props.enableSD !== undefined && props.enableSD.default === false, 'enableSD default false');
 }
 
@@ -42,7 +43,7 @@ check(trend.width === 200, 'Asigna width por defecto (200)');
 check(trend.height === 80, 'Asigna height por defecto (80)');
 check(trend.sampleIntervalMs === 1000, 'Asigna sampleIntervalMs por defecto (1000)');
 check(trend.scaleMode === 'AUTO', 'Asigna scaleMode AUTO');
-check(trend.lineWidth === 2, 'Asigna lineWidth 2');
+check(trend.lineWidth === 1, 'Asigna lineWidth 1');
 check(cppType(trend) === 'float', 'cppType de TREND es float');
 
 // 3. Validación

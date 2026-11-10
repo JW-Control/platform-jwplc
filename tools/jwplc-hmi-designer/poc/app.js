@@ -764,8 +764,9 @@
       minValue: 0,
       maxValue: 100,
       decimals: 1,
-      lineWidth: 2,
+      lineWidth: 1,
       showAxes: true,
+      showGuides: true,
       showTimeAxis: true,
       enableSD: false,
       sdIntervalMs: 1000,
@@ -2861,7 +2862,19 @@
     const h = Math.max(30, Number(field.height || field.h) || 80);
     const geo = trendCore?.computeTrendGeometry
       ? trendCore.computeTrendGeometry(field)
-      : { plotX: field.x + 35, plotY: field.y + 4, plotW: w - 40, plotH: h - 20, upperGuideY: field.y + 10, middleGuideY: field.y + 35, lowerGuideY: field.y + 60, timeH: 14 };
+      : {
+          plotX: field.x + 35,
+          plotY: field.y + 4,
+          plotW: w - 40,
+          plotH: h - 20,
+          baseAxisY: field.y + h - 16,
+          topGuideY: field.y + 8,
+          activeH: Math.max(10, h - 24),
+          guide75Y: Math.round(field.y + 8 + (h - 24) * 0.25),
+          guide50Y: Math.round(field.y + 8 + (h - 24) * 0.50),
+          guide25Y: Math.round(field.y + 8 + (h - 24) * 0.75),
+          timeH: 14
+        };
 
     const bg565 = (field.backgroundColor !== undefined && field.backgroundColor !== null && field.backgroundColor !== 'TRANSPARENT' && field.backgroundColor !== -1) ? (Number(field.backgroundColor) & 0xFFFF) : 0x0000;
     const curve565 = (field.curveColor !== undefined && field.curveColor !== null) ? (Number(field.curveColor) & 0xFFFF) : 0xFD20;
@@ -2874,24 +2887,26 @@
       drawBufferRect(buffer, field.x, field.y, w, h, grid565);
     }
 
-    if (field.showAxes !== false) {
-      // Guías horizontales de fondo (tenues, diferencian del eje principal)
-      fillBufferRect(buffer, geo.plotX, geo.upperGuideY, geo.plotW, 1, grid565);
-      fillBufferRect(buffer, geo.plotX, geo.middleGuideY, geo.plotW, 1, grid565);
-      fillBufferRect(buffer, geo.plotX, geo.lowerGuideY, geo.plotW, 1, grid565);
+    // Líneas guía referenciales (25% y 75% de la altura, puramente de apoyo visual tenue)
+    if (field.showGuides !== false) {
+      fillBufferRect(buffer, geo.plotX, geo.guide75Y, geo.plotW, 1, grid565);
+      fillBufferRect(buffer, geo.plotX, geo.guide25Y, geo.plotW, 1, grid565);
+    }
 
-      // Ejes de coordenadas (L-frame sólido con color entero)
-      fillBufferRect(buffer, geo.plotX - 1, geo.plotY, 1, geo.plotH + 1, axes565);
-      fillBufferRect(buffer, geo.plotX - 1, geo.plotY + geo.plotH, geo.plotW + 1, 1, axes565);
+    if (field.showAxes !== false) {
+      // Ejes de coordenadas (L-frame sólido con color entero; el eje X es el piso / cero)
+      fillBufferRect(buffer, geo.plotX - 1, geo.topGuideY, 1, geo.baseAxisY - geo.topGuideY + 1, axes565);
+      fillBufferRect(buffer, geo.plotX - 1, geo.baseAxisY, geo.plotW + 1, 1, axes565);
 
       // Marcas (ticks) en eje Y (2 px a la izquierda)
-      fillBufferRect(buffer, geo.plotX - 3, geo.upperGuideY, 2, 1, axes565);
-      fillBufferRect(buffer, geo.plotX - 3, geo.middleGuideY, 2, 1, axes565);
-      fillBufferRect(buffer, geo.plotX - 3, geo.lowerGuideY, 2, 1, axes565);
+      fillBufferRect(buffer, geo.plotX - 3, geo.topGuideY, 2, 1, axes565);
+      fillBufferRect(buffer, geo.plotX - 3, geo.guide75Y, 2, 1, axes565);
+      fillBufferRect(buffer, geo.plotX - 3, geo.guide25Y, 2, 1, axes565);
+      fillBufferRect(buffer, geo.plotX - 3, geo.baseAxisY, 2, 1, axes565);
 
       // Marcas (ticks) en eje X (2 px hacia abajo)
-      fillBufferRect(buffer, geo.plotX - 1, geo.plotY + geo.plotH, 1, 3, axes565);
-      fillBufferRect(buffer, geo.plotX + geo.plotW - 1, geo.plotY + geo.plotH, 1, 3, axes565);
+      fillBufferRect(buffer, geo.plotX - 1, geo.baseAxisY, 1, 3, axes565);
+      fillBufferRect(buffer, geo.plotX + geo.plotW - 1, geo.baseAxisY, 1, 3, axes565);
 
       const minVal = Number(field.minValue) || 0;
       const maxVal = Number(field.maxValue) || 100;
@@ -2902,9 +2917,9 @@
       const lblMid = scale.mid.toFixed(dec);
       const lblLow = scale.low.toFixed(dec);
 
-      drawTextWithFont(buffer, lblHigh, field.x + 2, geo.upperGuideY - 3, text565, bg565, 1, 'GLCD');
-      drawTextWithFont(buffer, lblMid, field.x + 2, geo.middleGuideY - 3, text565, bg565, 1, 'GLCD');
-      drawTextWithFont(buffer, lblLow, field.x + 2, geo.lowerGuideY - 3, text565, bg565, 1, 'GLCD');
+      drawTextWithFont(buffer, lblHigh, field.x + 2, geo.topGuideY - 3, text565, bg565, 1, 'GLCD');
+      drawTextWithFont(buffer, lblMid, field.x + 2, geo.guide50Y - 3, text565, bg565, 1, 'GLCD');
+      drawTextWithFont(buffer, lblLow, field.x + 2, geo.baseAxisY - 5, text565, bg565, 1, 'GLCD');
     }
 
     if (field.showTimeAxis !== false && geo.timeH > 0) {
@@ -2913,9 +2928,9 @@
       const totalSec = Math.round((sampleMs * visiblePts) / 1000);
       const rText = totalSec >= 60 ? `${Math.round(totalSec / 60)}m` : `${totalSec}s`;
 
-      drawTextWithFont(buffer, '0s', geo.plotX, geo.plotY + geo.plotH + 3, text565, bg565, 1, 'GLCD');
+      drawTextWithFont(buffer, '0s', geo.plotX, geo.baseAxisY + 3, text565, bg565, 1, 'GLCD');
       const rW = rText.length * 6;
-      drawTextWithFont(buffer, rText, Math.max(geo.plotX + 15, geo.plotX + geo.plotW - rW), geo.plotY + geo.plotH + 3, text565, bg565, 1, 'GLCD');
+      drawTextWithFont(buffer, rText, Math.max(geo.plotX + 15, geo.plotX + geo.plotW - rW), geo.baseAxisY + 3, text565, bg565, 1, 'GLCD');
     }
 
     const headerTitle = field.title || field.label;
@@ -2936,8 +2951,8 @@
 
     const pts = trendCore?.generatePreviewData ? trendCore.generatePreviewData(geo.plotW, 20, 80) : [];
     const minVal = 0, maxVal = 100;
-    const plotH = Math.max(10, geo.lowerGuideY - geo.upperGuideY);
-    const lineW = Number(field.lineWidth) === 1 ? 1 : 2;
+    const activeH = geo.activeH || Math.max(10, geo.baseAxisY - geo.topGuideY);
+    const lineW = Number(field.lineWidth) === 2 ? 2 : 1; // Grosor 1px por defecto
 
     if (pts.length > 1) {
       for (let i = 0; i < pts.length - 1; i++) {
@@ -2945,8 +2960,8 @@
         const x2 = geo.plotX + i + 1;
         const normY1 = 1 - (pts[i] - minVal) / (maxVal - minVal);
         const normY2 = 1 - (pts[i + 1] - minVal) / (maxVal - minVal);
-        const y1 = Math.round(geo.upperGuideY + normY1 * plotH);
-        const y2 = Math.round(geo.upperGuideY + normY2 * plotH);
+        const y1 = Math.round(geo.topGuideY + normY1 * activeH);
+        const y2 = Math.round(geo.topGuideY + normY2 * activeH);
         rasterLineThick(buffer, x1, y1, x2, y2, curve565, lineW);
       }
     }

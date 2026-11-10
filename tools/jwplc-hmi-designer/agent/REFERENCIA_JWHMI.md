@@ -317,8 +317,9 @@ Gráfica de tendencia temporal (JWPLC_UITrend). Declara `float`. Soporta auto-es
 | `minValue` | número | `0` | Valor mínimo en escala MANUAL. |
 | `maxValue` | número | `100` | Valor máximo en escala MANUAL. |
 | `decimals` | entero 0..3 | `1` | Decimales mostrados en las etiquetas del eje Y. |
-| `lineWidth` | `1` · `2` | `2` | Grosor de la curva en píxeles. |
+| `lineWidth` | `1` · `2` | `1` | Grosor de la curva en píxeles. |
 | `showAxes` | bool | `true` | Muestra el eje Y y las 3 líneas guía de referencia. |
+| `showGuides` | bool | `true` | Muestra las líneas guía referenciales (25% y 75%). |
 | `showTimeAxis` | bool | `true` | Muestra marcas de tiempo en el eje X. |
 | `enableSD` | bool | `false` | Activa el registro continuo en tarjeta MicroSD. |
 | `sdIntervalMs` | entero 100..60000 | `1000` | Periodo de volcado a la tarjeta MicroSD. |

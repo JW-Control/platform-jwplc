@@ -43,6 +43,8 @@ check(geo1.plotX > 10, `plotX (${geo1.plotX}) reserva margen para el eje Y`);
 check(geo1.plotW < 200, `plotW (${geo1.plotW}) descuenta margen del eje Y`);
 check(geo1.plotH < 100, `plotH (${geo1.plotH}) descuenta margen del eje X de tiempo`);
 check(geo1.upperGuideY < geo1.middleGuideY && geo1.middleGuideY < geo1.lowerGuideY, 'Las tres guías están en orden vertical');
+check(geo1.baseAxisY === geo1.plotY + geo1.plotH, `baseAxisY (${geo1.baseAxisY}) coincide con el piso del gráfico (eje X = cero)`);
+check(geo1.guide75Y < geo1.guide50Y && geo1.guide50Y < geo1.guide25Y && geo1.guide25Y < geo1.baseAxisY, 'Guías al 75% y 25% estrictamente intermedias sobre el eje base');
 
 // 4. Submuestreo / Diezmado de datos (Decimation)
 const rawSamples = [];

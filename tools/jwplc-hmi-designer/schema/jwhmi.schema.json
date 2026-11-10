@@ -2108,10 +2108,15 @@
                   1,
                   2
                 ],
-                "default": 2
+                "default": 1
               },
               "showAxes": {
                 "description": "Muestra el eje Y y las 3 líneas guía de referencia.",
+                "type": "boolean",
+                "default": true
+              },
+              "showGuides": {
+                "description": "Muestra las líneas guía referenciales (25% y 75%).",
                 "type": "boolean",
                 "default": true
               },

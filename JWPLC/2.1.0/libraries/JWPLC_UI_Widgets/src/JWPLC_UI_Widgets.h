@@ -355,7 +355,7 @@ private:
     float _thrValue[MAX_THRESHOLDS] = {0};
     bool _full = true;
     uint16_t _sampleIntervalMs = 1000;
-    uint8_t _lineWidth = 2;
+    uint8_t _lineWidth = 1;
     bool _autoScale = true;
 };
 
