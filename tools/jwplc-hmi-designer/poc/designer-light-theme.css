@@ -278,6 +278,27 @@ body.theme-light .tabs {
   border-bottom: 1px solid #cbd5e1;
 }
 
+body.theme-light .page-tabs-track::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+}
+
+body.theme-light .page-tabs-track:hover::-webkit-scrollbar-thumb,
+body.theme-light .page-tabs-track::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+body.theme-light .page-tabs-nav {
+  background: transparent;
+  border-color: #e2e8f0;
+  color: #64748b;
+}
+
+body.theme-light .page-tabs-nav:hover:not(:disabled) {
+  background: #ffffff;
+  color: #0f172a;
+  border-color: #cbd5e1;
+}
+
 body.theme-light .tab {
   background: #ffffff;
   border: 1px solid #cbd5e1;
@@ -971,4 +992,22 @@ body.theme-light .responsive-overflow-menu {
 
 #themeToggleButton:hover:not(:disabled) svg {
   transform: rotate(20deg) scale(1.1);
+}
+
+body.theme-light .small-action-btn {
+  background: #ffffff;
+  color: var(--orange);
+  border-color: rgba(234, 88, 12, 0.45);
+}
+
+body.theme-light .small-action-btn:hover {
+  background: var(--orange-soft);
+  border-color: var(--orange);
+  color: var(--tab-active-text);
+}
+
+body.theme-light .trend-live-status.is-linked {
+  color: var(--cyan);
+  border-color: rgba(2, 132, 199, 0.35);
+  background: rgba(2, 132, 199, 0.08);
 }

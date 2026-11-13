@@ -13,7 +13,7 @@
 'use strict';
 
 const SCREEN = Object.freeze({ width: 320, height: 170 });
-const LIMITS = Object.freeze({ pages: 16, fields: 32, pixelMaps: 16, menus: 4, menuNodes: 64, menuDepth: 3, nameLength: 48 });
+const LIMITS = Object.freeze({ pages: 16, fields: 64, totalObjects: 256, pixelMaps: 16, menus: 4, menuNodes: 64, menuDepth: 3, nameLength: 48 });
 
 // Colores con nombre (RGB565). Los ocho primeros son la paleta del Designer;
 // el resto, los TFT_* de TFT_eSPI más comunes.
@@ -218,6 +218,7 @@ const TYPES = {
       showAxes: bool('Muestra el eje Y y eje X base.', { default: true }),
       showGuides: bool('Muestra las líneas guía referenciales (25% y 75%).', { default: true }),
       showTimeAxis: bool('Muestra marcas de tiempo en el eje X.', { default: true }),
+      showLiveValue: bool('Muestra el título y valor en vivo integrados en el encabezado de la gráfica.', { default: true }),
       enableSD: bool('Activa el registro continuo en tarjeta MicroSD.', { default: false }),
       sdIntervalMs: int(100, 60000, 'Periodo de volcado a la tarjeta MicroSD.', { default: 1000 }),
       curveColor: color('Color de la línea de tendencia (Canal 1).', { default: 0xFD20 }),
@@ -414,7 +415,7 @@ const PROJECT = {
   navigationBar: { kind: 'object', desc: 'Copia de la configuración de la NAV_BAR (la rellena la normalización).', internal: true },
   display: { kind: 'object', desc: 'Pantalla IDLE y arranque (ver «display»).' },
   pages: { kind: 'array', desc: 'Páginas (1 a 16).', required: true },
-  fields: { kind: 'array', desc: 'Objetos (máximo 32 contando la NAV_BAR).', default: [] },
+  fields: { kind: 'array', desc: 'Objetos (máximo 64 campos dinámicos TEXT/VALUE/BOOL/BAR/ICON/TREND; figuras, RAW_TEXT, MENU, EVENT_LOG y NAV_BAR no gastan cupo).', default: [] },
   pixelMaps: { kind: 'array', desc: 'Capas de píxeles (máximo 16).', default: [] },
   iconAssets: { kind: 'object', desc: 'Copia de los bitmaps de los ICON usados (la guarda el Designer).', internal: true },
   declarativeOnly: { kind: 'bool', desc: 'Siempre true.', default: true, internal: true },

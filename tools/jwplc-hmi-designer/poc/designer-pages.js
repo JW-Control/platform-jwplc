@@ -1173,18 +1173,87 @@
   }
 
 
-  // --- Renombrado Interactivo con Doble Clic en Pestañas Superiores ---
+  // --- Renombrado Interactivo y Scroll Horizontal en Pestañas Superiores ---
   let activeInlineRenameId = null;
+  let lastScrolledActivePageId = null;
+  let tabsScrollWired = false;
+  let tabsResizeObserver = null;
+
+  function ensureTabsShell() {
+    const track = pageTabs.querySelector?.('.page-tabs-track') || null;
+    const prevBtn = pageTabs.querySelector?.('.page-tabs-nav.prev') || null;
+    const nextBtn = pageTabs.querySelector?.('.page-tabs-nav.next') || null;
+    const targetTrack = track || pageTabs;
+
+    if (track && !tabsScrollWired) {
+      tabsScrollWired = true;
+      const scrollStep = () => Math.max(120, Math.round((track.clientWidth || 240) * 0.65));
+      prevBtn?.addEventListener?.('click', () => {
+        track.scrollBy?.({ left: -scrollStep(), behavior: 'smooth' });
+      });
+      nextBtn?.addEventListener?.('click', () => {
+        track.scrollBy?.({ left: scrollStep(), behavior: 'smooth' });
+      });
+      track.addEventListener?.('scroll', syncTabsScrollState, { passive: true });
+      track.addEventListener?.('wheel', (evt) => {
+        if (track.scrollWidth <= track.clientWidth + 2) return;
+        if (Math.abs(evt.deltaY) > Math.abs(evt.deltaX) && evt.deltaY !== 0) {
+          track.scrollLeft += evt.deltaY;
+          evt.preventDefault();
+          syncTabsScrollState();
+        }
+      }, { passive: false });
+      if (typeof ResizeObserver === 'function' && !tabsResizeObserver) {
+        tabsResizeObserver = new ResizeObserver(() => syncTabsScrollState());
+        tabsResizeObserver.observe(track);
+      }
+    }
+
+    return { track: targetTrack, prevBtn, nextBtn, isRealTrack: Boolean(track) };
+  }
+
+  function syncTabsScrollState() {
+    const { track, prevBtn, nextBtn, isRealTrack } = ensureTabsShell();
+    if (!isRealTrack) return;
+    const overflow = (track.scrollWidth || 0) > (track.clientWidth || 0) + 2;
+    track.classList?.toggle?.('has-overflow', overflow);
+    const atStart = (track.scrollLeft || 0) <= 1;
+    const atEnd = (track.scrollLeft || 0) + (track.clientWidth || 0) >= (track.scrollWidth || 0) - 1;
+    if (prevBtn) {
+      prevBtn.hidden = !overflow;
+      prevBtn.disabled = !overflow || atStart;
+    }
+    if (nextBtn) {
+      nextBtn.hidden = !overflow;
+      nextBtn.disabled = !overflow || atEnd;
+    }
+  }
+
+  function scrollActiveTabIntoView(force = false) {
+    const curActive = activePage();
+    if (!force && curActive === lastScrolledActivePageId) return;
+    lastScrolledActivePageId = curActive;
+    const { track, isRealTrack } = ensureTabsShell();
+    if (!isRealTrack) return;
+    const activePill = track.querySelector?.('.page-tab-pill.active');
+    activePill?.scrollIntoView?.({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(() => syncTabsScrollState());
+    } else {
+      syncTabsScrollState();
+    }
+  }
 
   function rebuildTopTabs(force = false) {
     const curPages = pages();
     const curActive = activePage();
     const gateNode = pageTabs.querySelector('.gate');
+    const { track, isRealTrack } = ensureTabsShell();
 
     // Si hay un renombrado en curso, no destruir el DOM
     if (activeInlineRenameId !== null && !force) return;
 
-    const existingPills = [...pageTabs.querySelectorAll('.page-tab-pill')];
+    const existingPills = [...(track.querySelectorAll?.('.page-tab-pill') || [])];
     const existingIds = existingPills.map((p) => Number(p.dataset.pageId));
     const currentIds = curPages.map((p) => p.id);
 
@@ -1202,11 +1271,18 @@
           label.title = `${pageLabel(page)} (Doble clic para renombrar)`;
         }
       });
+      scrollActiveTabIntoView();
+      syncTabsScrollState();
       return;
     }
 
     // Reconstrucción completa si cambiaron las páginas
-    pageTabs.querySelectorAll('.tab').forEach((node) => node.remove());
+    if (isRealTrack) {
+      track.querySelectorAll('.tab, .page-tab-pill').forEach((node) => node.remove());
+      pageTabs.querySelectorAll('.add-tab').forEach((node) => node.remove());
+    } else {
+      pageTabs.querySelectorAll('.tab').forEach((node) => node.remove());
+    }
 
     const totalPages = curPages.length;
 
@@ -1314,6 +1390,7 @@
               pageTabs.querySelectorAll('.page-tab-pill').forEach((p) => {
                 p.classList.toggle('active', p.dataset.pageId === String(page.id));
               });
+              scrollActiveTabIntoView(true);
               patchCanvases();
               patchStatus();
             }
@@ -1377,7 +1454,8 @@
         tab.appendChild(delBtn);
       }
 
-      pageTabs.insertBefore(tab, gateNode);
+      if (isRealTrack) track.appendChild(tab);
+      else pageTabs.insertBefore(tab, gateNode);
     });
 
     // Botón Nueva Página
@@ -1389,6 +1467,13 @@
     add.title = 'Nueva página';
     add.addEventListener('click', addPage);
     pageTabs.insertBefore(add, gateNode);
+
+    scrollActiveTabIntoView();
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(() => syncTabsScrollState());
+    } else {
+      syncTabsScrollState();
+    }
   }
 
   function ensurePageSelect() {

@@ -110,10 +110,75 @@
     return `Página ${String(Number(page?.id || 0) + 1).padStart(2, '0')} · ${name}`;
   }
 
+  function variableTypeFor(field) {
+    const coreType = window.JWPLCHMICodegenCore?.fieldVariableCppType?.(field);
+    if (coreType !== undefined) return coreType;
+    if (!field?.type || isStaticObject(field) || isClockField(field)) return null;
+    if (field.type === 'VALUE' || field.type === 'BAR' || field.type === 'TREND') return 'float';
+    if (field.type === 'BOOL') return 'bool';
+    if (field.type === 'ICON') return field.iconVarType === 'uint8' ? 'uint8_t' : 'bool';
+    if (field.type === 'TEXT') return 'char[]';
+    return null;
+  }
+
+  function canShareVariable(typeA, typeB, firstField, secondField) {
+    if (!typeA || !typeB || typeA !== typeB || typeA === 'char[]') return false;
+    return firstField !== secondField;
+  }
+
+  function collectVariableEntries(fields) {
+    const entries = [];
+    fields.forEach((field, index) => {
+      const varType = variableTypeFor(field);
+      if (!varType) return;
+      entries.push({
+        field,
+        index,
+        prop: 'variable',
+        canonical: canonicalFor(field, 'variable', field.variable, index),
+        type: varType
+      });
+      if (field.type === 'TREND') {
+        const serial = serialFor(field, index);
+        if (field.ch2Enabled) {
+          entries.push({
+            field,
+            index,
+            prop: 'ch2Variable',
+            canonical: sanitizeSymbol(field.ch2Variable, `setpoint${serial}`),
+            type: 'float'
+          });
+        }
+        if (field.ch3Enabled) {
+          entries.push({
+            field,
+            index,
+            prop: 'ch3Variable',
+            canonical: sanitizeSymbol(field.ch3Variable, `canal3_${serial}`),
+            type: 'float'
+          });
+        }
+      }
+    });
+    return entries;
+  }
+
   function duplicateFor(field, property, candidate) {
     const fields = allFields();
     const currentIndex = Math.max(0, fields.indexOf(field));
     const canonical = canonicalFor(field, property, candidate, currentIndex);
+
+    if (property === 'variable') {
+      const myType = variableTypeFor(field);
+      const entries = collectVariableEntries(fields);
+      for (const entry of entries) {
+        if (entry.field === field && entry.prop === 'variable') continue;
+        if (entry.canonical === canonical && !canShareVariable(entry.type, myType, entry.field, field)) {
+          return { field: entry.field, canonical };
+        }
+      }
+      return null;
+    }
 
     for (let index = 0; index < fields.length; index += 1) {
       const other = fields[index];
@@ -205,32 +270,26 @@
     const fields = allFields();
     const issues = [];
 
-    ['id', 'variable'].forEach((property) => {
-      const seen = new Map();
-      const register = (canonical, field) => {
-        const previous = seen.get(canonical);
-        if (previous) {
-          issues.push({ property, canonical, first: previous, second: field });
-        } else {
-          seen.set(canonical, field);
-        }
-      };
+    const idSeen = new Map();
+    fields.forEach((field, index) => {
+      const canonical = canonicalFor(field, 'id', field.id, index);
+      const previous = idSeen.get(canonical);
+      if (previous) {
+        issues.push({ property: 'id', canonical, first: previous, second: field });
+      } else {
+        idSeen.set(canonical, field);
+      }
+    });
 
-      fields.forEach((field, index) => {
-        // Un reloj (fecha/hora del RTC) no declara variable.
-        if (property === 'variable' && isClockField(field)) return;
-        register(canonicalFor(field, property, field[property], index), field);
-
-        if (property === 'variable' && field?.type === 'TREND') {
-          const serial = serialFor(field, index);
-          if (field.ch2Enabled) {
-            register(sanitizeSymbol(field.ch2Variable, `setpoint${serial}`), field);
-          }
-          if (field.ch3Enabled) {
-            register(sanitizeSymbol(field.ch3Variable, `canal3_${serial}`), field);
-          }
-        }
-      });
+    const varSeen = new Map();
+    collectVariableEntries(fields).forEach((entry) => {
+      const previous = varSeen.get(entry.canonical);
+      if (!previous) {
+        varSeen.set(entry.canonical, entry);
+        return;
+      }
+      if (canShareVariable(previous.type, entry.type, previous.field, entry.field)) return;
+      issues.push({ property: 'variable', canonical: entry.canonical, first: previous.field, second: entry.field });
     });
 
     return issues;
@@ -1065,7 +1124,23 @@ static void jwplcHMIDrawMicroText(JWPLC_TFTClass &tft, int16_t x, int16_t y, con
       return `    ${id} = ${fieldSerial},`;
     }, '    ');
 
-    const variables = groupedChunks((field, index) => variableDeclaration(field, index));
+    const declaredVars = new Set();
+    const variables = groupedChunks((field, index) => {
+      const decl = variableDeclaration(field, index);
+      if (!decl) return '';
+      return decl
+        .split('\n')
+        .filter((line) => {
+          const trimmed = line.trim();
+          if (!trimmed) return false;
+          const m = trimmed.match(/^(?:float|bool|uint8_t|int32_t|uint32_t|char)\s+([A-Za-z_][A-Za-z0-9_]*)/);
+          const key = m ? m[1] : trimmed;
+          if (declaredVars.has(key)) return false;
+          declaredVars.add(key);
+          return true;
+        })
+        .join('\n');
+    });
     const navBar = navBarFunctionBlock();
     const pageEnter = generatedPageEnterBlock();
     const uiUpdate = generatedUIUpdateBlock();

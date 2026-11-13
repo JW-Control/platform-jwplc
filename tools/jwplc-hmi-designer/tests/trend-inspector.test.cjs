@@ -208,6 +208,9 @@ assert(/trend-appearance-panel/.test(trendJsSource) && /trend-data-panel/.test(t
 const appJsSource = fs.readFileSync(path.join(__dirname, '../poc/app.js'), 'utf8');
 assert(/drawTextWithFont\(buffer, pStr, curX, field\.y \+ 2, curve565/.test(appJsSource), 'El valor del encabezado TREND usa el mismo color curve565 que la línea');
 assert(/drawTextWithFont\(buffer, String\(field\.unit\)\.slice\(0, 6\), curX, field\.y \+ 2, curve565/.test(appJsSource), 'La unidad del encabezado TREND usa el mismo color curve565 que la línea');
-console.log('  PASS Inspector TREND compacto, zona naranja, selector de página y color del valor igual al de la línea');
+assert(/showLiveHeader = field\.showLiveValue !== false/.test(appJsSource), 'app.js oculta el encabezado integrado de TREND cuando showLiveValue es false');
+assert(!/class="insp-btn"/.test(trendJsSource) && /class="small-action-btn trend-live-action-btn"/.test(trendJsSource), 'Botón de etiqueta en vivo usa el estilo small-action-btn de la app');
+assert(/f\.showLiveValue = false;/.test(trendJsSource), 'Crear etiqueta en vivo oculta la etiqueta integrada en la gráfica');
+console.log('  PASS Inspector TREND compacto, zona naranja, selector de página y etiqueta en vivo limpia');
 
 console.log('\nResultado: TODAS PASARON');

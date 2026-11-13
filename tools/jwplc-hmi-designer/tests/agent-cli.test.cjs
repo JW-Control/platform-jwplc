@@ -129,6 +129,31 @@ async function main() {
     check(has(bad, /ICON_B\)\.iconVarType:.*usa "uint8"/, 'warnings') && has(bad, /ICON_B\)\.iconState/, 'warnings'), 'ICON: bool con 3 estados y estado fuera de rango (avisos)');
     check(has(bad, /tipo "IMAGE" desconocido.*\(¿ICON\?\)/), 'ICON: sinónimo IMAGE -> ICON');
 
+    // Límite de 64 campos dinámicos vs objetos estáticos (hasta 256 totales)
+    const dyn64PlusStatic = normalizeProject({
+      pages: ['P'],
+      fields: [
+        ...Array.from({ length: 64 }, (_, i) => ({
+          type: 'TEXT', id: `F_${i}`, variable: `v_${i}`, x: 4, y: 4
+        })),
+        ...Array.from({ length: 6 }, (_, i) => ({
+          type: 'RECT', id: `R_${i}`, x: 10 + i * 20, y: 20, x2: 25 + i * 20, y2: 35
+        })),
+        { type: 'NAV_BAR', id: 'NAV_0', x: 0, y: 160, w: 320, h: 36 }
+      ]
+    });
+    const rDynOk = validateProject(dyn64PlusStatic);
+    check(rDynOk.errors.length === 0, `64 dinámicos + 7 estáticos (71 totales) valida sin errores${rDynOk.errors.map((e) => `\n      ${e.path}: ${e.message}`).join('')}`);
+
+    const dyn65 = normalizeProject({
+      pages: ['P'],
+      fields: Array.from({ length: 65 }, (_, i) => ({
+        type: 'TEXT', id: `F_${i}`, variable: `v_${i}`, x: 4, y: 4
+      }))
+    });
+    const rDynBad = validateProject(dyn65);
+    check(has(rDynBad, /máximo 64 campos dinámicos/), '65 campos dinámicos excede el límite');
+
     const geo = normalizeProject({ pages: ['P'], fields: [
       { type: 'VALUE', id: 'FIELD_X', variable: 'x', x: 280, y: 4, valueSize: 3 },
       { type: 'TEXT', id: 'FIELD_Y', variable: 'y', x: 150, y: 4, capacity: 20 }
@@ -145,6 +170,26 @@ async function main() {
       const golden = fs.readFileSync(path.join(__dirname, 'golden', `${name}.h`), 'utf8').replace(/\r\n/g, '\n');
       check(header === (golden.endsWith('\n') ? golden : `${golden}\n`), `${name}: header de la CLI == golden`);
     }
+
+    // Etiqueta VALUE compartiendo la misma variable float que una gráfica TREND
+    const linked = normalizeProject({
+      pages: ['Monitor'],
+      fields: [
+        { type: 'TREND', id: 'TREND_T', variable: 'sensorTemp', title: 'TEMP', unit: 'C', x: 10, y: 24, width: 220, height: 90, visibleSamples: 60 },
+        { type: 'VALUE', id: 'VAL_T', variable: 'sensorTemp', label: 'T', unit: 'C', x: 10, y: 2, valueSize: 2 }
+      ]
+    });
+    const rLinked = validateProject(linked);
+    check(rLinked.errors.length === 0, `TREND + VALUE compartiendo variable float valida sin errores${rLinked.errors.map((e) => `\n      ${e.path}: ${e.message}`).join('')}`);
+    await session.load(linked);
+    const linkedInsp = await session.inspect();
+    check(linkedInsp.issues.length === 0, 'Designer no reporta conflicto en variable float compartida');
+    const linkedHeader = await session.header();
+    const declMatches = linkedHeader.match(/\bfloat\s+sensorTemp\s*=/g) || [];
+    check(declMatches.length === 1, `1 sola declaración C++ para sensorTemp (emitidas: ${declMatches.length})`);
+    check(/setTrend\(TREND_T,\s*sensorTemp\)/.test(linkedHeader) && /setValue\(VAL_T,\s*sensorTemp\)/.test(linkedHeader), 'emite ambos setters (setTrend y setValue) con sensorTemp');
+    const linkedCheck = hostCheck(linkedHeader);
+    if (!linkedCheck.skipped) check(linkedCheck.ok, `TREND + VALUE vinculados compilan en host g++${linkedCheck.ok ? '' : `\n${linkedCheck.log}`}`);
 
     console.log('6. Ejemplos');
     const examples = fs.readdirSync(path.join(DESIGNER, 'examples')).filter((f) => f.endsWith('.json')).sort();

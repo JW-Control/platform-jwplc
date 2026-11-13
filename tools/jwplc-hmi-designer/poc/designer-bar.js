@@ -2699,7 +2699,7 @@
 
   function createBarField(preset = 'LINEAR') {
     const api = editor();
-    api?.addTextField?.();
+    if (!api?.addTextField?.()) return;
     const field = selectedField();
     if (!field) return;
 

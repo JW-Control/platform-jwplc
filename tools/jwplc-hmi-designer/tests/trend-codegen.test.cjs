@@ -90,6 +90,10 @@ if (typeof codegenCore.trendFieldBlock === 'function') {
   const twoChField = { ...sampleField, ch2Enabled: true, ch2Variable: 'sp_horno', thr1Enabled: true, thr1Value: 80, thr1Color: 0xF800 };
   const twoSetter = codegenCore.setterCall(twoChField, 'FIELD_TREND_1', 'temp_horno');
   check(twoSetter === 'JWPLC_Display.setTrend(FIELD_TREND_1, temp_horno, sp_horno);', 'setterCall emite setTrend de 2 canales cuando solo ch2Enabled está activo');
+
+  const noLiveField = { ...sampleField, showLiveValue: false };
+  const noLiveBlock = codegenCore.trendFieldBlock(noLiveField, 'FIELD_TREND_1');
+  check(/,\s*"SP",\s*"CH3",\s*false\)/.test(noLiveBlock), 'trendFieldBlock emite showLiveValue=false cuando se oculta la etiqueta interna');
 }
 
 console.log(`\nResultado: ${failures === 0 ? 'TODAS PASARON' : `${failures} FALLARON`}`);

@@ -288,7 +288,14 @@ function validateProject(project) {
 
   // Objetos
   const fields = Array.isArray(project.fields) ? project.fields : [];
-  if (fields.length > spec.LIMITS.fields) report.error('fields', `máximo ${spec.LIMITS.fields} objetos (hay ${fields.length}, contando la NAV_BAR)`);
+  const DYNAMIC_FIELD_TYPES = new Set(['TEXT', 'VALUE', 'BOOL', 'BAR', 'ICON', 'TREND']);
+  const dynamicFields = fields.filter((f) => f && typeof f === 'object' && DYNAMIC_FIELD_TYPES.has(f.type));
+  if (dynamicFields.length > spec.LIMITS.fields) {
+    report.error('fields', `máximo ${spec.LIMITS.fields} campos dinámicos (hay ${dynamicFields.length}; TEXT, VALUE, BOOL, BAR, ICON, TREND)`);
+  }
+  if (fields.length > (spec.LIMITS.totalObjects || 256)) {
+    report.error('fields', `máximo ${spec.LIMITS.totalObjects || 256} objetos en el proyecto (hay ${fields.length})`);
+  }
   fields.forEach((field, i) => validateField(field, i, project, report));
 
   const objects = fields.filter((f) => f && typeof f === 'object' && spec.TYPES[f.type]);
@@ -300,25 +307,29 @@ function validateProject(project) {
     if (ids.has(f.id)) report.error(`fields[${i}].id`, `el id ${f.id} ya lo usa fields[${ids.get(f.id)}]`);
     else ids.set(f.id, i);
   });
-  // Variables únicas entre campos (designer-codegen.js validationIssues); el MENU sí puede
-  // usar la variable de un campo si el tipo coincide (lo revisa designer-menu.js).
+  // Variables únicas entre campos incompatibles; campos escalares del mismo tipo C++
+  // (p. ej. VALUE float + TREND float + BAR float) sí pueden compartir una misma variable.
   const variables = new Map();
+  const checkVariable = (sym, varPath, f, i, varType) => {
+    const prev = variables.get(sym);
+    if (!prev) {
+      variables.set(sym, { index: i, field: f, type: varType });
+      return;
+    }
+    if (prev.field !== f && prev.type === varType && varType !== 'char[]') return;
+    report.error(varPath, `la variable ${sym} ya la usa fields[${prev.index}] (${prev.type} vs ${varType}: sólo campos escalares del mismo tipo pueden compartir variable)`);
+  };
   objects.forEach((f) => {
-    if (!cppType(f) || !f.variable) return;
+    const varType = cppType(f);
+    if (!varType || !f.variable) return;
     const i = fields.indexOf(f);
-    if (variables.has(f.variable)) {
-      report.error(`fields[${i}].variable`, `la variable ${f.variable} ya la usa fields[${variables.get(f.variable)}]: cada campo declara la suya (para mostrar un valor en dos lugares usa dos variables y asígnalas igual en el sketch)`);
-    } else variables.set(f.variable, i);
+    checkVariable(f.variable, `fields[${i}].variable`, f, i, varType);
     if (f.type === 'TREND') {
       if (f.ch2Enabled && f.ch2Variable) {
-        if (variables.has(f.ch2Variable)) {
-          report.error(`fields[${i}].ch2Variable`, `la variable ${f.ch2Variable} ya está en uso en fields[${variables.get(f.ch2Variable)}]`);
-        } else variables.set(f.ch2Variable, i);
+        checkVariable(f.ch2Variable, `fields[${i}].ch2Variable`, f, i, 'float');
       }
       if (f.ch3Enabled && f.ch3Variable) {
-        if (variables.has(f.ch3Variable)) {
-          report.error(`fields[${i}].ch3Variable`, `la variable ${f.ch3Variable} ya está en uso en fields[${variables.get(f.ch3Variable)}]`);
-        } else variables.set(f.ch3Variable, i);
+        checkVariable(f.ch3Variable, `fields[${i}].ch3Variable`, f, i, 'float');
       }
     }
   });

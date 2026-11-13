@@ -6,8 +6,8 @@
   <meta name="color-scheme" content="light dark" />
   <title>JWPLC HMI Designer</title>
   <meta name="jwplc-designer-version" content="2.1.0-alpha.17" />
-  <link rel="stylesheet" href="./styles.css?v=1794585000" />
-  <link rel="stylesheet" href="./designer-light-theme.css?v=1794584000" />
+  <link rel="stylesheet" href="./styles.css?v=1794595500" />
+  <link rel="stylesheet" href="./designer-light-theme.css?v=1794595500" />
   <script src="./designer-theme.js?v=1793802700"></script>
 </head>
 <body>
@@ -134,7 +134,11 @@
       <div id="resizerRight" class="layout-resizer layout-resizer-vertical layout-resizer-right" title="Arrastrar para redimensionar panel derecho (Doble clic para restablecer)"></div>
 
       <div class="tabs page-tabs">
-        <button class="tab active">Principal</button>
+        <button type="button" class="page-tabs-nav prev" title="Desplazar pestañas a la izquierda" aria-label="Desplazar pestañas a la izquierda" hidden>‹</button>
+        <div class="page-tabs-track" role="tablist" aria-label="Páginas HMI">
+          <button class="tab active">Principal</button>
+        </div>
+        <button type="button" class="page-tabs-nav next" title="Desplazar pestañas a la derecha" aria-label="Desplazar pestañas a la derecha" hidden>›</button>
         <button class="tab add-tab" disabled>＋</button>
         <span class="gate">v2.1.0-alpha.17</span>
       </div>
@@ -1397,6 +1401,11 @@
             <label class="field-label full" title="Variable C++ declarada por el Designer y utilizada por el usuario para alimentar este campo.">Variable vinculada (C++)
               <input id="fieldVariable" class="field-input code-input" type="text" value="estadoTexto" maxlength="32" />
             </label>
+            <label id="fieldLinkTrendWrap" class="field-label full" hidden title="Vincula este campo VALUE a una gráfica (TREND) para compartir su misma variable C++ sin declarar otra.">Vincular a gráfica (misma variable)
+              <select id="fieldLinkTrendSelect" class="field-input">
+                <option value="">— Variable independiente —</option>
+              </select>
+            </label>
             <label class="field-label">Tipo C++
               <input id="fieldCppType" class="field-input" value="char[]" disabled />
             </label>
@@ -2072,7 +2081,7 @@
     <span>Listo</span>
     <span>Proyecto: HMI_ST7789</span>
     <span>Página: 0 · Principal</span>
-    <span>Campos: 1/32</span>
+    <span>Campos: 1/64</span>
     <span>Resolución: 320 × 170</span>
     <span>Formato: RGB565</span>
     <span class="grow"></span>
@@ -2113,7 +2122,7 @@
   <script src="./designer-dialog.js?v=1793801300"></script>
   <script src="./designer-layout-resizer.js?v=1793803200"></script>
   <script src="./app.js?v=1794584000"></script>
-  <script src="./ux-foundation.js?v=1793802000"></script>
+  <script src="./ux-foundation.js?v=1794592000"></script>
   <script src="./designer-codegen.js?v=1794583000"></script>
 
   

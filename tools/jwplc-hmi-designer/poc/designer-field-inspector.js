@@ -373,6 +373,11 @@
           <label class="field-label">Variable C++
             <input class="field-input code-input" data-proxy="fieldVariable" type="text" maxlength="32" />
           </label>
+          <label class="field-label insp-gap" data-fi-link-trend-wrap hidden title="Vincula este campo VALUE a una gráfica (TREND) existente para compartir la misma variable C++ sin declarar otra.">Vincular a gráfica (misma variable)
+            <select class="field-input" data-fi-link-trend-select>
+              <option value="">— Variable independiente —</option>
+            </select>
+          </label>
           <div class="insp-readouts">
             <span>Tipo <code class="insp-type-chip" data-readout="cppType">float</code></span>
           </div>
@@ -720,6 +725,41 @@
   const slider = wrap.querySelector('[data-preview-slider]');
   slider.addEventListener('input', () => proxyValue('fieldPreview', slider.value, false));
   slider.addEventListener('change', () => proxyValue('fieldPreview', slider.value, true));
+
+  const linkTrendWrap = wrap.querySelector('[data-fi-link-trend-wrap]');
+  const linkTrendSelect = wrap.querySelector('[data-fi-link-trend-select]');
+  if (linkTrendSelect) {
+    linkTrendSelect.addEventListener('change', () => {
+      const chosen = linkTrendSelect.value;
+      if (!chosen) return;
+      proxyValue('fieldVariable', chosen, true);
+    });
+  }
+
+  function syncLinkTrend(field) {
+    if (!linkTrendWrap || !linkTrendSelect) return;
+    const fields = editor()?.getAllFields?.() || [];
+    const trends = fields.filter((f) => f && f.type === 'TREND');
+    const canLink = Boolean(field && field.type === 'VALUE' && cppTypeFor(field) === 'float' && trends.length > 0);
+    linkTrendWrap.hidden = !canLink;
+    if (!canLink) return;
+    const opts = ['<option value="">— Variable independiente —</option>'];
+    trends.forEach((t, ti) => {
+      const tName = escapeHtml(t.title || t.label || t.name || t.id || `TREND_${ti + 1}`);
+      const pgLabel = `P${Number(t.page || 0) + 1}`;
+      const chs = [{ lbl: 'CH1', v: String(t.variable || 'tendencia') }];
+      if (t.ch2Enabled && t.ch2Variable) chs.push({ lbl: String(t.ch2Label || 'CH2'), v: String(t.ch2Variable) });
+      if (t.ch3Enabled && t.ch3Variable) chs.push({ lbl: String(t.ch3Label || 'CH3'), v: String(t.ch3Variable) });
+      chs.forEach((ch) => {
+        const val = escapeHtml(ch.v);
+        opts.push(`<option value="${val}">${tName} · ${escapeHtml(ch.lbl)} (${val}) [${pgLabel}]</option>`);
+      });
+    });
+    linkTrendSelect.innerHTML = opts.join('');
+    const curVar = String(field.variable || '');
+    const hasMatch = Array.from(linkTrendSelect.options).some((o) => o.value === curVar);
+    linkTrendSelect.value = hasMatch ? curVar : '';
+  }
 
   // --- Sincronización desde el modelo ----------------------------------------
 
@@ -1162,6 +1202,7 @@
     if (!alignHint.hidden) readout('reserveShort', field.type === 'VALUE' ? ($('valueFormatSampleStatus')?.textContent || '') : 'M'.repeat(Math.max(1, Number(field.capacity) || 1)));
 
     readout('cppType', cppTypeFor(field));
+    syncLinkTrend(field);
     syncPages(field);
 
     wrap.querySelectorAll('[data-mirror]').forEach((el) => {

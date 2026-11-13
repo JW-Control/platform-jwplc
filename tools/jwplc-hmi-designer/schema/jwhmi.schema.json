@@ -56,11 +56,11 @@
     },
     "fields": {
       "type": "array",
-      "maxItems": 32,
+      "maxItems": 64,
       "items": {
         "$ref": "#/definitions/field"
       },
-      "description": "Objetos (máximo 32 contando la NAV_BAR)."
+      "description": "Objetos (máximo 64 campos dinámicos TEXT/VALUE/BOOL/BAR/ICON/TREND; figuras, RAW_TEXT, MENU, EVENT_LOG y NAV_BAR no gastan cupo)."
     },
     "pixelMaps": {
       "type": "array",
@@ -2122,6 +2122,11 @@
               },
               "showTimeAxis": {
                 "description": "Muestra marcas de tiempo en el eje X.",
+                "type": "boolean",
+                "default": true
+              },
+              "showLiveValue": {
+                "description": "Muestra el título y valor en vivo integrados en el encabezado de la gráfica.",
                 "type": "boolean",
                 "default": true
               },

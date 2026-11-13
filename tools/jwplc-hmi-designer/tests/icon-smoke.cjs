@@ -313,13 +313,13 @@ async function main() {
     const limited = await page.evaluate(async () => {
       const P = window.JWPLCHMIProject;
       const s = P.serialize();
-      s.fields = Array.from({ length: 32 }, (_, i) => ({ type: 'TEXT', name: `T${i}`, id: `T_${i}`, variable: `t${i}`, capacity: 2, x: (i % 8) * 38, y: Math.floor(i / 8) * 40, label: '', unit: '', valueSize: 1, labelSize: 1, frame: false, layout: 'INLINE', align: 'LEFT', page: 0, labelColor: 0xFFFF, valueColor: 0xFFFF, backgroundColor: 0, frameColor: 0xFFFF }));
+      s.fields = Array.from({ length: 64 }, (_, i) => ({ type: 'TEXT', name: `T${i}`, id: `T_${i}`, variable: `t${i}`, capacity: 2, x: (i % 8) * 38, y: Math.floor(i / 8) * 40, label: '', unit: '', valueSize: 1, labelSize: 1, frame: false, layout: 'INLINE', align: 'LEFT', page: 0, labelColor: 0xFFFF, valueColor: 0xFFFF, backgroundColor: 0, frameColor: 0xFFFF }));
       delete s.iconAssets;
       await P.apply(s);
       await new Promise((r) => setTimeout(r, 300));
       return { added: Boolean(window.JWPLCHMIEditor.addIconField('motores/motor', 32)), count: window.JWPLCHMIEditor.getAllFields().length };
     });
-    check(!limited.added && limited.count === 32, 'con 32 campos no se agrega otro ICON (cuenta como campo)');
+    check(!limited.added && limited.count === 64, 'con 64 campos no se agrega otro ICON (cuenta como campo)');
 
     check(errors.length === 0, `sin errores de página${errors.length ? `: ${errors[0]}` : ''}`);
   } finally {

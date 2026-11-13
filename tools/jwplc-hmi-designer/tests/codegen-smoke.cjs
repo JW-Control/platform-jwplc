@@ -159,7 +159,9 @@ async function main() {
     const vf = headers.i1Formats || '';
     check(/JWPLC_UIDurationFormat\(\n\s*JWPLC_UI_DURATION_MM_SS/.test(vf) && /'\.'\)/.test(vf) && /int32_t t_restante = 0;/.test(vf),
       'emite JWPLC_UIDurationFormat, el separador y variables enteras');
-    check(/JWPLC_UIValueFormat JWPLC_UIDurationFormat\(/.test(fs.readFileSync(path.join(LIBS, 'JWPLC_Display', 'src', 'JWPLC_UI_Format.cpp'), 'utf8')),
+    const fmtSources = fs.readFileSync(path.join(LIBS, 'JWPLC_Display', 'src', 'JWPLC_UI.h'), 'utf8') +
+      '\n' + fs.readFileSync(path.join(LIBS, 'JWPLC_Display', 'src', 'JWPLC_UI_Format.cpp'), 'utf8');
+    check(/JWPLC_UIValueFormat JWPLC_UIDurationFormat\(/.test(fmtSources),
       'JWPLC_UIDurationFormat está definido en el firmware (modo fuente)');
     check(/JWPLC_UIBoolPilot\(\n\s*0x4208,\n\s*0x07E0\),/.test(vf) && /JWPLC_UIBoolPilot\(\n\s*0x4208,\n\s*0xFFE0,\n\s*0x0000,\n\s*0xF800\),/.test(vf),
       'BOOL piloto: JWPLC_UIBoolPilot de 2 argumentos y de 4 (fondo por estado)');

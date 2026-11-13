@@ -43,7 +43,11 @@
   const HEIGHT = 170;
   const FIELD_PADDING = 3;
   const FIELD_GAP = 4;
-  const MAX_FIELDS = 32;
+  const MAX_FIELDS = 64;
+  const MAX_TOTAL_OBJECTS = 256;
+  const DYNAMIC_FIELD_TYPES = new Set(['TEXT', 'VALUE', 'BOOL', 'BAR', 'ICON', 'TREND']);
+  const isDynamicField = (field) => DYNAMIC_FIELD_TYPES.has(field?.type);
+  const dynamicFieldCount = (fields = hmiFields) => fields.filter(isDynamicField).length;
   const MAX_PAGES = 16;
   const MAX_HISTORY = 50;
 
@@ -352,6 +356,8 @@
   const fieldName = document.getElementById('fieldName');
   const fieldId = document.getElementById('fieldId');
   const fieldVariable = document.getElementById('fieldVariable');
+  const fieldLinkTrendWrap = document.getElementById('fieldLinkTrendWrap');
+  const fieldLinkTrendSelect = document.getElementById('fieldLinkTrendSelect');
   const fieldCapacity = document.getElementById('fieldCapacity');
   const fieldX = document.getElementById('fieldX');
   const fieldY = document.getElementById('fieldY');
@@ -768,6 +774,7 @@
       showAxes: true,
       showGuides: true,
       showTimeAxis: true,
+      showLiveValue: true,
       enableSD: false,
       sdIntervalMs: 1000,
       ch2Enabled: false,
@@ -2993,9 +3000,10 @@
       drawTextWithFont(buffer, rText, Math.max(geo.plotX + 15, geo.plotX + geo.plotW - rW), geo.baseAxisY + 3, text565, bg565, 1, 'GLCD');
     }
 
-    const headerTitle = field.title || field.label;
+    const showLiveHeader = field.showLiveValue !== false;
+    const headerTitle = showLiveHeader ? (field.title || field.label) : '';
+    let curX = geo.plotX + 2;
     if (headerTitle) {
-      let curX = geo.plotX + 2;
       const titleStr = String(headerTitle).slice(0, 8);
       drawTextWithFont(buffer, titleStr, curX, field.y + 2, curve565, bg565, 1, 'GLCD');
       curX += titleStr.length * 6 + 4;
@@ -3008,8 +3016,10 @@
         drawTextWithFont(buffer, String(field.unit).slice(0, 6), curX, field.y + 2, curve565, bg565, 1, 'GLCD');
         curX += String(field.unit).slice(0, 6).length * 6 + 6;
       }
+    }
 
-      // Leyenda compacta de canales extra en el encabezado
+    // Leyenda compacta de canales extra en el encabezado
+    if (headerTitle || field.ch2Enabled || field.ch3Enabled) {
       const extraLegend = [];
       if (field.ch2Enabled) extraLegend.push({ label: String(field.ch2Label || 'SP').slice(0, 4), color: ch2Color565 });
       if (field.ch3Enabled) extraLegend.push({ label: String(field.ch3Label || 'CH3').slice(0, 4), color: ch3Color565 });
@@ -3256,7 +3266,21 @@
     const enumLines = validFields
       .map((field, index) => `    ${sanitizeSymbol(field.id, fieldFallbackId(field, index))} = ${index + 1}`)
       .join(',\n');
-    const variables = validFields.map(variableDeclaration).join('\n');
+    const declaredVars = new Set();
+    const variables = validFields
+      .map(variableDeclaration)
+      .filter(Boolean)
+      .map((decl) => decl.split('\n').filter((line) => {
+        const trimmed = line.trim();
+        if (!trimmed) return false;
+        const m = trimmed.match(/^(?:float|bool|uint8_t|int32_t|uint32_t|char)\s+([A-Za-z_][A-Za-z0-9_]*)/);
+        const key = m ? m[1] : trimmed;
+        if (declaredVars.has(key)) return false;
+        declaredVars.add(key);
+        return true;
+      }).join('\n'))
+      .filter(Boolean)
+      .join('\n');
     const fields = validFields.map(fieldContract).join(',\n');
     const setters = validFields.map(setterHint).join('\n');
     const icons = iconAssetsText(validFields);
@@ -3270,7 +3294,8 @@
     const textCount = hmiFields.filter((item) => item.type === 'TEXT').length;
     const valueCount = hmiFields.filter((item) => item.type === 'VALUE').length;
     const current = hmiPages.find((item) => item.id === activePage);
-    return `JWPLC HMI Designer 2.1.0-alpha.17\n\n- Página activa: ${activePage} · ${current?.name || 'Página'}\n- Páginas: ${hmiPages.length}/${MAX_PAGES}\n- Campos globales: ${hmiFields.length}/${MAX_FIELDS}\n- Campos página: ${fieldsForPage().length}\n- TEXT: ${textCount}\n- VALUE: ${valueCount}\n- Selección: ${field ? `${field.type} ${field.name} · ${field.id}` : 'ninguna'}\n- Movimiento: flechas 1 px / Shift+flechas 10 px\n- Duplicar: Ctrl+D\n- Eliminar: Delete\n${g ? `- AUTO field: ${g.fieldW} × ${g.fieldH} px\n- X/Y: ${field.x}, ${field.y}\n- effectivePadding: ${g.pad} px` : ''}${field?.type === 'VALUE' ? `\n- sample reservado: ${makeNumericSample(field)}\n- preview formateado: ${formatNumericPreview(field) || '(vacío)'}` : ''}`;
+    const dynCount = dynamicFieldCount();
+    return `JWPLC HMI Designer 2.1.0-alpha.17\n\n- Página activa: ${activePage} · ${current?.name || 'Página'}\n- Páginas: ${hmiPages.length}/${MAX_PAGES}\n- Campos dinámicos: ${dynCount}/${MAX_FIELDS}\n- Objetos totales: ${hmiFields.length}/${MAX_TOTAL_OBJECTS}\n- Campos página: ${fieldsForPage().length}\n- TEXT: ${textCount}\n- VALUE: ${valueCount}\n- Selección: ${field ? `${field.type} ${field.name} · ${field.id}` : 'ninguna'}\n- Movimiento: flechas 1 px / Shift+flechas 10 px\n- Duplicar: Ctrl+D\n- Eliminar: Delete\n${g ? `- AUTO field: ${g.fieldW} × ${g.fieldH} px\n- X/Y: ${field.x}, ${field.y}\n- effectivePadding: ${g.pad} px` : ''}${field?.type === 'VALUE' ? `\n- sample reservado: ${makeNumericSample(field)}\n- preview formateado: ${formatNumericPreview(field) || '(vacío)'}` : ''}`;
   }
 
   function updateMetrics() {
@@ -3593,14 +3618,16 @@
     sortObjectListDOM();
     const pmCount = (window.JWPLCHMIPixelMaps?.getAll?.() || []).filter((pm) => Number(pm.page || 0) === activePage).length;
     countBadge.textContent = String(visibleFields.length + pmCount);
-    if (fieldsStatus) fieldsStatus.textContent = `Campos: ${hmiFields.length}/${MAX_FIELDS}`;
+    if (fieldsStatus) fieldsStatus.textContent = `Campos: ${dynamicFieldCount()}/${MAX_FIELDS}`;
   }
 
   function updateHistoryButtons() {
     if (undoButton) undoButton.disabled = historyIndex <= 0;
     if (redoButton) redoButton.disabled = historyIndex < 0 || historyIndex >= history.length - 1;
-    duplicateButton.disabled = !selectedField() || hmiFields.length >= MAX_FIELDS;
-    deleteButton.disabled = !selectedField();
+    const sel = selectedField();
+    const canDuplicate = sel && (isDynamicField(sel) ? dynamicFieldCount() < MAX_FIELDS : hmiFields.length < MAX_TOTAL_OBJECTS);
+    duplicateButton.disabled = !canDuplicate;
+    deleteButton.disabled = !sel;
   }
 
   function render() {
@@ -5389,6 +5416,29 @@
     if (fieldFill) fieldFill.value = field.fill ? '1' : '0';
     if (fieldFillColor) ensureSelectOption(fieldFillColor, field.fillColor ?? field.frameColor ?? 0xFFFF);
     if (fieldFillColorWrap) fieldFillColorWrap.hidden = !field.fill;
+    if (fieldLinkTrendWrap && fieldLinkTrendSelect) {
+      const varType = window.JWPLCHMICodegenCore?.fieldVariableCppType?.(field);
+      const trends = hmiFields.filter((f) => f.type === 'TREND');
+      const canLink = (varType === 'float') && trends.length > 0 && field.type !== 'TREND';
+      fieldLinkTrendWrap.hidden = !canLink;
+      if (canLink) {
+        const opts = ['<option value="">— Variable independiente —</option>'];
+        trends.forEach((t, ti) => {
+          const tName = t.title || t.name || t.id || `TREND_${ti + 1}`;
+          const pgLabel = `P${Number(t.page || 0) + 1}`;
+          const chs = [{ lbl: 'CH1', v: sanitizeSymbol(t.variable, 'tendencia') }];
+          if (t.ch2Enabled) chs.push({ lbl: t.ch2Label || 'CH2', v: sanitizeSymbol(t.ch2Variable, 'setpoint') });
+          if (t.ch3Enabled) chs.push({ lbl: t.ch3Label || 'CH3', v: sanitizeSymbol(t.ch3Variable, 'salida') });
+          chs.forEach((ch) => {
+            opts.push(`<option value="${ch.v}">${tName} · ${ch.lbl} (${ch.v}) [${pgLabel}]</option>`);
+          });
+        });
+        fieldLinkTrendSelect.innerHTML = opts.join('');
+        const curVar = String(field.variable || '');
+        const hasMatch = Array.from(fieldLinkTrendSelect.options).some((o) => o.value === curVar);
+        fieldLinkTrendSelect.value = hasMatch ? curVar : '';
+      }
+    }
     fieldPreview.value = String(field.preview ?? '');
     fieldLabel.value = field.label || '';
     fieldUnit.value = field.unit || '';
@@ -5760,7 +5810,7 @@
   }
 
   function addShapeField(type, startPoint, endPoint) {
-    if (hmiFields.length >= MAX_FIELDS) return;
+    if (hmiFields.length >= MAX_TOTAL_OBJECTS) return;
     fieldSerial += 1;
     const serial = nextTypeSerial(type);
     const typeLabel = SHAPE_TYPE_LABELS[type] || (type.charAt(0) + type.slice(1).toLowerCase());
@@ -5793,7 +5843,7 @@
   }
 
   function addRawTextField(point) {
-    if (hmiFields.length >= MAX_FIELDS) return null;
+    if (hmiFields.length >= MAX_TOTAL_OBJECTS) return null;
     fieldSerial += 1;
     const serial = nextTypeSerial('RAW_TEXT');
     const textVal = rawState.value || 'Texto RAW';
@@ -5830,11 +5880,10 @@
     window.dispatchEvent(new CustomEvent('jwplc:tool-changed', { detail: { tool: 'pointer' } }));
     render();
     commitHistory();
-    return field;
   }
 
   function addTextField() {
-    if (hmiFields.length >= MAX_FIELDS) return;
+    if (dynamicFieldCount() >= MAX_FIELDS) return false;
     fieldSerial += 1;
     const serial = nextTypeSerial('TEXT');
     const field = defaultTextField(`text-${fieldSerial}`);
@@ -5855,6 +5904,7 @@
     syncToolUI();
     render();
     commitHistory();
+    return true;
   }
 
   // A15-8: MENU (árbol de configuración). Uno por página; el modelo y el
@@ -5862,7 +5912,7 @@
   
   function addEventLogField() {
     const api = window.JWPLCHMIEventLog;
-    if (!api || hmiFields.length >= MAX_FIELDS) return;
+    if (!api || hmiFields.length >= MAX_TOTAL_OBJECTS) return;
     if (hmiFields.some((f) => f.type === 'EVENT_LOG' && Number(f.page || 0) === activePage)) {
       window.JWPLCDialog.alert('Esta página ya tiene un EVENT_LOG: sólo se permite uno por página.');
       return;
@@ -5885,7 +5935,7 @@
 
   function addMenuField() {
     const api = window.JWPLCHMIMenu;
-    if (!api || hmiFields.length >= MAX_FIELDS) return;
+    if (!api || hmiFields.length >= MAX_TOTAL_OBJECTS) return;
     if (hmiFields.some((f) => f.type === 'MENU' && Number(f.page || 0) === activePage)) {
       window.JWPLCDialog.alert('Esta página ya tiene un MENU: el firmware atiende un solo MENU por página.');
       return;
@@ -5931,8 +5981,8 @@
     const core = window.JWPLCIconsCore;
     const icon = window.JWPLCHMIIcons?.iconInfo?.(iconId) || core?.findIcon?.(window.JWPLCIconCatalog, iconId);
     if (!icon) return null;
-    if (hmiFields.length >= MAX_FIELDS) {
-      showToastMessage(`Límite de ${MAX_FIELDS} campos: el ICON cuenta como campo.`, 'warning');
+    if (dynamicFieldCount() >= MAX_FIELDS) {
+      showToastMessage(`Límite de ${MAX_FIELDS} campos dinámicos: el ICON cuenta como campo.`, 'warning');
       return null;
     }
     fieldSerial += 1;
@@ -5974,11 +6024,10 @@
     syncToolUI();
     render();
     commitHistory();
-    return field;
   }
 
   function addValueField() {
-    if (hmiFields.length >= MAX_FIELDS) return;
+    if (dynamicFieldCount() >= MAX_FIELDS) return;
     fieldSerial += 1;
     const serial = nextTypeSerial('VALUE');
     const field = defaultValueField(`value-${fieldSerial}`);
@@ -5998,10 +6047,11 @@
     syncToolUI();
     render();
     commitHistory();
+    return field;
   }
 
   function addTrendField() {
-    if (hmiFields.length >= MAX_FIELDS) return;
+    if (dynamicFieldCount() >= MAX_FIELDS) return;
     fieldSerial += 1;
     const serial = nextTypeSerial('TREND');
     const field = defaultTrendField(`trend-${fieldSerial}`);
@@ -6019,14 +6069,13 @@
     syncToolUI();
     render();
     commitHistory();
-    return field;
   }
 
   function duplicateSelectedField() {
     const sources = selectedFields();
     const selPms = window.JWPLCHMIPixelMaps?.getSelectedMaps?.() || [];
     if (sources.length === 0 && selPms.length === 0) return;
-    if (sources.length > 0 && hmiFields.length + sources.length <= MAX_FIELDS) {
+    if (sources.length > 0 && hmiFields.length + sources.length <= MAX_TOTAL_OBJECTS && dynamicFieldCount() + dynamicFieldCount(sources) <= MAX_FIELDS) {
       const newKeys = [];
       sources.forEach((source) => {
         fieldSerial += 1;
@@ -6751,6 +6800,19 @@
   bindFieldInput(fieldName, (field) => { field.name = fieldName.value; });
   bindFieldInput(fieldId, (field) => { field.id = fieldId.value; });
   bindFieldInput(fieldVariable, (field) => { field.variable = fieldVariable.value; });
+  if (fieldLinkTrendSelect) {
+    fieldLinkTrendSelect.addEventListener('change', () => {
+      const field = selectedField();
+      if (!field) return;
+      const chosen = fieldLinkTrendSelect.value;
+      if (!chosen) return;
+      field.variable = chosen;
+      fieldVariable.value = chosen;
+      syncInputsFromState();
+      render();
+      commitHistory();
+    });
+  }
   bindFieldInput(fieldCapacity, (field) => {
     if (field.type !== 'TEXT') return;
     field.capacity = clamp(Number(fieldCapacity.value) || 1, 1, 39);
@@ -7974,7 +8036,7 @@
       }
       if (ctrl && event.key.toLowerCase() === 'v') {
         event.preventDefault();
-        if (clipboard.length === 0 || hmiFields.length + clipboard.length > MAX_FIELDS) return;
+        if (clipboard.length === 0 || hmiFields.length + clipboard.length > MAX_TOTAL_OBJECTS || dynamicFieldCount() + dynamicFieldCount(clipboard) > MAX_FIELDS) return;
         const newKeys = [];
         clipboard.forEach((source) => {
           fieldSerial += 1;
@@ -8540,6 +8602,7 @@
     getSelectedTool: () => selectedTool,
     getSelectedFieldType: () => selectedField()?.type || null,
     getAllFields: () => hmiFields,
+    getDynamicFieldCount: () => dynamicFieldCount(),
     getFieldsForPage: (page = activePage) => fieldsForPage(page),
     getPages: () => hmiPages.map((page) => ({ ...page })),
     getActivePage: () => activePage,
@@ -8561,6 +8624,7 @@
     deletePage,
     moveSelectedFieldToPage,
     commitHistory,
+    syncInputsFromState,
     render,
     redrawCanvasOnly,
     renderCanvasOnly: redrawCanvasOnly,

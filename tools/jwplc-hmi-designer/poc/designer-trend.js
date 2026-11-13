@@ -523,6 +523,28 @@
                 <button type="button" class="insp-chip" data-trend-set="decimals" data-value="3">3</button>
               </div>
             </div>
+
+            <div class="bar-card trend-live-card" data-trend-live-label-card>
+              <div class="bar-card-header" style="margin-bottom:6px;">
+                <span class="bar-card-section-title" style="margin:0;">Etiqueta en gráfica</span>
+                <div class="insp-chip-row">
+                  <button type="button" class="insp-chip" data-trend-set="showLiveValue" data-value="true" title="Muestra el título y valor en vivo dentro del encabezado">Visible</button>
+                  <button type="button" class="insp-chip" data-trend-set="showLiveValue" data-value="false" title="Oculta el texto y valor interno dentro de la gráfica">Oculta</button>
+                </div>
+              </div>
+              <div class="trend-live-divider"></div>
+              <div class="bar-card-header" style="margin-bottom:4px;">
+                <span class="bar-card-section-title" style="margin:0;">Etiqueta en vivo (VALUE)</span>
+                <span class="trend-live-status" data-trend-live-label-status>Sin etiqueta</span>
+              </div>
+              <p class="insp-hint" style="margin:0 0 8px 0;">Crea un campo VALUE movible con la misma variable C++ y oculta la etiqueta interna de la gráfica.</p>
+              <label class="field-label">Canal a vincular
+                <select class="field-input" data-trend-live-label-ch>
+                  <option value="1">CH1</option>
+                </select>
+              </label>
+              <button type="button" class="small-action-btn trend-live-action-btn" data-trend-action="create-live-label">+ Crear etiqueta en vivo</button>
+            </div>
           </div>
 
           <!-- PANEL: Apariencia -->
@@ -790,7 +812,7 @@
     });
   }
 
-  const DEFAULT_TRUE_BOOL_PROPS = new Set(['frame', 'showAxes', 'showGuides', 'showTimeAxis']);
+  const DEFAULT_TRUE_BOOL_PROPS = new Set(['frame', 'showAxes', 'showGuides', 'showTimeAxis', 'showLiveValue']);
   const DEFAULT_FALSE_BOOL_PROPS = new Set(['ch2Enabled', 'ch3Enabled', 'thr1Enabled', 'thr2Enabled', 'enableSD']);
   const COLOR_FLAG_MAP = {
     ch2Color: 'ch2Enabled',
@@ -827,6 +849,114 @@
     }).join('');
   }
 
+  function trendChannelDescriptor(f, ch) {
+    const codegenCore = window.JWPLCHMICodegenCore;
+    const primaryVar = codegenCore?.sanitizeSymbol
+      ? codegenCore.sanitizeSymbol(f.variable, 'temperatura')
+      : String(f.variable || 'temperatura');
+    if (ch === 2 && f.ch2Enabled) {
+      return {
+        ch: 2,
+        variable: codegenCore?.sanitizeSymbol ? codegenCore.sanitizeSymbol(f.ch2Variable, 'setpoint') : String(f.ch2Variable || 'setpoint'),
+        label: f.ch2Label || 'SP',
+        color: f.ch2Color ?? 0x07FF,
+        preview: '25.0'
+      };
+    }
+    if (ch === 3 && f.ch3Enabled) {
+      return {
+        ch: 3,
+        variable: codegenCore?.sanitizeSymbol ? codegenCore.sanitizeSymbol(f.ch3Variable, 'salida') : String(f.ch3Variable || 'salida'),
+        label: f.ch3Label || 'CH3',
+        color: f.ch3Color ?? 0x07E0,
+        preview: '0.0'
+      };
+    }
+    return {
+      ch: 1,
+      variable: primaryVar,
+      label: f.title || f.label || f.name || 'VAL',
+      color: f.curveColor ?? 0xFD20,
+      preview: f.preview || '12.3'
+    };
+  }
+
+  function findLinkedValueField(f, chVar) {
+    const fields = editor()?.getAllFields?.() || [];
+    const targetPage = Number(f.page || 0);
+    return fields.find((other) =>
+      other !== f &&
+      other?.type === 'VALUE' &&
+      other.valueKind !== 'DATETIME' &&
+      other.valueKind !== 'DURATION' &&
+      Number(other.page || 0) === targetPage &&
+      String(other.variable || '') === String(chVar || '')
+    ) || null;
+  }
+
+  function syncLiveLabelCard(section, f) {
+    const chSelect = section.querySelector('[data-trend-live-label-ch]');
+    const statusEl = section.querySelector('[data-trend-live-label-status]');
+    const actionBtn = section.querySelector('[data-trend-action="create-live-label"]');
+    if (!chSelect || !statusEl || !actionBtn) return;
+
+    const prevCh = Number(chSelect.value || 1);
+    const opts = [`<option value="1">CH1 (${f.variable || 'var1'})</option>`];
+    if (f.ch2Enabled) opts.push(`<option value="2">CH2 (${f.ch2Variable || 'var2'})</option>`);
+    if (f.ch3Enabled) opts.push(`<option value="3">CH3 (${f.ch3Variable || 'var3'})</option>`);
+    chSelect.innerHTML = opts.join('');
+    const validCh = (prevCh === 2 && f.ch2Enabled) || (prevCh === 3 && f.ch3Enabled) ? prevCh : 1;
+    chSelect.value = String(validCh);
+
+    const desc = trendChannelDescriptor(f, validCh);
+    const existing = findLinkedValueField(f, desc.variable);
+    if (existing) {
+      statusEl.textContent = `Vinculada (${existing.id || 'VALUE'})`;
+      statusEl.classList.add('is-linked');
+      actionBtn.textContent = 'Seleccionar etiqueta externa';
+    } else {
+      statusEl.textContent = 'Sin etiqueta';
+      statusEl.classList.remove('is-linked');
+      actionBtn.textContent = '+ Crear etiqueta en vivo';
+    }
+  }
+
+  function createOrSelectLiveLabel(section, f, ch) {
+    const ed = editor();
+    if (!ed) return null;
+    const desc = trendChannelDescriptor(f, ch);
+    const existing = findLinkedValueField(f, desc.variable);
+    if (existing) {
+      ed.setSelectedFieldKeys?.([existing.key]);
+      return existing;
+    }
+
+    const vf = ed.addValueField?.();
+    if (!vf) return null;
+    vf.page = Number(f.page || 0);
+    vf.variable = desc.variable;
+    vf.label = String(desc.label || 'VAL').slice(0, 12);
+    vf.unit = String(f.unit || '');
+    vf.decimalDigits = Math.max(0, Math.min(3, Number(f.decimals ?? 1)));
+    vf.preview = String(desc.preview || '12.3');
+    vf.valueColor = desc.color;
+    vf.labelColor = desc.color;
+    vf.backgroundColor = f.backgroundColor ?? 0x0000;
+    vf.frame = false;
+    vf.layout = 'INLINE';
+    vf.valueSize = 2;
+    vf.labelSize = 1;
+    const gx = Math.max(0, Number(f.x) || 0);
+    const gy = Number(f.y) || 0;
+    const channelOffset = Math.max(0, (Number(desc.ch) - 1) * 76);
+    vf.x = Math.min(240, gx + channelOffset);
+    vf.y = (gy >= 20) ? (gy - 18) : Math.min(150, gy + 2);
+    f.showLiveValue = false;
+    ed.setSelectedFieldKeys?.([vf.key]);
+    ed.commitHistory?.();
+    return vf;
+  }
+
   function bindEvents(section) {
     // Main tabs
     section.querySelectorAll('[data-trend-main]').forEach((btn) => {
@@ -850,6 +980,17 @@
     });
     section.querySelector('[data-trend-action="delete"]')?.addEventListener('click', () => {
       editor()?.deleteSelectedField?.();
+    });
+    const liveLabelChSelect = section.querySelector('[data-trend-live-label-ch]');
+    liveLabelChSelect?.addEventListener('change', () => {
+      const f = selectedTrendField();
+      if (f) syncLiveLabelCard(section, f);
+    });
+    section.querySelector('[data-trend-action="create-live-label"]')?.addEventListener('click', () => {
+      const f = selectedTrendField();
+      if (!f) return;
+      const ch = Number(liveLabelChSelect?.value || 1);
+      createOrSelectLiveLabel(section, f, ch);
     });
 
     // Presets
@@ -1115,6 +1256,9 @@
 
     // Pages (Ubicación)
     syncTrendPages(section, f);
+
+    // Linked live VALUE label
+    syncLiveLabelCard(section, f);
 
     // Mini-preview
     drawAppearancePreview(section, f);

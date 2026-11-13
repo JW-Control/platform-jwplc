@@ -9,7 +9,7 @@ Las propiedades internas que el Designer guarda pero que no hace falta escribir 
 ## Límites
 
 - Pantalla: 320×170 px, origen arriba a la izquierda.
-- Páginas: 1 a 16. Objetos: 32 (contando la NAV_BAR). Capas PIXEL: 16.
+- Páginas: 1 a 16. Objetos: 64 (contando la NAV_BAR). Capas PIXEL: 16.
 - MENU: uno por página, 4 en el proyecto, 64 nodos y 3 niveles por MENU.
 
 ## Colores
@@ -27,7 +27,7 @@ Número RGB565 (`63488`), texto hexadecimal (`"0xF800"`), `"#RRGGBB"` / `"#RGB"`
 | `projectName` | texto | `"HMI_ST7789"` | Nombre del proyecto (48 caracteres). |
 | `display` | objeto |  | Pantalla IDLE y arranque (ver «display»). |
 | `pages` **(obligatoria)** | arreglo |  | Páginas (1 a 16). |
-| `fields` | arreglo | `[]` | Objetos (máximo 32 contando la NAV_BAR). |
+| `fields` | arreglo | `[]` | Objetos (máximo 64 campos dinámicos TEXT/VALUE/BOOL/BAR/ICON/TREND; figuras, RAW_TEXT, MENU, EVENT_LOG y NAV_BAR no gastan cupo). |
 | `pixelMaps` | arreglo | `[]` | Capas de píxeles (máximo 16). |
 
 ## Páginas (`pages[]`)
@@ -321,6 +321,7 @@ Gráfica de tendencia temporal (JWPLC_UITrend). Declara `float`. Soporta auto-es
 | `showAxes` | bool | `true` | Muestra el eje Y y eje X base. |
 | `showGuides` | bool | `true` | Muestra las líneas guía referenciales (25% y 75%). |
 | `showTimeAxis` | bool | `true` | Muestra marcas de tiempo en el eje X. |
+| `showLiveValue` | bool | `true` | Muestra el título y valor en vivo integrados en el encabezado de la gráfica. |
 | `enableSD` | bool | `false` | Activa el registro continuo en tarjeta MicroSD. |
 | `sdIntervalMs` | entero 100..60000 | `1000` | Periodo de volcado a la tarjeta MicroSD. |
 | `curveColor` | color | `0xFD20` | Color de la línea de tendencia (Canal 1). |

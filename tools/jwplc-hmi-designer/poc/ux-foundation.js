@@ -279,7 +279,7 @@
           loadScript('./designer-idle.js?v=1793801300');
           loadScript('./designer-runtime.js?v=1793810000');
           loadScript('./designer-field-visibility.js?v=1793802300', () => {
-            loadScript('./designer-pages.js?v=1794578500', () => {
+            loadScript('./designer-pages.js?v=1794592000', () => {
               loadScript('./designer-flasher.js?v=1793801500', () => {
                 loadScript('./designer-port-picker.js?v=1793801500');
                 loadScript('./designer-live.js?v=1793801700');

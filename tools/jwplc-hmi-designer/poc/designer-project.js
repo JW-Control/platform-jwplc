@@ -329,7 +329,12 @@
     if (!Array.isArray(data.pages) || !data.pages.length || data.pages.length > 16) {
       throw new Error('El proyecto contiene una cantidad de páginas inválida.');
     }
-    if (!Array.isArray(data.fields) || data.fields.length > 32) {
+    const DYNAMIC_FIELD_TYPES = new Set(['TEXT', 'VALUE', 'BOOL', 'BAR', 'ICON', 'TREND']);
+    if (!Array.isArray(data.fields) || data.fields.length > 256) {
+      throw new Error('El proyecto contiene una cantidad de objetos inválida.');
+    }
+    const dynamicCount = data.fields.filter((f) => DYNAMIC_FIELD_TYPES.has(f?.type)).length;
+    if (dynamicCount > 64) {
       throw new Error('El proyecto contiene una cantidad de campos inválida.');
     }
 
@@ -396,7 +401,11 @@
 
     const desiredCount = Math.max(1, importedFields.length);
     const currentFields = api.getAllFields();
-    while (currentFields.length < desiredCount) api.addTextField?.();
+    while (currentFields.length < desiredCount) {
+      if (api.addTextField?.() === false) {
+        currentFields.push({ type: 'RECT', key: `tmp-${currentFields.length + 1}`, page: 0, x: 0, y: 0, x2: 1, y2: 1 });
+      }
+    }
 
     window.JWPLCHMIIcons?.loadAssets?.(normalized.iconAssets);
     const liveFields = api.getAllFields();

@@ -115,7 +115,7 @@
     const api = editor();
     const current = selectedField();
     if (current?.type === 'BOOL') return;
-    api?.addTextField?.();
+    if (!api?.addTextField?.()) return;
     const field = selectedField();
     if (!field) return;
 

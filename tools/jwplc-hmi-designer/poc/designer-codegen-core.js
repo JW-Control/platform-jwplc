@@ -321,10 +321,12 @@
     const showFrame = cppBool(field.frame !== false);
     const ch2Lbl = `"${cppString(String(field.ch2Label || 'SP').slice(0, 8))}"`;
     const ch3Lbl = `"${cppString(String(field.ch3Label || 'CH3').slice(0, 8))}"`;
+    const hideLiveValue = field.showLiveValue === false;
 
-    const hasExtras = channelCount > 1 || thresholdCount > 0 || field.frame === false;
+    const hasExtras = channelCount > 1 || thresholdCount > 0 || field.frame === false || hideLiveValue;
+    const liveTailArg = hideLiveValue ? `, false` : '';
     const extrasArgs = hasExtras
-      ? `,\n            ${showGuides},\n            ${channelCount},\n            ${c2Color},\n            ${c3Color},\n            ${thresholdCount},\n            ${cppFloat(t1Val)},\n            ${t1Color},\n            ${cppFloat(t2Val)},\n            ${t2Color},\n            ${showFrame},\n            ${ch2Lbl},\n            ${ch3Lbl}`
+      ? `,\n            ${showGuides},\n            ${channelCount},\n            ${c2Color},\n            ${c3Color},\n            ${thresholdCount},\n            ${cppFloat(t1Val)},\n            ${t1Color},\n            ${cppFloat(t2Val)},\n            ${t2Color},\n            ${showFrame},\n            ${ch2Lbl},\n            ${ch3Lbl}${liveTailArg}`
       : (field.showGuides === false ? `,\n            ${showGuides}` : '');
 
     const metaParts = [`Muestreo: ${sampleMs}ms`, `Escala: ${field.scaleMode || 'AUTO'}`];
@@ -381,6 +383,23 @@
     return trendChannelVariables(field, variable).map((v) => `float ${v} = 0.0f;`).join('\n');
   }
 
+  function fieldVariableCppType(field) {
+    if (!field || !field.type) return null;
+    if (field.type === 'VALUE') {
+      if (isClockField(field)) return null;
+      return valueCppType(field);
+    }
+    if (field.type === 'BAR' || field.type === 'TREND') return 'float';
+    if (field.type === 'BOOL') return 'bool';
+    if (field.type === 'ICON') return field.iconVarType === 'uint8' ? 'uint8_t' : 'bool';
+    if (field.type === 'TEXT') return 'char[]';
+    return null;
+  }
+
+  function canShareVariableTypes(typeA, typeB) {
+    return Boolean(typeA && typeB && typeA === typeB && typeA !== 'char[]');
+  }
+
   function variableDeclaration(field, variable) {
     if (field.type === 'VALUE') return valueDeclaration(field, variable);
     if (field.type === 'TREND') return trendVariableDeclarations(field, variable);
@@ -420,6 +439,8 @@
     barFieldBlock,
     trendChannelVariables,
     trendVariableDeclarations,
+    fieldVariableCppType,
+    canShareVariableTypes,
     trendFieldBlock,
     fontCppSymbol,
     styleFontsArgs,
