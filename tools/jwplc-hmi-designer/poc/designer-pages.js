@@ -2287,6 +2287,28 @@
 
   window.addEventListener('jwplc:editor-refresh', patchUI);
   window.addEventListener('resize', () => setTimeout(patchUI, 0));
+  document.addEventListener?.('keydown', (event) => {
+    if (!event.ctrlKey || event.altKey || event.metaKey || event.key !== 'Tab') return;
+    if (activeInlineRenameId !== null) return;
+    if (event.target?.closest?.('.page-tab-rename-input')) return;
+    if (document.querySelector?.('.jw-dialog-backdrop')) return;
+    event.preventDefault();
+    const list = pages();
+    if (list.length <= 1) return;
+    const curId = activePage();
+    const idx = Math.max(0, list.findIndex((p) => p.id === curId));
+    const step = event.shiftKey ? -1 : 1;
+    const target = list[(idx + step + list.length) % list.length];
+    if (!target || target.id === curId) return;
+    navigationMode = 'SELECT';
+    editor()?.setActivePage?.(target.id);
+    pageTabs.querySelectorAll('.page-tab-pill').forEach((p) => {
+      p.classList.toggle('active', p.dataset.pageId === String(target.id));
+    });
+    scrollActiveTabIntoView(true);
+    patchCanvases();
+    patchStatus();
+  });
   contractTab?.addEventListener('click', () => setTimeout(patchGeneratedCode, 0));
   statusTab?.addEventListener('click', () => setTimeout(patchUI, 0));
   generateButton?.addEventListener('click', () => setTimeout(patchGeneratedCode, 0));
