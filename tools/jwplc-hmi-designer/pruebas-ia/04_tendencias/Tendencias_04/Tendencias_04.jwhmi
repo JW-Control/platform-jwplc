@@ -9,7 +9,7 @@
     "pixelFormat": "RGB565"
   },
   "projectName": "Tendencias_04",
-  "savedAt": "2026-11-13T15:48:05.920Z",
+  "savedAt": "2026-11-13T16:05:51.686Z",
   "activePage": 0,
   "navigationBar": {
     "enabled": true,
@@ -114,7 +114,7 @@
       "x": 244,
       "y": 2,
       "valueKind": "DATETIME",
-      "dateTimePattern": "HH_MM_SS",
+      "dateTimePattern": "HH_MM",
       "valueSize": 1,
       "valueColor": 2047,
       "backgroundColor": 15,
@@ -153,13 +153,13 @@
       "minValue": 0,
       "maxValue": 100,
       "decimals": 1,
-      "lineWidth": 1,
+      "lineWidth": 2,
       "showAxes": true,
       "showGuides": true,
       "showTimeAxis": true,
       "enableSD": true,
       "sdIntervalMs": 500,
-      "curveColor": 48103,
+      "curveColor": 64576,
       "axesColor": 65535,
       "gridColor": 16904,
       "textColor": 65535,
@@ -182,8 +182,7 @@
       "page": 0,
       "name": "FIELD_TEND_HORNO",
       "layerOrder": 11,
-      "cornerRadius": 0,
-      "frame": false
+      "cornerRadius": 0
     },
     {
       "type": "RECT",

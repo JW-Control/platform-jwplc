@@ -318,9 +318,13 @@
     const t2Val = activeThresholds[1]?.val ?? 20;
     const t2Color = activeThresholds[1]?.color ?? hex565(0xFFE0);
 
-    const hasExtras = channelCount > 1 || thresholdCount > 0;
+    const showFrame = cppBool(field.frame !== false);
+    const ch2Lbl = `"${cppString(String(field.ch2Label || 'SP').slice(0, 8))}"`;
+    const ch3Lbl = `"${cppString(String(field.ch3Label || 'CH3').slice(0, 8))}"`;
+
+    const hasExtras = channelCount > 1 || thresholdCount > 0 || field.frame === false;
     const extrasArgs = hasExtras
-      ? `,\n            ${showGuides},\n            ${channelCount},\n            ${c2Color},\n            ${c3Color},\n            ${thresholdCount},\n            ${cppFloat(t1Val)},\n            ${t1Color},\n            ${cppFloat(t2Val)},\n            ${t2Color}`
+      ? `,\n            ${showGuides},\n            ${channelCount},\n            ${c2Color},\n            ${c3Color},\n            ${thresholdCount},\n            ${cppFloat(t1Val)},\n            ${t1Color},\n            ${cppFloat(t2Val)},\n            ${t2Color},\n            ${showFrame},\n            ${ch2Lbl},\n            ${ch3Lbl}`
       : (field.showGuides === false ? `,\n            ${showGuides}` : '');
 
     const metaParts = [`Muestreo: ${sampleMs}ms`, `Escala: ${field.scaleMode || 'AUTO'}`];
@@ -350,7 +354,7 @@
       `            ${textColor},\n` +
       `            ${bgColor}${extrasArgs}),\n` +
       `        ${field.page || 0},\n` +
-      `        ${colorsBlock(field.labelColor ?? 0xFFFF, field.curveColor ?? 0xFD20, field.backgroundColor ?? 0x0000, field.axesColor ?? 0xFFFF)})`;
+      `        ${colorsBlock(field.labelColor ?? 0xFFFF, field.curveColor ?? 0xFD20, field.backgroundColor ?? 0x0000, field.gridColor ?? 0x4208)})`;
   }
 
   function fieldBlock(field, id) {

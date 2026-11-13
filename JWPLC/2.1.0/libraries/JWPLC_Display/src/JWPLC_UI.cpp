@@ -1663,6 +1663,83 @@ namespace
         }
     }
 
+    void formatTrendChannelTag(const char *raw, const char *fallback, char *out, size_t cap)
+    {
+        const char *src = (raw != nullptr && raw[0] != '\0') ? raw : fallback;
+        char glcd[16];
+        JWPLCUIFormat::utf8ToGlcd(src, glcd, sizeof(glcd));
+        size_t n = strlen(glcd);
+        if (n > 4U) n = 4U;
+        if (n >= cap) n = cap - 1U;
+        memcpy(out, glcd, n);
+        out[n] = '\0';
+    }
+
+    int16_t drawOrMeasureTrendLegend(
+        JWPLC_TFTClass *tft,
+        const JWPLC_UITrendConfig &cfg,
+        const TrendGeometry &g,
+        int16_t minLeftX)
+    {
+        uint8_t chCount = cfg.channelCount;
+        if (chCount < 1U) chCount = 1U;
+        if (chCount > 3U) chCount = 3U;
+        int16_t rightLimit = g.x + g.w - 3;
+        if (chCount <= 1U || rightLimit - minLeftX < 18)
+        {
+            return rightLimit;
+        }
+
+        char lbl2[6];
+        char lbl3[6];
+        formatTrendChannelTag(cfg.ch2Label, "SP", lbl2, sizeof(lbl2));
+        formatTrendChannelTag(cfg.ch3Label, "CH3", lbl3, sizeof(lbl3));
+        const int16_t item2W = 5 + 2 + (int16_t)strlen(lbl2) * 6;
+        const int16_t item3W = (chCount >= 3U) ? (5 + 2 + (int16_t)strlen(lbl3) * 6 + 5) : 0;
+        const int16_t fullW = item2W + item3W;
+
+        if (rightLimit - fullW >= minLeftX)
+        {
+            if (tft != nullptr)
+            {
+                tft->setFont(JWPLC_FONT_GLCD);
+                tft->setTextSize(1);
+            }
+            if (chCount >= 3U)
+            {
+                const int16_t x3 = rightLimit - (5 + 2 + (int16_t)strlen(lbl3) * 6);
+                if (tft != nullptr)
+                {
+                    tft->fillRect(x3, g.y + 3, 5, 5, cfg.ch3Color);
+                    tft->setTextColor(cfg.ch3Color, cfg.backgroundColor);
+                    tft->setCursor(x3 + 7, g.y + 2);
+                    tft->print(lbl3);
+                }
+                rightLimit = x3 - 5;
+            }
+            const int16_t x2 = rightLimit - item2W;
+            if (tft != nullptr)
+            {
+                tft->fillRect(x2, g.y + 3, 5, 5, cfg.ch2Color);
+                tft->setTextColor(cfg.ch2Color, cfg.backgroundColor);
+                tft->setCursor(x2 + 7, g.y + 2);
+                tft->print(lbl2);
+            }
+            return x2 - 4;
+        }
+
+        // Respaldo compacto: solo cuadros de color si el encabezado es muy estrecho
+        if (chCount >= 3U)
+        {
+            rightLimit -= 8;
+            if (tft != nullptr) tft->fillRect(rightLimit, g.y + 3, 6, 6, cfg.ch3Color);
+            rightLimit -= 2;
+        }
+        rightLimit -= 8;
+        if (tft != nullptr) tft->fillRect(rightLimit, g.y + 3, 6, 6, cfg.ch2Color);
+        return rightLimit - 3;
+    }
+
     void drawTrendStaticChrome(
         JWPLC_TFTClass &tft,
         const FieldRuntime &field,
@@ -1685,19 +1762,25 @@ namespace
         tft.setFont(JWPLC_FONT_GLCD);
         tft.setTextSize(1);
 
+        int16_t titleEnd = 3;
         if (def.text.label != nullptr && def.text.label[0] != '\0')
         {
             char glcdTitle[40];
             JWPLCUIFormat::utf8ToGlcd(def.text.label, glcdTitle, sizeof(glcdTitle));
             const int16_t maxChars = (g.w > 24) ? ((g.w / 2 - 4) / 6) : 3;
-            if (maxChars > 0 && (int16_t)strlen(glcdTitle) > maxChars)
+            int16_t len = (int16_t)strlen(glcdTitle);
+            if (maxChars > 0 && len > maxChars)
             {
+                len = maxChars;
                 glcdTitle[maxChars] = '\0';
             }
             tft.setTextColor(cfg.curveColor, cfg.backgroundColor);
             tft.setCursor(g.x + 3, g.y + 2);
             tft.print(glcdTitle);
+            titleEnd = 3 + len * 6 + 6;
         }
+
+        drawOrMeasureTrendLegend(&tft, cfg, g, g.x + titleEnd + 36);
 
         if (cfg.showAxes)
         {
@@ -1814,7 +1897,8 @@ namespace
         }
 
         const int16_t clearX = g.x + titleEnd;
-        const int16_t clearW = g.w - titleEnd - 2;
+        const int16_t rightLimit = drawOrMeasureTrendLegend(nullptr, cfg, g, clearX + 36);
+        const int16_t clearW = rightLimit - clearX;
         if (clearW <= 6)
         {
             return;
@@ -1823,23 +1907,6 @@ namespace
         tft.fillRect(clearX, g.y + 1, clearW, 10, cfg.backgroundColor);
         tft.setFont(JWPLC_FONT_GLCD);
         tft.setTextSize(1);
-
-        int16_t rightLimit = g.x + g.w - 3;
-        uint8_t chCount = cfg.channelCount;
-        if (chCount < 1U) chCount = 1U;
-        if (chCount > 3U) chCount = 3U;
-        if (chCount > 1U && clearW >= 36)
-        {
-            if (chCount >= 3U)
-            {
-                rightLimit -= 8;
-                tft.fillRect(rightLimit, g.y + 3, 6, 6, cfg.ch3Color);
-                rightLimit -= 2;
-            }
-            rightLimit -= 8;
-            tft.fillRect(rightLimit, g.y + 3, 6, 6, cfg.ch2Color);
-            rightLimit -= 3;
-        }
 
         char valText[32];
         if (!field.hasValue)

@@ -387,7 +387,7 @@ JWPLC_UIField JWPLC_UITrendField(
         JWPLC_UIFieldMeta(id, page, JWPLC_UI_FIELD_TREND),
         rect,
         text,
-        JWPLC_UIStyle(1, 1, trendConfig.showAxes, JWPLC_UI_LAYOUT_STACKED),
+        JWPLC_UIStyle(1, 1, trendConfig.showFrame, JWPLC_UI_LAYOUT_STACKED),
         colors,
         JWPLC_UIValueFormat(),
         JWPLC_UIBoolText(),

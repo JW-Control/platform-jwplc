@@ -475,6 +475,9 @@ struct JWPLC_UITrendConfig
     uint16_t thr1Color;     // Color umbral 1 (por defecto rojo)
     float thr2Value;        // Valor umbral 2
     uint16_t thr2Color;     // Color umbral 2 (por defecto amarillo)
+    bool showFrame;         // Mostrar borde exterior
+    const char *ch2Label;   // Etiqueta canal 2 en encabezado
+    const char *ch3Label;   // Etiqueta canal 3 en encabezado
 
     constexpr JWPLC_UITrendConfig(
         uint16_t sampleIntervalMsVal = 1000,
@@ -499,7 +502,10 @@ struct JWPLC_UITrendConfig
         float thr1ValueVal = 85.0f,
         uint16_t thr1ColorVal = 0xF800,
         float thr2ValueVal = 20.0f,
-        uint16_t thr2ColorVal = 0xFFE0)
+        uint16_t thr2ColorVal = 0xFFE0,
+        bool showFrameVal = true,
+        const char *ch2LabelVal = "SP",
+        const char *ch3LabelVal = "CH3")
         : sampleIntervalMs(sampleIntervalMsVal),
           visibleSamples(visibleSamplesVal),
           scaleMode(scaleModeVal),
@@ -522,7 +528,10 @@ struct JWPLC_UITrendConfig
           thr1Value(thr1ValueVal),
           thr1Color(thr1ColorVal),
           thr2Value(thr2ValueVal),
-          thr2Color(thr2ColorVal)
+          thr2Color(thr2ColorVal),
+          showFrame(showFrameVal),
+          ch2Label(ch2LabelVal),
+          ch3Label(ch3LabelVal)
     {
     }
 };

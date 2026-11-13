@@ -61,11 +61,14 @@ if (typeof codegenCore.trendFieldBlock === 'function') {
   // Multicanal (2 y 3 canales) + umbrales
   const multiField = {
     ...sampleField,
+    frame: false,
     ch2Enabled: true,
     ch2Variable: 'sp_horno',
+    ch2Label: 'CONS',
     ch2Color: 0x07FF,
     ch3Enabled: true,
     ch3Variable: 'amb_horno',
+    ch3Label: 'OUT',
     ch3Color: 0x07E0,
     thr1Enabled: true,
     thr1Value: 95.5,
@@ -75,7 +78,8 @@ if (typeof codegenCore.trendFieldBlock === 'function') {
     thr2Color: 0xFFE0
   };
   const multiBlock = codegenCore.trendFieldBlock(multiField, 'FIELD_TREND_1');
-  check(/,\s*3,\s*0x07FF,\s*0x07E0,\s*2,\s*95\.5f,\s*0xF800,\s*18(\.0)?f,\s*0xFFE0\)/.test(multiBlock), 'trendFieldBlock emite channelCount=3, thresholdCount=2 y sus parámetros');
+  check(/,\s*3,\s*0x07FF,\s*0x07E0,\s*2,\s*95\.5f,\s*0xF800,\s*18(\.0)?f,\s*0xFFE0,\s*false,\s*"CONS",\s*"OUT"\)/.test(multiBlock), 'trendFieldBlock emite channelCount=3, thresholdCount=2, showFrame=false y etiquetas de canal');
+  check(/0x4208\)/.test(block), 'trendFieldBlock usa gridColor (0x4208) como color de marco en JWPLC_UIColors');
 
   const multiDecl = codegenCore.variableDeclaration(multiField, 'temp_horno');
   check(multiDecl === 'float temp_horno = 0.0f;\nfloat sp_horno = 0.0f;\nfloat amb_horno = 0.0f;', 'variableDeclaration declara los 3 canales float');
