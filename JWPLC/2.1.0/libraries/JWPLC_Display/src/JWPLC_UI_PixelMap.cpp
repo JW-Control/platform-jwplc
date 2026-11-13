@@ -3,6 +3,7 @@
 
 #include "JWPLC_Display_API.h"
 #include "JWPLC_UI.h"
+#include "JWPLC_UI_RuntimeHooks.h"
 
 
 namespace
@@ -154,6 +155,8 @@ namespace JWPLCUI
 {
     bool setPixelMaps(const JWPLC_UIPixelMap *maps, size_t count)
     {
+        jwplcUIRuntimeEnsureLinked();
+
         if ((maps == nullptr && count != 0) || count > JWPLC_UI_MAX_PIXEL_MAPS)
         {
             return false;
@@ -178,6 +181,8 @@ namespace JWPLCUI
 
     bool setPackedPixelMaps(const JWPLC_UIPixelPackedMap *maps, size_t count)
     {
+        jwplcUIRuntimeEnsureLinked();
+
         if ((maps == nullptr && count != 0) || count > JWPLC_UI_MAX_PIXEL_MAPS)
         {
             return false;

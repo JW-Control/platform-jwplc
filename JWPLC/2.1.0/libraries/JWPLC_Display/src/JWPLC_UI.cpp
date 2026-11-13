@@ -1,5 +1,6 @@
 #include "JWPLC_UI.h"
 #include "JWPLC_UI_Format.h"
+#include "JWPLC_UI_RuntimeHooks.h"
 #include <JWPLC_TFT.h>
 #include <JWPLC_GlobalPeripherals.h>
 #include <JW_SD.h>
@@ -18,6 +19,10 @@ extern "C"
 #include "jwplc_peripherals.h"
 }
 
+#if defined(ESP32)
+#include <soc/soc.h>
+#endif
+
 namespace
 {
     static constexpr uint8_t VALUE_BUFFER_SIZE = 40;
@@ -29,47 +34,57 @@ namespace
     struct TrendRuntime
     {
         float *samples;
+        JWPLCDataLog *sdLog;
+        uint32_t lastSampleMs;
+        uint32_t lastSdMs;
+        float drawnLow;
+        float drawnHigh;
         uint16_t capacity;
         uint16_t count;
         uint16_t head;
         uint16_t drawnCount;
         uint8_t channels;
-        uint32_t lastSampleMs;
-        uint32_t lastSdMs;
-        float drawnLow;
-        float drawnHigh;
         bool fullRedraw;
         bool headerOnly;
         bool hasDrawnScale;
         bool sdStarted;
         bool sdFailed;
         bool sdInitAttempted;
-        JWPLCDataLog *sdLog;
     };
 
     struct FieldRuntime
     {
-        JWPLC_UIField def;
-        bool used;
-        bool dirty;
-        bool hasValue;
-        bool boolState;
-        // BOOL con fondo por estado: al cambiar de estado se repinta el campo
-        // completo (fondo, marco, etiqueta y unidad), no sólo el valor.
-        bool staticDirty;
+        // Apunta directo a HMI_FIELDS[] en Flash (.rodata) o a g_ownedDefs si
+        // setFields() recibió un arreglo temporal en RAM/stack (64 B totales).
+        const JWPLC_UIField *def;
 
-        char value[VALUE_BUFFER_SIZE];
-        float barValue;
-        float trendCh2;
-        float trendCh3;
-        TrendRuntime *trend;
-        // BAR: ancho de relleno que hay en pantalla; -1 = desconocido
-        // (repintado completo). Con él sólo se pinta o borra el tramo que cambió.
-        int16_t barDrawnW;
-        // ICON: estado pedido (0..stateCount-1); se dibuja aunque no haya setter.
-        uint8_t iconState;
-        uint8_t iconAnimFrame;
-        uint32_t lastAnimTickMs;
+        union RuntimeStorage
+        {
+            char value[VALUE_BUFFER_SIZE];
+            struct
+            {
+                float value;
+                int16_t drawnW;
+            } bar;
+            struct
+            {
+                TrendRuntime *rt;
+                float ch1;
+                float ch2;
+                float ch3;
+            } trend;
+            struct
+            {
+                uint32_t lastAnimTickMs;
+                uint8_t state;
+                uint8_t animFrame;
+            } icon;
+
+            RuntimeStorage()
+            {
+                memset(this, 0, sizeof(*this));
+            }
+        } u;
 
         int16_t fieldX;
         int16_t fieldY;
@@ -81,21 +96,16 @@ namespace
         int16_t valueW;
         int16_t valueH;
 
+        bool dirty;
+        bool hasValue;
+        bool boolState;
+        // BOOL con fondo por estado: al cambiar de estado se repinta el campo
+        // completo (fondo, marco, etiqueta y unidad), no sólo el valor.
+        bool staticDirty;
+
         FieldRuntime()
-            : def(),
-              used(false),
-              dirty(true),
-              hasValue(false),
-              boolState(false),
-              staticDirty(false),
-              barValue(0.0f),
-              trendCh2(0.0f),
-              trendCh3(0.0f),
-              trend(nullptr),
-              barDrawnW(-1),
-              iconState(0),
-              iconAnimFrame(0),
-              lastAnimTickMs(0),
+            : def(nullptr),
+              u(),
               fieldX(0),
               fieldY(0),
               fieldW(0),
@@ -103,33 +113,53 @@ namespace
               valueX(0),
               valueY(0),
               valueW(0),
-              valueH(0)
+              valueH(0),
+              dirty(true),
+              hasValue(false),
+              boolState(false),
+              staticDirty(false)
         {
-            memset(value, 0, sizeof(value));
         }
     };
 
     FieldRuntime g_fields[JWPLC_UI_MAX_FIELDS];
+    JWPLC_UIField *g_ownedDefs = nullptr;
+
+    inline bool isFieldUsed(const FieldRuntime &field)
+    {
+        return field.def != nullptr;
+    }
+
+    inline bool isFlashFieldArray(const JWPLC_UIField *fields)
+    {
+#if defined(ESP32) && defined(SOC_DROM_LOW) && defined(SOC_DROM_HIGH)
+        const uintptr_t addr = (uintptr_t)fields;
+        return addr >= (uintptr_t)SOC_DROM_LOW && addr < (uintptr_t)SOC_DROM_HIGH;
+#else
+        (void)fields;
+        return false;
+#endif
+    }
 
     void freeTrendRuntime(FieldRuntime &field)
     {
-        if (field.trend == nullptr)
+        if (field.def == nullptr ||
+            field.def->meta.type != JWPLC_UI_FIELD_TREND ||
+            field.u.trend.rt == nullptr)
         {
             return;
         }
-        if (field.trend->samples != nullptr)
+        TrendRuntime *tr = field.u.trend.rt;
+        if (tr->sdLog != nullptr)
         {
-            free(field.trend->samples);
-            field.trend->samples = nullptr;
+            tr->sdLog->close(true);
+            delete tr->sdLog;
+            tr->sdLog = nullptr;
         }
-        if (field.trend->sdLog != nullptr)
-        {
-            field.trend->sdLog->close(true);
-            delete field.trend->sdLog;
-            field.trend->sdLog = nullptr;
-        }
-        free(field.trend);
-        field.trend = nullptr;
+        // samples vive en el mismo bloque contiguo calloc(TrendRuntime + samples).
+        tr->samples = nullptr;
+        free(tr);
+        field.u.trend.rt = nullptr;
     }
 
     void freeAllTrendRuntimes()
@@ -137,6 +167,31 @@ namespace
         for (size_t i = 0; i < JWPLC_UI_MAX_FIELDS; ++i)
         {
             freeTrendRuntime(g_fields[i]);
+        }
+        if (g_ownedDefs != nullptr)
+        {
+            free(g_ownedDefs);
+            g_ownedDefs = nullptr;
+        }
+    }
+
+    void resetFieldRedrawState(FieldRuntime &field)
+    {
+        field.dirty = true;
+        if (field.def == nullptr)
+        {
+            return;
+        }
+        const JWPLC_UIFieldType t = field.def->meta.type;
+        if (t == JWPLC_UI_FIELD_BAR || t == JWPLC_UI_FIELD_CIRCULAR)
+        {
+            field.u.bar.drawnW = -1;
+        }
+        else if (t == JWPLC_UI_FIELD_TREND && field.u.trend.rt != nullptr)
+        {
+            field.u.trend.rt->fullRedraw = true;
+            field.u.trend.rt->headerOnly = false;
+            field.u.trend.rt->drawnCount = 0U;
         }
     }
 
@@ -226,7 +281,7 @@ namespace
     TrendGeometry computeTrendGeometry(const FieldRuntime &field)
     {
         TrendGeometry g{};
-        const JWPLC_UIField &def = field.def;
+        const JWPLC_UIField &def = *field.def;
         const JWPLC_UITrendConfig &cfg = def.trendConfig;
         g.x = def.rect.x;
         g.y = def.rect.y;
@@ -282,40 +337,36 @@ namespace
 
     TrendRuntime *ensureTrendRuntime(FieldRuntime &field)
     {
-        if (field.trend != nullptr)
+        if (field.u.trend.rt != nullptr)
         {
-            return field.trend;
+            return field.u.trend.rt;
         }
-        uint16_t cap = field.def.trendConfig.visibleSamples;
+        uint16_t cap = field.def->trendConfig.visibleSamples;
         if (cap < 20) cap = 20;
         if (cap > 320) cap = 320;
-        uint8_t chCount = field.def.trendConfig.channelCount;
+        uint8_t chCount = field.def->trendConfig.channelCount;
         if (chCount < 1U) chCount = 1U;
         if (chCount > 3U) chCount = 3U;
 
-        TrendRuntime *tr = (TrendRuntime *)calloc(1, sizeof(TrendRuntime));
+        const size_t totalSamples = (size_t)cap * (size_t)chCount;
+        TrendRuntime *tr = (TrendRuntime *)calloc(1, sizeof(TrendRuntime) + totalSamples * sizeof(float));
         if (tr == nullptr)
         {
             return nullptr;
         }
-        tr->samples = (float *)calloc((size_t)cap * (size_t)chCount, sizeof(float));
-        if (tr->samples == nullptr)
-        {
-            free(tr);
-            return nullptr;
-        }
+        tr->samples = (float *)(tr + 1);
         tr->capacity = cap;
         tr->channels = chCount;
         tr->drawnCount = 0U;
         tr->fullRedraw = true;
         tr->headerOnly = false;
-        field.trend = tr;
+        field.u.trend.rt = tr;
         return tr;
     }
 
     void writeTrendSdSample(FieldRuntime &field, TrendRuntime &tr, uint32_t now)
     {
-        const JWPLC_UITrendConfig &cfg = field.def.trendConfig;
+        const JWPLC_UITrendConfig &cfg = field.def->trendConfig;
         if (!cfg.enableSD || tr.sdFailed)
         {
             return;
@@ -350,7 +401,7 @@ namespace
                 return;
             }
             char path[32];
-            snprintf(path, sizeof(path), "/TREND_%u.CSV", (unsigned)field.def.meta.id);
+            snprintf(path, sizeof(path), "/TREND_%u.CSV", (unsigned)field.def->meta.id);
             if (!tr.sdLog->begin(JWPLC_SD, path))
             {
                 tr.sdFailed = true;
@@ -377,22 +428,22 @@ namespace
         {
             snprintf(line, sizeof(line), "%lu,%.3f,%.3f,%.3f",
                      (unsigned long)now,
-                     (double)field.barValue,
-                     (double)field.trendCh2,
-                     (double)field.trendCh3);
+                     (double)field.u.trend.ch1,
+                     (double)field.u.trend.ch2,
+                     (double)field.u.trend.ch3);
         }
         else if (cfg.channelCount == 2)
         {
             snprintf(line, sizeof(line), "%lu,%.3f,%.3f",
                      (unsigned long)now,
-                     (double)field.barValue,
-                     (double)field.trendCh2);
+                     (double)field.u.trend.ch1,
+                     (double)field.u.trend.ch2);
         }
         else
         {
             snprintf(line, sizeof(line), "%lu,%.3f",
                      (unsigned long)now,
-                     (double)field.barValue);
+                     (double)field.u.trend.ch1);
         }
         tr.sdLog->writeLine(line);
     }
@@ -401,9 +452,9 @@ namespace
     {
         const uint8_t chStride = (tr.channels >= 1U && tr.channels <= 3U) ? tr.channels : 1U;
         const size_t slot = (size_t)tr.head * (size_t)chStride;
-        tr.samples[slot + 0U] = field.barValue;
-        if (chStride >= 2U) tr.samples[slot + 1U] = field.trendCh2;
-        if (chStride >= 3U) tr.samples[slot + 2U] = field.trendCh3;
+        tr.samples[slot + 0U] = field.u.trend.ch1;
+        if (chStride >= 2U) tr.samples[slot + 1U] = field.u.trend.ch2;
+        if (chStride >= 3U) tr.samples[slot + 2U] = field.u.trend.ch3;
         tr.head = (uint16_t)((tr.head + 1U) % tr.capacity);
         if (tr.count < tr.capacity)
         {
@@ -415,7 +466,7 @@ namespace
 
     bool tickTrendField(FieldRuntime &field, uint32_t now, bool forceFirstSample)
     {
-        if (field.def.meta.type != JWPLC_UI_FIELD_TREND || !field.hasValue)
+        if (field.def->meta.type != JWPLC_UI_FIELD_TREND || !field.hasValue)
         {
             return false;
         }
@@ -424,8 +475,8 @@ namespace
         {
             return false;
         }
-        const uint32_t sampleMs = (field.def.trendConfig.sampleIntervalMs >= 50U)
-                                      ? field.def.trendConfig.sampleIntervalMs
+        const uint32_t sampleMs = (field.def->trendConfig.sampleIntervalMs >= 50U)
+                                      ? field.def->trendConfig.sampleIntervalMs
                                       : 1000U;
         if (forceFirstSample && tr->count == 0U)
         {
@@ -461,7 +512,7 @@ namespace
     {
         for (size_t i = 0; i < g_fieldCount; ++i)
         {
-            if (g_fields[i].used && g_fields[i].def.meta.id == id)
+            if (isFieldUsed(g_fields[i]) && g_fields[i].def->meta.id == id)
             {
                 return &g_fields[i];
             }
@@ -472,18 +523,18 @@ namespace
 
     bool isTrendSampleDue(const FieldRuntime &f, uint32_t now)
     {
-        if (!f.used || f.def.meta.type != JWPLC_UI_FIELD_TREND)
+        if (!isFieldUsed(f) || f.def->meta.type != JWPLC_UI_FIELD_TREND)
         {
             return false;
         }
-        if (!f.hasValue || f.trend == nullptr || f.trend->count == 0U)
+        if (!f.hasValue || f.u.trend.rt == nullptr || f.u.trend.rt->count == 0U)
         {
             return true;
         }
-        const uint32_t sampleMs = (f.def.trendConfig.sampleIntervalMs >= 50U)
-                                      ? f.def.trendConfig.sampleIntervalMs
+        const uint32_t sampleMs = (f.def->trendConfig.sampleIntervalMs >= 50U)
+                                      ? f.def->trendConfig.sampleIntervalMs
                                       : 1000U;
-        return (uint32_t)(now - f.trend->lastSampleMs) >= sampleMs;
+        return (uint32_t)(now - f.u.trend.rt->lastSampleMs) >= sampleMs;
     }
 
     bool anyTrendSampleDueImpl()
@@ -505,15 +556,15 @@ namespace
         for (size_t i = 0; i < g_fieldCount; ++i)
         {
             FieldRuntime &f = g_fields[i];
-            if (!f.used || f.def.meta.type != JWPLC_UI_FIELD_TREND || !f.hasValue)
+            if (!isFieldUsed(f) || f.def->meta.type != JWPLC_UI_FIELD_TREND || !f.hasValue)
             {
                 continue;
             }
             if (tickTrendField(f, now, false))
             {
-                if (f.trend != nullptr)
+                if (f.u.trend.rt != nullptr)
                 {
-                    f.trend->headerOnly = false;
+                    f.u.trend.rt->headerOnly = false;
                 }
                 f.dirty = true;
             }
@@ -528,17 +579,17 @@ namespace
         for (size_t i = 0; i < g_fieldCount; ++i)
         {
             FieldRuntime &f = g_fields[i];
-            if (!f.used)
+            if (!isFieldUsed(f))
             {
                 continue;
             }
 
-            if (f.def.meta.page != g_page)
+            if (f.def->meta.page != g_page)
             {
                 continue;
             }
 
-            if (f.def.meta.type == JWPLC_UI_FIELD_TREND && isTrendSampleDue(f, now))
+            if (f.def->meta.type == JWPLC_UI_FIELD_TREND && isTrendSampleDue(f, now))
             {
                 dirtyFound = true;
                 continue;
@@ -551,21 +602,21 @@ namespace
             }
 
             // Animación autónoma de fotogramas en iconos
-            if (f.def.meta.type == JWPLC_UI_FIELD_ICON)
+            if (f.def->meta.type == JWPLC_UI_FIELD_ICON)
             {
-                const JWPLC_UIIcon *icon = f.def.icon;
+                const JWPLC_UIIcon *icon = f.def->icon;
                 if (icon != nullptr && icon->states != nullptr && icon->stateCount > 0)
                 {
-                    const uint8_t stIdx = (f.iconState < icon->stateCount)
-                                              ? f.iconState
+                    const uint8_t stIdx = (f.u.icon.state < icon->stateCount)
+                                              ? f.u.icon.state
                                               : (uint8_t)(icon->stateCount - 1);
                     const JWPLC_UIIconState &st = icon->states[stIdx];
                     if (st.frameCount > 1 && st.frameIntervalMs > 0 && st.frames != nullptr)
                     {
-                        if ((uint32_t)(now - f.lastAnimTickMs) >= st.frameIntervalMs)
+                        if ((uint32_t)(now - f.u.icon.lastAnimTickMs) >= st.frameIntervalMs)
                         {
-                            f.lastAnimTickMs = now;
-                            f.iconAnimFrame = (uint8_t)((f.iconAnimFrame + 1) % st.frameCount);
+                            f.u.icon.lastAnimTickMs = now;
+                            f.u.icon.animFrame = (uint8_t)((f.u.icon.animFrame + 1) % st.frameCount);
                             f.dirty = true;
                             dirtyFound = true;
                         }
@@ -592,7 +643,7 @@ namespace
     {
         field.dirty = true;
 
-        if (field.def.meta.page == g_page)
+        if (field.def->meta.page == g_page)
         {
             requestCurrentViewRefresh();
         }
@@ -701,22 +752,22 @@ namespace
         }
 
         if (field.hasValue &&
-            strncmp(field.value, value, sizeof(field.value)) == 0)
+            strncmp(field.u.value, value, sizeof(field.u.value)) == 0)
         {
             jwplcH3E1RecordSetter(
-                field.def.meta.id,
+                field.def->meta.id,
                 false);
             return false;
         }
 
-        strncpy(field.value, value, sizeof(field.value) - 1);
-        field.value[sizeof(field.value) - 1] = '\0';
+        strncpy(field.u.value, value, sizeof(field.u.value) - 1);
+        field.u.value[sizeof(field.u.value) - 1] = '\0';
 
         field.hasValue = true;
         markFieldDirty(field);
 
         jwplcH3E1RecordSetter(
-            field.def.meta.id,
+            field.def->meta.id,
             true);
         return true;
     }
@@ -725,7 +776,7 @@ namespace
         JWPLC_TFTClass &tft,
         const FieldRuntime &field)
     {
-        if (field.def.meta.type == JWPLC_UI_FIELD_BAR || field.def.meta.type == JWPLC_UI_FIELD_CIRCULAR)
+        if (field.def->meta.type == JWPLC_UI_FIELD_BAR || field.def->meta.type == JWPLC_UI_FIELD_CIRCULAR)
         {
             return field.valueX;
         }
@@ -734,11 +785,11 @@ namespace
         uint16_t currentH = 0;
         textBounds(
             tft,
-            field.value,
-            field.def.style.valueTextSize,
+            field.u.value,
+            field.def->style.valueTextSize,
             currentW,
             currentH,
-            field.def.style.valueFont);
+            field.def->style.valueFont);
 
         if ((int16_t)currentW >= field.valueW)
         {
@@ -747,7 +798,7 @@ namespace
 
         const int16_t freeW = field.valueW - (int16_t)currentW;
 
-        switch (field.def.style.valueAlign)
+        switch (field.def->style.valueAlign)
         {
         case JWPLC_UI_ALIGN_CENTER:
             return field.valueX + freeW / 2;
@@ -763,7 +814,7 @@ namespace
 
     void computeFieldGeometry(JWPLC_TFTClass &tft, FieldRuntime &field)
     {
-        const JWPLC_UIField &def = field.def;
+        const JWPLC_UIField &def = *field.def;
         // lead: margen superior/izquierdo fijo; pad: margen derecho/inferior.
         const int16_t lead = FIELD_PADDING;
         const int16_t pad = effectiveFieldPadding(def);
@@ -1070,7 +1121,7 @@ namespace
     // Fondo del campo: el del estado actual en BOOL con fondo por estado.
     uint16_t fieldBackground(const FieldRuntime &field)
     {
-        const JWPLC_UIField &def = field.def;
+        const JWPLC_UIField &def = *field.def;
 
         if (def.meta.type == JWPLC_UI_FIELD_BOOL &&
             (def.options.boolText.stateColors & JWPLC_UI_BOOL_STATE_BACKGROUND))
@@ -1146,8 +1197,8 @@ namespace
 
     int16_t barFillLevel(const FieldRuntime &field)
     {
-        float minValue = field.def.options.barRange.min;
-        float maxValue = field.def.options.barRange.max;
+        float minValue = field.def->options.barRange.min;
+        float maxValue = field.def->options.barRange.max;
 
         if (maxValue <= minValue)
         {
@@ -1155,7 +1206,7 @@ namespace
         }
 
         float normalized =
-            (field.barValue - minValue) / (maxValue - minValue);
+            (field.u.bar.value - minValue) / (maxValue - minValue);
 
         if (normalized < 0.0f)
         {
@@ -1166,8 +1217,8 @@ namespace
             normalized = 1.0f;
         }
 
-        const bool isVert = (field.def.barConfig.orientation == JWPLC_UI_BAR_VERTICAL);
-        const int16_t inset = 2 * barBorderInset(field.def);
+        const bool isVert = (field.def->barConfig.orientation == JWPLC_UI_BAR_VERTICAL);
+        const int16_t inset = 2 * barBorderInset(*field.def);
         const int16_t totalLen = (isVert ? field.valueH : field.valueW) - inset;
         if (totalLen <= 0) return 0;
         return (int16_t)lroundf(normalized * (float)totalLen);
@@ -1180,7 +1231,7 @@ namespace
         int16_t oldLevel,
         int16_t newLevel)
     {
-        const JWPLC_UIField &def = field.def;
+        const JWPLC_UIField &def = *field.def;
         const bool isVert = (def.barConfig.orientation == JWPLC_UI_BAR_VERTICAL);
         const bool isBlocks = (def.barConfig.style == JWPLC_UI_BAR_STYLE_BLOCKS);
         const uint16_t colStart = def.style.colors.value;
@@ -1366,7 +1417,7 @@ namespace
     // y lo envía con pushImage. El índice transparente toma el fondo del campo.
     void drawIcon(JWPLC_TFTClass &tft, const FieldRuntime &field, uint16_t background)
     {
-        const JWPLC_UIIcon *icon = field.def.icon;
+        const JWPLC_UIIcon *icon = field.def->icon;
 
         if (icon == nullptr ||
             icon->states == nullptr ||
@@ -1380,8 +1431,8 @@ namespace
         }
 
         const uint8_t stateIndex =
-            (field.iconState < icon->stateCount)
-                ? field.iconState
+            (field.u.icon.state < icon->stateCount)
+                ? field.u.icon.state
                 : (uint8_t)(icon->stateCount - 1);
         const JWPLC_UIIconState &state = icon->states[stateIndex];
 
@@ -1389,7 +1440,7 @@ namespace
         const uint16_t *palette = state.palette;
         if (state.frames != nullptr && state.frameCount > 1)
         {
-            const uint8_t fIdx = (uint8_t)(field.iconAnimFrame % state.frameCount);
+            const uint8_t fIdx = (uint8_t)(field.u.icon.animFrame % state.frameCount);
             pixels = state.frames[fIdx].pixels;
             palette = state.frames[fIdx].palette;
         }
@@ -1399,7 +1450,7 @@ namespace
             return;
         }
 
-        if (field.def.iconTransparent && icon->transparentIndex != JWPLC_UI_ICON_NO_TRANSPARENT)
+        if (field.def->iconTransparent && icon->transparentIndex != JWPLC_UI_ICON_NO_TRANSPARENT)
         {
             drawIconTransparent(tft, field, *icon, pixels, palette, background);
             return;
@@ -1444,11 +1495,11 @@ namespace
         FieldRuntime &field,
         uint16_t background)
     {
-        const JWPLC_UIField &def = field.def;
+        const JWPLC_UIField &def = *field.def;
         float minValue = def.options.barRange.min;
         float maxValue = def.options.barRange.max;
         if (maxValue <= minValue) maxValue = minValue + 1.0f;
-        float normalized = (field.barValue - minValue) / (maxValue - minValue);
+        float normalized = (field.u.bar.value - minValue) / (maxValue - minValue);
         if (normalized < 0.0f) normalized = 0.0f;
         if (normalized > 1.0f) normalized = 1.0f;
 
@@ -1558,7 +1609,7 @@ namespace
             else
             {
                 // Como el Designer: entero si no tiene decimales, si no un decimal.
-                const float v = field.barValue;
+                const float v = field.u.bar.value;
                 if (v == (float)(long)v) snprintf(buf, sizeof(buf), "%ld", (long)v);
                 else snprintf(buf, sizeof(buf), "%.1f", (double)v);
             }
@@ -1614,7 +1665,7 @@ namespace
 
     TrendScale computeTrendDisplayedScale(const FieldRuntime &field, const TrendRuntime &tr)
     {
-        const JWPLC_UIField &def = field.def;
+        const JWPLC_UIField &def = *field.def;
         const JWPLC_UITrendConfig &cfg = def.trendConfig;
         const bool manual = (cfg.scaleMode == 1);
 
@@ -1808,7 +1859,7 @@ namespace
         const TrendGeometry &g,
         const TrendScale &scale)
     {
-        const JWPLC_UIField &def = field.def;
+        const JWPLC_UIField &def = *field.def;
         const JWPLC_UITrendConfig &cfg = def.trendConfig;
 
         tft.fillRect(g.x, g.y, g.w, g.h, cfg.backgroundColor);
@@ -1825,7 +1876,7 @@ namespace
         tft.setTextSize(1);
 
         int16_t titleEnd = 3;
-        if (def.text.label != nullptr && def.text.label[0] != '\0')
+        if (cfg.showLiveValue && def.text.label != nullptr && def.text.label[0] != '\0')
         {
             char glcdTitle[40];
             JWPLCUIFormat::utf8ToGlcd(def.text.label, glcdTitle, sizeof(glcdTitle));
@@ -1842,7 +1893,7 @@ namespace
             titleEnd = 3 + len * 6 + 6;
         }
 
-        drawOrMeasureTrendLegend(&tft, cfg, g, g.x + titleEnd + 36);
+        drawOrMeasureTrendLegend(&tft, cfg, g, g.x + titleEnd + (cfg.showLiveValue ? 36 : 0));
 
         if (cfg.showAxes)
         {
@@ -1944,8 +1995,12 @@ namespace
         const FieldRuntime &field,
         const TrendGeometry &g)
     {
-        const JWPLC_UIField &def = field.def;
+        const JWPLC_UIField &def = *field.def;
         const JWPLC_UITrendConfig &cfg = def.trendConfig;
+        if (!cfg.showLiveValue)
+        {
+            return;
+        }
 
         int16_t titleEnd = 3;
         if (def.text.label != nullptr && def.text.label[0] != '\0')
@@ -1977,7 +2032,7 @@ namespace
         else
         {
             char numBuf[16];
-            formatTrendValue(field.barValue, cfg.decimals, numBuf, sizeof(numBuf));
+            formatTrendValue(field.u.trend.ch1, cfg.decimals, numBuf, sizeof(numBuf));
             if (def.text.unit != nullptr && def.text.unit[0] != '\0')
             {
                 char glcdUnit[16];
@@ -2370,7 +2425,7 @@ namespace
 
     void drawTrendField(JWPLC_TFTClass &tft, FieldRuntime &field)
     {
-        const JWPLC_UITrendConfig &cfg = field.def.trendConfig;
+        const JWPLC_UITrendConfig &cfg = field.def->trendConfig;
         const TrendGeometry g = computeTrendGeometry(field);
         TrendRuntime *tr = ensureTrendRuntime(field);
         if (tr == nullptr)
@@ -2434,7 +2489,7 @@ namespace
     {
         computeFieldGeometry(tft, field);
 
-        const JWPLC_UIField &def = field.def;
+        const JWPLC_UIField &def = *field.def;
         field.staticDirty = false;
 
         // TREND dibuja su propio fondo, marco, ejes y encabezado en drawTrendField().
@@ -2466,7 +2521,10 @@ namespace
         }
 
         // El fondo del campo dejó la barra vacía.
-        field.barDrawnW = 0;
+        if (def.meta.type == JWPLC_UI_FIELD_BAR || def.meta.type == JWPLC_UI_FIELD_CIRCULAR)
+        {
+            field.u.bar.drawnW = 0;
+        }
 
         if (def.style.frame && field.fieldW > 1 && field.fieldH > 1)
         {
@@ -2625,7 +2683,7 @@ namespace
 
     void drawFieldValue(JWPLC_TFTClass &tft, FieldRuntime &field)
     {
-        const JWPLC_UIField &def = field.def;
+        const JWPLC_UIField &def = *field.def;
         const bool profile = jwplcH3E1ProfilerEnabled();
         const uint32_t totalStartUs = profile ? micros() : 0U;
 
@@ -2658,15 +2716,15 @@ namespace
         // (añade al subir, borra el sobrante al bajar), sin limpiar la barra.
         if (def.meta.type == JWPLC_UI_FIELD_BAR &&
             field.hasValue &&
-            field.barDrawnW >= 0)
+            field.u.bar.drawnW >= 0)
         {
             const int16_t fillLevel = barFillLevel(field);
-            const int16_t oldLevel = field.barDrawnW;
+            const int16_t oldLevel = field.u.bar.drawnW;
             const uint32_t printStartUs = profile ? micros() : 0U;
 
             drawBarDelta(tft, field, oldLevel, fillLevel);
 
-            field.barDrawnW = fillLevel;
+            field.u.bar.drawnW = fillLevel;
             field.dirty = false;
 
             if (profile)
@@ -2863,7 +2921,7 @@ namespace
 
         if (def.meta.type == JWPLC_UI_FIELD_BAR)
         {
-            field.barDrawnW = 0;
+            field.u.bar.drawnW = 0;
         }
 
         if (!field.hasValue)
@@ -2896,7 +2954,7 @@ namespace
 
             drawBarDelta(tft, field, 0, fillLevel);
 
-            field.barDrawnW = fillLevel;
+            field.u.bar.drawnW = fillLevel;
 
             if (profile)
             {
@@ -3000,7 +3058,7 @@ namespace
         const uint32_t printStartUs =
             profile ? micros() : 0U;
 
-        tft.print(field.value);
+        tft.print(field.u.value);
         tft.setFont(JWPLC_FONT_GLCD);
 
         if (profile)
@@ -3014,7 +3072,7 @@ namespace
         if (profile)
         {
             const size_t length =
-                strlen(field.value);
+                strlen(field.u.value);
 
             jwplcH3E1RecordFieldDraw(
                 def.meta.id,
@@ -3037,18 +3095,12 @@ namespace JWPLCUI
 {
     bool setFields(const JWPLC_UIField *fields, size_t count)
     {
+        jwplcUIRuntimeEnsureLinked();
+
         if ((fields == nullptr && count != 0) ||
             count > JWPLC_UI_MAX_FIELDS)
         {
             return false;
-        }
-
-        freeAllTrendRuntimes();
-        g_fieldCount = 0;
-
-        for (size_t i = 0; i < JWPLC_UI_MAX_FIELDS; ++i)
-        {
-            g_fields[i] = FieldRuntime();
         }
 
         for (size_t i = 0; i < count; ++i)
@@ -3060,10 +3112,37 @@ namespace JWPLCUI
                     return false;
                 }
             }
+        }
 
-            g_fields[i].def = fields[i];
-            g_fields[i].used = true;
+        freeAllTrendRuntimes();
+        g_fieldCount = 0;
+
+        for (size_t i = 0; i < JWPLC_UI_MAX_FIELDS; ++i)
+        {
+            g_fields[i] = FieldRuntime();
+        }
+
+        const JWPLC_UIField *source = fields;
+        if (count > 0 && !isFlashFieldArray(fields))
+        {
+            g_ownedDefs = (JWPLC_UIField *)malloc(count * sizeof(JWPLC_UIField));
+            if (g_ownedDefs == nullptr)
+            {
+                return false;
+            }
+            memcpy(g_ownedDefs, fields, count * sizeof(JWPLC_UIField));
+            source = g_ownedDefs;
+        }
+
+        for (size_t i = 0; i < count; ++i)
+        {
+            g_fields[i].def = &source[i];
             g_fields[i].dirty = true;
+            if (source[i].meta.type == JWPLC_UI_FIELD_BAR ||
+                source[i].meta.type == JWPLC_UI_FIELD_CIRCULAR)
+            {
+                g_fields[i].u.bar.drawnW = -1;
+            }
             g_fieldCount++;
         }
 
@@ -3098,8 +3177,8 @@ namespace JWPLCUI
         // Un reloj (fecha/hora) lo llena pollClockFields(): un setValue() del
         // sketch lo haría parpadear con guiones, así que se ignora.
         if (field == nullptr ||
-            field->def.meta.type != JWPLC_UI_FIELD_VALUE ||
-            field->def.format.kind == JWPLC_UI_VALUE_DATETIME)
+            field->def->meta.type != JWPLC_UI_FIELD_VALUE ||
+            field->def->format.kind == JWPLC_UI_VALUE_DATETIME)
         {
             return false;
         }
@@ -3107,7 +3186,7 @@ namespace JWPLCUI
         char formatted[VALUE_BUFFER_SIZE] = {};
         const bool valid =
             JWPLCUIFormat::value(
-                field->def.format,
+                field->def->format,
                 value,
                 formatted,
                 sizeof(formatted));
@@ -3121,7 +3200,7 @@ namespace JWPLCUI
         FieldRuntime *field = findField(fieldId);
 
         if (field == nullptr ||
-            field->def.meta.type != JWPLC_UI_FIELD_TEXT)
+            field->def->meta.type != JWPLC_UI_FIELD_TEXT)
         {
             return false;
         }
@@ -3140,9 +3219,9 @@ namespace JWPLCUI
         char clipped[VALUE_BUFFER_SIZE] = {};
 
         const uint8_t capacity =
-            (field->def.options.textCapacity == 0)
+            (field->def->options.textCapacity == 0)
                 ? (VALUE_BUFFER_SIZE - 1)
-                : field->def.options.textCapacity;
+                : field->def->options.textCapacity;
 
         const size_t allowed =
             (capacity < VALUE_BUFFER_SIZE - 1)
@@ -3162,31 +3241,31 @@ namespace JWPLCUI
         FieldRuntime *field = findField(fieldId);
 
         if (field != nullptr &&
-            field->def.meta.type == JWPLC_UI_FIELD_ICON)
+            field->def->meta.type == JWPLC_UI_FIELD_ICON)
         {
             return setIconState(fieldId, value ? 1 : 0);
         }
 
         if (field == nullptr ||
-            field->def.meta.type != JWPLC_UI_FIELD_BOOL)
+            field->def->meta.type != JWPLC_UI_FIELD_BOOL)
         {
             return false;
         }
 
         const char *text =
             value
-                ? ((field->def.options.boolText.trueText != nullptr)
-                       ? field->def.options.boolText.trueText
+                ? ((field->def->options.boolText.trueText != nullptr)
+                       ? field->def->options.boolText.trueText
                        : "ON")
-                : ((field->def.options.boolText.falseText != nullptr)
-                       ? field->def.options.boolText.falseText
+                : ((field->def->options.boolText.falseText != nullptr)
+                       ? field->def->options.boolText.falseText
                        : "OFF");
 
         const bool stateChanged = field->boolState != value;
         field->boolState = value;
 
         if (stateChanged &&
-            (field->def.options.boolText.stateColors & JWPLC_UI_BOOL_STATE_BACKGROUND))
+            (field->def->options.boolText.stateColors & JWPLC_UI_BOOL_STATE_BACKGROUND))
         {
             field->staticDirty = true;
         }
@@ -3195,7 +3274,7 @@ namespace JWPLCUI
         // también debe repintarse al cambiar de estado.
         if (!setValueString(*field, text) &&
             stateChanged &&
-            field->def.options.boolText.stateColors != 0)
+            field->def->options.boolText.stateColors != 0)
         {
             markFieldDirty(*field);
         }
@@ -3207,25 +3286,25 @@ namespace JWPLCUI
         FieldRuntime *field = findField(fieldId);
 
         if (field == nullptr ||
-            field->def.meta.type != JWPLC_UI_FIELD_ICON)
+            field->def->meta.type != JWPLC_UI_FIELD_ICON)
         {
             return false;
         }
 
         const uint8_t count =
-            (field->def.icon != nullptr) ? field->def.icon->stateCount : 0;
+            (field->def->icon != nullptr) ? field->def->icon->stateCount : 0;
         const bool valid = state < count;
 
         // Fuera de rango se ve el último estado (drawIcon recorta).
-        if (field->hasValue && field->iconState == state)
+        if (field->hasValue && field->u.icon.state == state)
         {
             jwplcH3E1RecordSetter(fieldId, false);
             return valid;
         }
 
-        field->iconState = state;
-        field->iconAnimFrame = 0;
-        field->lastAnimTickMs = millis();
+        field->u.icon.state = state;
+        field->u.icon.animFrame = 0;
+        field->u.icon.lastAnimTickMs = millis();
         field->hasValue = true;
         markFieldDirty(*field);
 
@@ -3253,9 +3332,9 @@ namespace JWPLCUI
         {
             FieldRuntime &field = g_fields[i];
 
-            if (!field.used ||
-                field.def.meta.type != JWPLC_UI_FIELD_VALUE ||
-                field.def.format.kind != JWPLC_UI_VALUE_DATETIME)
+            if (!isFieldUsed(field) ||
+                field.def->meta.type != JWPLC_UI_FIELD_VALUE ||
+                field.def->format.kind != JWPLC_UI_VALUE_DATETIME)
             {
                 continue;
             }
@@ -3263,8 +3342,8 @@ namespace JWPLCUI
             // setValueString sólo marca dirty si el texto cambió: con HH:MM
             // la TFT se toca una vez por minuto.
             char text[VALUE_BUFFER_SIZE] = {};
-            JWPLCUIFormat::dateTime(field.def.format, clock, text, sizeof(text));
-            if (field.hasValue && strncmp(field.value, text, sizeof(field.value)) == 0)
+            JWPLCUIFormat::dateTime(field.def->format, clock, text, sizeof(text));
+            if (field.hasValue && strncmp(field.u.value, text, sizeof(field.u.value)) == 0)
             {
                 continue; // sin contar un setter en el perfil H3E1
             }
@@ -3277,12 +3356,12 @@ namespace JWPLCUI
         FieldRuntime *field = findField(fieldId);
 
         if (field == nullptr ||
-            (field->def.meta.type != JWPLC_UI_FIELD_BAR && field->def.meta.type != JWPLC_UI_FIELD_CIRCULAR))
+            (field->def->meta.type != JWPLC_UI_FIELD_BAR && field->def->meta.type != JWPLC_UI_FIELD_CIRCULAR))
         {
             return false;
         }
 
-        if (field->hasValue && field->barValue == value)
+        if (field->hasValue && field->u.bar.value == value)
         {
             jwplcH3E1RecordSetter(
                 fieldId,
@@ -3290,7 +3369,7 @@ namespace JWPLCUI
             return true;
         }
 
-        field->barValue = value;
+        field->u.bar.value = value;
         field->hasValue = true;
         markFieldDirty(*field);
 
@@ -3304,22 +3383,22 @@ namespace JWPLCUI
     {
         FieldRuntime *field = findField(fieldId);
 
-        if (field == nullptr || field->def.meta.type != JWPLC_UI_FIELD_TREND)
+        if (field == nullptr || field->def->meta.type != JWPLC_UI_FIELD_TREND)
         {
             return false;
         }
 
         const bool unchanged = field->hasValue &&
-                               field->barValue == v1 &&
-                               (count < 2 || field->trendCh2 == v2) &&
-                               (count < 3 || field->trendCh3 == v3);
+                               field->u.trend.ch1 == v1 &&
+                               (count < 2 || field->u.trend.ch2 == v2) &&
+                               (count < 3 || field->u.trend.ch3 == v3);
         if (unchanged)
         {
             if (tickTrendField(*field, millis(), false))
             {
-                if (field->trend != nullptr)
+                if (field->u.trend.rt != nullptr)
                 {
-                    field->trend->headerOnly = false;
+                    field->u.trend.rt->headerOnly = false;
                 }
                 markFieldDirty(*field);
                 jwplcH3E1RecordSetter(fieldId, true);
@@ -3331,20 +3410,20 @@ namespace JWPLCUI
             return true;
         }
 
-        field->barValue = v1;
-        if (count >= 2) field->trendCh2 = v2;
-        if (count >= 3) field->trendCh3 = v3;
+        field->u.trend.ch1 = v1;
+        if (count >= 2) field->u.trend.ch2 = v2;
+        if (count >= 3) field->u.trend.ch3 = v3;
         field->hasValue = true;
         const bool sampled = tickTrendField(*field, millis(), true);
-        if (field->trend != nullptr)
+        if (field->u.trend.rt != nullptr)
         {
             if (sampled)
             {
-                field->trend->headerOnly = false;
+                field->u.trend.rt->headerOnly = false;
             }
-            else if (!field->dirty && !field->trend->fullRedraw && field->trend->hasDrawnScale)
+            else if (!field->dirty && !field->u.trend.rt->fullRedraw && field->u.trend.rt->hasDrawnScale)
             {
-                field->trend->headerOnly = true;
+                field->u.trend.rt->headerOnly = true;
             }
         }
         markFieldDirty(*field);
@@ -3370,6 +3449,7 @@ namespace JWPLCUI
 
     void setRefreshMode(JWPLC_UIRefreshMode mode)
     {
+        jwplcUIRuntimeEnsureLinked();
         g_refreshMode = mode;
         requestCurrentViewRefresh();
     }
@@ -3409,6 +3489,8 @@ namespace JWPLCUI
 
     void setPage(uint8_t page)
     {
+        jwplcUIRuntimeEnsureLinked();
+
         if (g_page == page)
         {
             return;
@@ -3419,17 +3501,10 @@ namespace JWPLCUI
 
         for (size_t i = 0; i < g_fieldCount; ++i)
         {
-            if (g_fields[i].used &&
-                g_fields[i].def.meta.page == g_page)
+            if (isFieldUsed(g_fields[i]) &&
+                g_fields[i].def->meta.page == g_page)
             {
-                g_fields[i].dirty = true;
-                g_fields[i].barDrawnW = -1;
-                if (g_fields[i].trend != nullptr)
-                {
-                    g_fields[i].trend->fullRedraw = true;
-                    g_fields[i].trend->headerOnly = false;
-                    g_fields[i].trend->drawnCount = 0U;
-                }
+                resetFieldRedrawState(g_fields[i]);
             }
         }
 
@@ -3461,13 +3536,7 @@ namespace JWPLCUI
         }
 
         // Invalidación explícita: la pantalla pudo cambiar, barra completa.
-        field->barDrawnW = -1;
-        if (field->trend != nullptr)
-        {
-            field->trend->fullRedraw = true;
-            field->trend->headerOnly = false;
-            field->trend->drawnCount = 0U;
-        }
+        resetFieldRedrawState(*field);
         markFieldDirty(*field);
     }
 
@@ -3475,16 +3544,9 @@ namespace JWPLCUI
     {
         for (size_t i = 0; i < g_fieldCount; ++i)
         {
-            if (g_fields[i].used)
+            if (isFieldUsed(g_fields[i]))
             {
-                g_fields[i].dirty = true;
-                g_fields[i].barDrawnW = -1;
-                if (g_fields[i].trend != nullptr)
-                {
-                    g_fields[i].trend->fullRedraw = true;
-                    g_fields[i].trend->headerOnly = false;
-                    g_fields[i].trend->drawnCount = 0U;
-                }
+                resetFieldRedrawState(g_fields[i]);
             }
         }
 
@@ -3502,17 +3564,10 @@ namespace JWPLCUI
 
         for (size_t i = 0; i < g_fieldCount; ++i)
         {
-            if (g_fields[i].used &&
-                g_fields[i].def.meta.page == g_page)
+            if (isFieldUsed(g_fields[i]) &&
+                g_fields[i].def->meta.page == g_page)
             {
-                g_fields[i].dirty = true;
-                g_fields[i].barDrawnW = -1;
-                if (g_fields[i].trend != nullptr)
-                {
-                    g_fields[i].trend->fullRedraw = true;
-                    g_fields[i].trend->headerOnly = false;
-                    g_fields[i].trend->drawnCount = 0U;
-                }
+                resetFieldRedrawState(g_fields[i]);
             }
         }
 
@@ -3525,7 +3580,7 @@ namespace JWPLCUI
         {
             FieldRuntime &field = g_fields[i];
 
-            if (!field.used || field.def.meta.page != g_page)
+            if (!isFieldUsed(field) || field.def->meta.page != g_page)
             {
                 continue;
             }
@@ -3550,8 +3605,8 @@ namespace JWPLCUI
         {
             FieldRuntime &field = g_fields[i];
 
-            if (!field.used ||
-                field.def.meta.page != g_page ||
+            if (!isFieldUsed(field) ||
+                field.def->meta.page != g_page ||
                 !field.dirty)
             {
                 continue;

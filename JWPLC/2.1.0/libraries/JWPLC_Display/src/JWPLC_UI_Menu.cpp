@@ -4,6 +4,7 @@
 #include "JWPLC_Display_API.h"
 #include "JWPLC_UI.h"
 #include "JWPLC_UI_Pages.h"
+#include "JWPLC_UI_RuntimeHooks.h"
 
 #include <JWPLC_GlobalPeripherals.h>
 #include <Arduino.h>
@@ -890,6 +891,8 @@ namespace JWPLCUI
 {
     bool setMenus(const JWPLC_UIMenu *menus, size_t count)
     {
+        jwplcUIRuntimeEnsureLinked();
+
         if ((menus == nullptr && count != 0) || count > JWPLC_UI_MENU_MAX_MENUS)
             return false;
 

@@ -3,6 +3,7 @@
 
 #include "JWPLC_Display_API.h"
 #include "JWPLC_UI.h"
+#include "JWPLC_UI_RuntimeHooks.h"
 #include "JWPLC_Display_H3E1_Profile.h"
 
 #include <JWPLC_GlobalPeripherals.h>
@@ -140,6 +141,8 @@ namespace JWPLCUIPages
 {
     void setPageCount(uint8_t count)
     {
+        jwplcUIRuntimeEnsureLinked();
+
         if (count == 0)
         {
             count = 1;
