@@ -2809,6 +2809,15 @@
       drawRawTextAt(buffer, field.text || '', field.x, field.y, field.textColor ?? 0xFFFF, bg, field.size || 1, field.font);
       const b = getFieldBounds(field);
       g = { fieldX: b.x, fieldY: b.y, fieldW: b.width, fieldH: b.height };
+    } else if (field.type === 'EVENT_LOG') {
+      window.JWPLCHMIEventLog?.paint?.(field, {
+        fillRect: (x, y, w, h, c) => fillBufferRect(buffer, x, y, w, h, c),
+        drawRect: (x, y, w, h, c) => drawBufferRect(buffer, x, y, w, h, c),
+        drawText: (text, x, y, fg, bg, sz, fontId) => drawRawTextAt(buffer, text, x, y, fg, bg, sz || 1, fontId),
+        pixel: (x, y, c) => setBufferPixel(buffer, x, y, c)
+      });
+      const b = getFieldBounds(field);
+      g = { fieldX: b.x, fieldY: b.y, fieldW: b.width, fieldH: b.height };
     }
     return { buffer, g, width: WIDTH, height: HEIGHT };
   }

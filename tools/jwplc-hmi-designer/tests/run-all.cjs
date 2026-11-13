@@ -43,6 +43,7 @@ const TESTS = [
   { file: 'trend-inspector.test.cjs', what: 'inspector visual TREND: presets, muestreo configurable y estimación RAM' },
   { file: 'navbar-refactor.test.cjs', what: 'NAV_BAR: sub-pestañas Propuesta 2, presets limpios, fuente unificada y codegen' },
   { file: 'raw-text-inspector.test.cjs', what: 'RAW_TEXT: selector de fuentes unificado y tamaño/posición inicial centrada' },
+  { file: 'event-log-inspector.test.cjs', what: 'EVENT_LOG: apariencia con preview sin scroll y tipografía unificada', needs: playwright ? null : 'playwright' },
   { file: 'codegen-golden.cjs', what: 'headers generados == golden', needs: playwright ? null : 'playwright' },
   { file: 'value-format-parity.cjs', what: 'formato de VALUE: firmware real == Designer (sin g++ sólo casos fijos)' },
   { file: 'runtime-core.test.cjs', what: 'proyecto Runtime: símbolos rt_*, conversión del header y compilación contra JWPLC_Runtime.h', needs: null },

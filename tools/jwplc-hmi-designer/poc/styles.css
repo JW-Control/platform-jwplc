@@ -2988,7 +2988,8 @@ label.insp-needs-fw { opacity: 0.45; cursor: not-allowed; }
    (designer-color-editor.js) en lugar del selector nativo flotante. */
 .menu-legend-row[data-legend-key], .menu-legend-row[data-menu-legend-row],
 .menu-legend-row[data-menu-frame-row], .menu-legend-row[data-bar-legend],
-.menu-legend-row[data-shape-legend] {
+.menu-legend-row[data-shape-legend], .menu-legend-row[data-evt-legend-row],
+.menu-legend-row[data-evt-frame-row] {
   cursor: pointer; padding: 0 4px; border-radius: 3px;
 }
 .menu-legend-row[data-legend-key], .menu-legend-row[data-bar-legend],
@@ -2996,7 +2997,8 @@ label.insp-needs-fw { opacity: 0.45; cursor: not-allowed; }
 .zone-host > .menu-case-legend:not(.field-case-body > *) { flex: 1; }
 .menu-legend-row[data-legend-key]:hover, .menu-legend-row[data-menu-legend-row]:hover,
 .menu-legend-row[data-menu-frame-row]:hover, .menu-legend-row[data-bar-legend]:hover,
-.menu-legend-row[data-shape-legend]:hover { background: rgba(184, 205, 220, 0.08); }
+.menu-legend-row[data-shape-legend]:hover, .menu-legend-row[data-evt-legend-row]:hover,
+.menu-legend-row[data-evt-frame-row]:hover { background: rgba(184, 205, 220, 0.08); }
 .menu-legend-row .menu-legend-label { flex: 1; }
 .menu-swatch { padding: 0; color: inherit; }
 .menu-swatch:focus-visible { outline: 2px solid #e8edf2; outline-offset: 1px; }
@@ -3035,26 +3037,41 @@ label.insp-needs-fw { opacity: 0.45; cursor: not-allowed; }
 .hmi-nav-color-editor { margin-top: 8px; border-top: 1px solid var(--line-soft); padding-top: 6px; }
 .hmi-nav-color-editor .insp-note { margin: 0 0 6px; }
 
-/* Alpha16 · EVENT_LOG: Selector de colores compacto y optimizado */
-.evt-color-table { display: flex; flex-direction: column; gap: 4px; }
-.evt-color-row {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 4px 8px; background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 4px;
-  min-height: 26px; transition: background 0.15s, border-color 0.15s;
+/* Alpha16/17 · EVENT_LOG: Apariencia con vista previa + zonas + editor fijo sin scroll */
+#eventLogInspectorSection [data-evt-panel="design:appearance"] .bar-card { padding: 8px 10px; margin-bottom: 0; }
+#eventLogInspectorSection .evt-case { margin-bottom: 4px; }
+#eventLogInspectorSection .evt-case-body { gap: 10px; align-items: flex-start; }
+#eventLogInspectorSection .evt-case-canvas { width: 156px; height: auto; cursor: crosshair; }
+#eventLogInspectorSection .evt-case-body .menu-case-legend { margin-top: 6px; gap: 2px; }
+#eventLogInspectorSection .evt-case-body .menu-legend-row { height: 18px; gap: 3px; font-size: 10px; }
+#eventLogInspectorSection .evt-case-body .menu-legend-label { min-width: 44px; }
+#eventLogInspectorSection .evt-case-body .menu-swatch { width: 17px; height: 15px; font-size: 8.5px; }
+#eventLogInspectorSection [data-evt-frame-row] { height: 22px; margin: 2px 0 4px; }
+#eventLogInspectorSection .evt-palette { padding-top: 5px; }
+#eventLogInspectorSection .evt-palette .insp-note { margin: 0 0 5px; }
+#eventLogInspectorSection [data-evt-panel="design:appearance"] .color-editor { gap: 4px; }
+#eventLogInspectorSection [data-evt-panel="design:appearance"] .color-editor-head { font-size: 10px; }
+#eventLogInspectorSection [data-evt-panel="design:appearance"] .color-editor-swatch { height: 14px; width: 28px; }
+#eventLogInspectorSection [data-evt-panel="design:appearance"] .color-editor-sv { height: 54px; }
+#eventLogInspectorSection [data-evt-panel="design:appearance"] .color-editor-hue { height: 10px; }
+#eventLogInspectorSection [data-evt-panel="design:appearance"] .color-editor-fields { gap: 6px; }
+#eventLogInspectorSection [data-evt-panel="design:appearance"] .color-editor-fields label { font-size: 9px; gap: 3px; }
+#eventLogInspectorSection [data-evt-panel="design:appearance"] .color-editor-fields input { height: 20px; padding: 1px 4px; font-size: 10px; }
+#eventLogInspectorSection [data-evt-panel="design:appearance"] .color-editor-palette { gap: 3px; }
+#eventLogInspectorSection [data-evt-panel="design:appearance"] .color-editor-palette .insp-swatch { width: 17px; height: 17px; }
+#eventLogInspectorSection .evt-desc-tree { max-height: 170px; margin-top: 6px; }
+#eventLogInspectorSection .evt-desc-tree .menu-tree-row { grid-template-columns: 42px 38px 1fr auto auto; gap: 5px; }
+#eventLogInspectorSection .evt-sev-pill {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 1px 4px; border-radius: 3px; font-size: 8.5px; font-weight: 700; letter-spacing: 0.02em;
+  border: 1px solid currentColor;
 }
-.evt-color-row:hover { background: rgba(255, 255, 255, 0.06); border-color: rgba(255, 255, 255, 0.12); }
-.evt-color-name { font-size: 11px; color: #b8cddc; font-weight: 500; user-select: none; }
-.evt-color-ctrl { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; margin: 0; padding: 0; }
-.evt-color-ctrl input[type="color"] {
-  -webkit-appearance: none; -moz-appearance: none; appearance: none;
-  width: 24px; height: 18px; padding: 0; margin: 0;
-  border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 3px;
-  background: none; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.3);
-}
-.evt-color-ctrl input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
-.evt-color-ctrl input[type="color"]::-webkit-color-swatch { border: none; border-radius: 2px; }
-.evt-color-ctrl input[type="color"]::-moz-color-swatch { border: none; border-radius: 2px; }
+#eventLogInspectorSection .evt-sev-pill.is-info { color: #36d97c; background: rgba(54, 217, 124, 0.12); }
+#eventLogInspectorSection .evt-sev-pill.is-warn { color: #ffab2e; background: rgba(255, 171, 46, 0.14); }
+#eventLogInspectorSection .evt-sev-pill.is-crit { color: #ff6666; background: rgba(255, 102, 102, 0.14); }
+#eventLogInspectorSection .evt-desc-code { font-family: 'Cascadia Code', Consolas, monospace; font-size: 9.5px; color: var(--cyan); font-weight: 700; }
+#eventLogInspectorSection .evt-desc-fields { display: grid; grid-template-columns: 78px 1fr; gap: 8px; align-items: end; }
+#eventLogInspectorSection .evt-sd-file[hidden] { display: none !important; }
 
 /* Animaciones de iconos (Alpha16) */
 @keyframes iconSpin {

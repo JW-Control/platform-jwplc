@@ -855,7 +855,9 @@ body.theme-light .menu-legend-row[data-legend-key]:hover,
 body.theme-light .menu-legend-row[data-menu-legend-row]:hover,
 body.theme-light .menu-legend-row[data-menu-frame-row]:hover,
 body.theme-light .menu-legend-row[data-bar-legend]:hover,
-body.theme-light .menu-legend-row[data-shape-legend]:hover {
+body.theme-light .menu-legend-row[data-shape-legend]:hover,
+body.theme-light .menu-legend-row[data-evt-legend-row]:hover,
+body.theme-light .menu-legend-row[data-evt-frame-row]:hover {
   background: rgba(0, 0, 0, 0.04);
 }
 

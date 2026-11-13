@@ -346,6 +346,333 @@ static const JWPLC_UIEventLog HMI_EVENT_LOG = {
   // ---------------------------------------------------------------------------
 
   const tabs = { main: 'design', sub: 'shape' };
+  const EVT_PREVIEW_W = 148;
+  const EVT_PREVIEW_ROWS = 4;
+  const COLOR_META = Object.freeze({
+    frame:            { name: 'Marco exterior',         letter: 'M' },
+    headerBackground: { name: 'Cabecera · Fondo',       letter: 'F' },
+    headerText:       { name: 'Cabecera · Texto',       letter: 'T' },
+    selectBackground: { name: 'Selección · Fondo',      letter: 'F' },
+    selectText:       { name: 'Selección · Texto',      letter: 'T' },
+    rowBackgroundAlt: { name: 'Fila B (impar) · Fondo', letter: 'F' },
+    rowBackground:    { name: 'Fila A (par) · Fondo',   letter: 'F' },
+    rowText:          { name: 'Filas · Texto',          letter: 'T' },
+    sevInfo:          { name: 'Severidad · INFO',       letter: 'I' },
+    sevWarn:          { name: 'Severidad · AVISO',      letter: 'A' },
+    sevCrit:          { name: 'Severidad · CRÍTICA',    letter: 'C' }
+  });
+  const EVT_LEGEND_ROWS = Object.freeze([
+    { label: 'Cabecera',  keys: ['headerBackground', 'headerText'] },
+    { label: 'Selección', keys: ['selectBackground', 'selectText'] },
+    { label: 'Fila B',    keys: ['rowBackgroundAlt'] },
+    { label: 'Fila A/Tx', keys: ['rowBackground', 'rowText'] },
+    { label: 'Severidad', keys: ['sevInfo', 'sevWarn', 'sevCrit'] }
+  ]);
+  let activeColorKey = 'headerBackground';
+  let evtColorEditor = null;
+  let lastPreviewFb = null;
+  let lastPreviewPitch = 0;
+
+  function evtPreviewHeight(field) {
+    const border = field?.frame ? 1 : 0;
+    return 2 * border + HEADER_HEIGHT + EVT_PREVIEW_ROWS * ROW_HEIGHT + FOOTER_HEIGHT;
+  }
+
+  function scanColorBounds(fb, pitch, color565, x0, y0, w, h) {
+    if (!fb || !pitch || w <= 0 || h <= 0) return null;
+    const target = Number(color565) & 0xFFFF;
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -1;
+    let maxY = -1;
+    for (let y = y0; y < y0 + h; y++) {
+      for (let x = x0; x < x0 + w; x++) {
+        if ((fb[y * pitch + x] & 0xFFFF) !== target) continue;
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+    }
+    return maxX >= 0 ? { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 } : null;
+  }
+
+  function evtZoneRectsFor(field, fb, pitch) {
+    const w = EVT_PREVIEW_W;
+    const h = evtPreviewHeight(field);
+    const border = field?.frame ? 1 : 0;
+    const innerW = w - 2 * border;
+    const c = field?.colors || DEFAULT_COLORS;
+    const rowBand = (r) => ({
+      x: border + 3,
+      y: border + HEADER_HEIGHT + r * ROW_HEIGHT,
+      w: Math.max(1, innerW - 3),
+      h: ROW_HEIGHT
+    });
+    const sevBar = (r) => ({
+      x: border,
+      y: border + HEADER_HEIGHT + r * ROW_HEIGHT,
+      w: 3,
+      h: ROW_HEIGHT
+    });
+    const headerBand = { x: border, y: border, w: innerW, h: HEADER_HEIGHT };
+    const headerTextFallback = { x: border + 5, y: border + 3, w: 56, h: 10 };
+    const selBand = rowBand(0);
+    const row1Band = rowBand(1);
+    const row2Band = rowBand(2);
+
+    const headerBg = Number(c.headerBackground) & 0xFFFF;
+    const headerFg = Number(c.headerText) & 0xFFFF;
+    const headerTextBox = headerFg !== headerBg
+      ? (scanColorBounds(fb, pitch, headerFg, headerBand.x, headerBand.y, headerBand.w, headerBand.h) || headerTextFallback)
+      : headerBand;
+
+    const selBg = Number(c.selectBackground) & 0xFFFF;
+    const selFg = Number(c.selectText) & 0xFFFF;
+    const selectTextBox = selFg !== selBg
+      ? (scanColorBounds(fb, pitch, selFg, selBand.x, selBand.y, selBand.w, selBand.h) || selBand)
+      : selBand;
+
+    const rowFg = Number(c.rowText) & 0xFFFF;
+    const row1Text = rowFg !== (Number(c.rowBackgroundAlt) & 0xFFFF)
+      ? scanColorBounds(fb, pitch, rowFg, row1Band.x, row1Band.y, row1Band.w, row1Band.h)
+      : row1Band;
+    const row2Text = rowFg !== (Number(c.rowBackground) & 0xFFFF)
+      ? scanColorBounds(fb, pitch, rowFg, row2Band.x, row2Band.y, row2Band.w, row2Band.h)
+      : row2Band;
+    const rowTextRects = [row1Text, row2Text].filter(Boolean);
+
+    return {
+      frame: field?.frame ? [{ x: 0, y: 0, w, h, inset: true }] : [],
+      headerBackground: [headerBand],
+      headerText: [headerTextBox],
+      selectBackground: [selBand],
+      selectText: [selectTextBox],
+      rowBackgroundAlt: [row1Band],
+      rowBackground: [row2Band],
+      rowText: rowTextRects.length ? rowTextRects : [row1Band],
+      sevInfo: [sevBar(0), sevBar(2)],
+      sevWarn: [sevBar(1)],
+      sevCrit: [sevBar(3)]
+    };
+  }
+
+  function pickColorKeyAt(field, lx, ly, w, h) {
+    const border = field?.frame ? 1 : 0;
+    if (field?.frame && (lx <= 0 || ly <= 0 || lx >= w - 1 || ly >= h - 1)) return 'frame';
+    const fbPix = (lastPreviewFb && lastPreviewPitch && lastPreviewFb[ly * lastPreviewPitch + lx] !== undefined)
+      ? (lastPreviewFb[ly * lastPreviewPitch + lx] & 0xFFFF)
+      : null;
+    const c = field?.colors || DEFAULT_COLORS;
+    if (ly < border + HEADER_HEIGHT) {
+      const fg = Number(c.headerText) & 0xFFFF;
+      const bg = Number(c.headerBackground) & 0xFFFF;
+      return (fbPix !== null && fbPix === fg && fg !== bg) ? 'headerText' : 'headerBackground';
+    }
+    if (ly < border + HEADER_HEIGHT + EVT_PREVIEW_ROWS * ROW_HEIGHT) {
+      const r = clamp(Math.floor((ly - border - HEADER_HEIGHT) / ROW_HEIGHT), 0, EVT_PREVIEW_ROWS - 1);
+      if (lx < border + 4) {
+        if (r === 1) return 'sevWarn';
+        if (r === 3) return 'sevCrit';
+        return 'sevInfo';
+      }
+      if (r === 0) {
+        const fg = Number(c.selectText) & 0xFFFF;
+        const bg = Number(c.selectBackground) & 0xFFFF;
+        return (fbPix !== null && fbPix === fg && fg !== bg) ? 'selectText' : 'selectBackground';
+      }
+      const fg = Number(c.rowText) & 0xFFFF;
+      const bg = (r % 2 === 1 ? Number(c.rowBackgroundAlt) : Number(c.rowBackground)) & 0xFFFF;
+      if (fbPix !== null && fbPix === fg && fg !== bg) return 'rowText';
+      return (r % 2 === 1) ? 'rowBackgroundAlt' : 'rowBackground';
+    }
+    return 'rowBackground';
+  }
+
+  function drawEvtZones(section, field) {
+    if (!section || !field || typeof window === 'undefined') return;
+    const body = section.querySelector('[data-evt-preview-body]');
+    const canvas = section.querySelector('[data-evt-preview-canvas]');
+    if (!body || !canvas) return;
+    const zones = evtZoneRectsFor(field, lastPreviewFb, lastPreviewPitch);
+    const rects = zones[activeColorKey] || [];
+    const draw = () => window.JWPLCZoneIndicator?.draw?.(body, canvas, rects);
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(draw);
+    else draw();
+  }
+
+  function buildAppearanceLegend(section) {
+    const legend = section.querySelector('[data-evt-legend]');
+    if (!legend || legend.dataset.built) return;
+    legend.dataset.built = '1';
+    legend.innerHTML = EVT_LEGEND_ROWS.map((r) => `
+      <div class="menu-legend-row" data-evt-legend-row data-keys="${r.keys.join(',')}">
+        <span class="menu-legend-label">${r.label}</span>${r.keys.map((key) => {
+          const meta = COLOR_META[key];
+          return `<button type="button" class="menu-swatch" data-evt-swatch="${key}" title="${meta.name}"><span>${meta.letter}</span></button>`;
+        }).join('')}
+      </div>`).join('');
+  }
+
+  function syncEvtAppearance(section, field) {
+    if (!section || !field) return;
+    buildAppearanceLegend(section);
+    if (!field.frame && activeColorKey === 'frame') activeColorKey = 'headerBackground';
+
+    const frameRow = section.querySelector('[data-evt-frame-row]');
+    if (frameRow) {
+      frameRow.hidden = !field.frame;
+      frameRow.classList.toggle('is-active', activeColorKey === 'frame');
+    }
+
+    const canvas = section.querySelector('[data-evt-preview-canvas]');
+    const h = evtPreviewHeight(field);
+    const previewField = { ...field, x: 0, y: 0, width: EVT_PREVIEW_W, height: h };
+    const out = editor()?.renderFieldPreview?.(previewField);
+    if (canvas && out?.buffer) {
+      lastPreviewFb = out.buffer;
+      lastPreviewPitch = out.width;
+      if (canvas.width !== EVT_PREVIEW_W) canvas.width = EVT_PREVIEW_W;
+      if (canvas.height !== h) canvas.height = h;
+      canvas.dataset.logicalW = String(EVT_PREVIEW_W);
+      canvas.dataset.logicalH = String(h);
+      const ctx = canvas.getContext('2d');
+      const img = ctx.createImageData(EVT_PREVIEW_W, h);
+      for (let y = 0; y < h; y++) {
+        const row = y * out.width;
+        for (let x = 0; x < EVT_PREVIEW_W; x++) {
+          const v = out.buffer[row + x];
+          const o = (y * EVT_PREVIEW_W + x) * 4;
+          img.data[o] = Math.round(((v >> 11) & 0x1F) * 255 / 31);
+          img.data[o + 1] = Math.round(((v >> 5) & 0x3F) * 255 / 63);
+          img.data[o + 2] = Math.round((v & 0x1F) * 255 / 31);
+          img.data[o + 3] = 255;
+        }
+      }
+      ctx.putImageData(img, 0, 0);
+    } else if (canvas) {
+      canvas.dataset.logicalW = String(EVT_PREVIEW_W);
+      canvas.dataset.logicalH = String(h);
+    }
+
+    const c = field.colors || DEFAULT_COLORS;
+    Object.keys(DEFAULT_COLORS).forEach((key) => {
+      const v = (Number(c[key] ?? DEFAULT_COLORS[key]) || 0) & 0xFFFF;
+      const lum = ((v >> 11) + ((v >> 5) & 0x3F) / 2 + (v & 0x1F));
+      section.querySelectorAll(`[data-evt-swatch="${key}"]`).forEach((sw) => {
+        sw.style.background = rgb565ToHex(v);
+        sw.style.color = lum > 40 ? '#000' : '#fff';
+        sw.classList.toggle('active', key === activeColorKey);
+      });
+    });
+
+    section.querySelectorAll('[data-evt-legend-row]').forEach((row) => {
+      const keys = (row.dataset.keys || '').split(',');
+      row.classList.toggle('is-active', keys.includes(activeColorKey));
+    });
+
+    const activeVal = (Number(c[activeColorKey] ?? DEFAULT_COLORS[activeColorKey]) || 0) & 0xFFFF;
+    evtColorEditor?.set(activeVal, COLOR_META[activeColorKey]?.name || activeColorKey);
+
+    if (tabs.main === 'design' && tabs.sub === 'appearance') {
+      drawEvtZones(section, field);
+    }
+  }
+
+  function descriptorMeta() {
+    return {
+      sev: {
+        INFO: { label: 'INFO', short: 'INFO', cls: 'is-info' },
+        WARN: { label: 'AVISO', short: 'AVISO', cls: 'is-warn' },
+        CRIT: { label: 'CRÍTICA', short: 'CRIT', cls: 'is-crit' }
+      },
+      cat: {
+        SYSTEM: { label: 'Sistema', short: 'SIST' },
+        ALARM: { label: 'Alarma', short: 'ALARM' },
+        INTERLOCK: { label: 'Interlock', short: 'INTLK' },
+        PROCESS: { label: 'Proceso', short: 'PROC' }
+      }
+    };
+  }
+  let selectedDescIndex = 0;
+
+  function renderDescriptorList(section, field) {
+    const listContainer = section.querySelector('[data-evt-descriptors-list]');
+    if (!listContainer) return;
+    const descList = field.descriptors || [];
+    if (descList.length === 0) selectedDescIndex = -1;
+    else selectedDescIndex = clamp(selectedDescIndex < 0 ? 0 : selectedDescIndex, 0, descList.length - 1);
+
+    const { sev, cat } = descriptorMeta();
+    const signature = JSON.stringify([descList.map((d) => [d.code, d.label, d.severity, d.category]), selectedDescIndex]);
+    if (listContainer.dataset.signature === signature) return;
+    listContainer.dataset.signature = signature;
+
+    if (!descList.length) {
+      listContainer.innerHTML = '<div class="insp-note">Catálogo vacío: pulsa «＋ Agregar» para definir un evento.</div>';
+      return;
+    }
+    listContainer.innerHTML = descList.map((d, i) => {
+      const s = sev[d.severity] || sev.INFO;
+      const cLabel = (cat[d.category] || cat.PROCESS).short;
+      return `
+        <div class="menu-tree-row${i === selectedDescIndex ? ' active' : ''}" data-evt-desc-row="${i}">
+          <span class="evt-sev-pill ${s.cls}">${s.short}</span>
+          <span class="evt-desc-code">#${Number(d.code) || 0}</span>
+          <span class="menu-tree-label">${escapeHtml(d.label || '')}</span>
+          <span class="menu-tree-var">${cLabel}</span>
+          <span class="menu-tree-btns">
+            <button type="button" data-evt-del-desc="${i}" title="Eliminar evento">✕</button>
+          </span>
+        </div>`;
+    }).join('');
+  }
+
+  function renderDescriptorEditor(section, field) {
+    const host = section.querySelector('[data-evt-desc-editor]');
+    if (!host) return;
+    const descList = field.descriptors || [];
+    const d = (selectedDescIndex >= 0 && selectedDescIndex < descList.length) ? descList[selectedDescIndex] : null;
+    if (!d) {
+      host.dataset.signature = 'none';
+      host.innerHTML = '<div class="insp-note">Elige un evento de la lista para editar su código, texto, severidad y categoría.</div>';
+      return;
+    }
+    const { sev, cat } = descriptorMeta();
+    const sig = `${selectedDescIndex}|${d.severity}|${d.category}`;
+    if (host.dataset.signature !== sig) {
+      host.dataset.signature = sig;
+      host.innerHTML = `
+        <div class="bar-card-section-title" data-evt-desc-heading>Evento #${Number(d.code) || 0} · ${(cat[d.category] || cat.PROCESS).label}</div>
+        <div class="evt-desc-fields">
+          <label class="field-label">Código (#)
+            <input type="number" class="field-input code-input" data-evt-desc-prop="code" min="0" max="65535" />
+          </label>
+          <label class="field-label">Descripción en HMI
+            <input type="text" class="field-input" data-evt-desc-prop="label" maxlength="48" />
+          </label>
+        </div>
+        <span class="bar-visual-group-title insp-gap">Severidad</span>
+        <div class="insp-chip-row">
+          ${Object.entries(sev).map(([k, info]) =>
+            `<button type="button" class="insp-chip${d.severity === k ? ' active' : ''}" data-evt-desc-sev="${k}">${info.label}</button>`
+          ).join('')}
+        </div>
+        <span class="bar-visual-group-title insp-gap">Categoría</span>
+        <div class="insp-chip-row">
+          ${Object.entries(cat).map(([k, info]) =>
+            `<button type="button" class="insp-chip${d.category === k ? ' active' : ''}" data-evt-desc-cat="${k}">${info.label}</button>`
+          ).join('')}
+        </div>
+      `;
+    }
+    const heading = host.querySelector('[data-evt-desc-heading]');
+    if (heading) heading.textContent = `Evento #${Number(d.code) || 0} · ${(cat[d.category] || cat.PROCESS).label}`;
+    const codeIn = host.querySelector('[data-evt-desc-prop="code"]');
+    if (codeIn && document.activeElement !== codeIn) codeIn.value = String(Number(d.code) || 0);
+    const labelIn = host.querySelector('[data-evt-desc-prop="label"]');
+    if (labelIn && document.activeElement !== labelIn) labelIn.value = d.label || '';
+  }
 
   function selectedEventLog() {
     const field = editor()?.getSelectedField?.();
@@ -422,14 +749,12 @@ static const JWPLC_UIEventLog HMI_EVENT_LOG = {
                 <input class="field-input" data-evt-prop="title" type="text" maxlength="32" placeholder="Historial de Eventos" />
               </label>
             </div>
-            <div class="bar-card">
-              <div class="bar-card-section-title">Tipografía</div>
-              <label class="field-label">Fuente de la cabecera
-                <select class="field-input" data-evt-font="headerFont"></select>
-              </label>
-              <label class="field-label insp-gap">Fuente de las filas de eventos
-                <select class="field-input" data-evt-font="rowFont"></select>
-              </label>
+            <div class="bar-card" data-evt-font-card>
+              <div class="insp-font-head">
+                <span class="bar-card-section-title" style="margin:0;">Tipografía</span>
+                <span class="insp-type-chip">Clásica 5×7 (GLCD · 8 px)</span>
+              </div>
+              <div class="insp-note">Fuente única fija optimizada para alinear columnas de hora, código y severidad.</div>
             </div>
             <div class="bar-card">
               <div class="bar-card-section-title">Marco exterior</div>
@@ -448,106 +773,23 @@ static const JWPLC_UIEventLog HMI_EVENT_LOG = {
             </div>
           </div>
 
-          <!-- PANEL: Apariencia (Colores compactos optimizados) -->
+          <!-- PANEL: Apariencia (Vista previa + zonas + editor fijo sin scroll) -->
           <div class="insp-panel" data-evt-panel="design:appearance" hidden>
-            <div class="bar-card">
-              <div class="bar-card-section-title">Marco y Encabezado</div>
-              <div class="evt-color-table">
-                <div class="evt-color-row">
-                  <span class="evt-color-name">Marco exterior</span>
-                  <label class="evt-color-ctrl">
-                    <span class="insp-hex" data-evt-hex="frame">#FFFFFF</span>
-                    <input type="color" data-evt-color="frame" />
-                  </label>
-                </div>
-                <div class="evt-color-row">
-                  <span class="evt-color-name">Fondo de cabecera</span>
-                  <label class="evt-color-ctrl">
-                    <span class="insp-hex" data-evt-hex="headerBackground">#212521</span>
-                    <input type="color" data-evt-color="headerBackground" />
-                  </label>
-                </div>
-                <div class="evt-color-row">
-                  <span class="evt-color-name">Texto de cabecera</span>
-                  <label class="evt-color-ctrl">
-                    <span class="insp-hex" data-evt-hex="headerText">#FFFFFF</span>
-                    <input type="color" data-evt-color="headerText" />
-                  </label>
+            <div class="bar-card" data-evt-colors>
+              <div class="evt-case">
+                <div class="bar-card-section-title">Vista previa y zonas</div>
+                <div class="menu-case-body zone-host evt-case-body" data-evt-preview-body>
+                  <canvas class="menu-case-canvas evt-case-canvas" data-evt-preview-canvas width="148" height="88"></canvas>
+                  <div class="menu-case-legend" data-evt-legend></div>
                 </div>
               </div>
-            </div>
-
-            <div class="bar-card">
-              <div class="bar-card-section-title">Filas de Eventos</div>
-              <div class="evt-color-table">
-                <div class="evt-color-row">
-                  <span class="evt-color-name">Fondo fila A</span>
-                  <label class="evt-color-ctrl">
-                    <span class="insp-hex" data-evt-hex="rowBackground">#000000</span>
-                    <input type="color" data-evt-color="rowBackground" />
-                  </label>
-                </div>
-                <div class="evt-color-row">
-                  <span class="evt-color-name">Fondo fila B (alterna)</span>
-                  <label class="evt-color-ctrl">
-                    <span class="insp-hex" data-evt-hex="rowBackgroundAlt">#101410</span>
-                    <input type="color" data-evt-color="rowBackgroundAlt" />
-                  </label>
-                </div>
-                <div class="evt-color-row">
-                  <span class="evt-color-name">Texto de fila</span>
-                  <label class="evt-color-ctrl">
-                    <span class="insp-hex" data-evt-hex="rowText">#C6C3C6</span>
-                    <input type="color" data-evt-color="rowText" />
-                  </label>
-                </div>
+              <div class="menu-legend-row menu-frame-row" data-evt-frame-row data-keys="frame">
+                <span class="menu-legend-label">Marco exterior</span>
+                <button type="button" class="menu-swatch" data-evt-swatch="frame" title="Marco exterior"><span>M</span></button>
               </div>
-            </div>
-
-            <div class="bar-card">
-              <div class="bar-card-section-title">Fila Seleccionada (Cursor)</div>
-              <div class="evt-color-table">
-                <div class="evt-color-row">
-                  <span class="evt-color-name">Fondo de selección</span>
-                  <label class="evt-color-ctrl">
-                    <span class="insp-hex" data-evt-hex="selectBackground">#007CFF</span>
-                    <input type="color" data-evt-color="selectBackground" />
-                  </label>
-                </div>
-                <div class="evt-color-row">
-                  <span class="evt-color-name">Texto de selección</span>
-                  <label class="evt-color-ctrl">
-                    <span class="insp-hex" data-evt-hex="selectText">#FFFFFF</span>
-                    <input type="color" data-evt-color="selectText" />
-                  </label>
-                </div>
-              </div>
-            </div>
-
-            <div class="bar-card">
-              <div class="bar-card-section-title">Barras de Severidad</div>
-              <div class="evt-color-table">
-                <div class="evt-color-row">
-                  <span class="evt-color-name">INFO (Informativo)</span>
-                  <label class="evt-color-ctrl">
-                    <span class="insp-hex" data-evt-hex="sevInfo">#00FC00</span>
-                    <input type="color" data-evt-color="sevInfo" />
-                  </label>
-                </div>
-                <div class="evt-color-row">
-                  <span class="evt-color-name">AVISO (Advertencia)</span>
-                  <label class="evt-color-ctrl">
-                    <span class="insp-hex" data-evt-hex="sevWarn">#FFA400</span>
-                    <input type="color" data-evt-color="sevWarn" />
-                  </label>
-                </div>
-                <div class="evt-color-row">
-                  <span class="evt-color-name">CRÍTICA (Alarma)</span>
-                  <label class="evt-color-ctrl">
-                    <span class="insp-hex" data-evt-hex="sevCrit">#F80000</span>
-                    <input type="color" data-evt-color="sevCrit" />
-                  </label>
-                </div>
+              <div class="menu-palette evt-palette">
+                <div class="insp-note">Clic en un cuadro, fila o en la vista previa para editar su color.</div>
+                <div data-evt-color-editor></div>
               </div>
             </div>
           </div>
@@ -572,47 +814,51 @@ static const JWPLC_UIEventLog HMI_EVENT_LOG = {
           <!-- PANEL: Memoria y Almacenamiento -->
           <div class="insp-panel" data-evt-panel="storage" hidden>
             <div class="bar-card">
-              <div class="bar-card-section-title">Buffer circular en RAM</div>
-              <div class="prop-row">
-                <label class="field-label">Capacidad de eventos:
-                  <select class="insp-select" data-evt-prop="ramCapacity">
-                    <option value="64">64 eventos (~1 KB RAM)</option>
-                    <option value="128">128 eventos (~2 KB RAM)</option>
-                  </select>
+              <div class="insp-font-head">
+                <span class="bar-card-section-title" style="margin:0;">Buffer circular en RAM</span>
+                <span class="insp-hint" data-evt-readout="ramStorageHint">64 evts · 1 KB</span>
+              </div>
+              <div class="bar-visual-grid-2 insp-gap">
+                <button type="button" class="bar-visual-btn" data-evt-ram="64"><strong>64 evts</strong><span>~1 KB RAM</span></button>
+                <button type="button" class="bar-visual-btn" data-evt-ram="128"><strong>128 evts</strong><span>~2 KB RAM</span></button>
+              </div>
+              <div class="insp-note">Política FIFO: al llenarse el buffer se descartan los registros más antiguos.</div>
+            </div>
+            <div class="bar-card">
+              <div class="bar-card-section-title">Persistencia en FRAM (sin batería)</div>
+              <div class="bar-visual-grid-2">
+                <button type="button" class="bar-visual-btn" data-evt-set="enableFram" data-value="0"><span>Solo RAM</span></button>
+                <button type="button" class="bar-visual-btn" data-evt-set="enableFram" data-value="1"><strong>FRAM</strong><span>16 últimos</span></button>
+              </div>
+              <div class="insp-readouts insp-readouts-grid insp-gap">
+                <span>Bloque sistema <strong>0x1E00</strong></span>
+                <span>Memoria <strong>256 B</strong></span>
+              </div>
+            </div>
+            <div class="bar-card">
+              <div class="bar-card-section-title">Exportación a MicroSD</div>
+              <div class="bar-visual-grid-2">
+                <button type="button" class="bar-visual-btn" data-evt-set="enableSd" data-value="0"><span>Desactivada</span></button>
+                <button type="button" class="bar-visual-btn" data-evt-set="enableSd" data-value="1"><span>CSV automático</span></button>
+              </div>
+              <div class="evt-sd-file insp-gap" data-evt-sd-file>
+                <label class="field-label">Archivo CSV en microSD
+                  <input type="text" class="field-input code-input" data-evt-prop="sdFileName" value="/EVENTOS.CSV" maxlength="32" />
                 </label>
               </div>
-              <div class="insp-note">Al llenarse el buffer se descartan los eventos más antiguos en FIFO.</div>
-            </div>
-            <div class="bar-card">
-              <div class="bar-card-section-title">Persistencia en FRAM</div>
-              <label class="field-label" style="display:flex; align-items:center; gap:8px;">
-                <input type="checkbox" data-evt-prop="enableFram" checked />
-                <span>Guardar últimos 16 eventos en FRAM</span>
-              </label>
-              <div class="insp-note">Bloque del sistema 0x1E00. No se borran al cortar la energía.</div>
-            </div>
-            <div class="bar-card">
-              <div class="bar-card-section-title">Registro en MicroSD</div>
-              <label class="field-label" style="display:flex; align-items:center; gap:8px;">
-                <input type="checkbox" data-evt-prop="enableSd" checked />
-                <span>Exportación CSV automática no bloqueante</span>
-              </label>
-              <label class="field-label" style="margin-top:6px;">Nombre de archivo CSV
-                <input type="text" class="field-input" data-evt-prop="sdFileName" value="/EVENTOS.CSV" />
-              </label>
             </div>
           </div>
 
           <!-- PANEL: Descriptores de eventos -->
           <div class="insp-panel" data-evt-panel="descriptors" hidden>
             <div class="bar-card">
-              <div class="bar-card-section-title">Catálogo de eventos conocidos</div>
-              <div class="insp-note">Códigos y descripciones resueltos en memoria Flash (PROGMEM):</div>
-              <div class="evt-desc-list" data-evt-descriptors-list style="max-height: 240px; overflow-y: auto; margin: 8px 0;"></div>
-              <button type="button" class="bar-visual-btn" data-evt-add-desc style="width: 100%; justify-content: center;">
-                <strong>＋</strong> <span>Agregar descriptor de evento</span>
-              </button>
+              <div class="bar-card-header">
+                <span class="bar-card-title">Catálogo Flash (PROGMEM) <span class="insp-hint" data-evt-readout="descListCount"></span></span>
+                <button type="button" class="insp-chip" data-evt-add-desc>＋ Agregar</button>
+              </div>
+              <div class="menu-tree evt-desc-tree" data-evt-descriptors-list></div>
             </div>
+            <div class="bar-card" data-evt-desc-editor></div>
           </div>
 
           <!-- PANEL: Técnico -->
@@ -648,6 +894,18 @@ static const JWPLC_UIEventLog HMI_EVENT_LOG = {
 
     anchor.insertAdjacentElement('beforebegin', section);
 
+    if (!evtColorEditor && window.JWPLCColorEditor) {
+      evtColorEditor = window.JWPLCColorEditor.create({
+        paletteAttr: 'data-evt-palette',
+        onInput: (v) => mutate((f) => { f.colors[activeColorKey] = v; }, false),
+        onCommit: (v) => mutate((f) => { f.colors[activeColorKey] = v; }, true)
+      });
+    }
+    const editorHost = section.querySelector('[data-evt-color-editor]');
+    if (editorHost && evtColorEditor && !editorHost.contains(evtColorEditor.el)) {
+      editorHost.appendChild(evtColorEditor.el);
+    }
+
     // Event listeners
     section.addEventListener('click', (e) => {
       const field = selectedEventLog();
@@ -657,6 +915,7 @@ static const JWPLC_UIEventLog HMI_EVENT_LOG = {
       if (main) {
         tabs.main = main.dataset.evtMain;
         applyTabs(section);
+        if (tabs.main === 'design' && tabs.sub === 'appearance') drawEvtZones(section, field);
         return;
       }
 
@@ -664,6 +923,7 @@ static const JWPLC_UIEventLog HMI_EVENT_LOG = {
       if (sub) {
         tabs.sub = sub.dataset.evtSub;
         applyTabs(section);
+        if (tabs.sub === 'appearance') syncEvtAppearance(section, field);
         return;
       }
 
@@ -690,6 +950,40 @@ static const JWPLC_UIEventLog HMI_EVENT_LOG = {
         return;
       }
 
+      const ramBtn = e.target.closest('[data-evt-ram]');
+      if (ramBtn) {
+        const cap = Number(ramBtn.dataset.evtRam) === 128 ? 128 : 64;
+        mutate((f) => { f.ramCapacity = cap; });
+        return;
+      }
+
+      const swatch = e.target.closest('[data-evt-swatch]');
+      const legendRow = e.target.closest('[data-evt-legend-row], [data-evt-frame-row]');
+      if (swatch || legendRow) {
+        const keys = swatch
+          ? [swatch.dataset.evtSwatch]
+          : (legendRow.dataset.keys || '').split(',').filter(Boolean);
+        if (keys.length) {
+          activeColorKey = swatch ? keys[0] : (keys.includes(activeColorKey) ? activeColorKey : keys[0]);
+          syncEvtAppearance(section, field);
+        }
+        return;
+      }
+
+      const previewCanvas = e.target.closest('[data-evt-preview-canvas]');
+      if (previewCanvas) {
+        const rect = previewCanvas.getBoundingClientRect();
+        const logicalW = Number(previewCanvas.dataset.logicalW) || EVT_PREVIEW_W;
+        const logicalH = Number(previewCanvas.dataset.logicalH) || evtPreviewHeight(field);
+        if (rect.width > 0 && rect.height > 0) {
+          const lx = clamp(Math.floor(((e.clientX - rect.left) / rect.width) * logicalW), 0, logicalW - 1);
+          const ly = clamp(Math.floor(((e.clientY - rect.top) / rect.height) * logicalH), 0, logicalH - 1);
+          activeColorKey = pickColorKeyAt(field, lx, ly, logicalW, logicalH);
+          syncEvtAppearance(section, field);
+        }
+        return;
+      }
+
       const pageChip = e.target.closest('[data-evt-page]');
       if (pageChip) {
         const target = Number(pageChip.dataset.evtPage);
@@ -707,6 +1001,7 @@ static const JWPLC_UIEventLog HMI_EVENT_LOG = {
           if (!Array.isArray(f.descriptors)) f.descriptors = [];
           const nextCode = f.descriptors.length ? Math.max(...f.descriptors.map((d) => Number(d.code) || 0)) + 1 : 100;
           f.descriptors.push({ code: nextCode, label: `Evento #${nextCode}`, severity: 'INFO', category: 'PROCESS' });
+          selectedDescIndex = f.descriptors.length - 1;
         });
         return;
       }
@@ -715,7 +1010,36 @@ static const JWPLC_UIEventLog HMI_EVENT_LOG = {
       if (delBtn) {
         const idx = Number(delBtn.dataset.evtDelDesc);
         mutate((f) => {
-          if (f.descriptors && f.descriptors[idx]) f.descriptors.splice(idx, 1);
+          if (f.descriptors && f.descriptors[idx]) {
+            f.descriptors.splice(idx, 1);
+            if (selectedDescIndex >= f.descriptors.length) selectedDescIndex = f.descriptors.length - 1;
+          }
+        });
+        return;
+      }
+
+      const descRow = e.target.closest('[data-evt-desc-row]');
+      if (descRow) {
+        selectedDescIndex = Number(descRow.dataset.evtDescRow);
+        renderDescriptorList(section, field);
+        renderDescriptorEditor(section, field);
+        return;
+      }
+
+      const sevChip = e.target.closest('[data-evt-desc-sev]');
+      if (sevChip) {
+        const val = sevChip.dataset.evtDescSev;
+        mutate((f) => {
+          if (f.descriptors && f.descriptors[selectedDescIndex]) f.descriptors[selectedDescIndex].severity = val;
+        });
+        return;
+      }
+
+      const catChip = e.target.closest('[data-evt-desc-cat]');
+      if (catChip) {
+        const val = catChip.dataset.evtDescCat;
+        mutate((f) => {
+          if (f.descriptors && f.descriptors[selectedDescIndex]) f.descriptors[selectedDescIndex].category = val;
         });
         return;
       }
@@ -738,37 +1062,27 @@ static const JWPLC_UIEventLog HMI_EVENT_LOG = {
       }, commit);
     }
 
+    function applyDescInput(t, commit) {
+      const key = t.dataset.evtDescProp;
+      if (!key) return;
+      mutate((f) => {
+        const d = f.descriptors && f.descriptors[selectedDescIndex];
+        if (!d) return;
+        if (key === 'code') d.code = clamp(Math.trunc(Number(t.value) || 0), 0, 65535);
+        else d[key] = t.value;
+      }, commit);
+    }
+
     section.addEventListener('input', (e) => {
       const t = e.target;
       if (t.matches('[data-evt-prop]')) applyPropInput(t, false);
-      if (t.matches('[data-evt-color]')) {
-        const colKey = t.dataset.evtColor;
-        const hex = t.value;
-        const hexLabel = section.querySelector(`[data-evt-hex="${colKey}"]`);
-        if (hexLabel) hexLabel.textContent = hex.toUpperCase();
-        mutate((f) => {
-          f.colors[colKey] = hexToRgb565(hex);
-        }, false);
-      }
+      else if (t.matches('[data-evt-desc-prop]')) applyDescInput(t, false);
     });
 
     section.addEventListener('change', (e) => {
       const t = e.target;
-      if (t.matches('[data-evt-font]')) {
-        const prop = t.dataset.evtFont;
-        mutate((f) => { f[prop] = t.value; }, true);
-        return;
-      }
       if (t.matches('[data-evt-prop]')) applyPropInput(t, true);
-      if (t.matches('[data-evt-color]')) {
-        const colKey = t.dataset.evtColor;
-        const hex = t.value;
-        const hexLabel = section.querySelector(`[data-evt-hex="${colKey}"]`);
-        if (hexLabel) hexLabel.textContent = hex.toUpperCase();
-        mutate((f) => {
-          f.colors[colKey] = hexToRgb565(hex);
-        }, true);
-      }
+      else if (t.matches('[data-evt-desc-prop]')) applyDescInput(t, true);
     });
 
     return section;
@@ -803,55 +1117,36 @@ size_t total = JWPLC_Display.eventCount();
     if (!field || !section) return;
 
     ensureState(field);
+    if (field.headerFont !== 'GLCD' || field.rowFont !== 'GLCD') {
+      field.headerFont = 'GLCD';
+      field.rowFont = 'GLCD';
+      editor()?.render?.();
+    }
     applyTabs(section);
 
     // Título y Nombre
     const titleIn = section.querySelector('[data-evt-prop="title"]');
-    if (titleIn) titleIn.value = field.title || 'Historial de Eventos';
+    if (titleIn && document.activeElement !== titleIn) titleIn.value = field.title || 'Historial de Eventos';
     const nameIn = section.querySelector('[data-evt-prop="name"]');
-    if (nameIn) nameIn.value = field.name || '';
+    if (nameIn && document.activeElement !== nameIn) nameIn.value = field.name || '';
     const idIn = section.querySelector('[data-evt-prop="id"]');
-    if (idIn) idIn.value = field.id || '';
+    if (idIn && document.activeElement !== idIn) idIn.value = field.id || '';
 
-    // Marco botones
-    section.querySelectorAll('[data-evt-set="frame"]').forEach((b) => {
+    // Botones booleanos (marco, FRAM, MicroSD)
+    section.querySelectorAll('[data-evt-set]').forEach((b) => {
+      const prop = b.dataset.evtSet;
       const val = Number(b.dataset.value) === 1;
-      b.classList.toggle('active', field.frame === val);
+      b.classList.toggle('active', Boolean(field[prop]) === val);
     });
 
     // Ubicación
     ['x', 'y', 'width', 'height'].forEach((k) => {
       const input = section.querySelector(`[data-evt-prop="${k}"]`);
-      if (input) input.value = String(field[k]);
+      if (input && document.activeElement !== input) input.value = String(field[k]);
     });
 
-    function populateEvtFont(sel, currentVal) {
-      if (!sel || !window.JWPLCDesignerFonts) return;
-      const fonts = window.JWPLCDesignerFonts.availableFontsFor('EVENT_LOG');
-      const val = window.JWPLCDesignerFonts.normalizeId(currentVal || 'GLCD');
-      if (sel.dataset.val !== val || !sel.children.length) {
-        sel.dataset.val = val;
-        sel.innerHTML = '';
-        const groups = new Map();
-        fonts.forEach((f) => {
-          if (!groups.has(f.group)) {
-            const grp = document.createElement('optgroup');
-            grp.label = f.group;
-            groups.set(f.group, grp);
-            sel.appendChild(grp);
-          }
-          const opt = document.createElement('option');
-          opt.value = f.id;
-          opt.textContent = f.label;
-          groups.get(f.group).appendChild(opt);
-        });
-        sel.value = val;
-      }
-    }
-    populateEvtFont(section.querySelector('[data-evt-font="headerFont"]'), field.headerFont);
-    populateEvtFont(section.querySelector('[data-evt-font="rowFont"]'), field.rowFont);
-
     // Readouts
+    const ramCap = Number(field.ramCapacity) === 128 ? 128 : 64;
     const { rows } = layout(field);
     section.querySelectorAll('[data-evt-readout="rows"], [data-evt-readout="rows2"]').forEach((el) => el.textContent = `${rows} filas`);
     const wEl = section.querySelector('[data-evt-readout="width"]');
@@ -859,11 +1154,16 @@ size_t total = JWPLC_Display.eventCount();
     const hEl = section.querySelector('[data-evt-readout="height"]');
     if (hEl) hEl.textContent = `${field.height} px`;
     const ramEl = section.querySelector('[data-evt-readout="ram"]');
-    if (ramEl) ramEl.textContent = `${field.ramCapacity || 64} evts`;
+    if (ramEl) ramEl.textContent = `${ramCap} evts`;
+    const ramHintEl = section.querySelector('[data-evt-readout="ramStorageHint"]');
+    if (ramHintEl) ramHintEl.textContent = `${ramCap} evts · ~${ramCap === 128 ? 2 : 1} KB`;
+    const descCount = field.descriptors?.length || 0;
     const descCountEl = section.querySelector('[data-evt-readout="descCount"]');
-    if (descCountEl) descCountEl.textContent = `${field.descriptors?.length || 0}`;
+    if (descCountEl) descCountEl.textContent = `${descCount}`;
+    const descListCountEl = section.querySelector('[data-evt-readout="descListCount"]');
+    if (descListCountEl) descListCountEl.textContent = `(${descCount})`;
     const ramBytesEl = section.querySelector('[data-evt-readout="ramBytes"]');
-    if (ramBytesEl) ramBytesEl.textContent = `${(field.ramCapacity || 64) * 16} B`;
+    if (ramBytesEl) ramBytesEl.textContent = `${ramCap * 16} B`;
 
     // Páginas chips
     const pagesHost = section.querySelector('[data-evt-pages]');
@@ -874,51 +1174,21 @@ size_t total = JWPLC_Display.eventCount();
       ).join('');
     }
 
-    // Colores y Hex badges compactos
-    const c = field.colors || DEFAULT_COLORS;
-    section.querySelectorAll('[data-evt-color]').forEach((input) => {
-      const key = input.dataset.evtColor;
-      if (c[key] !== undefined) {
-        const hex = rgb565ToHex(c[key]);
-        input.value = hex;
-        const hexLabel = section.querySelector(`[data-evt-hex="${key}"]`);
-        if (hexLabel) hexLabel.textContent = hex.toUpperCase();
-      }
-    });
+    // Apariencia: vista previa + swatches + indicador de zona + editor fijo
+    syncEvtAppearance(section, field);
 
     // Almacenamiento
-    const ramSelect = section.querySelector('[data-evt-prop="ramCapacity"]');
-    if (ramSelect) ramSelect.value = String(field.ramCapacity || 64);
-    const framCb = section.querySelector('[data-evt-prop="enableFram"]');
-    if (framCb) framCb.checked = Boolean(field.enableFram);
-    const sdCb = section.querySelector('[data-evt-prop="enableSd"]');
-    if (sdCb) sdCb.checked = Boolean(field.enableSd);
+    section.querySelectorAll('[data-evt-ram]').forEach((b) => {
+      b.classList.toggle('active', Number(b.dataset.evtRam) === ramCap);
+    });
+    const sdFileWrap = section.querySelector('[data-evt-sd-file]');
+    if (sdFileWrap) sdFileWrap.hidden = !field.enableSd;
     const sdNameInput = section.querySelector('[data-evt-prop="sdFileName"]');
-    if (sdNameInput) sdNameInput.value = field.sdFileName || '/EVENTOS.CSV';
+    if (sdNameInput && document.activeElement !== sdNameInput) sdNameInput.value = field.sdFileName || '/EVENTOS.CSV';
 
-    // Descriptores
-    const listContainer = section.querySelector('[data-evt-descriptors-list]');
-    if (listContainer) {
-      const descList = field.descriptors || [];
-      listContainer.innerHTML = descList.map((d, i) => `
-        <div style="display: flex; gap: 4px; align-items: center; margin-bottom: 4px; background: rgba(255,255,255,0.04); padding: 4px; border-radius: 4px;">
-          <input type="number" style="width: 50px;" class="field-input" value="${d.code}" onchange="window.JWPLCHMIEventLog.updateDescriptor(${i}, 'code', this.value)">
-          <input type="text" style="flex: 1;" class="field-input" value="${escapeHtml(d.label)}" onchange="window.JWPLCHMIEventLog.updateDescriptor(${i}, 'label', this.value)">
-          <select style="width: 65px;" class="field-input" onchange="window.JWPLCHMIEventLog.updateDescriptor(${i}, 'severity', this.value)">
-            <option value="INFO" ${d.severity === 'INFO' ? 'selected' : ''}>INFO</option>
-            <option value="WARN" ${d.severity === 'WARN' ? 'selected' : ''}>AVISO</option>
-            <option value="CRIT" ${d.severity === 'CRIT' ? 'selected' : ''}>CRIT</option>
-          </select>
-          <select style="width: 75px;" class="field-input" onchange="window.JWPLCHMIEventLog.updateDescriptor(${i}, 'category', this.value)">
-            <option value="SYSTEM" ${d.category === 'SYSTEM' ? 'selected' : ''}>SIST</option>
-            <option value="ALARM" ${d.category === 'ALARM' ? 'selected' : ''}>ALARM</option>
-            <option value="INTERLOCK" ${d.category === 'INTERLOCK' ? 'selected' : ''}>INTLK</option>
-            <option value="PROCESS" ${d.category === 'PROCESS' ? 'selected' : ''}>PROC</option>
-          </select>
-          <button type="button" class="icon-button" data-evt-del-desc="${i}" style="color: #ff5252; cursor: pointer;">🗑</button>
-        </div>
-      `).join('');
-    }
+    // Descriptores (lista + editor de detalle)
+    renderDescriptorList(section, field);
+    renderDescriptorEditor(section, field);
 
     // Contrato
     const contractEl = section.querySelector('[data-evt-contract]');
