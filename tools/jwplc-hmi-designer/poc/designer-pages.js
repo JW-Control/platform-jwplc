@@ -144,6 +144,41 @@
     }
   }
 
+  const VALID_NAV_PRESETS = ['industrial-color', 'dark-pill', 'segmented-bar', 'compact-dots', 'counter'];
+
+  function resolveNavFontSpec(raw) {
+    const src = raw || {};
+    const fonts = window.JWPLCDesignerFonts;
+    const rawFont = String(src.font || '').trim().toUpperCase();
+    if (rawFont === 'MICRO') {
+      return { font: 'MICRO', textScale: 1, fontSize: 'micro' };
+    }
+    if (src.font) {
+      const norm = fonts?.normalizeId ? fonts.normalizeId(src.font) : (rawFont || 'GLCD');
+      const isGlcd = norm === 'GLCD';
+      const scale = isGlcd ? Math.max(1, Math.min(4, Math.trunc(Number(src.textScale) || 1))) : 1;
+      return { font: norm, textScale: scale, fontSize: 'normal' };
+    }
+    if (src.fontSize === 'micro') {
+      return { font: 'MICRO', textScale: 1, fontSize: 'micro' };
+    }
+    return { font: 'GLCD', textScale: 1, fontSize: 'normal' };
+  }
+
+  function normalizeNavPresetAndLabels(raw) {
+    const src = raw || {};
+    let preset = String(src.preset || 'industrial-color');
+    let labelFormat = src.labelFormat || 'short';
+    if (preset === 'numeric-pills') {
+      preset = 'dark-pill';
+      labelFormat = 'number';
+    } else if (preset === 'edge-tabs') {
+      preset = 'segmented-bar';
+    }
+    if (!VALID_NAV_PRESETS.includes(preset)) preset = 'industrial-color';
+    return { preset, labelFormat };
+  }
+
   function getNavBarConfig() {
     const navBarField = editor()?.getAllFields?.()?.find((f) => f.type === 'NAV_BAR');
     const fromEditor = editor()?.getNavBarConfig?.() || {};
@@ -165,12 +200,21 @@
     const xVal = navBarField?.x !== undefined ? Number(navBarField.x) : (fromEditor.x !== undefined ? Number(fromEditor.x) : defaultX);
     const yVal = navBarField?.y !== undefined ? Number(navBarField.y) : (fromEditor.y !== undefined ? Number(fromEditor.y) : defaultY);
 
+    const rawPreset = navBarField?.preset || fromEditor.preset || 'industrial-color';
+    const rawLabelFormat = navBarField?.labelFormat || fromEditor.labelFormat || 'short';
+    const { preset, labelFormat } = normalizeNavPresetAndLabels({ preset: rawPreset, labelFormat: rawLabelFormat });
+    const fontSpec = resolveNavFontSpec({
+      font: navBarField?.font !== undefined ? navBarField.font : fromEditor.font,
+      textScale: navBarField?.textScale !== undefined ? navBarField.textScale : fromEditor.textScale,
+      fontSize: navBarField?.fontSize || fromEditor.fontSize
+    });
+
     return {
       showIndicator: true,
       showArrows: true,
       ...fromEditor,
       enabled: Boolean(navBarField && !navBarField.hidden),
-      preset: navBarField?.preset || fromEditor.preset || 'industrial-color',
+      preset,
       position: pos,
       orientation: isVert ? 'vertical' : 'horizontal',
       x: xVal,
@@ -179,8 +223,10 @@
       height: Number(navBarField?.height || fromEditor.height || defaultH),
       tabDistribution: navBarField?.tabDistribution || fromEditor.tabDistribution || 'center',
       textAlign: navBarField?.textAlign || fromEditor.textAlign || 'center',
-      fontSize: navBarField?.fontSize || fromEditor.fontSize || 'normal',
-      labelFormat: navBarField?.labelFormat || fromEditor.labelFormat || 'short',
+      font: fontSpec.font,
+      textScale: fontSpec.textScale,
+      fontSize: fontSpec.fontSize,
+      labelFormat,
       bgMode: navBarField?.bgMode || fromEditor.bgMode || 'solid',
       borderMode: navBarField?.borderMode || fromEditor.borderMode || 'none',
       radius: navBarField?.radius !== undefined ? Number(navBarField.radius) : (fromEditor.radius !== undefined ? Number(fromEditor.radius) : 3),
@@ -190,7 +236,22 @@
 
   function updateNavBarConfig(next) {
     const current = getNavBarConfig();
-    const updated = { ...current, ...next };
+    const merged = { ...current, ...next };
+    const { preset, labelFormat } = normalizeNavPresetAndLabels(merged);
+    const fontInput = {
+      font: next.font !== undefined ? next.font : (next.fontSize !== undefined && next.font === undefined ? undefined : merged.font),
+      textScale: next.textScale !== undefined ? next.textScale : merged.textScale,
+      fontSize: next.fontSize !== undefined ? next.fontSize : merged.fontSize
+    };
+    const fontSpec = resolveNavFontSpec(fontInput);
+    const updated = {
+      ...merged,
+      preset,
+      labelFormat,
+      font: fontSpec.font,
+      textScale: fontSpec.textScale,
+      fontSize: fontSpec.fontSize
+    };
     const navBarField = editor()?.getAllFields?.()?.find((f) => f.type === 'NAV_BAR');
 
     if (next.position !== undefined) {
@@ -225,7 +286,7 @@
     if (next.height !== undefined) updated.height = Number(next.height);
 
     if (navBarField) {
-      if (next.preset !== undefined) navBarField.preset = next.preset;
+      if (next.preset !== undefined || navBarField.preset !== preset) navBarField.preset = preset;
       if (next.position !== undefined) {
         navBarField.position = next.position;
         navBarField.orientation = updated.orientation;
@@ -236,8 +297,10 @@
       navBarField.height = updated.height;
       if (next.tabDistribution !== undefined) navBarField.tabDistribution = next.tabDistribution;
       if (next.textAlign !== undefined) navBarField.textAlign = next.textAlign;
-      if (next.fontSize !== undefined) navBarField.fontSize = next.fontSize;
-      if (next.labelFormat !== undefined) navBarField.labelFormat = next.labelFormat;
+      navBarField.font = updated.font;
+      navBarField.textScale = updated.textScale;
+      navBarField.fontSize = updated.fontSize;
+      navBarField.labelFormat = updated.labelFormat;
       if (next.bgMode !== undefined) navBarField.bgMode = next.bgMode;
       if (next.borderMode !== undefined) navBarField.borderMode = next.borderMode;
       if (next.radius !== undefined) navBarField.radius = Number(next.radius);
@@ -250,9 +313,21 @@
 
   function syncNavBarConfigFromField(field) {
     if (!field || field.type !== 'NAV_BAR') return;
+    const { preset, labelFormat } = normalizeNavPresetAndLabels(field);
+    const fontSpec = resolveNavFontSpec(field);
+    field.preset = preset;
+    field.labelFormat = labelFormat;
+    field.font = fontSpec.font;
+    field.textScale = fontSpec.textScale;
+    field.fontSize = fontSpec.fontSize;
     const current = getNavBarConfig();
     const updated = {
       ...current,
+      preset,
+      labelFormat,
+      font: fontSpec.font,
+      textScale: fontSpec.textScale,
+      fontSize: fontSpec.fontSize,
       x: field.x,
       y: field.y,
       width: field.width || current.width,
@@ -778,11 +853,55 @@
         if (vertical) ctx.fillRect(x * scale, y * scale, scale, len * scale);
         else ctx.fillRect(x * scale, y * scale, len * scale, scale);
       },
-      text(str, x, y, col, micro) {
-        if (micro) drawMicroText(ctx, str, x, y, scale, col);
-        else drawClassicText(ctx, str, x, y, scale, col);
+      text(str, x, y, col, microOrFont) {
+        const fontSpec = (typeof microOrFont === 'object' && microOrFont !== null)
+          ? microOrFont
+          : { font: microOrFont ? 'MICRO' : 'GLCD', textScale: 1 };
+        const fid = fontSpec.font || 'GLCD';
+        const sc = Math.max(1, Math.trunc(Number(fontSpec.textScale) || 1));
+        if (fid === 'MICRO') {
+          drawMicroText(ctx, str, x, y, scale, col);
+          return;
+        }
+        if (fid === 'GLCD') {
+          drawClassicText(ctx, str, x, y, scale * sc, col);
+          return;
+        }
+        const fonts = window.JWPLCDesignerFonts;
+        const fObj = fonts?.get?.(fid);
+        if (fObj && fonts?.rasterize) {
+          const mask = fonts.rasterize(fObj, String(str), 1);
+          ctx.fillStyle = col;
+          for (let row = 0; row < mask.height; row += 1) {
+            for (let column = 0; column < mask.width; column += 1) {
+              if (mask.data[row * mask.width + column]) {
+                ctx.fillRect((x + column) * scale, (y + row) * scale, scale, scale);
+              }
+            }
+          }
+          return;
+        }
+        drawClassicText(ctx, str, x, y, scale, col);
       }
     };
+  }
+
+  function measureNavText(text, fontSpec) {
+    const str = String(text || '');
+    if (!str) return { w: 0, h: 0 };
+    if (fontSpec.font === 'MICRO') {
+      return { w: str.length * 4 - 1, h: 5 };
+    }
+    const fonts = window.JWPLCDesignerFonts;
+    const fObj = fonts?.get?.(fontSpec.font || 'GLCD');
+    const sc = fontSpec.font === 'GLCD' ? Math.max(1, Math.trunc(Number(fontSpec.textScale) || 1)) : 1;
+    if (fObj && fonts?.measureWidth && fonts?.lineHeight) {
+      return {
+        w: fonts.measureWidth(fObj, str, sc),
+        h: fonts.lineHeight(fObj, sc)
+      };
+    }
+    return { w: str.length * 6 * sc - sc, h: 7 * sc };
   }
 
   function drawHMINavigationBar(ctx, scale) {
@@ -824,7 +943,14 @@
       strokeRound: (x, y, w, h, r, col) => ops.push({ op: 'strokeRound', x, y, w, h, r, col }),
       fillRect: (x, y, w, h, col) => ops.push({ op: 'fillRect', x, y, w, h, col }),
       line: (x, y, len, vertical, col) => ops.push({ op: 'line', x, y, len, vertical, col }),
-      text: (str, x, y, col, micro) => ops.push({ op: 'text', str: String(str), x, y, col, micro: Boolean(micro) })
+      text: (str, x, y, col, microOrFont) => {
+        const fontSpec = (typeof microOrFont === 'object' && microOrFont !== null)
+          ? microOrFont
+          : { font: microOrFont ? 'MICRO' : 'GLCD', textScale: 1 };
+        const fid = fontSpec.font || 'GLCD';
+        const sc = fid === 'GLCD' ? Math.max(1, Math.trunc(Number(fontSpec.textScale) || 1)) : 1;
+        ops.push({ op: 'text', str: String(str), x, y, col, micro: fid === 'MICRO', font: fid, textScale: sc });
+      }
     }, layout, cfg, state);
     return ops;
   }
@@ -897,15 +1023,15 @@
       strokeRounded(layout.x, layout.y, layout.w, layout.h, cfg.radius, '#273c4f', 1);
     }
 
-    // Función de texto con tamaño y alineación
+    const navFont = resolveNavFontSpec(cfg);
+    const { preset: normPreset, labelFormat: normLabelFormat } = normalizeNavPresetAndLabels(cfg);
+    const activePreset = normPreset;
+
+    // Función de texto con fuente universal y alineación
     function drawTabText(text, x, y, w, h, color) {
       if (!text) return;
       const str = String(text);
-      const isMicro = cfg.fontSize === 'micro';
-      const isMedium = cfg.fontSize === 'medium';
-      const charW = isMicro ? 4 : (isMedium ? 7 : 6);
-      const charH = isMicro ? 5 : (isMedium ? 9 : 7);
-      const textW = str.length * charW - 1;
+      const { w: textW, h: charH } = measureNavText(str, navFont);
 
       let tx;
       if (cfg.textAlign === 'left') tx = x + 3;
@@ -914,39 +1040,59 @@
 
       const ty = y + Math.floor((h - charH) / 2);
 
-      painter.text(str, tx, ty, color, isMicro);
+      painter.text(str, tx, ty, color, navFont);
     }
 
     function formatLabel(tab) {
-      if (cfg.labelFormat === 'number') return String(tab.pageIndex + 1);
-      if (cfg.labelFormat === 'num_short') return `${tab.pageIndex + 1}:${tab.shortName}`;
+      if (normLabelFormat === 'number') return String(tab.pageIndex + 1);
+      if (normLabelFormat === 'num_short') return `${tab.pageIndex + 1}:${tab.shortName}`;
       return tab.shortName;
     }
 
     const rad = Number(cfg.radius !== undefined ? cfg.radius : 3);
 
-    // Acento y radio de la pestaña activa en cada estilo.
+    // Acento, radio y texto de cada pestaña según el estilo activo.
     function tabAccent(tab) {
-      if (preset === 'industrial-color' || preset === 'edge-tabs') return pageColorCss(tab.color);
-      if (preset === 'segmented-bar') return '#52c9ff';
+      if (activePreset === 'industrial-color') return pageColorCss(tab.color);
+      if (activePreset === 'segmented-bar') return '#52c9ff';
       return '#00c8ff';
     }
     function tabRadius() {
-      if (preset === 'dark-pill' || preset === 'numeric-pills') return Math.max(rad, 4);
-      if (preset === 'segmented-bar' || preset === 'edge-tabs') return 2;
-      if (preset === 'compact-dots') return 2.5;
+      if (activePreset === 'dark-pill') return Math.max(rad, 4);
+      if (activePreset === 'segmented-bar') return Math.min(rad, 2);
+      if (activePreset === 'compact-dots') return 2.5;
       return rad;
     }
     function tabLabel(tab) {
-      if (preset === 'compact-dots') return '';
-      if (preset === 'numeric-pills') return String(tab.pageIndex + 1);
+      if (activePreset === 'compact-dots') return '';
       return formatLabel(tab);
+    }
+
+    function paintSegmentedStripe(tab, color) {
+      if (layout.isVertical) {
+        const ax = (cfg.position === 'right') ? (tab.x + tab.w - 2) : tab.x;
+        painter.fillRect(ax, tab.y, 2, tab.h, color);
+      } else {
+        const ay = (cfg.position === 'top') ? (tab.y + tab.h - 2) : tab.y;
+        painter.fillRect(tab.x, ay, tab.w, 2, color);
+      }
     }
 
     function paintActiveTab(tab) {
       const accent = tabAccent(tab);
       const r = tabRadius();
       const label = tabLabel(tab);
+
+      if (activePreset === 'compact-dots') {
+        if (state === 'selected') {
+          fillRounded(tab.x, tab.y, tab.w, tab.h, 2.5, '#ffffff');
+          strokeRounded(tab.x, tab.y, tab.w, tab.h, 2.5, '#00c8ff', 1);
+        } else {
+          fillRounded(tab.x, tab.y, tab.w, tab.h, 2.5, '#00c8ff');
+        }
+        return;
+      }
+
       if (state === 'selected') {
         const frame = accentOnWhite(accent);
         fillRounded(tab.x, tab.y, tab.w, tab.h, r, '#ffffff');
@@ -955,17 +1101,25 @@
           strokeRounded(tab.x + 2, tab.y + 2, tab.w - 4, tab.h - 4, Math.max(0, r - 2), frame, 1);
         }
         drawTabText(label, tab.x, tab.y, tab.w, tab.h, frame);
-      } else {
-        const fill = accentFill(accent);
-        fillRounded(tab.x, tab.y, tab.w, tab.h, r, fill);
-        drawTabText(label, tab.x, tab.y, tab.w, tab.h, textOnAccent(fill));
+        return;
       }
+
+      if (activePreset === 'segmented-bar') {
+        fillRounded(tab.x, tab.y, tab.w, tab.h, r, '#1f2e42');
+        paintSegmentedStripe(tab, accent);
+        drawTabText(label, tab.x, tab.y, tab.w, tab.h, '#ffffff');
+        return;
+      }
+
+      const fill = accentFill(accent);
+      fillRounded(tab.x, tab.y, tab.w, tab.h, r, fill);
+      drawTabText(label, tab.x, tab.y, tab.w, tab.h, textOnAccent(fill));
     }
 
     // 3. Dibujo de cada pestaña según preset
     layout.tabs.forEach((tab) => {
       const colCss = pageColorCss(tab.color);
-      const label = formatLabel(tab);
+      const label = tabLabel(tab);
       painter.mark?.('start', tab);
       if (tab.isActive) {
         paintActiveTab(tab);
@@ -973,69 +1127,22 @@
         return;
       }
 
-      if (preset === 'industrial-color') {
-        if (tab.isActive) {
-          fillRounded(tab.x, tab.y, tab.w, tab.h, rad, '#ffffff');
-          strokeRounded(tab.x, tab.y, tab.w, tab.h, rad, colCss, 1.5);
-          drawTabText(label, tab.x, tab.y, tab.w, tab.h, colCss === '#ffffff' ? '#9c27b0' : colCss);
-        } else {
-          fillRounded(tab.x, tab.y, tab.w, tab.h, rad, '#000000');
-          strokeRounded(tab.x, tab.y, tab.w, tab.h, rad, colCss, 1);
-          drawTabText(label, tab.x, tab.y, tab.w, tab.h, colCss);
-        }
-      } else if (preset === 'dark-pill') {
-        if (tab.isActive) {
-          fillRounded(tab.x, tab.y, tab.w, tab.h, Math.max(rad, 4), '#00c8ff');
-          drawTabText(label, tab.x, tab.y, tab.w, tab.h, '#000000');
-        } else {
-          fillRounded(tab.x, tab.y, tab.w, tab.h, Math.max(rad, 4), '#151e2a');
-          strokeRounded(tab.x, tab.y, tab.w, tab.h, Math.max(rad, 4), '#27384c', 1);
-          drawTabText(label, tab.x, tab.y, tab.w, tab.h, '#8ca2b6');
-        }
-      } else if (preset === 'segmented-bar') {
-        if (tab.isActive) {
-          fillRounded(tab.x, tab.y, tab.w, tab.h, 2, '#1f2e42');
-          if (layout.isVertical) {
-            const ax = (cfg.position === 'right') ? (tab.x + tab.w - 2) : tab.x;
-            painter.fillRect(ax, tab.y, 2, tab.h, '#52c9ff');
-          } else {
-            const ay = (cfg.position === 'top') ? (tab.y + tab.h - 2) : tab.y;
-            painter.fillRect(tab.x, ay, tab.w, 2, '#52c9ff');
-          }
-          drawTabText(label, tab.x, tab.y, tab.w, tab.h, '#ffffff');
-        } else {
-          fillRounded(tab.x, tab.y, tab.w, tab.h, 2, '#0e1520');
-          strokeRounded(tab.x, tab.y, tab.w, tab.h, 2, '#1e2b3c', 1);
-          drawTabText(label, tab.x, tab.y, tab.w, tab.h, '#768d9f');
-        }
-      } else if (preset === 'compact-dots') {
-        // Puntos limpios, elegantes y proporcionados
-        if (tab.isActive) {
-          fillRounded(tab.x, tab.y, tab.w, tab.h, 2.5, '#00c8ff');
-        } else {
-          fillRounded(tab.x, tab.y, tab.w, tab.h, 2.5, '#2e4357');
-        }
-      } else if (preset === 'edge-tabs') {
-        // Lengüetas minimalistas en el borde
-        if (tab.isActive) {
-          fillRounded(tab.x, tab.y, tab.w, tab.h, 2, colCss);
-          drawTabText(label, tab.x, tab.y, tab.w, tab.h, '#000000');
-        } else {
-          fillRounded(tab.x, tab.y, tab.w, tab.h, 2, '#111b25');
-          strokeRounded(tab.x, tab.y, tab.w, tab.h, 2, colCss, 1);
-          drawTabText(label, tab.x, tab.y, tab.w, tab.h, '#7c92a6');
-        }
-      } else if (preset === 'numeric-pills') {
-        // Insignias circulares / redondeadas con números
-        const numText = String(tab.pageIndex + 1);
-        if (tab.isActive) {
-          fillRounded(tab.x, tab.y, tab.w, tab.h, Math.max(rad, 4), '#00c8ff');
-          drawTabText(numText, tab.x, tab.y, tab.w, tab.h, '#000000');
-        } else {
-          fillRounded(tab.x, tab.y, tab.w, tab.h, Math.max(rad, 4), '#14202d');
-          strokeRounded(tab.x, tab.y, tab.w, tab.h, Math.max(rad, 4), '#263a4d', 1);
-          drawTabText(numText, tab.x, tab.y, tab.w, tab.h, '#8ca3b8');
-        }
+      if (activePreset === 'industrial-color') {
+        fillRounded(tab.x, tab.y, tab.w, tab.h, rad, '#000000');
+        strokeRounded(tab.x, tab.y, tab.w, tab.h, rad, colCss, 1);
+        drawTabText(label, tab.x, tab.y, tab.w, tab.h, colCss);
+      } else if (activePreset === 'dark-pill') {
+        const rPill = Math.max(rad, 4);
+        fillRounded(tab.x, tab.y, tab.w, tab.h, rPill, '#151e2a');
+        strokeRounded(tab.x, tab.y, tab.w, tab.h, rPill, '#27384c', 1);
+        drawTabText(label, tab.x, tab.y, tab.w, tab.h, '#8ca2b6');
+      } else if (activePreset === 'segmented-bar') {
+        const rSeg = Math.min(rad, 2);
+        fillRounded(tab.x, tab.y, tab.w, tab.h, rSeg, '#0e1520');
+        strokeRounded(tab.x, tab.y, tab.w, tab.h, rSeg, '#1e2b3c', 1);
+        drawTabText(label, tab.x, tab.y, tab.w, tab.h, '#768d9f');
+      } else if (activePreset === 'compact-dots') {
+        fillRounded(tab.x, tab.y, tab.w, tab.h, 2.5, '#2e4357');
       }
       painter.mark?.('end', tab);
     });
@@ -1434,6 +1541,7 @@
 
   // --- Inspector Barra de Navegación HMI (Homogéneo con BAR) ---
   let activeNavBarTab = 'design';
+  let activeNavBarSubTab = 'shape';
 
   function switchNavBarMainTab(tabName) {
     activeNavBarTab = tabName;
@@ -1464,11 +1572,32 @@
     }
   }
 
-  // Event Listeners de Pestañas Principales del Inspector
+  function switchNavBarSubTab(subName) {
+    activeNavBarSubTab = subName || 'shape';
+    const section = document.getElementById('navBarInspectorSection');
+    if (!section) return;
+    section.querySelectorAll('.bar-sub-tab[data-navbar-subtab]').forEach((btn) => {
+      const isAct = btn.dataset.navbarSubtab === activeNavBarSubTab;
+      btn.classList.toggle('active', isAct);
+      btn.setAttribute('aria-selected', isAct ? 'true' : 'false');
+    });
+    section.querySelectorAll('.bar-sub-panel[data-navbar-subpane]').forEach((pane) => {
+      pane.hidden = (pane.dataset.navbarSubpane !== activeNavBarSubTab);
+    });
+  }
+
+  // Event Listeners de Pestañas Principales y Sub-pestañas del Inspector
   document.querySelectorAll('#navBarInspectorSection .bar-main-tab[data-navbar-tab]').forEach((btn) => {
     btn.addEventListener('click', (e) => {
       e.preventDefault();
       switchNavBarMainTab(btn.dataset.navbarTab);
+    });
+  });
+
+  document.querySelectorAll('#navBarInspectorSection .bar-sub-tab[data-navbar-subtab]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      switchNavBarSubTab(btn.dataset.navbarSubtab);
     });
   });
 
@@ -1562,12 +1691,52 @@
     });
   });
 
-  // Tamaño de Fuente
-  document.querySelectorAll('#navBarInspectorSection .bar-visual-btn[data-navbar-fontsize]').forEach((btn) => {
-    btn.addEventListener('click', (e) => {
+  // Tipografía unificada de Barra de Navegación (delegación en #navBarFontCtrl)
+  document.getElementById('navBarFontCtrl')?.addEventListener('click', (e) => {
+    const famBtn = e.target.closest('[data-navbar-font-family]');
+    if (famBtn) {
       e.preventDefault();
-      updateNavBarConfig({ fontSize: btn.dataset.navbarFontsize });
-    });
+      const fam = famBtn.dataset.navbarFontFamily;
+      if (fam === 'GLCD') updateNavBarConfig({ font: 'GLCD', textScale: 1, fontSize: 'normal' });
+      else if (fam === 'BITMAP') updateNavBarConfig({ font: 'FONT_16', textScale: 1, fontSize: 'normal' });
+      else if (fam === 'SANS') updateNavBarConfig({ font: 'SANS_9', textScale: 1, fontSize: 'normal' });
+      else if (fam === 'MONO') updateNavBarConfig({ font: 'MONO_9', textScale: 1, fontSize: 'normal' });
+      return;
+    }
+
+    const sizeBtn = e.target.closest('[data-navbar-font-size]');
+    if (sizeBtn) {
+      e.preventDefault();
+      const val = sizeBtn.dataset.navbarFontSize;
+      if (val === 'MICRO') {
+        updateNavBarConfig({ font: 'MICRO', textScale: 1, fontSize: 'micro' });
+        return;
+      }
+      const cfg = getNavBarConfig();
+      const fonts = window.JWPLCDesignerFonts;
+      const curSpec = resolveNavFontSpec(cfg);
+      const fam = curSpec.font === 'MICRO' ? 'GLCD' : (fonts?.fontFamilyOf(curSpec.font) || 'GLCD');
+      if (fam === 'GLCD') {
+        updateNavBarConfig({ font: 'GLCD', textScale: Number(val) || 1, fontSize: 'normal' });
+      } else if (fonts?.fontIdFrom) {
+        const nextFont = fonts.fontIdFrom(fam, val, fonts.isBold(curSpec.font));
+        updateNavBarConfig({ font: nextFont, textScale: 1, fontSize: 'normal' });
+      }
+      return;
+    }
+
+    const boldBtn = e.target.closest('[data-navbar-font-bold]');
+    if (boldBtn) {
+      e.preventDefault();
+      const cfg = getNavBarConfig();
+      const fonts = window.JWPLCDesignerFonts;
+      const curSpec = resolveNavFontSpec(cfg);
+      if (!fonts?.fontIdFrom || curSpec.font === 'MICRO') return;
+      const fam = fonts.fontFamilyOf(curSpec.font);
+      const variant = fonts.fontSizeVariantOf(curSpec.font, 1);
+      const nextFont = fonts.fontIdFrom(fam, variant, !fonts.isBold(curSpec.font));
+      updateNavBarConfig({ font: nextFont, textScale: 1, fontSize: 'normal' });
+    }
   });
 
   // Formato de Etiqueta
@@ -1733,12 +1902,80 @@
         else if (op.op === 'strokeRound') painter.strokeRound(op.x, op.y, op.w, op.h, op.r, op.col, 1);
         else if (op.op === 'fillRect') painter.fillRect(op.x, op.y, op.w, op.h, op.col);
         else if (op.op === 'line') painter.line(op.x, op.y, op.len, op.vertical, op.col);
-        else if (op.op === 'text') painter.text(op.str, op.x, op.y, op.col, op.micro);
+        else if (op.op === 'text') painter.text(op.str, op.x, op.y, op.col, { font: op.font || (op.micro ? 'MICRO' : 'GLCD'), textScale: op.textScale || 1 });
       });
       ctx.restore();
     });
     const shown = navigationMode === 'CONTENT' ? 'selected' : 'positioned';
     card.querySelectorAll('[data-nav-state]').forEach((btn) => btn.classList.toggle('active', btn.dataset.navState === shown));
+  }
+
+  function renderNavFontControl(cfg) {
+    const container = document.getElementById('navBarFontCtrl');
+    const hintEl = document.getElementById('navBarFontHint');
+    if (!container) return;
+
+    const spec = resolveNavFontSpec(cfg);
+    const fonts = window.JWPLCDesignerFonts;
+    const isMicro = spec.font === 'MICRO';
+    const fam = isMicro ? 'GLCD' : (fonts?.fontFamilyOf(spec.font) || 'GLCD');
+    const variant = isMicro ? 'MICRO' : (fonts ? String(fonts.fontSizeVariantOf(spec.font, spec.textScale)) : '1');
+    const bold = !isMicro && Boolean(fonts?.isBold(spec.font));
+    const px = isMicro ? 5 : (fonts ? fonts.fontHeightPx(spec.font, spec.textScale) : 7);
+
+    const famLabelMap = { GLCD: `GLCD ${spec.textScale}×`, BITMAP: `Bitmap ${variant}`, SANS: `Sans ${variant}`, MONO: `Mono ${variant}` };
+    const specBadge = isMicro
+      ? 'Micro 4×6'
+      : `${famLabelMap[fam] || spec.font}${bold ? ' B' : ''}`;
+
+    const families = [
+      { id: 'GLCD', label: 'Clásica 5×7' },
+      { id: 'BITMAP', label: 'Bitmap' },
+      { id: 'SANS', label: 'Sans' },
+      { id: 'MONO', label: 'Mono' }
+    ];
+
+    let sizeBtns = '';
+    if (fam === 'GLCD') {
+      sizeBtns = [
+        { val: 'MICRO', label: 'Micro' },
+        { val: '1', label: '1×' },
+        { val: '2', label: '2×' },
+        { val: '3', label: '3×' },
+        { val: '4', label: '4×' }
+      ].map((s) => `<button type="button" class="insp-chip${variant === s.val ? ' active' : ''}" data-navbar-font-size="${s.val}">${s.label}</button>`).join('');
+    } else if (fam === 'BITMAP') {
+      sizeBtns = ['16', '26'].map((pxVal) =>
+        `<button type="button" class="insp-chip${variant === pxVal ? ' active' : ''}" data-navbar-font-size="${pxVal}">${pxVal} px</button>`
+      ).join('');
+    } else if (fam === 'SANS' || fam === 'MONO') {
+      sizeBtns = ['9', '12', '18', '24'].map((pt) =>
+        `<button type="button" class="insp-chip${variant === pt ? ' active' : ''}" data-navbar-font-size="${pt}">${pt} pt</button>`
+      ).join('') +
+      `<button type="button" class="insp-chip insp-bold-btn${bold ? ' active' : ''}" data-navbar-font-bold title="Negrita">B</button>`;
+    }
+
+    container.innerHTML = `
+      <div class="insp-font-head">
+        <span class="insp-font-title">Etiqueta</span>
+        <span class="insp-font-px">${px} px (${specBadge})</span>
+      </div>
+      <div class="insp-font-family-row">
+        ${families.map((f) => `<button type="button" class="insp-font-chip${fam === f.id ? ' active' : ''}" data-navbar-font-family="${f.id}">${f.label}</button>`).join('')}
+      </div>
+      <div class="insp-font-size-row">
+        <span class="insp-font-size-label">Tamaño:</span>
+        <div class="insp-font-size-chips">${sizeBtns}</div>
+      </div>`;
+
+    if (hintEl) {
+      const isVert = cfg.position === 'left' || cfg.position === 'right' || cfg.orientation === 'vertical';
+      const maxTabH = isVert ? Math.max(12, Math.floor((Number(cfg.height || 170) - 8) / Math.max(1, pages().length))) : Math.max(8, Number(cfg.height || 22) - 2);
+      const { h: realH } = measureNavText('ABCD', spec);
+      const needsMore = realH > maxTabH;
+      hintEl.hidden = !needsMore;
+      hintEl.textContent = needsMore ? `La fuente (${realH} px) supera el alto útil de pestaña (${maxTabH} px). Sube Alto (H) en Ubicación.` : '';
+    }
   }
 
   function syncNavBarInspector() {
@@ -1748,19 +1985,28 @@
 
     const cfg = getNavBarConfig();
 
-    // 1. Pestaña activa
+    // 1. Pestaña principal activa
     switchNavBarMainTab(activeNavBarTab);
 
-    // 2. Marcar preset activo
+    // 2. Marcar preset activo y reglas contextuales de visibilidad
     const curPreset = cfg.preset || 'industrial-color';
     section.querySelectorAll('.bar-preset-btn[data-navbar-preset]').forEach((btn) => {
       btn.classList.toggle('active', btn.dataset.navbarPreset === curPreset);
     });
-    // El contador sólo se ubica (esquina o X/Y): el resto de opciones son de
-    // las barras con pestañas.
     const isCounter = curPreset === 'counter';
+    const isDots = curPreset === 'compact-dots';
     section.querySelectorAll('[data-navbar-bar-only]').forEach((el) => { el.hidden = isCounter; });
     section.querySelectorAll('[data-navbar-counter-only]').forEach((el) => { el.hidden = !isCounter; });
+    section.querySelectorAll('[data-navbar-dots-hide]').forEach((el) => { el.hidden = isCounter || isDots; });
+
+    if (
+      (isCounter && (activeNavBarSubTab === 'content' || activeNavBarSubTab === 'appearance')) ||
+      (isDots && activeNavBarSubTab === 'content')
+    ) {
+      activeNavBarSubTab = 'shape';
+    }
+    switchNavBarSubTab(activeNavBarSubTab);
+
     if (statesCard && !isCounter) drawNavStates(statesCard);
     section.querySelectorAll('[data-navbar-corner]').forEach((btn) => {
       const c = COUNTER_CORNERS[btn.dataset.navbarCorner];
@@ -1784,10 +2030,8 @@
       btn.classList.toggle('active', btn.dataset.navbarTextalign === (cfg.textAlign || 'center'));
     });
 
-    // 6. Marcar tamaño fuente
-    section.querySelectorAll('.bar-visual-btn[data-navbar-fontsize]').forEach((btn) => {
-      btn.classList.toggle('active', btn.dataset.navbarFontsize === (cfg.fontSize || 'normal'));
-    });
+    // 6. Tipografía unificada
+    renderNavFontControl(cfg);
 
     // 7. Marcar formato etiqueta
     section.querySelectorAll('.bar-visual-btn[data-navbar-labelformat]').forEach((btn) => {
@@ -1824,12 +2068,6 @@
     if (inY && inY !== activeEl) inY.value = String(cfg.y);
     if (inW && inW !== activeEl) inW.value = String(cfg.width);
     if (inH && inH !== activeEl) inH.value = String(cfg.height);
-
-    // 13. Lectura de Geometría
-    const geoXY = document.getElementById('navBarGeoXY');
-    const geoWH = document.getElementById('navBarGeoWH');
-    if (geoXY) geoXY.textContent = `${cfg.x} / ${cfg.y}`;
-    if (geoWH) geoWH.textContent = `${cfg.width} × ${cfg.height}`;
 
     // 6. Lista de páginas con abreviatura y color
     const pagesList = document.getElementById('navBarInspectorPagesList');
@@ -1985,6 +2223,9 @@
     drawHMINavigationBar,
     recordNavBar,
     syncNavBarInspector,
+    resolveNavFontSpec,
+    normalizeNavPresetAndLabels,
+    measureNavText,
     PRESET_PAGE_COLORS
   };
 })();

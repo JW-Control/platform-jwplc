@@ -471,7 +471,7 @@ Barra de navegación entre páginas (◀ ▶ de la botonera). Global: una sola, 
 |---|---|---|---|
 | `type` **(obligatoria)** | texto |  | Tipo de objeto. |
 | `name` | texto | `"Barra de Navegación"` | Nombre visible en la lista de objetos del Designer (no llega al C++). |
-| `preset` | `"industrial-color"` · `"dark-pill"` · `"segmented-bar"` · `"compact-dots"` · `"edge-tabs"` · `"numeric-pills"` · `"counter"` | `"industrial-color"` | Estilo. counter: sólo el indicador NN/TT que pinta el firmware (sin barra). |
+| `preset` | `"industrial-color"` · `"dark-pill"` · `"segmented-bar"` · `"compact-dots"` · `"counter"` | `"industrial-color"` | Estilo. counter: sólo el indicador NN/TT que pinta el firmware (sin barra). |
 | `position` | `"bottom"` · `"top"` · `"left"` · `"right"` | `"bottom"` | Borde de la pantalla. |
 | `x` | entero 0..319 |  | X (se calcula de position si falta). |
 | `y` | entero 0..169 |  | Y (se calcula de position si falta). |
@@ -479,7 +479,8 @@ Barra de navegación entre páginas (◀ ▶ de la botonera). Global: una sola, 
 | `height` | entero 8..170 | `22` | Alto (~22 horizontal, 170 vertical). |
 | `tabDistribution` | `"center"` · `"start"` · `"end"` · `"stretch"` | `"center"` | Reparto de las pestañas. |
 | `textAlign` | `"center"` · `"left"` · `"right"` | `"center"` | Texto dentro de la pestaña. |
-| `fontSize` | `"normal"` · `"medium"` · `"micro"` | `"normal"` | Tamaño del texto. |
+| `font` | `"MICRO"` · `"GLCD"` · `"FONT2"` · `"FONT4"` · `"FONT_16"` · `"FONT_26"` · `"SANS_9"` · `"SANS_BOLD_9"` · `"SANS_12"` · `"SANS_BOLD_12"` · `"SANS_18"` · `"SANS_BOLD_18"` · `"SANS_24"` · `"SANS_BOLD_24"` · `"SERIF_9"` · `"SERIF_BOLD_9"` · `"SERIF_12"` · `"SERIF_BOLD_12"` · `"SERIF_18"` · `"SERIF_BOLD_18"` · `"SERIF_24"` · `"SERIF_BOLD_24"` · `"MONO_9"` · `"MONO_BOLD_9"` · `"MONO_12"` · `"MONO_BOLD_12"` · `"MONO_18"` · `"MONO_BOLD_18"` · `"MONO_24"` · `"MONO_BOLD_24"` | `"GLCD"` | Tipografía de pestañas (MICRO 4×6, GLCD, Bitmap o FreeFonts). |
+| `textScale` | entero 1..4 | `1` | Escala del texto cuando font es GLCD (1× a 4×). |
 | `labelFormat` | `"short"` · `"number"` · `"num_short"` | `"short"` | short: nombre corto de la página; number: 1, 2, 3; num_short: ambos. |
 | `bgMode` | `"solid"` · `"dark"` · `"transparent"` | `"solid"` | Fondo de la barra. |
 | `borderMode` | `"none"` · `"line"` · `"frame"` | `"none"` | Borde de la barra. |

@@ -163,6 +163,7 @@ function normalizeField(raw, index, ctx) {
   delete field.key; // el Designer asigna las claves al abrir
 
   if (field.type === 'NAV_BAR') {
+    normalizeNavBar(field);
     navDefaults(field, raw);
     field.key = 'NAV_BAR';
     return field;
@@ -205,6 +206,18 @@ function normalizeField(raw, index, ctx) {
   if (field.type === 'MENU') normalizeMenu(field);
   if (field.type === 'ICON') normalizeIcon(field, raw, ctx);
   return field;
+}
+
+function normalizeNavBar(field) {
+  if (field.preset === 'numeric-pills') {
+    field.preset = 'dark-pill';
+    if (!field.labelFormat || field.labelFormat === 'short') field.labelFormat = 'number';
+  } else if (field.preset === 'edge-tabs') {
+    field.preset = 'segmented-bar';
+  }
+  if (!field.font && field.fontSize === 'micro') {
+    field.font = 'MICRO';
+  }
 }
 
 // Como app.js addIconField: tamaño que exista y uint8_t con más de 2 estados.

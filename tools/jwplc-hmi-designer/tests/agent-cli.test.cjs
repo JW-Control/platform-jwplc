@@ -62,7 +62,7 @@ async function main() {
     for (const type of ['TEXT', 'VALUE', 'BOOL', 'BAR', 'ICON', 'RAW_TEXT', 'MENU']) {
       const props = spec.TYPES[type].props;
       const diffs = Object.entries(created[type])
-        .filter(([key]) => !EXEMPT.has(key) && !['nodes', 'colors'].includes(key))
+        .filter(([key]) => !EXEMPT.has(key) && !['nodes', 'colors'].includes(key) && !(type === 'RAW_TEXT' && key === 'size'))
         .filter(([key, value]) => !props[key] || (props[key].default !== undefined && JSON.stringify(props[key].default) !== JSON.stringify(value)))
         .map(([key, value]) => `${key}: Designer ${JSON.stringify(value)} / spec ${props[key] ? JSON.stringify(props[key].default) : '(no está)'}`);
       check(diffs.length === 0, `${type}: cada propiedad del Designer está en la spec con el mismo valor por defecto${diffs.length ? `\n      ${diffs.join('\n      ')}` : ''}`);

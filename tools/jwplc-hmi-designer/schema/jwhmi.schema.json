@@ -3827,8 +3827,6 @@
                   "dark-pill",
                   "segmented-bar",
                   "compact-dots",
-                  "edge-tabs",
-                  "numeric-pills",
                   "counter"
                 ],
                 "default": "industrial-color"
@@ -3887,14 +3885,56 @@
                 ],
                 "default": "center"
               },
+              "font": {
+                "description": "Tipografía de pestañas (MICRO 4×6, GLCD, Bitmap o FreeFonts).",
+                "enum": [
+                  "MICRO",
+                  "GLCD",
+                  "FONT2",
+                  "FONT4",
+                  "FONT_16",
+                  "FONT_26",
+                  "SANS_9",
+                  "SANS_BOLD_9",
+                  "SANS_12",
+                  "SANS_BOLD_12",
+                  "SANS_18",
+                  "SANS_BOLD_18",
+                  "SANS_24",
+                  "SANS_BOLD_24",
+                  "SERIF_9",
+                  "SERIF_BOLD_9",
+                  "SERIF_12",
+                  "SERIF_BOLD_12",
+                  "SERIF_18",
+                  "SERIF_BOLD_18",
+                  "SERIF_24",
+                  "SERIF_BOLD_24",
+                  "MONO_9",
+                  "MONO_BOLD_9",
+                  "MONO_12",
+                  "MONO_BOLD_12",
+                  "MONO_18",
+                  "MONO_BOLD_18",
+                  "MONO_24",
+                  "MONO_BOLD_24"
+                ],
+                "default": "GLCD"
+              },
+              "textScale": {
+                "description": "Escala del texto cuando font es GLCD (1× a 4×).",
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 4,
+                "default": 1
+              },
               "fontSize": {
-                "description": "Tamaño del texto.",
+                "description": "Alias legado de tipografía (preferir font y textScale).",
                 "enum": [
                   "normal",
                   "medium",
                   "micro"
-                ],
-                "default": "normal"
+                ]
               },
               "labelFormat": {
                 "description": "short: nombre corto de la página; number: 1, 2, 3; num_short: ambos.",

@@ -338,12 +338,29 @@
   }
 
   function normalizeImportedFields(fields) {
-    return fields.map((field, index) => ({
-      ...field,
-      key: `${String(field.type || 'TEXT').toLowerCase()}-${index + 1}`,
-      page: Number(field.page || 0),
-      cornerRadius: Number(field.cornerRadius || 0)
-    }));
+    return fields.map((field, index) => {
+      const normalized = {
+        ...field,
+        key: `${String(field.type || 'TEXT').toLowerCase()}-${index + 1}`,
+        page: Number(field.page || 0),
+        cornerRadius: Number(field.cornerRadius || 0)
+      };
+      if (normalized.type === 'NAV_BAR') {
+        const navPages = window.JWPLCHMIPages;
+        if (navPages?.normalizeNavPresetAndLabels) {
+          const { preset, labelFormat } = navPages.normalizeNavPresetAndLabels(normalized);
+          normalized.preset = preset;
+          normalized.labelFormat = labelFormat;
+        }
+        if (navPages?.resolveNavFontSpec) {
+          const { font, textScale, fontSize } = navPages.resolveNavFontSpec(normalized);
+          normalized.font = font;
+          normalized.textScale = textScale;
+          normalized.fontSize = fontSize;
+        }
+      }
+      return normalized;
+    });
   }
 
   async function applyProject(data) {

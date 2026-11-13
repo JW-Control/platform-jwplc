@@ -88,7 +88,7 @@ La CLI acepta un JSON mínimo y completa el resto con los mismos valores por def
   Alturas de un campo INLINE: ~13 px (escala 1), ~20 px (escala 2), ~28 px (escala 3).
 - Con una `NAV_BAR` abajo (alto 22) deja libre `y ≥ 147`. Arriba (`position: "top"`), `y ≤ 24`.
 - **Estático vs dinámico.** Figuras y `RAW_TEXT` se dibujan una vez al entrar a la página. Los campos
-  (TEXT, VALUE, BOOL, BAR) y el MENU se redibujan cuando cambian y pintan su caja con su
+  (TEXT, VALUE, BOOL, BAR, ICON, TREND) y el MENU se redibujan cuando cambian y pintan su caja con su
   `backgroundColor`: si un campo va sobre una figura de color, dale ese mismo fondo
   (ver `FIELD_HORA` en `examples/05_estacion_bombeo.json`).
 - **Dos campos dinámicos no deben pisarse** (el último en redibujarse tapa al otro): `validate` lo avisa.
@@ -96,6 +96,14 @@ La CLI acepta un JSON mínimo y completa el resto con los mismos valores por def
   FreeFont (`SANS_*`, `SERIF_*`, `MONO_*`) y `FONT2`/`FONT4` sólo tienen ASCII.
 - `VALUE` reserva el ancho de `integerDigits` + decimales: elige los dígitos del peor caso.
 - BAR: `barPreset` `LINEAR` admite vertical, bloques, degradado (`barFillMode`, `valueColorEnd`), radio, borde y grosor. `CIRCULAR` es sólido: no hay degradado en el medidor circular.
+- `TREND`: gráfica temporal en tiempo real (`width` 40..320, `height` 30..170). Ocupa su caja fija y sigue
+  muestreando aunque estés en otra página (`sampleIntervalMs`, `visibleSamples`).
+  - `scaleMode: "AUTO"` ajusta `low/mid/high` dinámicamente; `"MANUAL"` fija el rango con `minValue`/`maxValue`.
+  - Soporta guías referenciales al 25%/75% (`showGuides`), ejes sólidos con color entero (`axesColor`), marcas
+    de tiempo (`showTimeAxis`), grosor `1` o `2` px (`lineWidth`), hasta 3 canales (`ch2Enabled`/`ch3Enabled`) y
+    hasta 2 umbrales punteados horizontales (`thr1Enabled`/`thr2Enabled`).
+  - `enableSD: true` registra CSV continuo (`/TREND_<id>.CSV` cada `sdIntervalMs`) iniciando `JWPLC_SD` si no estaba lista.
+  - **Evita repetir variables de `MENU` en `ch2Variable`/`ch3Variable`**: el codegen declara la variable de `MENU` y las de `TREND` por separado; usa un nombre distinto en el canal (ej. `consignaHorno`) y sincronízalo en el `.ino`.
 - ICON: imagen fija por estado del catálogo (`jwhmi icons`), sin animación. Ocupa `iconSize` (24, 32, 48;
   64 en algunos) + 3 px de margen por lado, y con etiqueta STACKED suma ~9 px arriba (escala 1).
   Con 2 estados la variable es `bool`; con más, `uint8_t` y el sketch asigna 0..N-1 (el nombre de cada
@@ -118,6 +126,7 @@ La CLI acepta un JSON mínimo y completa el resto con los mismos valores por def
   para el estado de falla usa el estado 2 de los que lo tienen. Pilotos pequeños: `pilotos/piloto` de 24 px
   con `layout: "INLINE"` (etiqueta a la izquierda). Ejemplo: `examples/06_iconos.json`.
 - **Nivel de tanque:** `BAR` con `barWidth` del ancho disponible, `frame: true` y `trackColor` oscuro.
+- **Gráfica de tendencia:** `TREND` con `width: 312, height: 118` (pantalla completa bajo barra de título y sobre `NAV_BAR`) o recuadro compacto (`176×86`) junto a `VALUE`/`BOOL`. Añade `ch2Enabled`/`ch3Enabled` para comparar consigna y salida, `thr1Enabled`/`thr2Enabled` para límites de alarma y `enableSD: true` para CSV automático. Ejemplo completo: [`../pruebas-ia/04_tendencias/`](../pruebas-ia/04_tendencias/README.md).
 - **Ajustes:** página con un `MENU` de `EDIT_NUM` (consignas) y `EDIT_BOOL` (habilitaciones), un
   `SUBMENU` para lo avanzado y un `GO_IDLE` para volver al inicio.
 - **Pantalla de inicio:** `display.start: "IDLE"` muestra la pantalla JWPLC al encender;

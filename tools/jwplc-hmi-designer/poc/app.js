@@ -679,9 +679,9 @@
   const RAW_BG_PAD = 2;
 
   const rawState = {
-    x: 20,
-    y: 20,
-    size: 1,
+    x: 107,
+    y: 78,
+    size: 2,
     font: 'GLCD',
     value: 'Texto RAW',
     foreground: 0xF800,
@@ -5104,6 +5104,65 @@
     }
   }
 
+  function renderRawTypographyControl(fontId, scale) {
+    const host = document.getElementById('rawFontCtrl');
+    const fonts = window.JWPLCDesignerFonts;
+    if (!host || !fonts) return;
+    const normFont = fonts.normalizeId(fontId || 'GLCD');
+    const fam = fonts.fontFamilyOf(normFont);
+    const sc = Math.max(1, Math.trunc(Number(scale) || 1));
+    const variant = String(fonts.fontSizeVariantOf(normFont, sc));
+    const bold = fonts.isBold(normFont);
+    const hPx = fonts.fontHeightPx(normFont, sc);
+
+    let summary = `GLCD ${sc}×`;
+    if (fam === 'BITMAP') summary = `Bitmap ${variant}px`;
+    else if (fam === 'SANS') summary = `Sans ${variant}pt${bold ? ' B' : ''}`;
+    else if (fam === 'MONO') summary = `Mono ${variant}pt${bold ? ' B' : ''}`;
+    else if (fam === 'SERIF') summary = `Serif ${variant}pt${bold ? ' B' : ''}`;
+
+    const fams = [
+      { id: 'GLCD', label: 'Clásica 5×7' },
+      { id: 'BITMAP', label: 'Bitmap' },
+      { id: 'SANS', label: 'Sans' },
+      { id: 'MONO', label: 'Mono' }
+    ];
+    if (fam === 'SERIF') fams.push({ id: 'SERIF', label: 'Serif' });
+
+    let sizeHtml = '';
+    if (fam === 'GLCD') {
+      sizeHtml = [1, 2, 3, 4].map((v) => `
+        <button type="button" class="insp-chip ${sc === v ? 'active' : ''}" data-raw-font-size="${v}">${v}×</button>
+      `).join('');
+    } else if (fam === 'BITMAP') {
+      sizeHtml = ['16', '26'].map((pxVal) => `
+        <button type="button" class="insp-chip ${variant === pxVal ? 'active' : ''}" data-raw-font-size="${pxVal}">${pxVal} px</button>
+      `).join('');
+    } else if (fam === 'SANS' || fam === 'MONO' || fam === 'SERIF') {
+      sizeHtml = ['9', '12', '18', '24'].map((pt) => `
+        <button type="button" class="insp-chip ${variant === pt ? 'active' : ''}" data-raw-font-size="${pt}">${pt} pt</button>
+      `).join('') + `
+        <button type="button" class="insp-bold-btn ${bold ? 'active' : ''}" data-raw-font-bold title="Negrita (Bold)">B</button>
+      `;
+    }
+
+    host.innerHTML = `
+      <div class="insp-font-head">
+        <span class="insp-font-title">Texto</span>
+        <span class="insp-hint">${hPx} px (${summary})</span>
+      </div>
+      <div class="insp-font-family-row">
+        ${fams.map((f) => `
+          <button type="button" class="insp-font-chip ${fam === f.id ? 'active' : ''}" data-raw-font-family="${f.id}">${f.label}</button>
+        `).join('')}
+      </div>
+      <div class="insp-font-size-row">
+        <span style="font-size:9.5px;color:var(--muted);font-weight:600;margin-right:2px;">Tamaño:</span>
+        ${sizeHtml}
+      </div>
+    `;
+  }
+
   function syncRawTextInspector() {
     const field = selectedField();
     const isRawField = field && field.type === 'RAW_TEXT';
@@ -5129,10 +5188,8 @@
     if (rawTextFont && window.JWPLCDesignerFonts && document.activeElement !== rawTextFont) {
       rawTextFont.value = window.JWPLCDesignerFonts.normalizeId(fFont);
     }
-    document.querySelectorAll('#rawScaleChipRow [data-raw-scale]').forEach((chip) => {
-      chip.classList.toggle('active', Number(chip.dataset.rawScale) === s);
-    });
     if (rawTextSize) rawTextSize.value = String(s);
+    renderRawTypographyControl(fFont, s);
     if (typeof updateScalePxHint === 'function') updateScalePxHint();
 
     document.querySelectorAll('#rawBgModeGrid [data-raw-bgmode]').forEach((btn) => {
@@ -5730,23 +5787,31 @@
     if (hmiFields.length >= MAX_FIELDS) return null;
     fieldSerial += 1;
     const serial = nextTypeSerial('RAW_TEXT');
-    const px = point ? point.x : 20 + ((serial - 1) * 8) % 80;
-    const py = point ? point.y : 20 + ((serial - 1) * 8) % 60;
+    const textVal = rawState.value || 'Texto RAW';
+    const fontId = rawState.font || 'GLCD';
+    const sizeVal = Number(rawState.size) || 2;
+    const tb = rawTextBounds(textVal, sizeVal, fontId);
+    const step = ((serial - 1) % 5) * 8;
+    const centerX = Math.max(0, Math.round((WIDTH - tb.width) / 2));
+    const centerY = Math.max(0, Math.round((HEIGHT - tb.height) / 2));
+    const px = point ? point.x : centerX + step;
+    const py = point ? point.y : centerY + step;
     const field = {
       type: 'RAW_TEXT',
       key: `rawText-${fieldSerial}`,
       name: `RAW TEXT ${serial}`,
       id: uniqueFieldSymbol(`FIELD_RAW_${serial}`),
-      text: rawState.value || 'Texto RAW',
+      text: textVal,
       x: px,
       y: py,
-      size: rawState.size || 1,
-      font: rawState.font || 'GLCD',
+      size: sizeVal,
+      font: fontId,
       transparentBackground: true,
       textColor: selectedColor ? selectedColor.value : (rawState.foreground ?? 0xFFFF),
       backgroundColor: rawState.background ?? 0x0000,
       page: activePage
     };
+    placeNewField(field);
     assignNewLayerOrder(field);
     hmiFields.push(field);
     setSelectedKeys([field.key]);
@@ -6180,6 +6245,8 @@
             y,
             preset: cfg.preset || 'industrial-color',
             position: cfg.position || 'bottom',
+            font: cfg.font || 'GLCD',
+            textScale: cfg.textScale || 1,
             height: h,
             global: true,
             hidden: false,
@@ -6430,7 +6497,69 @@
     rawState.size = Number(rawTextSize.value) || 1;
     const field = selectedField();
     if (field && field.type === 'RAW_TEXT') field.size = rawState.size;
+    syncRawTextInspector();
     updateScalePxHint();
+  });
+
+  function applyRawTypography(nextFont, nextSize) {
+    const fonts = window.JWPLCDesignerFonts;
+    const norm = fonts ? fonts.normalizeId(nextFont) : (nextFont || 'GLCD');
+    const sc = Math.max(1, Math.trunc(Number(nextSize) || 1));
+    rawState.font = norm;
+    rawState.size = sc;
+    if (rawTextFont) rawTextFont.value = norm;
+    if (rawTextSize) rawTextSize.value = String(sc);
+    const field = selectedField();
+    if (field && field.type === 'RAW_TEXT') {
+      field.font = norm;
+      field.size = sc;
+    }
+    syncInputsFromState();
+    syncRawTextInspector();
+    render();
+    commitHistory();
+  }
+
+  document.getElementById('rawFontCtrl')?.addEventListener('click', (e) => {
+    const fonts = window.JWPLCDesignerFonts;
+    if (!fonts) return;
+    const field = selectedField();
+    const isRawField = field && field.type === 'RAW_TEXT';
+    const currFont = (isRawField ? field.font : rawState.font) || 'GLCD';
+    const currSize = Math.max(1, Math.trunc(Number(isRawField ? field.size : rawState.size) || 1));
+    const currFam = fonts.fontFamilyOf(currFont);
+
+    const famBtn = e.target.closest('[data-raw-font-family]');
+    if (famBtn) {
+      const newFam = famBtn.dataset.rawFontFamily;
+      if (newFam === 'GLCD') applyRawTypography('GLCD', currFam === 'GLCD' ? currSize : 2);
+      else if (newFam === 'BITMAP') applyRawTypography('FONT_16', 1);
+      else if (newFam === 'SANS') applyRawTypography('SANS_9', 1);
+      else if (newFam === 'MONO') applyRawTypography('MONO_9', 1);
+      else if (newFam === 'SERIF') applyRawTypography('SERIF_9', 1);
+      return;
+    }
+
+    const sizeBtn = e.target.closest('[data-raw-font-size]');
+    if (sizeBtn) {
+      const sizeVal = sizeBtn.dataset.rawFontSize;
+      if (currFam === 'GLCD') {
+        applyRawTypography('GLCD', Math.max(1, Math.trunc(Number(sizeVal) || 1)));
+      } else if (currFam === 'BITMAP') {
+        applyRawTypography(sizeVal === '26' ? 'FONT_26' : 'FONT_16', 1);
+      } else if (currFam === 'SANS' || currFam === 'MONO' || currFam === 'SERIF') {
+        const bold = fonts.isBold(currFont);
+        applyRawTypography(fonts.fontIdFrom(currFam, sizeVal, bold), 1);
+      }
+      return;
+    }
+
+    const boldBtn = e.target.closest('[data-raw-font-bold]');
+    if (boldBtn && (currFam === 'SANS' || currFam === 'MONO' || currFam === 'SERIF')) {
+      const variant = fonts.fontSizeVariantOf(currFont, 1) || '9';
+      const newBold = !fonts.isBold(currFont);
+      applyRawTypography(fonts.fontIdFrom(currFam, variant, newBold), 1);
+    }
   });
 
   // Controles de Texto RAW (estilo Lopaka)
@@ -6473,20 +6602,6 @@
       syncRawTabPanes();
       syncRawTextInspector();
     });
-  });
-
-  // Selector de escala por chips 1×..4×
-  document.getElementById('rawScaleChipRow')?.addEventListener('click', (e) => {
-    const chip = e.target.closest('[data-raw-scale]');
-    if (!chip) return;
-    const s = Number(chip.dataset.rawScale) || 1;
-    const field = selectedField();
-    if (field && field.type === 'RAW_TEXT') field.size = s;
-    rawState.size = s;
-    if (rawTextSize) rawTextSize.value = String(s);
-    syncRawTextInspector();
-    render();
-    commitHistory();
   });
 
   // Selector de fondo (Transparente vs Opaco)

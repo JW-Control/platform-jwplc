@@ -643,8 +643,8 @@ static void jwplcHMIDrawMicroText(JWPLC_TFTClass &tft, int16_t x, int16_t y, con
           `tft.print("${text}");`);
       };
 
-      if (font && font.kind === 'free') {
-        // JWPLC_TFT >= 0.3.0: FreeFont con drawString (datum arriba-izquierda,
+      if (font && font.kind !== 'glcd' && fonts?.isSupported?.(font)) {
+        // JWPLC_TFT >= 0.3.0: FreeFont / Bitmap con drawString (datum arriba-izquierda,
         // igual que el lienzo). Con 0.1/0.2 se dibuja en GLCD.
         helpers.add('fonts');
         lines.push('#if JWPLC_HMI_TFT_FONTS');
@@ -753,13 +753,32 @@ static void jwplcHMIDrawMicroText(JWPLC_TFTClass &tft, int16_t x, int16_t y, con
           ? `tft.drawFastVLine(${x}, ${y}, ${Math.round(op.len)}, ${css565(op.col)});`
           : `tft.drawFastHLine(${x}, ${y}, ${Math.round(op.len)}, ${css565(op.col)});`);
       } else if (op.op === 'text' && op.str) {
-        if (op.micro) {
+        const fid = op.font || (op.micro ? 'MICRO' : 'GLCD');
+        const sc = Math.max(1, Math.trunc(Number(op.textScale) || 1));
+        const fonts = window.JWPLCDesignerFonts;
+        if (fid === 'MICRO' || op.micro) {
           helpers.add('microText');
           lines.push(`jwplcHMIDrawMicroText(tft, ${x}, ${y}, "${cppStringLiteral(op.str)}", ${css565(op.col)});`);
-        } else {
+        } else if (fid !== 'GLCD' && fonts?.isSupported?.(fid)) {
+          helpers.add('fonts');
+          lines.push('#if JWPLC_HMI_TFT_FONTS');
+          lines.push(`tft.setFont(${fonts.cppSymbol(fid)});`);
+          lines.push(`tft.setTextDatum(JWPLC_TFTDatum::TOP_LEFT);`);
+          lines.push(`tft.setTextSize(1);`);
+          lines.push(`tft.setTextColor(${css565(op.col)});`);
+          lines.push(`tft.drawString("${cppStringLiteral(op.str)}", ${x}, ${y});`);
+          lines.push(`tft.setFont(JWPLC_FONT_GLCD);`);
+          lines.push('#else');
           lines.push(`tft.setCursor(${x}, ${y});`);
           lines.push(`tft.setTextColor(${css565(op.col)});`);
           lines.push(`tft.print("${cppStringLiteral(op.str)}");`);
+          lines.push('#endif');
+        } else {
+          if (sc !== 1) lines.push(`tft.setTextSize(${sc});`);
+          lines.push(`tft.setCursor(${x}, ${y});`);
+          lines.push(`tft.setTextColor(${css565(op.col)});`);
+          lines.push(`tft.print("${cppStringLiteral(op.str)}");`);
+          if (sc !== 1) lines.push(`tft.setTextSize(1);`);
         }
       }
     });
