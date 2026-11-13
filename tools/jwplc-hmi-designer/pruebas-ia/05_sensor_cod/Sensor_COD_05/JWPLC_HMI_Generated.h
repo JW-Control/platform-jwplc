@@ -101,7 +101,7 @@ static const JWPLC_UIField HMI_FIELDS[] =
 {
     JWPLC_UIValueField(
         FIELD_RTC_CFG,
-        JWPLC_UIRect(262, 4),
+        JWPLC_UIRect(262, 2),
         JWPLC_UIText(nullptr, nullptr),
         JWPLC_UIDateTimeFormat(
             JWPLC_UI_DATETIME_HH_MM_SS),
@@ -195,7 +195,7 @@ static const JWPLC_UIField HMI_FIELDS[] =
             0x428C)),
     JWPLC_UIValueField(
         FIELD_RTC_GEN,
-        JWPLC_UIRect(262, 4),
+        JWPLC_UIRect(262, 2),
         JWPLC_UIText(nullptr, nullptr),
         JWPLC_UIDateTimeFormat(
             JWPLC_UI_DATETIME_HH_MM_SS),
@@ -223,14 +223,14 @@ static const JWPLC_UIField HMI_FIELDS[] =
         JWPLC_UIValueStyle(
             2,
             1,
-            true,
+            false,
             JWPLC_UI_LAYOUT_STACKED,
             JWPLC_UI_ALIGN_LEFT),
         1,
         JWPLC_UIColors(
             0xFFFF,
             0xF81F,
-            0x18E3,
+            0x0000,
             0xF81F)),
     JWPLC_UIValueField(
         FIELD_GEN_COD,
@@ -244,14 +244,14 @@ static const JWPLC_UIField HMI_FIELDS[] =
         JWPLC_UIValueStyle(
             2,
             1,
-            true,
+            false,
             JWPLC_UI_LAYOUT_STACKED,
             JWPLC_UI_ALIGN_LEFT),
         1,
         JWPLC_UIColors(
             0xFFFF,
             0xFF00,
-            0x18E3,
+            0x0000,
             0xFF00)),
     JWPLC_UIValueField(
         FIELD_GEN_BOD,
@@ -265,14 +265,14 @@ static const JWPLC_UIField HMI_FIELDS[] =
         JWPLC_UIValueStyle(
             2,
             1,
-            true,
+            false,
             JWPLC_UI_LAYOUT_STACKED,
             JWPLC_UI_ALIGN_LEFT),
         1,
         JWPLC_UIColors(
             0xFFFF,
             0x07FF,
-            0x18E3,
+            0x0000,
             0x07FF)),
     JWPLC_UIValueField(
         FIELD_GEN_TOC,
@@ -286,14 +286,14 @@ static const JWPLC_UIField HMI_FIELDS[] =
         JWPLC_UIValueStyle(
             2,
             1,
-            true,
+            false,
             JWPLC_UI_LAYOUT_STACKED,
             JWPLC_UI_ALIGN_LEFT),
         1,
         JWPLC_UIColors(
             0xFFFF,
             0x07E0,
-            0x18E3,
+            0x0000,
             0x07E0)),
     JWPLC_UIValueField(
         FIELD_GEN_TURB,
@@ -307,14 +307,14 @@ static const JWPLC_UIField HMI_FIELDS[] =
         JWPLC_UIValueStyle(
             2,
             1,
-            true,
+            false,
             JWPLC_UI_LAYOUT_STACKED,
             JWPLC_UI_ALIGN_LEFT),
         1,
         JWPLC_UIColors(
             0xFFFF,
             0xFC40,
-            0x18E3,
+            0x0000,
             0xFC40)),
     JWPLC_UIBoolField(
         FIELD_GEN_STATE,
@@ -759,58 +759,6 @@ void jwplcHMISetup()
     JWPLC_Display.setIdleReturnMode(JWPLC_DisplayClass::IDLE_RETURN_ESC_ONLY);
 }
 
-// Primitivas auxiliares (sólo usan API pública de JWPLC_TFT).
-#if defined(JWPLC_TFT_VERSION_MAJOR) && \
-    ((JWPLC_TFT_VERSION_MAJOR > 0) || (JWPLC_TFT_VERSION_MINOR >= 2))
-#define JWPLC_HMI_TFT_NATIVE_SHAPES 1
-#else
-#define JWPLC_HMI_TFT_NATIVE_SHAPES 0
-#endif
-#if defined(JWPLC_TFT_VERSION_MAJOR) && \
-    ((JWPLC_TFT_VERSION_MAJOR > 0) || (JWPLC_TFT_VERSION_MINOR >= 3))
-#define JWPLC_HMI_TFT_FONTS 1
-#else
-#define JWPLC_HMI_TFT_FONTS 0
-#endif
-
-// Microfuente 3x5 (celda 4x6) usada por la barra de navegación.
-static const uint8_t JWPLC_HMI_MICRO_FONT[][4] =
-{
-    {'0', 0x1F, 0x11, 0x1F}, {'1', 0x00, 0x1F, 0x00}, {'2', 0x1D, 0x15, 0x17},
-    {'3', 0x15, 0x15, 0x1F}, {'4', 0x07, 0x04, 0x1F}, {'5', 0x17, 0x15, 0x1D},
-    {'6', 0x1F, 0x15, 0x1D}, {'7', 0x01, 0x1D, 0x03}, {'8', 0x1F, 0x15, 0x1F},
-    {'9', 0x17, 0x15, 0x1F}, {'A', 0x1E, 0x05, 0x1E}, {'B', 0x1F, 0x15, 0x0A},
-    {'C', 0x0E, 0x11, 0x11}, {'D', 0x1F, 0x11, 0x0E}, {'E', 0x1F, 0x15, 0x11},
-    {'F', 0x1F, 0x05, 0x01}, {'G', 0x0E, 0x15, 0x1D}, {'H', 0x1F, 0x04, 0x1F},
-    {'I', 0x11, 0x1F, 0x11}, {'J', 0x08, 0x10, 0x0F}, {'K', 0x1F, 0x04, 0x1B},
-    {'L', 0x1F, 0x10, 0x10}, {'M', 0x1F, 0x02, 0x1F}, {'N', 0x1F, 0x06, 0x1F},
-    {'O', 0x0E, 0x11, 0x0E}, {'P', 0x1F, 0x05, 0x02}, {'Q', 0x0E, 0x11, 0x1E},
-    {'R', 0x1F, 0x05, 0x1A}, {'S', 0x12, 0x15, 0x09}, {'T', 0x01, 0x1F, 0x01},
-    {'U', 0x0F, 0x10, 0x0F}, {'V', 0x07, 0x18, 0x07}, {'W', 0x1F, 0x08, 0x1F},
-    {'X', 0x1B, 0x04, 0x1B}, {'Y', 0x03, 0x1C, 0x03}, {'Z', 0x19, 0x15, 0x13},
-    {':', 0x00, 0x0A, 0x00}, {'.', 0x00, 0x10, 0x00}, {'-', 0x04, 0x04, 0x04},
-    {'/', 0x18, 0x06, 0x01}, {'_', 0x10, 0x10, 0x10}, {'<', 0x04, 0x0A, 0x11},
-    {'>', 0x11, 0x0A, 0x04}
-};
-
-static void jwplcHMIDrawMicroText(JWPLC_TFTClass &tft, int16_t x, int16_t y, const char *text, uint16_t color)
-{
-    for (; *text; ++text, x += 4)
-    {
-        char c = *text;
-        if (c >= 'a' && c <= 'z') c = (char)(c - 'a' + 'A');
-        for (size_t g = 0; g < sizeof(JWPLC_HMI_MICRO_FONT) / sizeof(JWPLC_HMI_MICRO_FONT[0]); ++g)
-        {
-            if (JWPLC_HMI_MICRO_FONT[g][0] != (uint8_t)c) continue;
-            for (int16_t col = 0; col < 3; ++col)
-                for (int16_t row = 0; row < 5; ++row)
-                    if (JWPLC_HMI_MICRO_FONT[g][1 + col] & (1u << row))
-                        tft.drawPixel(x + col, y + row, color);
-            break;
-        }
-    }
-}
-
 // Barra de Navegación HMI Autogenerada (ST7789)
 // Pestaña de la página actual: posicionada en el selector (◀ ▶, fondo de
 // color) o seleccionada dentro de la página (OK, fondo blanco y doble marco).
@@ -824,99 +772,127 @@ static void jwplcDrawPageNavTab(uint8_t activePage, bool selecting)
     case 0:
         if (selecting)
         {
-            tft.fillRoundRect(7, 148, 42, 20, 4, 0x065F);
-            jwplcHMIDrawMicroText(tft, 22, 155, "CFG", 0x0000);
+            tft.fillRoundRect(7, 149, 42, 20, 3, 0x06DF);
+            tft.setCursor(19, 155);
+            tft.setTextColor(0x0000);
+            tft.print("CFG");
         }
         else
         {
-            tft.fillRoundRect(7, 148, 42, 20, 4, 0xFFFF);
-            tft.drawRoundRect(7, 148, 42, 20, 4, 0x02CE);
-            tft.drawRoundRect(9, 150, 38, 16, 2, 0x02CE);
-            jwplcHMIDrawMicroText(tft, 22, 155, "CFG", 0x02CE);
+            tft.fillRoundRect(7, 149, 42, 20, 3, 0xFFFF);
+            tft.drawRoundRect(7, 149, 42, 20, 3, 0x030E);
+            tft.drawRoundRect(9, 151, 38, 16, 1, 0x030E);
+            tft.setCursor(19, 155);
+            tft.setTextColor(0x030E);
+            tft.print("CFG");
         }
         break;
     case 1:
         if (selecting)
         {
-            tft.fillRoundRect(51, 148, 42, 20, 4, 0x065F);
-            jwplcHMIDrawMicroText(tft, 66, 155, "GEN", 0x0000);
+            tft.fillRoundRect(51, 149, 42, 20, 3, 0x7BEF);
+            tft.setCursor(63, 155);
+            tft.setTextColor(0xFFFF);
+            tft.print("GEN");
         }
         else
         {
-            tft.fillRoundRect(51, 148, 42, 20, 4, 0xFFFF);
-            tft.drawRoundRect(51, 148, 42, 20, 4, 0x02CE);
-            tft.drawRoundRect(53, 150, 38, 16, 2, 0x02CE);
-            jwplcHMIDrawMicroText(tft, 66, 155, "GEN", 0x02CE);
+            tft.fillRoundRect(51, 149, 42, 20, 3, 0xFFFF);
+            tft.drawRoundRect(51, 149, 42, 20, 3, 0x738E);
+            tft.drawRoundRect(53, 151, 38, 16, 1, 0x738E);
+            tft.setCursor(63, 155);
+            tft.setTextColor(0x738E);
+            tft.print("GEN");
         }
         break;
     case 2:
         if (selecting)
         {
-            tft.fillRoundRect(95, 148, 42, 20, 4, 0x065F);
-            jwplcHMIDrawMicroText(tft, 108, 155, "T_CD", 0x0000);
+            tft.fillRoundRect(95, 149, 42, 20, 3, 0xEBBE);
+            tft.setCursor(104, 155);
+            tft.setTextColor(0x0000);
+            tft.print("T_CD");
         }
         else
         {
-            tft.fillRoundRect(95, 148, 42, 20, 4, 0xFFFF);
-            tft.drawRoundRect(95, 148, 42, 20, 4, 0x02CE);
-            tft.drawRoundRect(97, 150, 38, 16, 2, 0x02CE);
-            jwplcHMIDrawMicroText(tft, 108, 155, "T_CD", 0x02CE);
+            tft.fillRoundRect(95, 149, 42, 20, 3, 0xFFFF);
+            tft.drawRoundRect(95, 149, 42, 20, 3, 0x69AD);
+            tft.drawRoundRect(97, 151, 38, 16, 1, 0x69AD);
+            tft.setCursor(104, 155);
+            tft.setTextColor(0x69AD);
+            tft.print("T_CD");
         }
         break;
     case 3:
         if (selecting)
         {
-            tft.fillRoundRect(139, 148, 42, 20, 4, 0x065F);
-            jwplcHMIDrawMicroText(tft, 154, 155, "COD", 0x0000);
+            tft.fillRoundRect(139, 149, 42, 20, 3, 0xFF00);
+            tft.setCursor(151, 155);
+            tft.setTextColor(0x0000);
+            tft.print("COD");
         }
         else
         {
-            tft.fillRoundRect(139, 148, 42, 20, 4, 0xFFFF);
-            tft.drawRoundRect(139, 148, 42, 20, 4, 0x02CE);
-            tft.drawRoundRect(141, 150, 38, 16, 2, 0x02CE);
-            jwplcHMIDrawMicroText(tft, 154, 155, "COD", 0x02CE);
+            tft.fillRoundRect(139, 149, 42, 20, 3, 0xFFFF);
+            tft.drawRoundRect(139, 149, 42, 20, 3, 0x7320);
+            tft.drawRoundRect(141, 151, 38, 16, 1, 0x7320);
+            tft.setCursor(151, 155);
+            tft.setTextColor(0x7320);
+            tft.print("COD");
         }
         break;
     case 4:
         if (selecting)
         {
-            tft.fillRoundRect(183, 148, 42, 20, 4, 0x065F);
-            jwplcHMIDrawMicroText(tft, 198, 155, "BOD", 0x0000);
+            tft.fillRoundRect(183, 149, 42, 20, 3, 0x073F);
+            tft.setCursor(195, 155);
+            tft.setTextColor(0x0000);
+            tft.print("BOD");
         }
         else
         {
-            tft.fillRoundRect(183, 148, 42, 20, 4, 0xFFFF);
-            tft.drawRoundRect(183, 148, 42, 20, 4, 0x02CE);
-            tft.drawRoundRect(185, 150, 38, 16, 2, 0x02CE);
-            jwplcHMIDrawMicroText(tft, 198, 155, "BOD", 0x02CE);
+            tft.fillRoundRect(183, 149, 42, 20, 3, 0xFFFF);
+            tft.drawRoundRect(183, 149, 42, 20, 3, 0x032E);
+            tft.drawRoundRect(185, 151, 38, 16, 1, 0x032E);
+            tft.setCursor(195, 155);
+            tft.setTextColor(0x032E);
+            tft.print("BOD");
         }
         break;
     case 5:
         if (selecting)
         {
-            tft.fillRoundRect(227, 148, 42, 20, 4, 0x065F);
-            jwplcHMIDrawMicroText(tft, 242, 155, "TOC", 0x0000);
+            tft.fillRoundRect(227, 149, 42, 20, 3, 0x072E);
+            tft.setCursor(239, 155);
+            tft.setTextColor(0x0000);
+            tft.print("TOC");
         }
         else
         {
-            tft.fillRoundRect(227, 148, 42, 20, 4, 0xFFFF);
-            tft.drawRoundRect(227, 148, 42, 20, 4, 0x02CE);
-            tft.drawRoundRect(229, 150, 38, 16, 2, 0x02CE);
-            jwplcHMIDrawMicroText(tft, 242, 155, "TOC", 0x02CE);
+            tft.fillRoundRect(227, 149, 42, 20, 3, 0xFFFF);
+            tft.drawRoundRect(227, 149, 42, 20, 3, 0x0346);
+            tft.drawRoundRect(229, 151, 38, 16, 1, 0x0346);
+            tft.setCursor(239, 155);
+            tft.setTextColor(0x0346);
+            tft.print("TOC");
         }
         break;
     case 6:
         if (selecting)
         {
-            tft.fillRoundRect(271, 148, 42, 20, 4, 0x065F);
-            jwplcHMIDrawMicroText(tft, 286, 155, "TUR", 0x0000);
+            tft.fillRoundRect(271, 149, 42, 20, 3, 0xFC40);
+            tft.setCursor(283, 155);
+            tft.setTextColor(0x0000);
+            tft.print("TUR");
         }
         else
         {
-            tft.fillRoundRect(271, 148, 42, 20, 4, 0xFFFF);
-            tft.drawRoundRect(271, 148, 42, 20, 4, 0x02CE);
-            tft.drawRoundRect(273, 150, 38, 16, 2, 0x02CE);
-            jwplcHMIDrawMicroText(tft, 286, 155, "TUR", 0x02CE);
+            tft.fillRoundRect(271, 149, 42, 20, 3, 0xFFFF);
+            tft.drawRoundRect(271, 149, 42, 20, 3, 0x71E0);
+            tft.drawRoundRect(273, 151, 38, 16, 1, 0x71E0);
+            tft.setCursor(283, 155);
+            tft.setTextColor(0x71E0);
+            tft.print("TUR");
         }
         break;
     default:
@@ -933,158 +909,242 @@ static void jwplcDrawPageNavBar(uint8_t activePage)
     switch (activePage)
     {
     case 0:
-        tft.fillRoundRect(0, 147, 320, 22, 3, 0x0000);
-        tft.drawFastHLine(0, 147, 320, 0x21E9);
-        tft.fillRoundRect(51, 148, 42, 20, 4, 0x10E5);
-        tft.drawRoundRect(51, 148, 42, 20, 4, 0x21C9);
-        jwplcHMIDrawMicroText(tft, 66, 155, "GEN", 0x8D16);
-        tft.fillRoundRect(95, 148, 42, 20, 4, 0x10E5);
-        tft.drawRoundRect(95, 148, 42, 20, 4, 0x21C9);
-        jwplcHMIDrawMicroText(tft, 108, 155, "T_CD", 0x8D16);
-        tft.fillRoundRect(139, 148, 42, 20, 4, 0x10E5);
-        tft.drawRoundRect(139, 148, 42, 20, 4, 0x21C9);
-        jwplcHMIDrawMicroText(tft, 154, 155, "COD", 0x8D16);
-        tft.fillRoundRect(183, 148, 42, 20, 4, 0x10E5);
-        tft.drawRoundRect(183, 148, 42, 20, 4, 0x21C9);
-        jwplcHMIDrawMicroText(tft, 198, 155, "BOD", 0x8D16);
-        tft.fillRoundRect(227, 148, 42, 20, 4, 0x10E5);
-        tft.drawRoundRect(227, 148, 42, 20, 4, 0x21C9);
-        jwplcHMIDrawMicroText(tft, 242, 155, "TOC", 0x8D16);
-        tft.fillRoundRect(271, 148, 42, 20, 4, 0x10E5);
-        tft.drawRoundRect(271, 148, 42, 20, 4, 0x21C9);
-        jwplcHMIDrawMicroText(tft, 286, 155, "TUR", 0x8D16);
+        tft.fillRoundRect(0, 148, 320, 22, 3, 0x0000);
+        tft.drawFastHLine(0, 148, 320, 0x21E9);
+        tft.fillRoundRect(51, 149, 42, 20, 3, 0x0000);
+        tft.drawRoundRect(51, 149, 42, 20, 3, 0xFFFF);
+        tft.setCursor(63, 155);
+        tft.setTextColor(0xFFFF);
+        tft.print("GEN");
+        tft.fillRoundRect(95, 149, 42, 20, 3, 0x0000);
+        tft.drawRoundRect(95, 149, 42, 20, 3, 0xEBBE);
+        tft.setCursor(104, 155);
+        tft.setTextColor(0xEBBE);
+        tft.print("T_CD");
+        tft.fillRoundRect(139, 149, 42, 20, 3, 0x0000);
+        tft.drawRoundRect(139, 149, 42, 20, 3, 0xFF00);
+        tft.setCursor(151, 155);
+        tft.setTextColor(0xFF00);
+        tft.print("COD");
+        tft.fillRoundRect(183, 149, 42, 20, 3, 0x0000);
+        tft.drawRoundRect(183, 149, 42, 20, 3, 0x073F);
+        tft.setCursor(195, 155);
+        tft.setTextColor(0x073F);
+        tft.print("BOD");
+        tft.fillRoundRect(227, 149, 42, 20, 3, 0x0000);
+        tft.drawRoundRect(227, 149, 42, 20, 3, 0x072E);
+        tft.setCursor(239, 155);
+        tft.setTextColor(0x072E);
+        tft.print("TOC");
+        tft.fillRoundRect(271, 149, 42, 20, 3, 0x0000);
+        tft.drawRoundRect(271, 149, 42, 20, 3, 0xFC40);
+        tft.setCursor(283, 155);
+        tft.setTextColor(0xFC40);
+        tft.print("TUR");
         break;
     case 1:
-        tft.fillRoundRect(0, 147, 320, 22, 3, 0x0000);
-        tft.drawFastHLine(0, 147, 320, 0x21E9);
-        tft.fillRoundRect(7, 148, 42, 20, 4, 0x10E5);
-        tft.drawRoundRect(7, 148, 42, 20, 4, 0x21C9);
-        jwplcHMIDrawMicroText(tft, 22, 155, "CFG", 0x8D16);
-        tft.fillRoundRect(95, 148, 42, 20, 4, 0x10E5);
-        tft.drawRoundRect(95, 148, 42, 20, 4, 0x21C9);
-        jwplcHMIDrawMicroText(tft, 108, 155, "T_CD", 0x8D16);
-        tft.fillRoundRect(139, 148, 42, 20, 4, 0x10E5);
-        tft.drawRoundRect(139, 148, 42, 20, 4, 0x21C9);
-        jwplcHMIDrawMicroText(tft, 154, 155, "COD", 0x8D16);
-        tft.fillRoundRect(183, 148, 42, 20, 4, 0x10E5);
-        tft.drawRoundRect(183, 148, 42, 20, 4, 0x21C9);
-        jwplcHMIDrawMicroText(tft, 198, 155, "BOD", 0x8D16);
-        tft.fillRoundRect(227, 148, 42, 20, 4, 0x10E5);
-        tft.drawRoundRect(227, 148, 42, 20, 4, 0x21C9);
-        jwplcHMIDrawMicroText(tft, 242, 155, "TOC", 0x8D16);
-        tft.fillRoundRect(271, 148, 42, 20, 4, 0x10E5);
-        tft.drawRoundRect(271, 148, 42, 20, 4, 0x21C9);
-        jwplcHMIDrawMicroText(tft, 286, 155, "TUR", 0x8D16);
+        tft.fillRoundRect(0, 148, 320, 22, 3, 0x0000);
+        tft.drawFastHLine(0, 148, 320, 0x21E9);
+        tft.fillRoundRect(7, 149, 42, 20, 3, 0x0000);
+        tft.drawRoundRect(7, 149, 42, 20, 3, 0x06DF);
+        tft.setCursor(19, 155);
+        tft.setTextColor(0x06DF);
+        tft.print("CFG");
+        tft.fillRoundRect(95, 149, 42, 20, 3, 0x0000);
+        tft.drawRoundRect(95, 149, 42, 20, 3, 0xEBBE);
+        tft.setCursor(104, 155);
+        tft.setTextColor(0xEBBE);
+        tft.print("T_CD");
+        tft.fillRoundRect(139, 149, 42, 20, 3, 0x0000);
+        tft.drawRoundRect(139, 149, 42, 20, 3, 0xFF00);
+        tft.setCursor(151, 155);
+        tft.setTextColor(0xFF00);
+        tft.print("COD");
+        tft.fillRoundRect(183, 149, 42, 20, 3, 0x0000);
+        tft.drawRoundRect(183, 149, 42, 20, 3, 0x073F);
+        tft.setCursor(195, 155);
+        tft.setTextColor(0x073F);
+        tft.print("BOD");
+        tft.fillRoundRect(227, 149, 42, 20, 3, 0x0000);
+        tft.drawRoundRect(227, 149, 42, 20, 3, 0x072E);
+        tft.setCursor(239, 155);
+        tft.setTextColor(0x072E);
+        tft.print("TOC");
+        tft.fillRoundRect(271, 149, 42, 20, 3, 0x0000);
+        tft.drawRoundRect(271, 149, 42, 20, 3, 0xFC40);
+        tft.setCursor(283, 155);
+        tft.setTextColor(0xFC40);
+        tft.print("TUR");
         break;
     case 2:
-        tft.fillRoundRect(0, 147, 320, 22, 3, 0x0000);
-        tft.drawFastHLine(0, 147, 320, 0x21E9);
-        tft.fillRoundRect(7, 148, 42, 20, 4, 0x10E5);
-        tft.drawRoundRect(7, 148, 42, 20, 4, 0x21C9);
-        jwplcHMIDrawMicroText(tft, 22, 155, "CFG", 0x8D16);
-        tft.fillRoundRect(51, 148, 42, 20, 4, 0x10E5);
-        tft.drawRoundRect(51, 148, 42, 20, 4, 0x21C9);
-        jwplcHMIDrawMicroText(tft, 66, 155, "GEN", 0x8D16);
-        tft.fillRoundRect(139, 148, 42, 20, 4, 0x10E5);
-        tft.drawRoundRect(139, 148, 42, 20, 4, 0x21C9);
-        jwplcHMIDrawMicroText(tft, 154, 155, "COD", 0x8D16);
-        tft.fillRoundRect(183, 148, 42, 20, 4, 0x10E5);
-        tft.drawRoundRect(183, 148, 42, 20, 4, 0x21C9);
-        jwplcHMIDrawMicroText(tft, 198, 155, "BOD", 0x8D16);
-        tft.fillRoundRect(227, 148, 42, 20, 4, 0x10E5);
-        tft.drawRoundRect(227, 148, 42, 20, 4, 0x21C9);
-        jwplcHMIDrawMicroText(tft, 242, 155, "TOC", 0x8D16);
-        tft.fillRoundRect(271, 148, 42, 20, 4, 0x10E5);
-        tft.drawRoundRect(271, 148, 42, 20, 4, 0x21C9);
-        jwplcHMIDrawMicroText(tft, 286, 155, "TUR", 0x8D16);
+        tft.fillRoundRect(0, 148, 320, 22, 3, 0x0000);
+        tft.drawFastHLine(0, 148, 320, 0x21E9);
+        tft.fillRoundRect(7, 149, 42, 20, 3, 0x0000);
+        tft.drawRoundRect(7, 149, 42, 20, 3, 0x06DF);
+        tft.setCursor(19, 155);
+        tft.setTextColor(0x06DF);
+        tft.print("CFG");
+        tft.fillRoundRect(51, 149, 42, 20, 3, 0x0000);
+        tft.drawRoundRect(51, 149, 42, 20, 3, 0xFFFF);
+        tft.setCursor(63, 155);
+        tft.setTextColor(0xFFFF);
+        tft.print("GEN");
+        tft.fillRoundRect(139, 149, 42, 20, 3, 0x0000);
+        tft.drawRoundRect(139, 149, 42, 20, 3, 0xFF00);
+        tft.setCursor(151, 155);
+        tft.setTextColor(0xFF00);
+        tft.print("COD");
+        tft.fillRoundRect(183, 149, 42, 20, 3, 0x0000);
+        tft.drawRoundRect(183, 149, 42, 20, 3, 0x073F);
+        tft.setCursor(195, 155);
+        tft.setTextColor(0x073F);
+        tft.print("BOD");
+        tft.fillRoundRect(227, 149, 42, 20, 3, 0x0000);
+        tft.drawRoundRect(227, 149, 42, 20, 3, 0x072E);
+        tft.setCursor(239, 155);
+        tft.setTextColor(0x072E);
+        tft.print("TOC");
+        tft.fillRoundRect(271, 149, 42, 20, 3, 0x0000);
+        tft.drawRoundRect(271, 149, 42, 20, 3, 0xFC40);
+        tft.setCursor(283, 155);
+        tft.setTextColor(0xFC40);
+        tft.print("TUR");
         break;
     case 3:
-        tft.fillRoundRect(0, 147, 320, 22, 3, 0x0000);
-        tft.drawFastHLine(0, 147, 320, 0x21E9);
-        tft.fillRoundRect(7, 148, 42, 20, 4, 0x10E5);
-        tft.drawRoundRect(7, 148, 42, 20, 4, 0x21C9);
-        jwplcHMIDrawMicroText(tft, 22, 155, "CFG", 0x8D16);
-        tft.fillRoundRect(51, 148, 42, 20, 4, 0x10E5);
-        tft.drawRoundRect(51, 148, 42, 20, 4, 0x21C9);
-        jwplcHMIDrawMicroText(tft, 66, 155, "GEN", 0x8D16);
-        tft.fillRoundRect(95, 148, 42, 20, 4, 0x10E5);
-        tft.drawRoundRect(95, 148, 42, 20, 4, 0x21C9);
-        jwplcHMIDrawMicroText(tft, 108, 155, "T_CD", 0x8D16);
-        tft.fillRoundRect(183, 148, 42, 20, 4, 0x10E5);
-        tft.drawRoundRect(183, 148, 42, 20, 4, 0x21C9);
-        jwplcHMIDrawMicroText(tft, 198, 155, "BOD", 0x8D16);
-        tft.fillRoundRect(227, 148, 42, 20, 4, 0x10E5);
-        tft.drawRoundRect(227, 148, 42, 20, 4, 0x21C9);
-        jwplcHMIDrawMicroText(tft, 242, 155, "TOC", 0x8D16);
-        tft.fillRoundRect(271, 148, 42, 20, 4, 0x10E5);
-        tft.drawRoundRect(271, 148, 42, 20, 4, 0x21C9);
-        jwplcHMIDrawMicroText(tft, 286, 155, "TUR", 0x8D16);
+        tft.fillRoundRect(0, 148, 320, 22, 3, 0x0000);
+        tft.drawFastHLine(0, 148, 320, 0x21E9);
+        tft.fillRoundRect(7, 149, 42, 20, 3, 0x0000);
+        tft.drawRoundRect(7, 149, 42, 20, 3, 0x06DF);
+        tft.setCursor(19, 155);
+        tft.setTextColor(0x06DF);
+        tft.print("CFG");
+        tft.fillRoundRect(51, 149, 42, 20, 3, 0x0000);
+        tft.drawRoundRect(51, 149, 42, 20, 3, 0xFFFF);
+        tft.setCursor(63, 155);
+        tft.setTextColor(0xFFFF);
+        tft.print("GEN");
+        tft.fillRoundRect(95, 149, 42, 20, 3, 0x0000);
+        tft.drawRoundRect(95, 149, 42, 20, 3, 0xEBBE);
+        tft.setCursor(104, 155);
+        tft.setTextColor(0xEBBE);
+        tft.print("T_CD");
+        tft.fillRoundRect(183, 149, 42, 20, 3, 0x0000);
+        tft.drawRoundRect(183, 149, 42, 20, 3, 0x073F);
+        tft.setCursor(195, 155);
+        tft.setTextColor(0x073F);
+        tft.print("BOD");
+        tft.fillRoundRect(227, 149, 42, 20, 3, 0x0000);
+        tft.drawRoundRect(227, 149, 42, 20, 3, 0x072E);
+        tft.setCursor(239, 155);
+        tft.setTextColor(0x072E);
+        tft.print("TOC");
+        tft.fillRoundRect(271, 149, 42, 20, 3, 0x0000);
+        tft.drawRoundRect(271, 149, 42, 20, 3, 0xFC40);
+        tft.setCursor(283, 155);
+        tft.setTextColor(0xFC40);
+        tft.print("TUR");
         break;
     case 4:
-        tft.fillRoundRect(0, 147, 320, 22, 3, 0x0000);
-        tft.drawFastHLine(0, 147, 320, 0x21E9);
-        tft.fillRoundRect(7, 148, 42, 20, 4, 0x10E5);
-        tft.drawRoundRect(7, 148, 42, 20, 4, 0x21C9);
-        jwplcHMIDrawMicroText(tft, 22, 155, "CFG", 0x8D16);
-        tft.fillRoundRect(51, 148, 42, 20, 4, 0x10E5);
-        tft.drawRoundRect(51, 148, 42, 20, 4, 0x21C9);
-        jwplcHMIDrawMicroText(tft, 66, 155, "GEN", 0x8D16);
-        tft.fillRoundRect(95, 148, 42, 20, 4, 0x10E5);
-        tft.drawRoundRect(95, 148, 42, 20, 4, 0x21C9);
-        jwplcHMIDrawMicroText(tft, 108, 155, "T_CD", 0x8D16);
-        tft.fillRoundRect(139, 148, 42, 20, 4, 0x10E5);
-        tft.drawRoundRect(139, 148, 42, 20, 4, 0x21C9);
-        jwplcHMIDrawMicroText(tft, 154, 155, "COD", 0x8D16);
-        tft.fillRoundRect(227, 148, 42, 20, 4, 0x10E5);
-        tft.drawRoundRect(227, 148, 42, 20, 4, 0x21C9);
-        jwplcHMIDrawMicroText(tft, 242, 155, "TOC", 0x8D16);
-        tft.fillRoundRect(271, 148, 42, 20, 4, 0x10E5);
-        tft.drawRoundRect(271, 148, 42, 20, 4, 0x21C9);
-        jwplcHMIDrawMicroText(tft, 286, 155, "TUR", 0x8D16);
+        tft.fillRoundRect(0, 148, 320, 22, 3, 0x0000);
+        tft.drawFastHLine(0, 148, 320, 0x21E9);
+        tft.fillRoundRect(7, 149, 42, 20, 3, 0x0000);
+        tft.drawRoundRect(7, 149, 42, 20, 3, 0x06DF);
+        tft.setCursor(19, 155);
+        tft.setTextColor(0x06DF);
+        tft.print("CFG");
+        tft.fillRoundRect(51, 149, 42, 20, 3, 0x0000);
+        tft.drawRoundRect(51, 149, 42, 20, 3, 0xFFFF);
+        tft.setCursor(63, 155);
+        tft.setTextColor(0xFFFF);
+        tft.print("GEN");
+        tft.fillRoundRect(95, 149, 42, 20, 3, 0x0000);
+        tft.drawRoundRect(95, 149, 42, 20, 3, 0xEBBE);
+        tft.setCursor(104, 155);
+        tft.setTextColor(0xEBBE);
+        tft.print("T_CD");
+        tft.fillRoundRect(139, 149, 42, 20, 3, 0x0000);
+        tft.drawRoundRect(139, 149, 42, 20, 3, 0xFF00);
+        tft.setCursor(151, 155);
+        tft.setTextColor(0xFF00);
+        tft.print("COD");
+        tft.fillRoundRect(227, 149, 42, 20, 3, 0x0000);
+        tft.drawRoundRect(227, 149, 42, 20, 3, 0x072E);
+        tft.setCursor(239, 155);
+        tft.setTextColor(0x072E);
+        tft.print("TOC");
+        tft.fillRoundRect(271, 149, 42, 20, 3, 0x0000);
+        tft.drawRoundRect(271, 149, 42, 20, 3, 0xFC40);
+        tft.setCursor(283, 155);
+        tft.setTextColor(0xFC40);
+        tft.print("TUR");
         break;
     case 5:
-        tft.fillRoundRect(0, 147, 320, 22, 3, 0x0000);
-        tft.drawFastHLine(0, 147, 320, 0x21E9);
-        tft.fillRoundRect(7, 148, 42, 20, 4, 0x10E5);
-        tft.drawRoundRect(7, 148, 42, 20, 4, 0x21C9);
-        jwplcHMIDrawMicroText(tft, 22, 155, "CFG", 0x8D16);
-        tft.fillRoundRect(51, 148, 42, 20, 4, 0x10E5);
-        tft.drawRoundRect(51, 148, 42, 20, 4, 0x21C9);
-        jwplcHMIDrawMicroText(tft, 66, 155, "GEN", 0x8D16);
-        tft.fillRoundRect(95, 148, 42, 20, 4, 0x10E5);
-        tft.drawRoundRect(95, 148, 42, 20, 4, 0x21C9);
-        jwplcHMIDrawMicroText(tft, 108, 155, "T_CD", 0x8D16);
-        tft.fillRoundRect(139, 148, 42, 20, 4, 0x10E5);
-        tft.drawRoundRect(139, 148, 42, 20, 4, 0x21C9);
-        jwplcHMIDrawMicroText(tft, 154, 155, "COD", 0x8D16);
-        tft.fillRoundRect(183, 148, 42, 20, 4, 0x10E5);
-        tft.drawRoundRect(183, 148, 42, 20, 4, 0x21C9);
-        jwplcHMIDrawMicroText(tft, 198, 155, "BOD", 0x8D16);
-        tft.fillRoundRect(271, 148, 42, 20, 4, 0x10E5);
-        tft.drawRoundRect(271, 148, 42, 20, 4, 0x21C9);
-        jwplcHMIDrawMicroText(tft, 286, 155, "TUR", 0x8D16);
+        tft.fillRoundRect(0, 148, 320, 22, 3, 0x0000);
+        tft.drawFastHLine(0, 148, 320, 0x21E9);
+        tft.fillRoundRect(7, 149, 42, 20, 3, 0x0000);
+        tft.drawRoundRect(7, 149, 42, 20, 3, 0x06DF);
+        tft.setCursor(19, 155);
+        tft.setTextColor(0x06DF);
+        tft.print("CFG");
+        tft.fillRoundRect(51, 149, 42, 20, 3, 0x0000);
+        tft.drawRoundRect(51, 149, 42, 20, 3, 0xFFFF);
+        tft.setCursor(63, 155);
+        tft.setTextColor(0xFFFF);
+        tft.print("GEN");
+        tft.fillRoundRect(95, 149, 42, 20, 3, 0x0000);
+        tft.drawRoundRect(95, 149, 42, 20, 3, 0xEBBE);
+        tft.setCursor(104, 155);
+        tft.setTextColor(0xEBBE);
+        tft.print("T_CD");
+        tft.fillRoundRect(139, 149, 42, 20, 3, 0x0000);
+        tft.drawRoundRect(139, 149, 42, 20, 3, 0xFF00);
+        tft.setCursor(151, 155);
+        tft.setTextColor(0xFF00);
+        tft.print("COD");
+        tft.fillRoundRect(183, 149, 42, 20, 3, 0x0000);
+        tft.drawRoundRect(183, 149, 42, 20, 3, 0x073F);
+        tft.setCursor(195, 155);
+        tft.setTextColor(0x073F);
+        tft.print("BOD");
+        tft.fillRoundRect(271, 149, 42, 20, 3, 0x0000);
+        tft.drawRoundRect(271, 149, 42, 20, 3, 0xFC40);
+        tft.setCursor(283, 155);
+        tft.setTextColor(0xFC40);
+        tft.print("TUR");
         break;
     case 6:
-        tft.fillRoundRect(0, 147, 320, 22, 3, 0x0000);
-        tft.drawFastHLine(0, 147, 320, 0x21E9);
-        tft.fillRoundRect(7, 148, 42, 20, 4, 0x10E5);
-        tft.drawRoundRect(7, 148, 42, 20, 4, 0x21C9);
-        jwplcHMIDrawMicroText(tft, 22, 155, "CFG", 0x8D16);
-        tft.fillRoundRect(51, 148, 42, 20, 4, 0x10E5);
-        tft.drawRoundRect(51, 148, 42, 20, 4, 0x21C9);
-        jwplcHMIDrawMicroText(tft, 66, 155, "GEN", 0x8D16);
-        tft.fillRoundRect(95, 148, 42, 20, 4, 0x10E5);
-        tft.drawRoundRect(95, 148, 42, 20, 4, 0x21C9);
-        jwplcHMIDrawMicroText(tft, 108, 155, "T_CD", 0x8D16);
-        tft.fillRoundRect(139, 148, 42, 20, 4, 0x10E5);
-        tft.drawRoundRect(139, 148, 42, 20, 4, 0x21C9);
-        jwplcHMIDrawMicroText(tft, 154, 155, "COD", 0x8D16);
-        tft.fillRoundRect(183, 148, 42, 20, 4, 0x10E5);
-        tft.drawRoundRect(183, 148, 42, 20, 4, 0x21C9);
-        jwplcHMIDrawMicroText(tft, 198, 155, "BOD", 0x8D16);
-        tft.fillRoundRect(227, 148, 42, 20, 4, 0x10E5);
-        tft.drawRoundRect(227, 148, 42, 20, 4, 0x21C9);
-        jwplcHMIDrawMicroText(tft, 242, 155, "TOC", 0x8D16);
+        tft.fillRoundRect(0, 148, 320, 22, 3, 0x0000);
+        tft.drawFastHLine(0, 148, 320, 0x21E9);
+        tft.fillRoundRect(7, 149, 42, 20, 3, 0x0000);
+        tft.drawRoundRect(7, 149, 42, 20, 3, 0x06DF);
+        tft.setCursor(19, 155);
+        tft.setTextColor(0x06DF);
+        tft.print("CFG");
+        tft.fillRoundRect(51, 149, 42, 20, 3, 0x0000);
+        tft.drawRoundRect(51, 149, 42, 20, 3, 0xFFFF);
+        tft.setCursor(63, 155);
+        tft.setTextColor(0xFFFF);
+        tft.print("GEN");
+        tft.fillRoundRect(95, 149, 42, 20, 3, 0x0000);
+        tft.drawRoundRect(95, 149, 42, 20, 3, 0xEBBE);
+        tft.setCursor(104, 155);
+        tft.setTextColor(0xEBBE);
+        tft.print("T_CD");
+        tft.fillRoundRect(139, 149, 42, 20, 3, 0x0000);
+        tft.drawRoundRect(139, 149, 42, 20, 3, 0xFF00);
+        tft.setCursor(151, 155);
+        tft.setTextColor(0xFF00);
+        tft.print("COD");
+        tft.fillRoundRect(183, 149, 42, 20, 3, 0x0000);
+        tft.drawRoundRect(183, 149, 42, 20, 3, 0x073F);
+        tft.setCursor(195, 155);
+        tft.setTextColor(0x073F);
+        tft.print("BOD");
+        tft.fillRoundRect(227, 149, 42, 20, 3, 0x0000);
+        tft.drawRoundRect(227, 149, 42, 20, 3, 0x072E);
+        tft.setCursor(239, 155);
+        tft.setTextColor(0x072E);
+        tft.print("TOC");
         break;
     default:
         break;
@@ -1131,6 +1191,16 @@ void jwplcUIPageEnter(uint8_t page)
         tft.setTextSize(1);
         tft.setTextColor(0xFFFF);
         tft.print("VISTA GENERAL");
+        // Rect 1
+        tft.drawRoundRect(3, 21, 136, 33, 4, 0xF81F);
+        // Rect 2
+        tft.drawRoundRect(3, 61, 136, 35, 4, 0x07DF);
+        // Rect 3
+        tft.drawRoundRect(4, 103, 136, 35, 4, 0xFCC0);
+        // Rect 4
+        tft.drawRoundRect(162, 20, 136, 34, 4, 0xFFE0);
+        // Rect 5
+        tft.drawRoundRect(162, 62, 136, 34, 4, 0x07E3);
         break;
 
     case PAGE_TEMP_COD:
