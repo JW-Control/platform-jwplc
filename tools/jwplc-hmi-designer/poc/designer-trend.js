@@ -330,7 +330,12 @@
     if (canvas.height !== h) canvas.height = h;
     canvas.dataset.logicalW = String(w);
     canvas.dataset.logicalH = String(h);
-    if (canvas.style) canvas.style.aspectRatio = `${w} / ${h}`;
+    if (canvas.style) {
+      const scale = Math.min(264 / w, 118 / h);
+      canvas.style.width = `${Math.round(w * scale)}px`;
+      canvas.style.height = `${Math.round(h * scale)}px`;
+      canvas.style.aspectRatio = `${w} / ${h}`;
+    }
 
     const ctx = canvas.getContext('2d');
     const img = ctx.createImageData(w, h);
