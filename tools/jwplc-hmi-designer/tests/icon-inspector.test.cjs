@@ -238,5 +238,9 @@ assert.strictEqual(
   false,
   'PASS color del cuerpo del icono no es editable (queda fijo por defecto)'
 );
+assert.ok(
+  iconsJsContent.includes('Math.min(scale, maxW / w, maxH / h)'),
+  'PASS drawAppearance acota el tamaño visual CSS del canvas para iconos grandes (64–96 px)'
+);
 
 console.log('\nTodas las pruebas de estructura y optimización del inspector pasaron.');

@@ -861,15 +861,32 @@
 
     body.classList.remove('is-below');
     body.dataset.placement = 'right';
+    if (window.ResizeObserver && !body.dataset.resizeWired) {
+      body.dataset.resizeWired = '1';
+      new ResizeObserver(() => {
+        if (body.clientWidth > 0) drawAppearance();
+      }).observe(body);
+    }
 
-    // Escala grande y nítida (3x para iconos pequeños, 2x para medianos/grandes)
+    // Resolución interna nítida; tamaño visual acotado al espacio disponible para
+    // que iconos de 64–96 px no empujen la leyenda fuera del panel.
     const scale = (w <= 36 && h <= 36) ? 3 : 2;
+    const legend = body.querySelector('[data-icon-case-legend]');
+    const gutter = (window.JWPLCZoneIndicator?.CHANNEL ?? 12) + 26;
+    const bodyW = body.clientWidth || section.clientWidth || 300;
+    const legendW = Math.max(legend?.offsetWidth || 0, 120);
+    const maxW = Math.max(64, bodyW - legendW - gutter);
+    const maxH = 140;
+    const cssScale = Math.min(scale, maxW / w, maxH / h);
+    const dispW = Math.max(1, Math.round(w * cssScale));
+    const dispH = Math.max(1, Math.round(h * cssScale));
+
     if (canvas.width !== w * scale) canvas.width = w * scale;
     if (canvas.height !== h * scale) canvas.height = h * scale;
     canvas.dataset.logicalW = String(w);
     canvas.dataset.logicalH = String(h);
-    canvas.style.width = `${w * scale}px`;
-    canvas.style.height = `${h * scale}px`;
+    canvas.style.width = `${dispW}px`;
+    canvas.style.height = `${dispH}px`;
 
     const ctx = canvas.getContext('2d');
     const img = ctx.createImageData(canvas.width, canvas.height);
@@ -927,7 +944,7 @@
       row.classList.toggle('is-active', active);
       if (active) rects = cachedZones[activeColorKey].rects;
     });
-    window.JWPLCZoneIndicator?.draw(body, canvas, rects);
+    requestAnimationFrame(() => window.JWPLCZoneIndicator?.draw(body, canvas, rects));
   }
 
   function sync() {
