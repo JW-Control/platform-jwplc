@@ -187,7 +187,7 @@ function validateField(field, i, project, report) {
     case 'BAR':
     case 'ICON':
     case 'TREND':
-      noGlyph(report, where, `${field.label || ''}${field.unit || ''}${field.falseText || ''}${field.trueText || ''}${field.barLabel || ''}${field.barUnit || ''}${field.title || ''}`);
+      noGlyph(report, where, `${field.label || ''}${field.unit || ''}${field.falseText || ''}${field.trueText || ''}${field.barLabel || ''}${field.barUnit || ''}${field.title || ''}${field.ch2Label || ''}${field.ch3Label || ''}`);
       break;
     case 'RAW_TEXT':
       if (field.font === 'GLCD') noGlyph(report, `${where}.text`, field.text);
@@ -216,6 +216,12 @@ function validateField(field, i, project, report) {
   if (field.type === 'TREND') {
     if (field.scaleMode === 'MANUAL' && Number(field.maxValue) <= Number(field.minValue)) {
       report.error(`${where}.maxValue`, `maxValue (${field.maxValue}) debe ser mayor que minValue (${field.minValue})`);
+    }
+    if (field.ch2Enabled && !field.ch2Variable) {
+      report.error(`${where}.ch2Variable`, 'falta variable C++ para el canal 2 (ch2Enabled es true)');
+    }
+    if (field.ch3Enabled && !field.ch3Variable) {
+      report.error(`${where}.ch3Variable`, 'falta variable C++ para el canal 3 (ch3Enabled es true)');
     }
   }
   if (field.type === 'ICON') validateIcon(field, where, project, report);
@@ -303,6 +309,18 @@ function validateProject(project) {
     if (variables.has(f.variable)) {
       report.error(`fields[${i}].variable`, `la variable ${f.variable} ya la usa fields[${variables.get(f.variable)}]: cada campo declara la suya (para mostrar un valor en dos lugares usa dos variables y asígnalas igual en el sketch)`);
     } else variables.set(f.variable, i);
+    if (f.type === 'TREND') {
+      if (f.ch2Enabled && f.ch2Variable) {
+        if (variables.has(f.ch2Variable)) {
+          report.error(`fields[${i}].ch2Variable`, `la variable ${f.ch2Variable} ya está en uso en fields[${variables.get(f.ch2Variable)}]`);
+        } else variables.set(f.ch2Variable, i);
+      }
+      if (f.ch3Enabled && f.ch3Variable) {
+        if (variables.has(f.ch3Variable)) {
+          report.error(`fields[${i}].ch3Variable`, `la variable ${f.ch3Variable} ya está en uso en fields[${variables.get(f.ch3Variable)}]`);
+        } else variables.set(f.ch3Variable, i);
+      }
+    }
   });
   // NAV_BAR
   const navs = objects.filter((f) => f.type === 'NAV_BAR');

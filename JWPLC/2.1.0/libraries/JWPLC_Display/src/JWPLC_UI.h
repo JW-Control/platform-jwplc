@@ -467,6 +467,14 @@ struct JWPLC_UITrendConfig
     uint16_t textColor;
     uint16_t backgroundColor;
     bool showGuides;
+    uint8_t channelCount;   // 1..3 canales simultáneos
+    uint16_t ch2Color;      // Color canal 2 (por defecto cian)
+    uint16_t ch3Color;      // Color canal 3 (por defecto verde)
+    uint8_t thresholdCount; // 0..2 líneas horizontales punteadas
+    float thr1Value;        // Valor umbral 1
+    uint16_t thr1Color;     // Color umbral 1 (por defecto rojo)
+    float thr2Value;        // Valor umbral 2
+    uint16_t thr2Color;     // Color umbral 2 (por defecto amarillo)
 
     constexpr JWPLC_UITrendConfig(
         uint16_t sampleIntervalMsVal = 1000,
@@ -483,7 +491,15 @@ struct JWPLC_UITrendConfig
         uint16_t gridColorVal = 0x4208,
         uint16_t textColorVal = 0xFFFF,
         uint16_t backgroundColorVal = 0x0000,
-        bool showGuidesVal = true)
+        bool showGuidesVal = true,
+        uint8_t channelCountVal = 1,
+        uint16_t ch2ColorVal = 0x07FF,
+        uint16_t ch3ColorVal = 0x07E0,
+        uint8_t thresholdCountVal = 0,
+        float thr1ValueVal = 85.0f,
+        uint16_t thr1ColorVal = 0xF800,
+        float thr2ValueVal = 20.0f,
+        uint16_t thr2ColorVal = 0xFFE0)
         : sampleIntervalMs(sampleIntervalMsVal),
           visibleSamples(visibleSamplesVal),
           scaleMode(scaleModeVal),
@@ -498,7 +514,15 @@ struct JWPLC_UITrendConfig
           gridColor(gridColorVal),
           textColor(textColorVal),
           backgroundColor(backgroundColorVal),
-          showGuides(showGuidesVal)
+          showGuides(showGuidesVal),
+          channelCount(channelCountVal),
+          ch2Color(ch2ColorVal),
+          ch3Color(ch3ColorVal),
+          thresholdCount(thresholdCountVal),
+          thr1Value(thr1ValueVal),
+          thr1Color(thr1ColorVal),
+          thr2Value(thr2ValueVal),
+          thr2Color(thr2ColorVal)
     {
     }
 };
@@ -729,6 +753,8 @@ namespace JWPLCUI
     bool setBool(uint8_t fieldId, bool value);
     bool setBar(uint8_t fieldId, float value);
     bool setTrend(uint8_t fieldId, float value);
+    bool setTrend(uint8_t fieldId, float v1, float v2);
+    bool setTrend(uint8_t fieldId, float v1, float v2, float v3);
     // ICON: estado 0..stateCount-1 (fuera de rango se ve el último estado).
     bool setIconState(uint8_t fieldId, uint8_t state);
 

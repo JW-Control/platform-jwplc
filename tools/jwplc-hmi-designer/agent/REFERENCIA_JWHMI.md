@@ -318,16 +318,30 @@ Gráfica de tendencia temporal (JWPLC_UITrend). Declara `float`. Soporta auto-es
 | `maxValue` | número | `100` | Valor máximo en escala MANUAL. |
 | `decimals` | entero 0..3 | `1` | Decimales mostrados en las etiquetas del eje Y. |
 | `lineWidth` | `1` · `2` | `1` | Grosor de la curva en píxeles. |
-| `showAxes` | bool | `true` | Muestra el eje Y y las 3 líneas guía de referencia. |
+| `showAxes` | bool | `true` | Muestra el eje Y y eje X base. |
 | `showGuides` | bool | `true` | Muestra las líneas guía referenciales (25% y 75%). |
 | `showTimeAxis` | bool | `true` | Muestra marcas de tiempo en el eje X. |
 | `enableSD` | bool | `false` | Activa el registro continuo en tarjeta MicroSD. |
 | `sdIntervalMs` | entero 100..60000 | `1000` | Periodo de volcado a la tarjeta MicroSD. |
-| `curveColor` | color | `0xFD20` | Color de la línea de tendencia. |
+| `curveColor` | color | `0xFD20` | Color de la línea de tendencia (Canal 1). |
 | `axesColor` | color | `0xFFFF` | Color de los ejes de coordenadas (color entero). |
-| `gridColor` | color | `0x4208` | Color de las 3 líneas guía de fondo. |
+| `gridColor` | color | `0x4208` | Color de las líneas guía de fondo. |
 | `textColor` | color | `0xFFFF` | Color de las etiquetas y textos. |
 | `backgroundColor` | color | `0x0000` | Fondo del área de la gráfica. |
+| `ch2Enabled` | bool | `false` | Activa un segundo canal simultáneo (ej. consigna / setpoint). |
+| `ch2Variable` | identificador C++ | `"consigna"` | Variable analógica C++ del canal 2. |
+| `ch2Label` | texto | `"SP"` | Etiqueta corta del canal 2 en la leyenda. |
+| `ch2Color` | color | `0x07FF` | Color de la curva del canal 2. |
+| `ch3Enabled` | bool | `false` | Activa un tercer canal simultáneo. |
+| `ch3Variable` | identificador C++ | `"salida"` | Variable analógica C++ del canal 3. |
+| `ch3Label` | texto | `"CH3"` | Etiqueta corta del canal 3 en la leyenda. |
+| `ch3Color` | color | `0x07E0` | Color de la curva del canal 3. |
+| `thr1Enabled` | bool | `false` | Activa línea horizontal punteada de umbral/alarma 1. |
+| `thr1Value` | número | `85` | Valor numérico del umbral 1. |
+| `thr1Color` | color | `0xF800` | Color de la línea punteada de umbral 1. |
+| `thr2Enabled` | bool | `false` | Activa línea horizontal punteada de umbral/alarma 2. |
+| `thr2Value` | número | `20` | Valor numérico del umbral 2. |
+| `thr2Color` | color | `0xFFE0` | Color de la línea punteada de umbral 2. |
 
 ### `MENU`
 

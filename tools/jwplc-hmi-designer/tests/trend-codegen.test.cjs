@@ -57,6 +57,35 @@ if (typeof codegenCore.trendFieldBlock === 'function') {
 
   const dispatch = codegenCore.fieldBlock(sampleField, 'FIELD_TREND_1');
   check(/JWPLC_UITrendField/.test(dispatch), 'fieldBlock despacha TREND correctamente');
+
+  // Multicanal (2 y 3 canales) + umbrales
+  const multiField = {
+    ...sampleField,
+    ch2Enabled: true,
+    ch2Variable: 'sp_horno',
+    ch2Color: 0x07FF,
+    ch3Enabled: true,
+    ch3Variable: 'amb_horno',
+    ch3Color: 0x07E0,
+    thr1Enabled: true,
+    thr1Value: 95.5,
+    thr1Color: 0xF800,
+    thr2Enabled: true,
+    thr2Value: 18,
+    thr2Color: 0xFFE0
+  };
+  const multiBlock = codegenCore.trendFieldBlock(multiField, 'FIELD_TREND_1');
+  check(/,\s*3,\s*0x07FF,\s*0x07E0,\s*2,\s*95\.5f,\s*0xF800,\s*18(\.0)?f,\s*0xFFE0\)/.test(multiBlock), 'trendFieldBlock emite channelCount=3, thresholdCount=2 y sus parámetros');
+
+  const multiDecl = codegenCore.variableDeclaration(multiField, 'temp_horno');
+  check(multiDecl === 'float temp_horno = 0.0f;\nfloat sp_horno = 0.0f;\nfloat amb_horno = 0.0f;', 'variableDeclaration declara los 3 canales float');
+
+  const multiSetter = codegenCore.setterCall(multiField, 'FIELD_TREND_1', 'temp_horno');
+  check(multiSetter === 'JWPLC_Display.setTrend(FIELD_TREND_1, temp_horno, sp_horno, amb_horno);', 'setterCall emite setTrend de 3 canales');
+
+  const twoChField = { ...sampleField, ch2Enabled: true, ch2Variable: 'sp_horno', thr1Enabled: true, thr1Value: 80, thr1Color: 0xF800 };
+  const twoSetter = codegenCore.setterCall(twoChField, 'FIELD_TREND_1', 'temp_horno');
+  check(twoSetter === 'JWPLC_Display.setTrend(FIELD_TREND_1, temp_horno, sp_horno);', 'setterCall emite setTrend de 2 canales cuando solo ch2Enabled está activo');
 }
 
 console.log(`\nResultado: ${failures === 0 ? 'TODAS PASARON' : `${failures} FALLARON`}`);

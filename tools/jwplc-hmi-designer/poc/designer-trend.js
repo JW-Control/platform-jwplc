@@ -28,11 +28,39 @@
 
   const COLOR_NAMES = {
     curveColor: 'Línea / Curva',
+    ch2Color: 'Curva Canal 2',
+    ch3Color: 'Curva Canal 3',
+    thr1Color: 'Umbral 1',
+    thr2Color: 'Umbral 2',
     axesColor: 'Ejes de coordenadas',
     textColor: 'Textos y etiquetas',
     gridColor: 'Guías de fondo',
     backgroundColor: 'Fondo de gráfica'
   };
+
+  const DEFAULT_COLORS = {
+    curveColor: 0xFD20,
+    ch2Color: 0x07FF,
+    ch3Color: 0x07E0,
+    thr1Color: 0xF800,
+    thr2Color: 0xFFE0,
+    axesColor: 0xFFFF,
+    textColor: 0xFFFF,
+    gridColor: 0x4208,
+    backgroundColor: 0x0000
+  };
+
+  function colorForKey(field, key) {
+    const val = field?.[key];
+    return (val !== undefined && val !== null) ? Number(val) : (DEFAULT_COLORS[key] ?? 0xFFFF);
+  }
+
+  function activeChannelCount(field) {
+    let count = 1;
+    if (field?.ch2Enabled) count += 1;
+    if (field?.ch3Enabled) count += 1;
+    return count;
+  }
 
   function applyPreset(field, presetKey) {
     if (!field || !PRESETS[presetKey]) return false;
@@ -63,9 +91,10 @@
     return `${sec} s`;
   }
 
-  function estimateRamUsage(visibleSamples) {
+  function estimateRamUsage(visibleSamples, channelCount = 1) {
     const pts = Math.max(1, Number(visibleSamples) || 150);
-    return pts * 4; // float = 4 bytes
+    const channels = Math.max(1, Math.min(3, Number(channelCount) || 1));
+    return pts * 4 * channels; // float = 4 bytes por muestra por canal
   }
 
   function rgb565ToCss(v565) {
@@ -349,6 +378,24 @@
                   Fondo
                 </button>
               </div>
+              <div class="insp-chip-row insp-gap" data-trend-extra-colors style="display:none;">
+                <button type="button" class="insp-chip" data-trend-colorkey="ch2Color" data-trend-color-flag="ch2Enabled">
+                  <span class="trend-color-swatch" data-trend-swatch="ch2Color" style="display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:4px;"></span>
+                  Canal 2
+                </button>
+                <button type="button" class="insp-chip" data-trend-colorkey="ch3Color" data-trend-color-flag="ch3Enabled">
+                  <span class="trend-color-swatch" data-trend-swatch="ch3Color" style="display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:4px;"></span>
+                  Canal 3
+                </button>
+                <button type="button" class="insp-chip" data-trend-colorkey="thr1Color" data-trend-color-flag="thr1Enabled">
+                  <span class="trend-color-swatch" data-trend-swatch="thr1Color" style="display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:4px;"></span>
+                  Umbral 1
+                </button>
+                <button type="button" class="insp-chip" data-trend-colorkey="thr2Color" data-trend-color-flag="thr2Enabled">
+                  <span class="trend-color-swatch" data-trend-swatch="thr2Color" style="display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:4px;"></span>
+                  Umbral 2
+                </button>
+              </div>
             </div>
             <div class="bar-card" data-trend-color-host>
               <!-- JWPLCColorEditor injected here -->
@@ -380,9 +427,73 @@
           <!-- PANEL: Datos -->
           <div class="insp-panel" data-trend-panel="data" hidden>
             <div class="bar-card">
+              <div class="bar-card-section-title">Canal 1 (Principal)</div>
               <label class="field-label">Variable Analógica PLC
                 <input class="field-input" data-trend-prop="variable" type="text" placeholder="temperatura" />
               </label>
+            </div>
+
+            <div class="bar-card">
+              <div class="bar-card-header">
+                <span class="bar-card-title">Canal 2 (ej. Setpoint)</span>
+                <div class="insp-chip-row">
+                  <button type="button" class="insp-chip" data-trend-set="ch2Enabled" data-value="false">No</button>
+                  <button type="button" class="insp-chip" data-trend-set="ch2Enabled" data-value="true">Sí</button>
+                </div>
+              </div>
+              <div class="insp-two insp-gap" data-trend-flag-wrap="ch2Enabled" style="display:none;">
+                <label class="field-label">Variable PLC
+                  <input class="field-input" data-trend-prop="ch2Variable" type="text" placeholder="setpoint" />
+                </label>
+                <label class="field-label">Etiqueta
+                  <input class="field-input" data-trend-prop="ch2Label" type="text" maxlength="10" placeholder="SP" />
+                </label>
+              </div>
+
+              <div class="bar-card-header insp-gap">
+                <span class="bar-card-title">Canal 3 (Opcional)</span>
+                <div class="insp-chip-row">
+                  <button type="button" class="insp-chip" data-trend-set="ch3Enabled" data-value="false">No</button>
+                  <button type="button" class="insp-chip" data-trend-set="ch3Enabled" data-value="true">Sí</button>
+                </div>
+              </div>
+              <div class="insp-two insp-gap" data-trend-flag-wrap="ch3Enabled" style="display:none;">
+                <label class="field-label">Variable PLC
+                  <input class="field-input" data-trend-prop="ch3Variable" type="text" placeholder="canal3" />
+                </label>
+                <label class="field-label">Etiqueta
+                  <input class="field-input" data-trend-prop="ch3Label" type="text" maxlength="10" placeholder="CH3" />
+                </label>
+              </div>
+            </div>
+
+            <div class="bar-card">
+              <div class="bar-card-section-title">Umbrales / Alarmas Horizontales</div>
+              <div class="bar-card-header">
+                <span class="bar-card-title">Umbral 1 (ej. Alarma Alta)</span>
+                <div class="insp-chip-row">
+                  <button type="button" class="insp-chip" data-trend-set="thr1Enabled" data-value="false">No</button>
+                  <button type="button" class="insp-chip" data-trend-set="thr1Enabled" data-value="true">Sí</button>
+                </div>
+              </div>
+              <div class="insp-gap" data-trend-flag-wrap="thr1Enabled" style="display:none;">
+                <label class="field-label">Valor de referencia 1
+                  <input class="field-input" data-trend-prop="thr1Value" type="number" step="any" placeholder="85" />
+                </label>
+              </div>
+
+              <div class="bar-card-header insp-gap">
+                <span class="bar-card-title">Umbral 2 (ej. Mínimo)</span>
+                <div class="insp-chip-row">
+                  <button type="button" class="insp-chip" data-trend-set="thr2Enabled" data-value="false">No</button>
+                  <button type="button" class="insp-chip" data-trend-set="thr2Enabled" data-value="true">Sí</button>
+                </div>
+              </div>
+              <div class="insp-gap" data-trend-flag-wrap="thr2Enabled" style="display:none;">
+                <label class="field-label">Valor de referencia 2
+                  <input class="field-input" data-trend-prop="thr2Value" type="number" step="any" placeholder="20" />
+                </label>
+              </div>
             </div>
 
             <div class="bar-card">
@@ -439,10 +550,13 @@
           <div class="insp-panel" data-trend-panel="sd" hidden>
             <div class="bar-card">
               <div class="bar-card-section-title">Registro en Tarjeta MicroSD</div>
-              <label class="field-label" style="flex-direction:row; justify-content:space-between; align-items:center;">
-                <span>Activar volcado continuo en SD</span>
-                <input type="checkbox" data-trend-prop="enableSD" />
-              </label>
+              <div class="bar-card-header">
+                <span class="bar-card-title">Activar volcado continuo en SD</span>
+                <div class="insp-chip-row">
+                  <button type="button" class="insp-chip" data-trend-set="enableSD" data-value="false">No</button>
+                  <button type="button" class="insp-chip" data-trend-set="enableSD" data-value="true">Sí</button>
+                </div>
+              </div>
               <label class="field-label insp-gap" data-trend-sd-interval-wrap>Periodo de volcado SD (ms)
                 <input class="field-input" data-trend-prop="sdIntervalMs" type="number" min="100" max="60000" step="100" />
               </label>
@@ -527,11 +641,18 @@
     const swatches = section.querySelectorAll('[data-trend-swatch]');
     swatches.forEach((sw) => {
       const k = sw.dataset.trendSwatch;
-      if (field[k] !== undefined) {
-        sw.style.background = rgb565ToCss(field[k]);
-      }
+      sw.style.background = rgb565ToCss(colorForKey(field, k));
     });
   }
+
+  const DEFAULT_TRUE_BOOL_PROPS = new Set(['frame', 'showAxes', 'showGuides', 'showTimeAxis']);
+  const DEFAULT_FALSE_BOOL_PROPS = new Set(['ch2Enabled', 'ch3Enabled', 'thr1Enabled', 'thr2Enabled', 'enableSD']);
+  const COLOR_FLAG_MAP = {
+    ch2Color: 'ch2Enabled',
+    ch3Color: 'ch3Enabled',
+    thr1Color: 'thr1Enabled',
+    thr2Color: 'thr2Enabled'
+  };
 
   function bindEvents(section) {
     // Main tabs
@@ -568,13 +689,13 @@
       });
     });
 
-    // Visual buttons (lineWidth, scaleMode, decimals, frame, showAxes, showGuides, showTimeAxis)
+    // Visual buttons (lineWidth, scaleMode, decimals, booleans)
     section.querySelectorAll('[data-trend-set]').forEach((btn) => {
       btn.addEventListener('click', () => {
         const prop = btn.dataset.trendSet;
         const rawVal = btn.dataset.value;
         let val;
-        if (prop === 'frame' || prop === 'showAxes' || prop === 'showGuides' || prop === 'showTimeAxis') {
+        if (DEFAULT_TRUE_BOOL_PROPS.has(prop) || DEFAULT_FALSE_BOOL_PROPS.has(prop)) {
           val = (rawVal === 'true' || rawVal === '1');
         } else if (prop === 'lineWidth' || prop === 'decimals') {
           val = Number(rawVal);
@@ -607,7 +728,7 @@
         });
         const f = selectedTrendField();
         if (f && trendColorEditor) {
-          trendColorEditor.set(f[activeColorKey] ?? 0xFFFF, COLOR_NAMES[activeColorKey] || 'Color');
+          trendColorEditor.set(colorForKey(f, activeColorKey), COLOR_NAMES[activeColorKey] || 'Color');
         }
       });
     });
@@ -713,14 +834,44 @@
     section.querySelectorAll('[data-trend-set]').forEach((btn) => {
       const prop = btn.dataset.trendSet;
       const val = btn.dataset.value;
-      if (prop === 'frame' || prop === 'showAxes' || prop === 'showGuides' || prop === 'showTimeAxis') {
+      if (DEFAULT_TRUE_BOOL_PROPS.has(prop)) {
         const isBtnTrue = (val === 'true' || val === '1');
         const currentBool = f[prop] !== false;
+        btn.classList.toggle('active', currentBool === isBtnTrue);
+      } else if (DEFAULT_FALSE_BOOL_PROPS.has(prop)) {
+        const isBtnTrue = (val === 'true' || val === '1');
+        const currentBool = Boolean(f[prop]);
         btn.classList.toggle('active', currentBool === isBtnTrue);
       } else {
         const cur = String(f[prop]);
         btn.classList.toggle('active', cur === val);
       }
+    });
+
+    // Dynamic canal / threshold inputs visibility
+    section.querySelectorAll('[data-trend-flag-wrap]').forEach((wrap) => {
+      const flag = wrap.dataset.trendFlagWrap;
+      wrap.style.display = Boolean(f[flag]) ? '' : 'none';
+    });
+
+    // Dynamic extra color chips (Canales y Umbrales)
+    let anyExtraColor = false;
+    section.querySelectorAll('[data-trend-color-flag]').forEach((chip) => {
+      const flag = chip.dataset.trendColorFlag;
+      const show = Boolean(f[flag]);
+      chip.style.display = show ? '' : 'none';
+      if (show) anyExtraColor = true;
+    });
+    const extraColorsRow = section.querySelector('[data-trend-extra-colors]');
+    if (extraColorsRow) {
+      extraColorsRow.style.display = anyExtraColor ? 'flex' : 'none';
+    }
+    const requiredFlag = COLOR_FLAG_MAP[activeColorKey];
+    if (requiredFlag && !f[requiredFlag]) {
+      activeColorKey = 'curveColor';
+    }
+    section.querySelectorAll('[data-trend-colorkey]').forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.trendColorkey === activeColorKey);
     });
 
     // Frequency chips
@@ -749,15 +900,18 @@
     const spanEl = section.querySelector('[data-trend-readout="windowSpan"]');
     if (spanEl) spanEl.textContent = spanText;
 
+    const chCount = activeChannelCount(f);
     const ramEl = section.querySelector('[data-trend-readout="ramBytes"]');
-    if (ramEl) ramEl.textContent = `${estimateRamUsage(f.visibleSamples)} bytes`;
+    if (ramEl) {
+      ramEl.textContent = `${estimateRamUsage(f.visibleSamples, chCount)} bytes${chCount > 1 ? ` (${chCount} canales)` : ''}`;
+    }
 
     // Color Swatches
     updateColorSwatches(section, f);
 
     // Active color in color editor
     if (trendColorEditor) {
-      trendColorEditor.set(f[activeColorKey] ?? 0xFFFF, COLOR_NAMES[activeColorKey] || 'Color');
+      trendColorEditor.set(colorForKey(f, activeColorKey), COLOR_NAMES[activeColorKey] || 'Color');
     }
 
     // Mini-preview

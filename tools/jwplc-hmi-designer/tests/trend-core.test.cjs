@@ -55,5 +55,19 @@ const decimated = trendCore.decimateSamples(rawSamples, targetPoints);
 check(decimated.length === targetPoints, `Diezmado produce exactamente ${targetPoints} muestras`);
 check(Math.min(...decimated) >= 0 && Math.max(...decimated) <= 100, 'Conserva el rango de los datos originales');
 
+// 5. Multicanal y conversión valor -> Y de umbrales
+const spPts = trendCore.generateSetpointPreviewData(40, 55, 72);
+const ch3Pts = trendCore.generateTertiaryPreviewData(40, 15, 70);
+check(spPts.length === 40 && spPts[0] === 55 && spPts[spPts.length - 1] === 72, 'generateSetpointPreviewData genera escalón setpoint (55 -> 72)');
+check(ch3Pts.length === 40 && Math.min(...ch3Pts) >= 15 && Math.max(...ch3Pts) <= 70, 'generateTertiaryPreviewData genera tercera onda dentro de rango');
+const yTop = trendCore.trendValueToY(100, 0, 100, 10, 50);
+const yBot = trendCore.trendValueToY(0, 0, 100, 10, 50);
+const yMid = trendCore.trendValueToY(50, 0, 100, 10, 50);
+const yOut = trendCore.trendValueToY(120, 0, 100, 10, 50);
+check(yTop.y === 10 && yTop.inRange === true, 'trendValueToY mapea máximo al tope superior (topGuideY)');
+check(yBot.y === 60 && yBot.inRange === true, 'trendValueToY mapea mínimo al eje base (topGuideY + activeH)');
+check(yMid.y === 35 && yMid.inRange === true, 'trendValueToY mapea punto medio exactamente al centro');
+check(yOut.inRange === false, 'trendValueToY marca inRange=false cuando excede límites');
+
 console.log(`\nResultado: ${failures === 0 ? 'TODAS PASARON' : `${failures} FALLARON`}`);
 process.exit(failures === 0 ? 0 : 1);

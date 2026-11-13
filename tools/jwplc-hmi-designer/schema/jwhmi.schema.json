@@ -2111,7 +2111,7 @@
                 "default": 1
               },
               "showAxes": {
-                "description": "Muestra el eje Y y las 3 líneas guía de referencia.",
+                "description": "Muestra el eje Y y eje X base.",
                 "type": "boolean",
                 "default": true
               },
@@ -2138,7 +2138,7 @@
                 "default": 1000
               },
               "curveColor": {
-                "description": "Color de la línea de tendencia. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "description": "Color de la línea de tendencia (Canal 1). RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
                 "oneOf": [
                   {
                     "type": "integer",
@@ -2168,7 +2168,7 @@
                 "default": 65535
               },
               "gridColor": {
-                "description": "Color de las 3 líneas guía de fondo. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "description": "Color de las líneas guía de fondo. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
                 "oneOf": [
                   {
                     "type": "integer",
@@ -2211,6 +2211,118 @@
                   }
                 ],
                 "default": 0
+              },
+              "ch2Enabled": {
+                "description": "Activa un segundo canal simultáneo (ej. consigna / setpoint).",
+                "type": "boolean",
+                "default": false
+              },
+              "ch2Variable": {
+                "description": "Variable analógica C++ del canal 2.",
+                "type": "string",
+                "pattern": "^([A-Za-z_][A-Za-z0-9_]*)?$",
+                "default": "consigna"
+              },
+              "ch2Label": {
+                "description": "Etiqueta corta del canal 2 en la leyenda.",
+                "type": "string",
+                "default": "SP"
+              },
+              "ch2Color": {
+                "description": "Color de la curva del canal 2. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 2047
+              },
+              "ch3Enabled": {
+                "description": "Activa un tercer canal simultáneo.",
+                "type": "boolean",
+                "default": false
+              },
+              "ch3Variable": {
+                "description": "Variable analógica C++ del canal 3.",
+                "type": "string",
+                "pattern": "^([A-Za-z_][A-Za-z0-9_]*)?$",
+                "default": "salida"
+              },
+              "ch3Label": {
+                "description": "Etiqueta corta del canal 3 en la leyenda.",
+                "type": "string",
+                "default": "CH3"
+              },
+              "ch3Color": {
+                "description": "Color de la curva del canal 3. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 2016
+              },
+              "thr1Enabled": {
+                "description": "Activa línea horizontal punteada de umbral/alarma 1.",
+                "type": "boolean",
+                "default": false
+              },
+              "thr1Value": {
+                "description": "Valor numérico del umbral 1.",
+                "type": "number",
+                "default": 85
+              },
+              "thr1Color": {
+                "description": "Color de la línea punteada de umbral 1. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 63488
+              },
+              "thr2Enabled": {
+                "description": "Activa línea horizontal punteada de umbral/alarma 2.",
+                "type": "boolean",
+                "default": false
+              },
+              "thr2Value": {
+                "description": "Valor numérico del umbral 2.",
+                "type": "number",
+                "default": 20
+              },
+              "thr2Color": {
+                "description": "Color de la línea punteada de umbral 2. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 65504
               }
             },
             "required": [

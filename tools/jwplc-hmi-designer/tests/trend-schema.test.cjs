@@ -61,5 +61,21 @@ const badProject = normalizeProject({
 const badReport = validateProject(badProject);
 check(badReport.errors.some(e => e.path.includes('maxValue')), 'Detecta error si maxValue <= minValue en modo MANUAL');
 
+// 5. Multicanal y umbrales: defaults y validaciones de variables duplicadas/inválidas
+check(trend.ch2Enabled === false && trend.ch3Enabled === false, 'Canales 2 y 3 deshabilitados por defecto');
+check(trend.thr1Enabled === false && trend.thr2Enabled === false, 'Umbrales 1 y 2 deshabilitados por defecto');
+check(trend.ch2Color === 0x07FF && trend.ch3Color === 0x07E0, 'Colores por defecto de Canal 2 (0x07FF) y Canal 3 (0x07E0)');
+check(trend.thr1Color === 0xF800 && trend.thr2Color === 0xFFE0, 'Colores por defecto de Umbral 1 (0xF800) y Umbral 2 (0xFFE0)');
+
+const dupChannelProject = normalizeProject({
+  projectName: 'DupChannelTrend',
+  pages: [{ id: 0, name: 'Main' }],
+  fields: [
+    { type: 'TREND', x: 10, y: 10, variable: 'temp', ch2Enabled: true, ch2Variable: 'temp' }
+  ]
+});
+const dupReport = validateProject(dupChannelProject);
+check(dupReport.errors.some(e => e.path.includes('ch2Variable')), 'Detecta variable duplicada entre Canal 1 y Canal 2');
+
 console.log(`\nResultado: ${failures === 0 ? 'TODAS PASARON' : `${failures} FALLARON`}`);
 process.exit(failures === 0 ? 0 : 1);

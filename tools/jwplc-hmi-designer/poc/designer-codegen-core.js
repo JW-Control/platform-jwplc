@@ -266,6 +266,17 @@
       `    JWPLC_UIBarField(\n        ${id},\n        ${rect},\n        JWPLC_UIText(${label}, ${unit}),\n        JWPLC_UIRange(${cppFloat(field.barMin)}, ${cppFloat(field.barMax)}),\n        JWPLC_UIBarStyle(\n            ${field.labelSize},\n            ${cppBool(field.frame)},\n            JWPLC_UI_LAYOUT_${field.layout}),\n        ${field.page || 0},\n        ${colorsBlock(field.labelColor, field.valueColor, field.trackColor || field.backgroundColor, field.frameColor)}${configBlock})`;
   }
 
+  function trendChannelVariables(field, primaryVar) {
+    const vars = [sanitizeSymbol(primaryVar || field.variable, 'temperatura')];
+    if (field.ch2Enabled) {
+      vars.push(sanitizeSymbol(field.ch2Variable, 'consigna'));
+    }
+    if (field.ch3Enabled) {
+      vars.push(sanitizeSymbol(field.ch3Variable, 'salida'));
+    }
+    return vars;
+  }
+
   function trendFieldBlock(field, id) {
     const width = Math.max(40, Math.trunc(Number(field.width || field.w) || 200));
     const height = Math.max(30, Math.trunc(Number(field.height || field.h) || 80));
@@ -277,19 +288,43 @@
     const sampleMs = Math.max(50, Math.trunc(Number(field.sampleIntervalMs) || 1000));
     const visiblePts = Math.max(20, Math.trunc(Number(field.visibleSamples) || 150));
     const scaleMode = field.scaleMode === 'MANUAL' ? 1 : 0;
-    const decimals = Math.max(0, Math.min(3, Math.trunc(Number(field.decimals) || 1)));
-    const lineW = Number(field.lineWidth) === 1 ? 1 : 2;
+    const decimals = Math.max(0, Math.min(3, Math.trunc(Number(field.decimals) ?? 1)));
+    const lineW = Number(field.lineWidth) === 2 ? 2 : 1;
     const showAxes = cppBool(field.showAxes !== false);
+    const showGuides = cppBool(field.showGuides !== false);
     const showTime = cppBool(field.showTimeAxis !== false);
     const enableSD = cppBool(Boolean(field.enableSD));
     const sdIntervalMs = Math.max(100, Math.trunc(Number(field.sdIntervalMs) || 1000));
-    const curveColor = hex565(field.curveColor || 0xFD20);
-    const axesColor = hex565(field.axesColor || 0x4208);
-    const gridColor = hex565(field.gridColor || 0x2104);
-    const textColor = hex565(field.textColor || 0xDF5E);
-    const bgColor = hex565(field.backgroundColor || 0x0000);
+    const curveColor = hex565(field.curveColor ?? 0xFD20);
+    const axesColor = hex565(field.axesColor ?? 0xFFFF);
+    const gridColor = hex565(field.gridColor ?? 0x4208);
+    const textColor = hex565(field.textColor ?? 0xFFFF);
+    const bgColor = hex565(field.backgroundColor ?? 0x0000);
 
-    const styleHeader = `    // Gráfica de Tendencia (${width}x${height}) - Muestreo: ${sampleMs}ms - Escala: ${field.scaleMode || 'AUTO'}\n`;
+    const ch2On = Boolean(field.ch2Enabled);
+    const ch3On = Boolean(field.ch3Enabled);
+    const channelCount = 1 + (ch2On ? 1 : 0) + (ch3On ? 1 : 0);
+    const c2Color = hex565(ch2On ? (field.ch2Color ?? 0x07FF) : (ch3On ? (field.ch3Color ?? 0x07E0) : 0x07FF));
+    const c3Color = hex565(field.ch3Color ?? 0x07E0);
+
+    const activeThresholds = [];
+    if (field.thr1Enabled) activeThresholds.push({ val: Number(field.thr1Value) || 0, color: hex565(field.thr1Color ?? 0xF800) });
+    if (field.thr2Enabled) activeThresholds.push({ val: Number(field.thr2Value) || 0, color: hex565(field.thr2Color ?? 0xFFE0) });
+    const thresholdCount = activeThresholds.length;
+    const t1Val = activeThresholds[0]?.val ?? 85;
+    const t1Color = activeThresholds[0]?.color ?? hex565(0xF800);
+    const t2Val = activeThresholds[1]?.val ?? 20;
+    const t2Color = activeThresholds[1]?.color ?? hex565(0xFFE0);
+
+    const hasExtras = channelCount > 1 || thresholdCount > 0;
+    const extrasArgs = hasExtras
+      ? `,\n            ${showGuides},\n            ${channelCount},\n            ${c2Color},\n            ${c3Color},\n            ${thresholdCount},\n            ${cppFloat(t1Val)},\n            ${t1Color},\n            ${cppFloat(t2Val)},\n            ${t2Color}`
+      : (field.showGuides === false ? `,\n            ${showGuides}` : '');
+
+    const metaParts = [`Muestreo: ${sampleMs}ms`, `Escala: ${field.scaleMode || 'AUTO'}`];
+    if (channelCount > 1) metaParts.push(`Canales: ${channelCount}`);
+    if (thresholdCount > 0) metaParts.push(`Umbrales: ${thresholdCount}`);
+    const styleHeader = `    // Gráfica de Tendencia (${width}x${height}) - ${metaParts.join(' - ')}\n`;
 
     return `${styleHeader}` +
       `    JWPLC_UITrendField(\n` +
@@ -311,9 +346,9 @@
       `            ${axesColor},\n` +
       `            ${gridColor},\n` +
       `            ${textColor},\n` +
-      `            ${bgColor}),\n` +
+      `            ${bgColor}${extrasArgs}),\n` +
       `        ${field.page || 0},\n` +
-      `        ${colorsBlock(field.labelColor || 0xFFFF, field.curveColor || 0xFD20, field.backgroundColor || 0x0000, field.axesColor || 0x4208)})`;
+      `        ${colorsBlock(field.labelColor ?? 0xFFFF, field.curveColor ?? 0xFD20, field.backgroundColor ?? 0x0000, field.axesColor ?? 0xFFFF)})`;
   }
 
   function fieldBlock(field, id) {
@@ -336,9 +371,14 @@
     return `char ${variable}[${textBufferSize(field)}] = {}; // ${capacity} caracteres (UTF-8: cada tilde ocupa 2 bytes)`;
   }
 
+  function trendVariableDeclarations(field, variable) {
+    return trendChannelVariables(field, variable).map((v) => `float ${v} = 0.0f;`).join('\n');
+  }
+
   function variableDeclaration(field, variable) {
     if (field.type === 'VALUE') return valueDeclaration(field, variable);
-    if (field.type === 'BAR' || field.type === 'TREND') return `float ${variable} = 0.0f;`;
+    if (field.type === 'TREND') return trendVariableDeclarations(field, variable);
+    if (field.type === 'BAR') return `float ${variable} = 0.0f;`;
     if (field.type === 'BOOL') return `bool ${variable} = false;`;
     return textDeclaration(field, variable);
   }
@@ -348,7 +388,10 @@
     if (field.type === 'VALUE') return `JWPLC_Display.setValue(${id}, ${variable});`;
     if (field.type === 'BOOL') return `JWPLC_Display.setBool(${id}, ${variable});`;
     if (field.type === 'BAR') return `JWPLC_Display.setBar(${id}, ${variable});`;
-    if (field.type === 'TREND') return `JWPLC_Display.setTrend(${id}, ${variable});`;
+    if (field.type === 'TREND') {
+      const vars = trendChannelVariables(field, variable);
+      return `JWPLC_Display.setTrend(${id}, ${vars.join(', ')});`;
+    }
     return `JWPLC_Display.setText(${id}, ${variable});`;
   }
 
@@ -369,6 +412,8 @@
     boolFieldBlock,
     boolStateColorsOn,
     barFieldBlock,
+    trendChannelVariables,
+    trendVariableDeclarations,
     trendFieldBlock,
     fontCppSymbol,
     styleFontsArgs,

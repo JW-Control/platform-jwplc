@@ -139,6 +139,8 @@ public:
     bool setBool(uint8_t fieldId, bool value);
     bool setBar(uint8_t fieldId, float value);
     bool setTrend(uint8_t fieldId, float value);
+    bool setTrend(uint8_t fieldId, float v1, float v2);
+    bool setTrend(uint8_t fieldId, float v1, float v2, float v3);
     // ICON (JWPLC_UI_HAS_ICON): estado 0..N-1. setBool() también vale (0/1).
     bool setIconState(uint8_t fieldId, uint8_t state);
 

@@ -144,11 +144,52 @@
     return data;
   }
 
+  // Señal escalonada de consigna / setpoint para previsualizar el Canal 2
+  function generateSetpointPreviewData(points = 100, lowVal = 55, highVal = 72) {
+    const data = [];
+    const stepAt = Math.floor(points * 0.45);
+    for (let i = 0; i < points; i += 1) {
+      data.push(i < stepAt ? lowVal : highVal);
+    }
+    return data;
+  }
+
+  // Señal desfasada suave para previsualizar el Canal 3
+  function generateTertiaryPreviewData(points = 100, minVal = 15, maxVal = 75) {
+    const data = [];
+    const range = (maxVal - minVal) * 0.65;
+    const base = minVal + (maxVal - minVal) * 0.18;
+    for (let i = 0; i < points; i += 1) {
+      const phase = (i / points) * Math.PI * 3 + 1.2;
+      const v = base + (Math.cos(phase) * 0.5 + 0.5) * range;
+      data.push(Math.round(v * 10) / 10);
+    }
+    return data;
+  }
+
+  // Convierte un valor de ingeniería a coordenada Y en píxeles dentro del área útil
+  function trendValueToY(val, minVal, maxVal, topGuideY, activeH) {
+    const v = Number(val);
+    const min = Number(minVal);
+    const max = Number(maxVal);
+    if (!Number.isFinite(v) || !Number.isFinite(min) || !Number.isFinite(max) || max <= min) {
+      return { y: Math.round(topGuideY + activeH / 2), inRange: false };
+    }
+    const ratio = (v - min) / (max - min);
+    const inRange = ratio >= 0 && ratio <= 1;
+    const clamped = Math.max(0, Math.min(1, ratio));
+    const y = Math.round(topGuideY + (1 - clamped) * activeH);
+    return { y, inRange };
+  }
+
   return {
     calculateGraphScale,
     axisDecimals,
     computeTrendGeometry,
     decimateSamples,
-    generatePreviewData
+    generatePreviewData,
+    generateSetpointPreviewData,
+    generateTertiaryPreviewData,
+    trendValueToY
   };
 });

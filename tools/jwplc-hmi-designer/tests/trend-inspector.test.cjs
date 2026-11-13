@@ -142,17 +142,22 @@ console.log('  PASS msToFrequencyLabel formatea etiquetas legibles');
 // 3. Estimación de RAM
 const ramBytes = trendModule.estimateRamUsage(150);
 assert.strictEqual(ramBytes, 600, '150 puntos float deben ser 600 bytes');
-console.log('  PASS estimateRamUsage calcula 4 bytes por muestra');
+assert.strictEqual(trendModule.estimateRamUsage(150, 3), 1800, '150 puntos x 3 canales deben ser 1800 bytes');
+console.log('  PASS estimateRamUsage calcula 4 bytes por muestra y escala con multicanal');
 
 // 4. Elementos de color y mini-preview
 assert(typeof trendModule.drawAppearancePreview === 'function', 'drawAppearancePreview debe ser función');
 assert(trendModule.COLOR_NAMES, 'COLOR_NAMES debe existir');
 assert.strictEqual(trendModule.COLOR_NAMES.curveColor, 'Línea / Curva');
+assert.strictEqual(trendModule.COLOR_NAMES.ch2Color, 'Curva Canal 2');
+assert.strictEqual(trendModule.COLOR_NAMES.ch3Color, 'Curva Canal 3');
+assert.strictEqual(trendModule.COLOR_NAMES.thr1Color, 'Umbral 1');
+assert.strictEqual(trendModule.COLOR_NAMES.thr2Color, 'Umbral 2');
 assert.strictEqual(trendModule.COLOR_NAMES.axesColor, 'Ejes de coordenadas');
 assert.strictEqual(trendModule.COLOR_NAMES.textColor, 'Textos y etiquetas');
 assert.strictEqual(trendModule.COLOR_NAMES.gridColor, 'Guías de fondo');
 assert.strictEqual(trendModule.COLOR_NAMES.backgroundColor, 'Fondo de gráfica');
-console.log('  PASS COLOR_NAMES mapea Línea, Ejes, Textos, Guías y Fondo');
+console.log('  PASS COLOR_NAMES mapea canales, umbrales, ejes, textos, guías y fondo');
 
 const spec = require('../cli/lib/spec.cjs');
 const trendProps = spec.TYPES.TREND.props;

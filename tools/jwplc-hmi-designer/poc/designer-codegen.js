@@ -74,6 +74,7 @@
     if (field?.type === 'VALUE') return `FIELD_VALUE_${serial}`;
     if (field?.type === 'BOOL') return `FIELD_BOOL_${serial}`;
     if (field?.type === 'BAR') return `FIELD_BAR_${serial}`;
+    if (field?.type === 'TREND') return `FIELD_TREND_${serial}`;
     return `FIELD_TEXT_${serial}`;
   }
 
@@ -83,6 +84,7 @@
     if (field?.type === 'VALUE') return `valor${serial}`;
     if (field?.type === 'BOOL') return `estado${serial}`;
     if (field?.type === 'BAR') return `nivel${serial}`;
+    if (field?.type === 'TREND') return `tendencia${serial}`;
     return `texto${serial}`;
   }
 
@@ -205,15 +207,28 @@
 
     ['id', 'variable'].forEach((property) => {
       const seen = new Map();
-      fields.forEach((field, index) => {
-        // Un reloj (fecha/hora del RTC) no declara variable.
-        if (property === 'variable' && isClockField(field)) return;
-        const canonical = canonicalFor(field, property, field[property], index);
+      const register = (canonical, field) => {
         const previous = seen.get(canonical);
         if (previous) {
           issues.push({ property, canonical, first: previous, second: field });
         } else {
           seen.set(canonical, field);
+        }
+      };
+
+      fields.forEach((field, index) => {
+        // Un reloj (fecha/hora del RTC) no declara variable.
+        if (property === 'variable' && isClockField(field)) return;
+        register(canonicalFor(field, property, field[property], index), field);
+
+        if (property === 'variable' && field?.type === 'TREND') {
+          const serial = serialFor(field, index);
+          if (field.ch2Enabled) {
+            register(sanitizeSymbol(field.ch2Variable, `setpoint${serial}`), field);
+          }
+          if (field.ch3Enabled) {
+            register(sanitizeSymbol(field.ch3Variable, `canal3_${serial}`), field);
+          }
         }
       });
     });
@@ -225,7 +240,8 @@
     if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON', 'RAW_TEXT'].includes(field.type)) return '';
     const variable = canonicalFor(field, 'variable', field.variable, index);
     if (field.type === 'VALUE' && window.JWPLCHMICodegenCore?.valueDeclaration) return window.JWPLCHMICodegenCore.valueDeclaration(field, variable);
-    if (field.type === 'VALUE' || field.type === 'BAR') return `float ${variable} = 0.0f;`;
+    if (field.type === 'TREND' && window.JWPLCHMICodegenCore?.trendVariableDeclarations) return window.JWPLCHMICodegenCore.trendVariableDeclarations(field, variable);
+    if (field.type === 'VALUE' || field.type === 'BAR' || field.type === 'TREND') return `float ${variable} = 0.0f;`;
     if (field.type === 'BOOL') return `bool ${variable} = false;`;
     if (field.type === 'ICON') return window.JWPLCIconsCore.iconDeclaration(field, variable, window.JWPLCHMIIcons?.iconInfo?.(field.iconId)?.stateNames || window.JWPLCIconsCore.stateNamesFor(window.JWPLCIconCatalog, field.iconId));
     return window.JWPLCHMICodegenCore.textDeclaration(field, variable);
@@ -672,6 +688,12 @@ static void jwplcHMIDrawMicroText(JWPLC_TFTClass &tft, int16_t x, int16_t y, con
     if (field.type === 'BOOL') return `JWPLC_Display.setBool(${id}, ${variable});`;
     if (field.type === 'ICON') return window.JWPLCIconsCore.iconSetter(id, variable);
     if (field.type === 'BAR') return `JWPLC_Display.setBar(${id}, ${variable});`;
+    if (field.type === 'TREND') {
+      if (window.JWPLCHMICodegenCore?.trendChannelVariables) {
+        return `JWPLC_Display.setTrend(${id}, ${window.JWPLCHMICodegenCore.trendChannelVariables(field, variable).join(', ')});`;
+      }
+      return `JWPLC_Display.setTrend(${id}, ${variable});`;
+    }
     return `JWPLC_Display.setText(${id}, ${variable});`;
   }
 

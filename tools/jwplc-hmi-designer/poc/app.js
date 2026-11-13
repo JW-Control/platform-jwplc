@@ -770,6 +770,20 @@
       showTimeAxis: true,
       enableSD: false,
       sdIntervalMs: 1000,
+      ch2Enabled: false,
+      ch2Variable: 'setpoint',
+      ch2Label: 'SP',
+      ch2Color: 0x07FF,
+      ch3Enabled: false,
+      ch3Variable: 'canal3',
+      ch3Label: 'CH3',
+      ch3Color: 0x07E0,
+      thr1Enabled: false,
+      thr1Value: 85,
+      thr1Color: 0xF800,
+      thr2Enabled: false,
+      thr2Value: 20,
+      thr2Color: 0xFFE0,
       curveColor: 0xFD20,
       axesColor: 0xFFFF,
       gridColor: 0x4208,
@@ -2878,6 +2892,10 @@
 
     const bg565 = (field.backgroundColor !== undefined && field.backgroundColor !== null && field.backgroundColor !== 'TRANSPARENT' && field.backgroundColor !== -1) ? (Number(field.backgroundColor) & 0xFFFF) : 0x0000;
     const curve565 = (field.curveColor !== undefined && field.curveColor !== null) ? (Number(field.curveColor) & 0xFFFF) : 0xFD20;
+    const ch2Color565 = (field.ch2Color !== undefined && field.ch2Color !== null) ? (Number(field.ch2Color) & 0xFFFF) : 0x07FF;
+    const ch3Color565 = (field.ch3Color !== undefined && field.ch3Color !== null) ? (Number(field.ch3Color) & 0xFFFF) : 0x07E0;
+    const thr1Color565 = (field.thr1Color !== undefined && field.thr1Color !== null) ? (Number(field.thr1Color) & 0xFFFF) : 0xF800;
+    const thr2Color565 = (field.thr2Color !== undefined && field.thr2Color !== null) ? (Number(field.thr2Color) & 0xFFFF) : 0xFFE0;
     const axes565 = (field.axesColor !== undefined && field.axesColor !== null) ? (Number(field.axesColor) & 0xFFFF) : 0xFFFF;
     const grid565 = (field.gridColor !== undefined && field.gridColor !== null) ? (Number(field.gridColor) & 0xFFFF) : 0x4208;
     const text565 = (field.textColor !== undefined && field.textColor !== null) ? (Number(field.textColor) & 0xFFFF) : 0xFFFF;
@@ -2893,6 +2911,13 @@
       fillBufferRect(buffer, geo.plotX, geo.guide25Y, geo.plotW, 1, grid565);
     }
 
+    const activeH = geo.activeH || Math.max(10, geo.baseAxisY - geo.topGuideY);
+    const minVal = Number(field.minValue) || 0;
+    const maxVal = Number(field.maxValue) || 100;
+    const scale = trendCore?.calculateGraphScale ? trendCore.calculateGraphScale(minVal, maxVal) : { low: minVal, mid: (minVal + maxVal) / 2, high: maxVal };
+    const dec = Math.max(0, Math.min(3, Number(field.decimals) || 1));
+
+    const labelYs = [];
     if (field.showAxes !== false) {
       // Ejes de coordenadas (L-frame sólido con color entero; el eje X es el piso / cero)
       fillBufferRect(buffer, geo.plotX - 1, geo.topGuideY, 1, geo.baseAxisY - geo.topGuideY + 1, axes565);
@@ -2908,11 +2933,6 @@
       fillBufferRect(buffer, geo.plotX - 1, geo.baseAxisY, 1, 3, axes565);
       fillBufferRect(buffer, geo.plotX + geo.plotW - 1, geo.baseAxisY, 1, 3, axes565);
 
-      const minVal = Number(field.minValue) || 0;
-      const maxVal = Number(field.maxValue) || 100;
-      const scale = trendCore?.calculateGraphScale ? trendCore.calculateGraphScale(minVal, maxVal) : { low: minVal, mid: (minVal + maxVal) / 2, high: maxVal };
-      const dec = Math.max(0, Math.min(3, Number(field.decimals) || 1));
-
       const lblHigh = scale.high.toFixed(dec);
       const lblMid = scale.mid.toFixed(dec);
       const lblLow = scale.low.toFixed(dec);
@@ -2920,7 +2940,38 @@
       drawTextWithFont(buffer, lblHigh, field.x + 2, geo.topGuideY - 3, text565, bg565, 1, 'GLCD');
       drawTextWithFont(buffer, lblMid, field.x + 2, geo.guide50Y - 3, text565, bg565, 1, 'GLCD');
       drawTextWithFont(buffer, lblLow, field.x + 2, geo.baseAxisY - 5, text565, bg565, 1, 'GLCD');
+      labelYs.push(geo.topGuideY, geo.guide50Y, geo.baseAxisY);
     }
+
+    // Umbrales horizontales punteados (MAX_THRESHOLDS = 2)
+    const valueToYObj = (v, lo, hi) => (trendCore?.trendValueToY
+      ? trendCore.trendValueToY(v, lo, hi, geo.topGuideY, activeH)
+      : {
+          y: Math.round(geo.topGuideY + (1 - Math.max(0, Math.min(1, (v - lo) / ((hi - lo) || 1)))) * activeH),
+          inRange: v >= lo && v <= hi
+        });
+
+    [
+      { enabled: Boolean(field.thr1Enabled), value: Number(field.thr1Value ?? 85), color: thr1Color565 },
+      { enabled: Boolean(field.thr2Enabled), value: Number(field.thr2Value ?? 20), color: thr2Color565 }
+    ].forEach((thr) => {
+      if (!thr.enabled || !Number.isFinite(thr.value)) return;
+      const { y: ty, inRange } = valueToYObj(thr.value, scale.low, scale.high);
+      if (!inRange || ty < geo.topGuideY || ty > geo.baseAxisY) return;
+      for (let col = 0; col < geo.plotW; col += 1) {
+        if ((col % 6) < 3) {
+          fillBufferRect(buffer, geo.plotX + col, ty, 1, 1, thr.color);
+        }
+      }
+      if (field.showAxes !== false) {
+        fillBufferRect(buffer, geo.plotX - 3, ty, 2, 1, thr.color);
+        const collides = labelYs.some((existingY) => Math.abs(ty - existingY) < 9);
+        if (!collides) {
+          drawTextWithFont(buffer, thr.value.toFixed(dec), field.x + 2, ty - 3, thr.color, bg565, 1, 'GLCD');
+          labelYs.push(ty);
+        }
+      }
+    });
 
     if (field.showTimeAxis !== false && geo.timeH > 0) {
       const sampleMs = Number(field.sampleIntervalMs) || 1000;
@@ -2946,24 +2997,43 @@
       }
       if (field.unit) {
         drawTextWithFont(buffer, String(field.unit).slice(0, 6), curX, field.y + 2, text565, bg565, 1, 'GLCD');
+        curX += String(field.unit).slice(0, 6).length * 6 + 6;
       }
+
+      // Leyenda compacta de canales extra en el encabezado
+      const extraLegend = [];
+      if (field.ch2Enabled) extraLegend.push({ label: String(field.ch2Label || 'SP').slice(0, 4), color: ch2Color565 });
+      if (field.ch3Enabled) extraLegend.push({ label: String(field.ch3Label || 'CH3').slice(0, 4), color: ch3Color565 });
+      extraLegend.forEach((ch) => {
+        if (curX + 7 + ch.label.length * 6 > field.x + w - 2) return;
+        fillBufferRect(buffer, curX, field.y + 3, 5, 5, ch.color);
+        curX += 7;
+        drawTextWithFont(buffer, ch.label, curX, field.y + 2, ch.color, bg565, 1, 'GLCD');
+        curX += ch.label.length * 6 + 5;
+      });
     }
 
-    const pts = trendCore?.generatePreviewData ? trendCore.generatePreviewData(geo.plotW, 20, 80) : [];
-    const minVal = 0, maxVal = 100;
-    const activeH = geo.activeH || Math.max(10, geo.baseAxisY - geo.topGuideY);
     const lineW = Number(field.lineWidth) === 2 ? 2 : 1; // Grosor 1px por defecto
-
-    if (pts.length > 1) {
-      for (let i = 0; i < pts.length - 1; i++) {
+    const drawCurve = (pts, color565) => {
+      if (!pts || pts.length < 2) return;
+      for (let i = 0; i < pts.length - 1; i += 1) {
         const x1 = geo.plotX + i;
         const x2 = geo.plotX + i + 1;
-        const normY1 = 1 - (pts[i] - minVal) / (maxVal - minVal);
-        const normY2 = 1 - (pts[i + 1] - minVal) / (maxVal - minVal);
-        const y1 = Math.round(geo.topGuideY + normY1 * activeH);
-        const y2 = Math.round(geo.topGuideY + normY2 * activeH);
-        rasterLineThick(buffer, x1, y1, x2, y2, curve565, lineW);
+        const y1 = valueToYObj(pts[i], 0, 100).y;
+        const y2 = valueToYObj(pts[i + 1], 0, 100).y;
+        rasterLineThick(buffer, x1, y1, x2, y2, color565, lineW);
       }
+    };
+
+    // Dibujar en orden inverso (Canal 3 -> Canal 2 -> Canal 1) para que el Canal 1 quede al frente
+    if (field.ch3Enabled && trendCore?.generateTertiaryPreviewData) {
+      drawCurve(trendCore.generateTertiaryPreviewData(geo.plotW, 15, 70), ch3Color565);
+    }
+    if (field.ch2Enabled && trendCore?.generateSetpointPreviewData) {
+      drawCurve(trendCore.generateSetpointPreviewData(geo.plotW, 55, 72), ch2Color565);
+    }
+    if (trendCore?.generatePreviewData) {
+      drawCurve(trendCore.generatePreviewData(geo.plotW, 20, 80), curve565);
     }
   }
 
@@ -3099,7 +3169,12 @@
   function variableDeclaration(field, index) {
     const variable = sanitizeSymbol(field.variable, variableFallback(field, index));
     if (field.type === 'VALUE') return window.JWPLCHMICodegenCore.valueDeclaration(field, variable);
-    if (field.type === 'BAR' || field.type === 'TREND') return `float ${variable} = 0.0f;`;
+    if (field.type === 'BAR') return `float ${variable} = 0.0f;`;
+    if (field.type === 'TREND') {
+      return window.JWPLCHMICodegenCore?.trendVariableDeclarations
+        ? window.JWPLCHMICodegenCore.trendVariableDeclarations(field, variable)
+        : `float ${variable} = 0.0f;`;
+    }
     if (field.type === 'BOOL') return `bool ${variable} = false;`;
     if (field.type === 'ICON') return window.JWPLCIconsCore.iconDeclaration(field, variable, window.JWPLCHMIIcons?.iconInfo?.(field.iconId)?.stateNames || window.JWPLCIconsCore.stateNamesFor(window.JWPLCIconCatalog, field.iconId));
     return window.JWPLCHMICodegenCore.textDeclaration(field, variable);
@@ -3152,7 +3227,12 @@
     if (field.type === 'BOOL') return `// JWPLC_Display.setBool(${id}, ${variable});`;
     if (field.type === 'ICON') return `// ${window.JWPLCIconsCore.iconSetter(id, variable, field)}`;
     if (field.type === 'BAR') return `// JWPLC_Display.setBar(${id}, ${variable});`;
-    if (field.type === 'TREND') return `// JWPLC_Display.setTrend(${id}, ${variable});`;
+    if (field.type === 'TREND') {
+      const vars = window.JWPLCHMICodegenCore?.trendChannelVariables
+        ? window.JWPLCHMICodegenCore.trendChannelVariables(field, variable)
+        : [variable];
+      return `// JWPLC_Display.setTrend(${id}, ${vars.join(', ')});`;
+    }
     return `// JWPLC_Display.setText(${id}, ${variable});`;
   }
 

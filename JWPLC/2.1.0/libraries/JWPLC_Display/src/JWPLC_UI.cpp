@@ -36,6 +36,8 @@ namespace
 
         char value[VALUE_BUFFER_SIZE];
         float barValue;
+        float trendCh2;
+        float trendCh3;
         // BAR: ancho de relleno que hay en pantalla; -1 = desconocido
         // (repintado completo). Con él sólo se pinta o borra el tramo que cambió.
         int16_t barDrawnW;
@@ -62,6 +64,8 @@ namespace
               boolState(false),
               staticDirty(false),
               barValue(0.0f),
+              trendCh2(0.0f),
+              trendCh3(0.0f),
               barDrawnW(-1),
               iconState(0),
               iconAnimFrame(0),
@@ -1952,7 +1956,7 @@ namespace JWPLCUI
         return true;
     }
 
-    bool setTrend(uint8_t fieldId, float value)
+    static bool setTrendChannels(uint8_t fieldId, float v1, float v2, float v3, uint8_t count)
     {
         FieldRuntime *field = findField(fieldId);
 
@@ -1961,22 +1965,39 @@ namespace JWPLCUI
             return false;
         }
 
-        if (field->hasValue && field->barValue == value)
+        const bool unchanged = field->hasValue &&
+                               field->barValue == v1 &&
+                               (count < 2 || field->trendCh2 == v2) &&
+                               (count < 3 || field->trendCh3 == v3);
+        if (unchanged)
         {
-            jwplcH3E1RecordSetter(
-                fieldId,
-                false);
+            jwplcH3E1RecordSetter(fieldId, false);
             return true;
         }
 
-        field->barValue = value;
+        field->barValue = v1;
+        if (count >= 2) field->trendCh2 = v2;
+        if (count >= 3) field->trendCh3 = v3;
         field->hasValue = true;
         markFieldDirty(*field);
 
-        jwplcH3E1RecordSetter(
-            fieldId,
-            true);
+        jwplcH3E1RecordSetter(fieldId, true);
         return true;
+    }
+
+    bool setTrend(uint8_t fieldId, float value)
+    {
+        return setTrendChannels(fieldId, value, 0.0f, 0.0f, 1);
+    }
+
+    bool setTrend(uint8_t fieldId, float v1, float v2)
+    {
+        return setTrendChannels(fieldId, v1, v2, 0.0f, 2);
+    }
+
+    bool setTrend(uint8_t fieldId, float v1, float v2, float v3)
+    {
+        return setTrendChannels(fieldId, v1, v2, v3, 3);
     }
 
     void setRefreshMode(JWPLC_UIRefreshMode mode)
@@ -2221,6 +2242,16 @@ bool JWPLC_DisplayClass::setBar(uint8_t fieldId, float value)
 bool JWPLC_DisplayClass::setTrend(uint8_t fieldId, float value)
 {
     return JWPLCUI::setTrend(fieldId, value);
+}
+
+bool JWPLC_DisplayClass::setTrend(uint8_t fieldId, float v1, float v2)
+{
+    return JWPLCUI::setTrend(fieldId, v1, v2);
+}
+
+bool JWPLC_DisplayClass::setTrend(uint8_t fieldId, float v1, float v2, float v3)
+{
+    return JWPLCUI::setTrend(fieldId, v1, v2, v3);
 }
 
 bool JWPLC_DisplayClass::setIconState(uint8_t fieldId, uint8_t state)
