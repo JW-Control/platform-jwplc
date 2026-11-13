@@ -28,18 +28,13 @@ void syncDisplayVariables()
     trendToc = g_tocVal;
     trendTurb = g_turbVal;
 
-    stCfg = measRun;
     stGen = measRun;
-    stTCod = measRun;
-    stCod = measRun;
-    stBod = measRun;
-    stToc = measRun;
-    stTurb = measRun;
+    stRep = measRun;
 }
 
 void updateSensorSimulation(uint32_t nowMs)
 {
-    if (!simActive || (nowMs - g_lastSimMs) < 100UL)
+    if ((nowMs - g_lastSimMs) < 100UL)
     {
         return;
     }
@@ -68,18 +63,11 @@ void updateMeasurementState(uint32_t nowMs)
 {
     if (JWPLC_Display.menuChanged(MENU_MEDICION))
     {
-        if (JWPLC_Display.menuNode() == MENU_MEDICION_MEDICION)
+        if (JWPLC_Display.menuNode() == MENU_MEDICION_INICIAR_MEDICION)
         {
             if (measRun)
             {
                 g_measStartMs = nowMs;
-                measElapsedS = 0;
-                measProgress = 0.0f;
-            }
-            else
-            {
-                measProgress = 0.0f;
-                measElapsedS = 0;
             }
         }
     }
@@ -95,13 +83,8 @@ void updateMeasurementState(uint32_t nowMs)
         const uint32_t elapsedMs = nowMs - g_measStartMs;
         const uint32_t elapsedS = elapsedMs / 1000UL;
 
-        measElapsedS = elapsedS;
-        measProgress = (100.0f * (float)elapsedMs) / ((float)durationS * 1000.0f);
-
-        if (measProgress >= 100.0f || elapsedS >= durationS)
+        if (elapsedS >= durationS)
         {
-            measProgress = 100.0f;
-            measElapsedS = durationS;
             measRun = false;
             measTag = (measTag >= 99) ? 1 : (measTag + 1);
         }
