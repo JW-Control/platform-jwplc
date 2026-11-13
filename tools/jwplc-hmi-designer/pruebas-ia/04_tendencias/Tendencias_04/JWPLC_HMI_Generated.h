@@ -77,7 +77,7 @@ static const JWPLC_UIField HMI_FIELDS[] =
             60,
             0,
             1,
-            2,
+            1,
             true,
             true,
             true,
@@ -96,7 +96,7 @@ static const JWPLC_UIField HMI_FIELDS[] =
             0xF800,
             25.0f,
             0xFFE0,
-            true,
+            false,
             "SP",
             "OUT"),
         0,
@@ -307,7 +307,6 @@ void jwplcHMISetup()
     // Pantalla IDLE (Designer · Pantalla y arranque)
     JWPLC_Display.setIdleWakeMode(JWPLC_DisplayClass::IDLE_WAKE_ANY_BUTTON);
     JWPLC_Display.setIdleReturnMode(JWPLC_DisplayClass::IDLE_RETURN_ESC_ONLY);
-    JWPLC_Display.enterUserUI();
 }
 
 // Barra de Navegación HMI Autogenerada (ST7789)
@@ -501,16 +500,14 @@ void jwplcUIPageEnter(uint8_t page)
 // La lógica de aplicación debe permanecer en loop().
 void jwplcUIUpdate()
 {
+    // Tendencias en segundo plano (se actualizan aunque estés en otra página)
+    JWPLC_Display.setTrend(FIELD_TEND_HORNO, tempHorno, consignaHorno, potenciaSalida);
+    JWPLC_Display.setTrend(FIELD_TEND_PRESION, presionLinea);
+
     switch (JWPLC_Display.userPage())
     {
-    case PAGE_PROCESO:
-        // Página 01 · Proceso
-        JWPLC_Display.setTrend(FIELD_TEND_HORNO, tempHorno, consignaHorno, potenciaSalida);
-        break;
-
     case PAGE_COMPACTA:
         // Página 02 · Compacta
-        JWPLC_Display.setTrend(FIELD_TEND_PRESION, presionLinea);
         JWPLC_Display.setValue(FIELD_PRESION_VAL, presionActual);
         JWPLC_Display.setValue(FIELD_CAUDAL_VAL, caudalLinea);
         JWPLC_Display.setBool(FIELD_VALV_ALIVIO, valvAlivio);
