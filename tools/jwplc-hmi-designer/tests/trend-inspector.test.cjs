@@ -203,6 +203,11 @@ const path = require('path');
 const trendJsSource = fs.readFileSync(path.join(__dirname, '../poc/designer-trend.js'), 'utf8');
 assert(/data-trend-preview-body/.test(trendJsSource) && /JWPLCZoneIndicator/.test(trendJsSource), 'designer-trend.js integra JWPLCZoneIndicator en el preview');
 assert(/data-trend-page-chips/.test(trendJsSource) && /moveSelectedFieldToPage/.test(trendJsSource), 'Ubicación integra chips para mover TREND a otra página');
-console.log('  PASS Inspector TREND incluye indicador naranja de zona y selector de página en Ubicación');
+assert(/trend-appearance-panel/.test(trendJsSource) && /trend-data-panel/.test(trendJsSource) && /trend-chan-row/.test(trendJsSource), 'Inspector TREND usa paneles compactos Datos y Apariencia');
+
+const appJsSource = fs.readFileSync(path.join(__dirname, '../poc/app.js'), 'utf8');
+assert(/drawTextWithFont\(buffer, pStr, curX, field\.y \+ 2, curve565/.test(appJsSource), 'El valor del encabezado TREND usa el mismo color curve565 que la línea');
+assert(/drawTextWithFont\(buffer, String\(field\.unit\)\.slice\(0, 6\), curX, field\.y \+ 2, curve565/.test(appJsSource), 'La unidad del encabezado TREND usa el mismo color curve565 que la línea');
+console.log('  PASS Inspector TREND compacto, zona naranja, selector de página y color del valor igual al de la línea');
 
 console.log('\nResultado: TODAS PASARON');

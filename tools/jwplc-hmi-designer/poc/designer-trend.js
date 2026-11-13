@@ -330,6 +330,7 @@
     if (canvas.height !== h) canvas.height = h;
     canvas.dataset.logicalW = String(w);
     canvas.dataset.logicalH = String(h);
+    if (canvas.style) canvas.style.aspectRatio = `${w} / ${h}`;
 
     const ctx = canvas.getContext('2d');
     const img = ctx.createImageData(w, h);
@@ -520,62 +521,52 @@
           </div>
 
           <!-- PANEL: Apariencia -->
-          <div class="insp-panel" data-trend-panel="design:appearance">
-            <div class="bar-card">
-              <div class="bar-card-section-title">Vista previa en vivo</div>
-              <div class="menu-case">
-                <div class="menu-case-body zone-host" data-trend-preview-body style="justify-content:center; padding:4px 0;">
-                  <canvas class="menu-case-canvas trend-preview-canvas" data-trend-preview-canvas width="200" height="80" style="max-width:calc(100% - 16px); height:auto; cursor:pointer;"></canvas>
+          <div class="insp-panel trend-appearance-panel" data-trend-panel="design:appearance">
+            <div class="bar-card trend-preview-card">
+              <div class="bar-card-header" style="margin-bottom:4px;">
+                <span class="bar-card-section-title" style="margin:0;">Vista previa en vivo</span>
+                <span class="insp-hint" style="margin:0;">Clic en zona o chip</span>
+              </div>
+              <div class="menu-case" style="margin-bottom:0;">
+                <div class="menu-case-body zone-host" data-trend-preview-body style="justify-content:center; padding:2px 0;">
+                  <canvas class="menu-case-canvas trend-preview-canvas" data-trend-preview-canvas width="200" height="80"></canvas>
                 </div>
               </div>
-              <div class="insp-note" style="margin-top:4px;">El recuadro naranja y ▶ marcan el elemento activo. Haz clic en una zona o chip para editarlo.</div>
             </div>
 
-            <div class="bar-card">
-              <div class="bar-card-section-title">Elemento a colorear</div>
-              <div class="insp-chip-row" data-trend-color-tabs>
+            <div class="bar-card trend-color-card">
+              <div class="insp-chip-row trend-color-chips" data-trend-color-tabs>
                 <button type="button" class="insp-chip active" data-trend-colorkey="curveColor">
-                  <span class="trend-color-swatch" data-trend-swatch="curveColor" style="display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:4px;"></span>
-                  Línea
+                  <span class="trend-color-swatch" data-trend-swatch="curveColor"></span>Línea
                 </button>
                 <button type="button" class="insp-chip" data-trend-colorkey="axesColor">
-                  <span class="trend-color-swatch" data-trend-swatch="axesColor" style="display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:4px;"></span>
-                  Ejes
+                  <span class="trend-color-swatch" data-trend-swatch="axesColor"></span>Ejes
                 </button>
                 <button type="button" class="insp-chip" data-trend-colorkey="textColor">
-                  <span class="trend-color-swatch" data-trend-swatch="textColor" style="display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:4px;"></span>
-                  Textos
+                  <span class="trend-color-swatch" data-trend-swatch="textColor"></span>Textos
                 </button>
                 <button type="button" class="insp-chip" data-trend-colorkey="gridColor">
-                  <span class="trend-color-swatch" data-trend-swatch="gridColor" style="display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:4px;"></span>
-                  Guías
+                  <span class="trend-color-swatch" data-trend-swatch="gridColor"></span>Guías
                 </button>
                 <button type="button" class="insp-chip" data-trend-colorkey="backgroundColor">
-                  <span class="trend-color-swatch" data-trend-swatch="backgroundColor" style="display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:4px;"></span>
-                  Fondo
+                  <span class="trend-color-swatch" data-trend-swatch="backgroundColor"></span>Fondo
+                </button>
+                <button type="button" class="insp-chip" data-trend-colorkey="ch2Color" data-trend-color-flag="ch2Enabled" style="display:none;">
+                  <span class="trend-color-swatch" data-trend-swatch="ch2Color"></span>CH2
+                </button>
+                <button type="button" class="insp-chip" data-trend-colorkey="ch3Color" data-trend-color-flag="ch3Enabled" style="display:none;">
+                  <span class="trend-color-swatch" data-trend-swatch="ch3Color"></span>CH3
+                </button>
+                <button type="button" class="insp-chip" data-trend-colorkey="thr1Color" data-trend-color-flag="thr1Enabled" style="display:none;">
+                  <span class="trend-color-swatch" data-trend-swatch="thr1Color"></span>Umb 1
+                </button>
+                <button type="button" class="insp-chip" data-trend-colorkey="thr2Color" data-trend-color-flag="thr2Enabled" style="display:none;">
+                  <span class="trend-color-swatch" data-trend-swatch="thr2Color"></span>Umb 2
                 </button>
               </div>
-              <div class="insp-chip-row insp-gap" data-trend-extra-colors style="display:none;">
-                <button type="button" class="insp-chip" data-trend-colorkey="ch2Color" data-trend-color-flag="ch2Enabled">
-                  <span class="trend-color-swatch" data-trend-swatch="ch2Color" style="display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:4px;"></span>
-                  Canal 2
-                </button>
-                <button type="button" class="insp-chip" data-trend-colorkey="ch3Color" data-trend-color-flag="ch3Enabled">
-                  <span class="trend-color-swatch" data-trend-swatch="ch3Color" style="display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:4px;"></span>
-                  Canal 3
-                </button>
-                <button type="button" class="insp-chip" data-trend-colorkey="thr1Color" data-trend-color-flag="thr1Enabled">
-                  <span class="trend-color-swatch" data-trend-swatch="thr1Color" style="display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:4px;"></span>
-                  Umbral 1
-                </button>
-                <button type="button" class="insp-chip" data-trend-colorkey="thr2Color" data-trend-color-flag="thr2Enabled">
-                  <span class="trend-color-swatch" data-trend-swatch="thr2Color" style="display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:4px;"></span>
-                  Umbral 2
-                </button>
+              <div data-trend-color-host>
+                <!-- JWPLCColorEditor injected here -->
               </div>
-            </div>
-            <div class="bar-card" data-trend-color-host>
-              <!-- JWPLCColorEditor injected here -->
             </div>
           </div>
 
@@ -606,103 +597,75 @@
           </div>
 
           <!-- PANEL: Datos -->
-          <div class="insp-panel" data-trend-panel="data" hidden>
+          <div class="insp-panel trend-data-panel" data-trend-panel="data" hidden>
             <div class="bar-card">
-              <div class="bar-card-section-title">Canal 1 (Principal)</div>
-              <label class="field-label">Variable Analógica PLC
-                <input class="field-input" data-trend-prop="variable" type="text" placeholder="temperatura" />
-              </label>
-            </div>
-
-            <div class="bar-card">
-              <div class="bar-card-header">
-                <span class="bar-card-title">Canal 2 (ej. Setpoint)</span>
-                <div class="insp-chip-row">
-                  <button type="button" class="insp-chip" data-trend-set="ch2Enabled" data-value="false">No</button>
-                  <button type="button" class="insp-chip" data-trend-set="ch2Enabled" data-value="true">Sí</button>
+              <div class="bar-card-section-title" style="margin-bottom:6px;">Variables (Canales)</div>
+              <div class="trend-chan-list">
+                <div class="trend-chan-row trend-chan-primary">
+                  <span class="trend-chan-tag" title="Canal principal">
+                    <span class="trend-color-swatch" data-trend-swatch="curveColor"></span>CH1
+                  </span>
+                  <input class="field-input" data-trend-prop="variable" type="text" placeholder="temperatura" title="Variable analógica PLC principal" />
                 </div>
-              </div>
-              <div class="insp-two insp-gap" data-trend-flag-wrap="ch2Enabled" style="display:none;">
-                <label class="field-label">Variable PLC
-                  <input class="field-input" data-trend-prop="ch2Variable" type="text" placeholder="setpoint" />
-                </label>
-                <label class="field-label">Etiqueta
-                  <input class="field-input" data-trend-prop="ch2Label" type="text" maxlength="10" placeholder="SP" />
-                </label>
-              </div>
-
-              <div class="bar-card-header insp-gap">
-                <span class="bar-card-title">Canal 3 (Opcional)</span>
-                <div class="insp-chip-row">
-                  <button type="button" class="insp-chip" data-trend-set="ch3Enabled" data-value="false">No</button>
-                  <button type="button" class="insp-chip" data-trend-set="ch3Enabled" data-value="true">Sí</button>
+                <div class="trend-chan-row" data-trend-chan-row="ch2Enabled">
+                  <label class="trend-chan-toggle" title="Activar Canal 2 (ej. Setpoint)">
+                    <input type="checkbox" data-trend-prop="ch2Enabled" />
+                    <span class="trend-color-swatch" data-trend-swatch="ch2Color"></span>CH2
+                  </label>
+                  <input class="field-input" data-trend-prop="ch2Variable" type="text" placeholder="setpoint" title="Variable PLC Canal 2" data-trend-flag-input="ch2Enabled" />
+                  <input class="field-input trend-chan-lbl" data-trend-prop="ch2Label" type="text" maxlength="10" placeholder="SP" title="Etiqueta Canal 2" data-trend-flag-input="ch2Enabled" />
                 </div>
-              </div>
-              <div class="insp-two insp-gap" data-trend-flag-wrap="ch3Enabled" style="display:none;">
-                <label class="field-label">Variable PLC
-                  <input class="field-input" data-trend-prop="ch3Variable" type="text" placeholder="canal3" />
-                </label>
-                <label class="field-label">Etiqueta
-                  <input class="field-input" data-trend-prop="ch3Label" type="text" maxlength="10" placeholder="CH3" />
-                </label>
+                <div class="trend-chan-row" data-trend-chan-row="ch3Enabled">
+                  <label class="trend-chan-toggle" title="Activar Canal 3">
+                    <input type="checkbox" data-trend-prop="ch3Enabled" />
+                    <span class="trend-color-swatch" data-trend-swatch="ch3Color"></span>CH3
+                  </label>
+                  <input class="field-input" data-trend-prop="ch3Variable" type="text" placeholder="salida" title="Variable PLC Canal 3" data-trend-flag-input="ch3Enabled" />
+                  <input class="field-input trend-chan-lbl" data-trend-prop="ch3Label" type="text" maxlength="10" placeholder="OUT" title="Etiqueta Canal 3" data-trend-flag-input="ch3Enabled" />
+                </div>
               </div>
             </div>
 
             <div class="bar-card">
-              <div class="bar-card-section-title">Umbrales / Alarmas Horizontales</div>
-              <div class="bar-card-header">
-                <span class="bar-card-title">Umbral 1 (ej. Alarma Alta)</span>
+              <div class="bar-card-header" style="margin-bottom:6px;">
+                <span class="bar-card-section-title" style="margin:0;">Escala Y y Umbrales</span>
                 <div class="insp-chip-row">
-                  <button type="button" class="insp-chip" data-trend-set="thr1Enabled" data-value="false">No</button>
-                  <button type="button" class="insp-chip" data-trend-set="thr1Enabled" data-value="true">Sí</button>
+                  <button type="button" class="insp-chip" data-trend-set="scaleMode" data-value="AUTO" title="Ajusta mínimo y máximo automáticamente">Auto</button>
+                  <button type="button" class="insp-chip" data-trend-set="scaleMode" data-value="MANUAL" title="Rango fijo definido por Mínimo y Máximo">Manual</button>
                 </div>
               </div>
-              <div class="insp-gap" data-trend-flag-wrap="thr1Enabled" style="display:none;">
-                <label class="field-label">Valor de referencia 1
-                  <input class="field-input" data-trend-prop="thr1Value" type="number" step="any" placeholder="85" />
-                </label>
-              </div>
-
-              <div class="bar-card-header insp-gap">
-                <span class="bar-card-title">Umbral 2 (ej. Mínimo)</span>
-                <div class="insp-chip-row">
-                  <button type="button" class="insp-chip" data-trend-set="thr2Enabled" data-value="false">No</button>
-                  <button type="button" class="insp-chip" data-trend-set="thr2Enabled" data-value="true">Sí</button>
-                </div>
-              </div>
-              <div class="insp-gap" data-trend-flag-wrap="thr2Enabled" style="display:none;">
-                <label class="field-label">Valor de referencia 2
-                  <input class="field-input" data-trend-prop="thr2Value" type="number" step="any" placeholder="20" />
-                </label>
-              </div>
-            </div>
-
-            <div class="bar-card">
-              <div class="bar-card-section-title">Modo de Escala</div>
-              <div class="bar-visual-grid-2">
-                <button type="button" class="bar-visual-btn" data-trend-set="scaleMode" data-value="AUTO">
-                  <strong>Auto-escala Dinámica</strong>
-                  <span style="font-size:10px; opacity:0.8;">3 guías inteligentes</span>
-                </button>
-                <button type="button" class="bar-visual-btn" data-trend-set="scaleMode" data-value="MANUAL">
-                  <strong>Rango Fijo Manual</strong>
-                  <span style="font-size:10px; opacity:0.8;">Mínimo y Máximo fijos</span>
-                </button>
-              </div>
-
-              <div class="insp-two insp-gap" data-trend-manual-range>
-                <label class="field-label">Valor Mínimo
+              <div class="insp-two" data-trend-manual-range style="margin-bottom:6px;">
+                <label class="field-label">Mínimo
                   <input class="field-input" data-trend-prop="minValue" type="number" step="any" />
                 </label>
-                <label class="field-label">Valor Máximo
+                <label class="field-label">Máximo
                   <input class="field-input" data-trend-prop="maxValue" type="number" step="any" />
                 </label>
               </div>
+              <div class="insp-two trend-thr-grid">
+                <div class="trend-thr-item" data-trend-chan-row="thr1Enabled">
+                  <label class="trend-chan-toggle" title="Activar Umbral 1 (alarma alta)">
+                    <input type="checkbox" data-trend-prop="thr1Enabled" />
+                    <span class="trend-color-swatch" data-trend-swatch="thr1Color"></span>Umb 1
+                  </label>
+                  <input class="field-input" data-trend-prop="thr1Value" type="number" step="any" placeholder="85" data-trend-flag-input="thr1Enabled" />
+                </div>
+                <div class="trend-thr-item" data-trend-chan-row="thr2Enabled">
+                  <label class="trend-chan-toggle" title="Activar Umbral 2 (mínimo)">
+                    <input type="checkbox" data-trend-prop="thr2Enabled" />
+                    <span class="trend-color-swatch" data-trend-swatch="thr2Color"></span>Umb 2
+                  </label>
+                  <input class="field-input" data-trend-prop="thr2Value" type="number" step="any" placeholder="20" data-trend-flag-input="thr2Enabled" />
+                </div>
+              </div>
             </div>
 
             <div class="bar-card">
-              <div class="bar-card-section-title">Frecuencia de Muestreo</div>
-              <div class="insp-chip-row" data-trend-freq-chips>
+              <div class="bar-card-header" style="margin-bottom:6px;">
+                <span class="bar-card-section-title" style="margin:0;">Muestreo y Ventana</span>
+                <span class="insp-hint" style="margin:0;">Ventana: <strong data-trend-readout="windowSpan" style="color:var(--text);">—</strong></span>
+              </div>
+              <div class="trend-freq-grid" data-trend-freq-chips>
                 <button type="button" class="insp-chip" data-trend-freq="10Hz">10 Hz</button>
                 <button type="button" class="insp-chip" data-trend-freq="5Hz">5 Hz</button>
                 <button type="button" class="insp-chip" data-trend-freq="2Hz">2 Hz</button>
@@ -712,17 +675,13 @@
                 <button type="button" class="insp-chip" data-trend-freq="10s">10 s</button>
                 <button type="button" class="insp-chip" data-trend-freq="60s">60 s</button>
               </div>
-              <label class="field-label insp-gap">Periodo exacto (ms)
-                <input class="field-input" data-trend-prop="sampleIntervalMs" type="number" min="50" max="60000" step="50" />
-              </label>
-            </div>
-
-            <div class="bar-card">
-              <label class="field-label">Puntos en vivo visibles en ventana
-                <input class="field-input" data-trend-prop="visibleSamples" type="number" min="20" max="320" />
-              </label>
-              <div class="insp-readouts insp-gap">
-                <span>Duración visible: <strong data-trend-readout="windowSpan">—</strong></span>
+              <div class="insp-two insp-gap">
+                <label class="field-label">Periodo (ms)
+                  <input class="field-input" data-trend-prop="sampleIntervalMs" type="number" min="50" max="60000" step="50" />
+                </label>
+                <label class="field-label">Puntos visibles
+                  <input class="field-input" data-trend-prop="visibleSamples" type="number" min="20" max="320" />
+                </label>
               </div>
             </div>
           </div>
@@ -1056,8 +1015,8 @@
     section.querySelectorAll('[data-trend-prop]').forEach((input) => {
       const prop = input.dataset.trendProp;
       if (input.type === 'checkbox') {
-        if (prop === 'enableSD') {
-          input.checked = Boolean(f.enableSD);
+        if (DEFAULT_FALSE_BOOL_PROPS.has(prop)) {
+          input.checked = Boolean(f[prop]);
         } else {
           input.checked = f[prop] !== false;
         }
@@ -1086,24 +1045,21 @@
       }
     });
 
-    // Dynamic canal / threshold inputs visibility
-    section.querySelectorAll('[data-trend-flag-wrap]').forEach((wrap) => {
-      const flag = wrap.dataset.trendFlagWrap;
-      wrap.style.display = Boolean(f[flag]) ? '' : 'none';
+    // Dynamic canal / threshold compact rows & inputs
+    section.querySelectorAll('[data-trend-chan-row]').forEach((row) => {
+      const flag = row.dataset.trendChanRow;
+      row.classList.toggle('is-disabled', !Boolean(f[flag]));
+    });
+    section.querySelectorAll('[data-trend-flag-input]').forEach((el) => {
+      const flag = el.dataset.trendFlagInput;
+      el.disabled = !Boolean(f[flag]);
     });
 
     // Dynamic extra color chips (Canales y Umbrales)
-    let anyExtraColor = false;
     section.querySelectorAll('[data-trend-color-flag]').forEach((chip) => {
       const flag = chip.dataset.trendColorFlag;
-      const show = Boolean(f[flag]);
-      chip.style.display = show ? '' : 'none';
-      if (show) anyExtraColor = true;
+      chip.style.display = Boolean(f[flag]) ? '' : 'none';
     });
-    const extraColorsRow = section.querySelector('[data-trend-extra-colors]');
-    if (extraColorsRow) {
-      extraColorsRow.style.display = anyExtraColor ? 'flex' : 'none';
-    }
     const requiredFlag = COLOR_FLAG_MAP[activeColorKey];
     if (requiredFlag && !f[requiredFlag]) {
       activeColorKey = 'curveColor';

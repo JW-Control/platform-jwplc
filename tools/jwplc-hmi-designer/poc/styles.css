@@ -3111,6 +3111,157 @@ label.insp-needs-fw { opacity: 0.45; cursor: not-allowed; }
   height: 17px;
 }
 
+/* Subpaneles Apariencia y Datos de TREND compactos (sin scroll) */
+#trendInspectorSection .trend-appearance-panel,
+#trendInspectorSection .trend-data-panel {
+  gap: 6px;
+}
+#trendInspectorSection .trend-appearance-panel .bar-card,
+#trendInspectorSection .trend-data-panel .bar-card {
+  padding: 7px 9px;
+}
+#trendInspectorSection .trend-preview-canvas {
+  max-width: calc(100% - 16px);
+  max-height: 74px;
+  width: auto;
+  height: auto;
+  cursor: pointer;
+}
+#trendInspectorSection .trend-color-swatch {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  flex: none;
+}
+#trendInspectorSection .trend-color-chips {
+  gap: 3px;
+  margin-bottom: 6px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line-soft);
+}
+#trendInspectorSection .trend-color-chips .insp-chip {
+  padding: 2px 6px;
+  font-size: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+#trendInspectorSection .trend-appearance-panel .color-editor {
+  gap: 4px;
+}
+#trendInspectorSection .trend-appearance-panel .color-editor-head {
+  font-size: 10px;
+}
+#trendInspectorSection .trend-appearance-panel .color-editor-swatch {
+  height: 14px;
+  width: 28px;
+}
+#trendInspectorSection .trend-appearance-panel .color-editor-sv {
+  height: 50px;
+}
+#trendInspectorSection .trend-appearance-panel .color-editor-hue {
+  height: 10px;
+}
+#trendInspectorSection .trend-appearance-panel .color-editor-fields {
+  gap: 6px;
+}
+#trendInspectorSection .trend-appearance-panel .color-editor-fields label {
+  font-size: 9px;
+  gap: 3px;
+}
+#trendInspectorSection .trend-appearance-panel .color-editor-fields input {
+  height: 20px;
+  padding: 1px 4px;
+  font-size: 10px;
+}
+#trendInspectorSection .trend-appearance-panel .color-editor-palette {
+  gap: 3px;
+}
+#trendInspectorSection .trend-appearance-panel .color-editor-palette .insp-swatch {
+  width: 17px;
+  height: 17px;
+}
+#trendInspectorSection .trend-chan-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+#trendInspectorSection .trend-chan-row {
+  display: grid;
+  grid-template-columns: 60px 1fr 54px;
+  gap: 5px;
+  align-items: center;
+}
+#trendInspectorSection .trend-chan-row.trend-chan-primary {
+  grid-template-columns: 60px 1fr;
+}
+#trendInspectorSection .trend-chan-tag,
+#trendInspectorSection .trend-chan-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  cursor: pointer;
+}
+#trendInspectorSection .trend-chan-tag {
+  cursor: default;
+  padding-left: 2px;
+}
+#trendInspectorSection .trend-chan-toggle input[type="checkbox"] {
+  margin: 0;
+  accent-color: var(--orange);
+  cursor: pointer;
+}
+#trendInspectorSection .trend-chan-row .field-input,
+#trendInspectorSection .trend-thr-item .field-input {
+  height: 24px;
+  padding: 2px 6px;
+  font-size: 11px;
+}
+#trendInspectorSection .trend-chan-row.is-disabled input[data-trend-flag-input],
+#trendInspectorSection .trend-thr-item.is-disabled input[data-trend-flag-input] {
+  opacity: 0.42;
+}
+#trendInspectorSection .trend-thr-grid {
+  gap: 6px;
+}
+#trendInspectorSection .trend-thr-item {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 5px;
+  align-items: center;
+}
+#trendInspectorSection .trend-freq-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+}
+#trendInspectorSection .trend-freq-grid .insp-chip {
+  text-align: center;
+  padding: 3px 4px;
+  font-size: 10px;
+}
+#trendInspectorSection .trend-data-panel .insp-two {
+  gap: 6px;
+}
+#trendInspectorSection .trend-data-panel .insp-gap {
+  margin-top: 6px;
+}
+#trendInspectorSection .trend-data-panel .field-label {
+  font-size: 10px;
+  gap: 2px;
+}
+#trendInspectorSection .trend-data-panel label.field-label .field-input {
+  height: 24px;
+  padding: 2px 6px;
+  font-size: 11px;
+}
+
 /* ------------------------------------------------------------------ */
 /* Splitters / Separadores interactivos de paneles y barra inferior  */
 /* ------------------------------------------------------------------ */
