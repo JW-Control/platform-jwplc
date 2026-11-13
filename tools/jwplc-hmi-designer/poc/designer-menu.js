@@ -253,24 +253,108 @@
   // Geometría y dibujo (espejo de JWPLC_UI_Menu.cpp)
   // ---------------------------------------------------------------------------
 
+  function isCardsStyle(field) {
+    return field?.rowStyle === 'CARDS';
+  }
+
+  function effectiveRowPadY(field) {
+    if (Number(field?.rowPadY) > 0) return Math.trunc(Number(field.rowPadY));
+    return isCardsStyle(field) ? 5 : ROW_PAD_Y;
+  }
+
+  function effectiveRowPadX(field) {
+    if (Number(field?.rowPadX) > 0) return Math.trunc(Number(field.rowPadX));
+    return isCardsStyle(field) ? 8 : ROW_PAD_X;
+  }
+
+  function effectiveRowGap(field) {
+    return isCardsStyle(field) ? Math.max(0, Math.trunc(num(field?.rowGap, 4))) : 0;
+  }
+
   function layout(field) {
     const ts = Number(field.textSize) >= 2 ? 2 : 1;
     const border = field.frame ? 1 : 0;
+    const cards = isCardsStyle(field);
+    const padY = effectiveRowPadY(field);
+    const padX = effectiveRowPadX(field);
+    const rowGap = effectiveRowGap(field);
     const fontId = field.font || 'GLCD';
     const fonts = window.JWPLCDesignerFonts;
     const font = fonts ? fonts.get(fonts.effectiveId(fontId)) : null;
     const fontH = (font && font.kind !== 'glcd' && fonts)
       ? fonts.lineHeight(font, ts)
       : (8 * ts);
-    const rowH = fontH + 2 * ROW_PAD_Y;
+    const rowH = fontH + 2 * padY;
     const hasTitle = String(field.title || '').length > 0;
     const headerH = hasTitle ? rowH : 0;
     const avail = num(field.height) - 2 * border - headerH;
-    const rows = Math.min(MAX_VISIBLE_ROWS, avail > 0 ? Math.trunc(avail / rowH) : 0);
+    const step = rowH + rowGap;
+    const rows = Math.min(MAX_VISIBLE_ROWS, (avail > 0 && step > 0) ? Math.trunc((avail + rowGap) / step) : 0);
     const cw = (font && font.kind !== 'glcd' && fonts)
       ? Math.max(6 * ts, fonts.measureWidth(font, 'M', ts))
       : (6 * ts);
-    return { ts, cw, font, fontId, fontH, border, rowH, hasTitle, headerH, rows };
+    return { ts, cw, font, fontId, fontH, border, rowH, rowGap, padY, padX, cards, hasTitle, headerH, rows };
+  }
+
+  function fillCircleHelper(painter, cx, cy, r, cornermask, delta, color) {
+    let f = 1 - r;
+    let ddF_x = 1;
+    let ddF_y = -2 * r;
+    let x = 0;
+    let y = r;
+    while (x < y) {
+      if (f >= 0) { y -= 1; ddF_y += 2; f += ddF_y; }
+      x += 1;
+      ddF_x += 2;
+      f += ddF_x;
+      if (cornermask & 0x1) {
+        painter.fillRect(cx + x, cy - y, 1, 2 * y + 1 + delta, color);
+        painter.fillRect(cx + y, cy - x, 1, 2 * x + 1 + delta, color);
+      }
+      if (cornermask & 0x2) {
+        painter.fillRect(cx - x, cy - y, 1, 2 * y + 1 + delta, color);
+        painter.fillRect(cx - y, cy - x, 1, 2 * x + 1 + delta, color);
+      }
+    }
+  }
+
+  function fillRoundRect(painter, x, y, w, h, radius, color) {
+    const r = Math.min(Math.max(0, Math.trunc(radius)), Math.trunc(Math.min(w, h) / 2));
+    if (r <= 0) { painter.fillRect(x, y, w, h, color); return; }
+    painter.fillRect(x + r, y, w - 2 * r, h, color);
+    fillCircleHelper(painter, x + w - r - 1, y + r, r, 1, h - 2 * r - 1, color);
+    fillCircleHelper(painter, x + r, y + r, r, 2, h - 2 * r - 1, color);
+  }
+
+  function drawCircleHelper(painter, cx, cy, r, corner, color) {
+    let f = 1 - r;
+    let ddF_x = 1;
+    let ddF_y = -2 * r;
+    let x = 0;
+    let y = r;
+    while (x < y) {
+      if (f >= 0) { y -= 1; ddF_y += 2; f += ddF_y; }
+      x += 1;
+      ddF_x += 2;
+      f += ddF_x;
+      if (corner & 0x1) { painter.pixel(cx + x, cy - y, color); painter.pixel(cx + y, cy - x, color); }
+      if (corner & 0x2) { painter.pixel(cx + x, cy + y, color); painter.pixel(cx + y, cy + x, color); }
+      if (corner & 0x4) { painter.pixel(cx - x, cy + y, color); painter.pixel(cx - y, cy + x, color); }
+      if (corner & 0x8) { painter.pixel(cx - y, cy - x, color); painter.pixel(cx - x, cy - y, color); }
+    }
+  }
+
+  function drawRoundRect(painter, x, y, w, h, radius, color) {
+    const r = Math.min(Math.max(0, Math.trunc(radius)), Math.trunc(Math.min(w, h) / 2));
+    if (r <= 0) { painter.drawRect(x, y, w, h, color); return; }
+    painter.fillRect(x + r, y, w - 2 * r, 1, color);
+    painter.fillRect(x + r, y + h - 1, w - 2 * r, 1, color);
+    painter.fillRect(x, y + r, 1, h - 2 * r, color);
+    painter.fillRect(x + w - 1, y + r, 1, h - 2 * r, color);
+    drawCircleHelper(painter, x + r, y + r, r, 8, color);
+    drawCircleHelper(painter, x + w - r - 1, y + r, r, 1, color);
+    drawCircleHelper(painter, x + w - r - 1, y + h - r - 1, r, 2, color);
+    drawCircleHelper(painter, x + r, y + h - r - 1, r, 4, color);
   }
 
   function glcdText(painter, text, x, y, ts, fg, bg) {
@@ -317,9 +401,16 @@
       const text = state ? node.trueText : node.falseText;
       return text ?? (state ? 'ON' : 'OFF');
     }
-    let out = node.valueType === 'int32'
-      ? String(Math.trunc(num(value)))
-      : num(value).toFixed(clamp(Math.trunc(num(node.decimals, 1)), 0, 6));
+    const pfx = node.valuePrefix ? String(node.valuePrefix) : '';
+    const pad = Math.max(0, Math.min(6, Math.trunc(num(node.zeroPad, 0))));
+    let out;
+    if (node.valueType === 'int32') {
+      const iv = Math.trunc(num(value));
+      const str = pad > 1 && iv >= 0 ? String(iv).padStart(pad, '0') : String(iv);
+      out = `${pfx}${str}`;
+    } else {
+      out = `${pfx}${num(value).toFixed(clamp(Math.trunc(num(node.decimals, 1)), 0, 6))}`;
+    }
     if (node.unit) out += ` ${node.unit}`;
     return out;
   }
@@ -391,31 +482,83 @@
     for (let row = 0; row < L.rows; row++) {
       const pos = scroll + row;
       const node = siblings[pos] || null;
-      const y = y0 + L.border + L.headerH + row * L.rowH;
+      const y = y0 + L.border + L.headerH + row * (L.rowH + L.rowGap);
       const selected = node && pos === st.selected;
       const editingRow = selected && st.editing;
-      let bg = c.background;
+      if (!node) {
+        painter.fillRect(x, y, w, L.rowH, c.background);
+        continue;
+      }
+
+      const cardBg = Number.isFinite(Number(field.cardBackground)) ? (Number(field.cardBackground) & 0xFFFF) : 0x18E3;
+      const cardBorder = Number.isFinite(Number(field.cardBorder)) ? (Number(field.cardBorder) & 0xFFFF) : 0x39E7;
+      let bg = L.cards ? cardBg : c.background;
       let fg = c.text;
       let vfg = c.value;
-      if (editingRow) {
-        bg = c.editBackground; fg = c.editText; vfg = c.editText;
+      let hasCardBorder = L.cards;
+      let cardBorderCol = cardBorder;
+
+      if (node.hasPillColors) {
+        const bval = Boolean(num(values.get(node.variable)));
+        bg = (bval ? Number(node.pillTrueBg ?? 0xC800) : Number(node.pillFalseBg ?? 0x05E0)) & 0xFFFF;
+        const pTxt = Number(node.pillTextColor ?? 0xFFFF) & 0xFFFF;
+        fg = pTxt;
+        vfg = pTxt;
+        hasCardBorder = Boolean(selected);
+        cardBorderCol = (selected && st.focused) ? 0xFFFF : c.selectBackground;
+      } else if (editingRow) {
+        bg = c.editBackground;
+        fg = c.editText;
+        vfg = c.editText;
+        cardBorderCol = c.editBackground;
       } else if (selected && st.focused) {
-        bg = c.selectBackground; fg = c.selectText; vfg = c.selectText;
+        if (L.cards && field.selectOutlineOnly) {
+          bg = cardBg;
+          fg = c.selectText;
+          vfg = c.selectText;
+          hasCardBorder = true;
+          cardBorderCol = c.selectBackground;
+        } else {
+          bg = c.selectBackground;
+          fg = c.selectText;
+          vfg = c.selectText;
+          cardBorderCol = c.selectBackground;
+        }
+      } else if (selected && !st.focused) {
+        hasCardBorder = true;
+        cardBorderCol = c.selectBackground;
       }
-      painter.fillRect(x, y, w, L.rowH, bg);
-      if (selected && !st.focused && !editingRow) painter.drawRect(x, y, w, L.rowH, c.selectBackground);
-      if (!node) continue;
+
+      if (L.cards) {
+        painter.fillRect(x, y, w, L.rowH, c.background);
+        const r = Math.max(0, Math.trunc(num(field.cornerRadius, 4)));
+        fillRoundRect(painter, x, y, w, L.rowH, r, bg);
+        if (hasCardBorder) drawRoundRect(painter, x, y, w, L.rowH, r, cardBorderCol);
+      } else {
+        painter.fillRect(x, y, w, L.rowH, bg);
+        if (selected && !st.focused && !editingRow) painter.drawRect(x, y, w, L.rowH, c.selectBackground);
+      }
 
       let value = formatValue(node, values.get(node.variable)).slice(0, 31);
       if (editingRow && node.valueType !== 'bool') value = `<${value}>`.slice(0, 31);
-      const maxValueChars = Math.trunc((w - 2 * ROW_PAD_X) / L.cw);
+      const maxValueChars = Math.trunc((w - 2 * L.padX) / L.cw);
       if (value.length > maxValueChars) value = value.slice(0, Math.max(0, maxValueChars));
       const valueW = value.length * L.cw;
       let label = String(node.label || '').slice(0, 39);
-      const labelChars = Math.max(0, Math.trunc((w - 2 * ROW_PAD_X - valueW - (valueW > 0 ? L.cw : 0)) / L.cw));
+      const labelChars = Math.max(0, Math.trunc((w - 2 * L.padX - valueW - (valueW > 0 ? L.cw : 0)) / L.cw));
       label = label.slice(0, labelChars);
-      drawMenuText(painter, label, x + ROW_PAD_X, y + ROW_PAD_Y, L.ts, fg, bg, L.fontId);
-      if (valueW > 0) drawMenuText(painter, value, x + w - ROW_PAD_X - valueW, y + ROW_PAD_Y, L.ts, vfg, bg, L.fontId);
+      const labelW = label.length * L.cw;
+
+      if (L.cards && labelW === 0 && valueW > 0) {
+        const vx = x + Math.trunc((w - valueW) / 2);
+        drawMenuText(painter, value, vx, y + L.padY, L.ts, vfg, bg, L.fontId);
+      } else if (L.cards && field.inlineValue) {
+        if (labelW > 0) drawMenuText(painter, label, x + L.padX, y + L.padY, L.ts, fg, bg, L.fontId);
+        if (valueW > 0) drawMenuText(painter, value, x + L.padX + labelW + (labelW > 0 ? L.cw : 0), y + L.padY, L.ts, vfg, bg, L.fontId);
+      } else {
+        if (labelW > 0) drawMenuText(painter, label, x + L.padX, y + L.padY, L.ts, fg, bg, L.fontId);
+        if (valueW > 0) drawMenuText(painter, value, x + w - L.padX - valueW, y + L.padY, L.ts, vfg, bg, L.fontId);
+      }
     }
   }
 
@@ -524,7 +667,7 @@
     const used = new Set();
     const map = new Map();
     dfsOrder(menu.nodes).forEach((n) => {
-      const base = `${menu.id}_${sanitizeSymbol(n.label, 'NODO').toUpperCase()}`;
+      const base = `${menu.id}_${sanitizeSymbol(n.label || n.falseText, 'NODO').toUpperCase()}`;
       let sym = base;
       let k = 2;
       while (used.has(sym)) sym = `${base}_${k++}`;
@@ -534,24 +677,43 @@
     return map;
   }
 
+  function wrapNodeModifiers(nodeCppStr, n) {
+    let out = nodeCppStr;
+    if ((n.valuePrefix || Number(n.zeroPad) > 1) && n.type !== 'SUBMENU' && n.type !== 'GO_IDLE' && n.valueType !== 'bool') {
+      const pfx = n.valuePrefix ? cppString(n.valuePrefix) : 'nullptr';
+      const pad = Math.max(0, Math.min(6, Math.trunc(num(n.zeroPad, 0))));
+      out = `JWPLC_UIMenuNodeFormat(${out}, ${pfx}, ${pad})`;
+    }
+    if (n.type === 'EDIT_NUM' && Math.trunc(num(n.lrStep, 0)) > 0) {
+      out = `JWPLC_UIMenuNodeLRStep(${out}, ${Math.trunc(num(n.lrStep, 0))})`;
+    }
+    if (n.type === 'EDIT_BOOL' && n.directToggle) {
+      out = `JWPLC_UIMenuNodeDirectToggle(${out}, true)`;
+    }
+    if (n.hasPillColors) {
+      out = `JWPLC_UIMenuNodePill(${out}, ${hex565(n.pillFalseBg ?? 0x05E0)}, ${hex565(n.pillTrueBg ?? 0xC800)}, ${hex565(n.pillTextColor ?? 0xFFFF)})`;
+    }
+    return out;
+  }
+
   function nodeCpp(menu, n, symbols) {
     const parent = n.parent ? symbols.get(n.parent) : 'JWPLC_UI_MENU_ROOT';
     const label = cppString(n.label);
     const variable = `&${sanitizeSymbol(n.variable, 'menuVar')}`;
     const unit = n.unit ? cppString(n.unit) : 'nullptr';
     const decimals = clamp(Math.trunc(num(n.decimals, 1)), 0, 6);
-    if (n.type === 'SUBMENU') return `JWPLC_UIMenuSubmenu(${parent}, ${label})`;
-    if (n.type === 'GO_IDLE') return `JWPLC_UIMenuGoIdle(${parent}, ${label})`;
+    if (n.type === 'SUBMENU') return wrapNodeModifiers(`JWPLC_UIMenuSubmenu(${parent}, ${label})`, n);
+    if (n.type === 'GO_IDLE') return wrapNodeModifiers(`JWPLC_UIMenuGoIdle(${parent}, ${label})`, n);
     if (n.type === 'VIEW') {
-      if (n.valueType === 'bool') return `JWPLC_UIMenuView(${parent}, ${label}, ${variable}, ${cppString(n.falseText)}, ${cppString(n.trueText)})`;
-      if (n.valueType === 'int32') return `JWPLC_UIMenuView(${parent}, ${label}, ${variable}, ${unit})`;
-      return `JWPLC_UIMenuView(${parent}, ${label}, ${variable}, ${decimals}, ${unit})`;
+      if (n.valueType === 'bool') return wrapNodeModifiers(`JWPLC_UIMenuView(${parent}, ${label}, ${variable}, ${cppString(n.falseText)}, ${cppString(n.trueText)})`, n);
+      if (n.valueType === 'int32') return wrapNodeModifiers(`JWPLC_UIMenuView(${parent}, ${label}, ${variable}, ${unit})`, n);
+      return wrapNodeModifiers(`JWPLC_UIMenuView(${parent}, ${label}, ${variable}, ${decimals}, ${unit})`, n);
     }
-    if (n.type === 'EDIT_BOOL') return `JWPLC_UIMenuEditBool(${parent}, ${label}, ${variable}, ${cppString(n.falseText)}, ${cppString(n.trueText)})`;
+    if (n.type === 'EDIT_BOOL') return wrapNodeModifiers(`JWPLC_UIMenuEditBool(${parent}, ${label}, ${variable}, ${cppString(n.falseText)}, ${cppString(n.trueText)})`, n);
     if (n.valueType === 'int32') {
-      return `JWPLC_UIMenuEditNum(${parent}, ${label}, ${variable}, ${Math.trunc(num(n.min))}, ${Math.trunc(num(n.max))}, ${Math.max(1, Math.trunc(num(n.step, 1)))}, ${unit})`;
+      return wrapNodeModifiers(`JWPLC_UIMenuEditNum(${parent}, ${label}, ${variable}, ${Math.trunc(num(n.min))}, ${Math.trunc(num(n.max))}, ${Math.max(1, Math.trunc(num(n.step, 1)))}, ${unit})`, n);
     }
-    return `JWPLC_UIMenuEditNum(${parent}, ${label}, ${variable}, ${cppFloat(n.min)}, ${cppFloat(n.max)}, ${cppFloat(n.step)}, ${decimals}, ${unit})`;
+    return wrapNodeModifiers(`JWPLC_UIMenuEditNum(${parent}, ${label}, ${variable}, ${cppFloat(n.min)}, ${cppFloat(n.max)}, ${cppFloat(n.step)}, ${decimals}, ${unit})`, n);
   }
 
   function initialCpp(type, value) {
@@ -612,7 +774,7 @@
         ? (menuFonts?.cppSymbol?.(m.font) || (String(m.font).startsWith('JWPLC_FONT_') ? m.font : (m.font === 'FONT_16' || m.font === 'FONT2' ? 'JWPLC_FONT_16' : (m.font === 'FONT_26' || m.font === 'FONT4' ? 'JWPLC_FONT_26' : (m.font === '7SEG_48' || m.font === 'FONT_7SEG_48' ? 'JWPLC_FONT_7SEG_48' : `JWPLC_FONT_${m.font}`)))))
         : null;
       const fontArg = fontSym ? `,\n        &${fontSym}` : '';
-      menuEntries.push(
+      const baseField =
         `    JWPLC_UIMenuField(\n` +
         `        ${m.id},\n` +
         `        ${Math.trunc(num(m.x))}, ${Math.trunc(num(m.y))}, ${Math.trunc(num(m.width))}, ${Math.trunc(num(m.height))},\n` +
@@ -623,7 +785,14 @@
         `        ${Number(m.textSize) >= 2 ? 2 : 1},\n` +
         `        ${m.frame ? 'true' : 'false'},\n` +
         `        JWPLC_UIMenuColors(\n` +
-        `            ${[c.text, c.background, c.value, c.selectText, c.selectBackground, c.editText, c.editBackground, c.title, c.titleBackground, c.frame].map(hex565).join(',\n            ')})${fontArg})`);
+        `            ${[c.text, c.background, c.value, c.selectText, c.selectBackground, c.editText, c.editBackground, c.title, c.titleBackground, c.frame].map(hex565).join(',\n            ')})${fontArg})`;
+      const wrapped = isCardsStyle(m)
+        ? `    JWPLC_UIMenuCardStyle(\n${baseField.replace(/^    /gm, '        ')},\n` +
+          `        ${effectiveRowGap(m)}, ${Math.max(0, Math.trunc(num(m.cornerRadius, 4)))}, ${effectiveRowPadY(m)}, ${effectiveRowPadX(m)}, ` +
+          `${m.inlineValue ? 'true' : 'false'}, ${m.selectOutlineOnly ? 'true' : 'false'}, ` +
+          `${hex565(m.cardBackground ?? 0x18E3)}, ${hex565(m.cardBorder ?? 0x39E7)})`
+        : baseField;
+      menuEntries.push(wrapped);
     });
 
     declChunks.push(`static const JWPLC_UIMenu HMI_MENUS[] =\n{\n${menuEntries.join(',\n')}\n};`);
@@ -722,6 +891,25 @@
             <div class="bar-visual-grid-2">
               <button type="button" class="bar-visual-btn" data-menu-set="frame" data-value="0"><span>Sin marco</span></button>
               <button type="button" class="bar-visual-btn" data-menu-set="frame" data-value="1"><span>Con marco</span></button>
+            </div>
+          </div>
+          <div class="bar-card">
+            <div class="bar-card-section-title">Estilo de filas</div>
+            <div class="bar-visual-grid-2">
+              <button type="button" class="bar-visual-btn" data-menu-set="rowStyle" data-value="FLAT"><span>Clásico (FLAT)</span></button>
+              <button type="button" class="bar-visual-btn" data-menu-set="rowStyle" data-value="CARDS"><span>Tarjetas / Píldoras</span></button>
+            </div>
+            <div data-menu-cards-opts hidden style="margin-top:8px;">
+              <div class="insp-two">
+                <label class="field-label">Separación (px)<input class="field-input" data-menu-prop="rowGap" type="number" min="0" max="16" /></label>
+                <label class="field-label">Radio (px)<input class="field-input" data-menu-prop="cornerRadius" type="number" min="0" max="20" /></label>
+                <label class="field-label">Pad Y (px)<input class="field-input" data-menu-prop="rowPadY" type="number" min="1" max="16" /></label>
+                <label class="field-label">Pad X (px)<input class="field-input" data-menu-prop="rowPadX" type="number" min="1" max="24" /></label>
+              </div>
+              <div class="bar-visual-grid-2" style="margin-top:6px;">
+                <button type="button" class="insp-chip" data-menu-toggle="inlineValue">Valor junto a etiqueta</button>
+                <button type="button" class="insp-chip" data-menu-toggle="selectOutlineOnly">Selección solo borde</button>
+              </div>
             </div>
           </div>
           <div class="bar-card">
@@ -1017,7 +1205,7 @@
   function renderTree(field) {
     const host = section.querySelector('[data-menu-tree]');
     const selectedKey = ui(field).nodeKey;
-    const signature = JSON.stringify([field.nodes.map((n) => [n.key, n.parent, n.type, n.label, n.variable]), selectedKey]);
+    const signature = JSON.stringify([field.nodes.map((n) => [n.key, n.parent, n.type, n.label, n.falseText, n.variable]), selectedKey]);
     if (host.dataset.signature === signature) return;
     host.dataset.signature = signature;
     const rows = [];
@@ -1027,7 +1215,7 @@
         rows.push(`
           <div class="menu-tree-row${n.key === selectedKey ? ' active' : ''}" data-menu-node="${n.key}" style="padding-left:${6 + (depth - 1) * 14}px">
             <span class="menu-tree-icon">${NODE_TYPES[n.type].icon}</span>
-            <span class="menu-tree-label">${escapeHtml(n.label)}</span>
+            <span class="menu-tree-label">${escapeHtml(n.label || n.falseText || '(sin texto)')}</span>
             <span class="menu-tree-var">${n.type === 'SUBMENU' ? `${childrenOf(field.nodes, n.key).length} ítems` : n.type === 'GO_IDLE' ? '→ IDLE' : escapeHtml(n.variable)}</span>
             <span class="menu-tree-btns">
               <button type="button" data-menu-move="-1" ${i === 0 ? 'disabled' : ''} title="Subir">▲</button>
@@ -1050,7 +1238,7 @@
   function renderNodeEditor(field) {
     const host = section.querySelector('[data-menu-node-editor]');
     const node = ui(field).nodeKey ? nodeByKey(field.nodes, ui(field).nodeKey) : null;
-    const signature = node ? `${node.key}|${node.type}|${node.valueType}|${ui(field).editing}` : 'none';
+    const signature = node ? `${node.key}|${node.type}|${node.valueType}|${Boolean(node.directToggle)}|${ui(field).editing}` : 'none';
     if (host.dataset.signature !== signature) {
       host.dataset.signature = signature;
       if (!node) {
@@ -1069,18 +1257,22 @@
           ${kinds.length > 1 ? `<span class="bar-visual-group-title insp-gap">Tipo</span><div class="insp-chip-row">${chips('data-node-kind', kinds.map((k) => [k, k === 'int32' ? 'int32_t' : k]), node.valueType)}</div>` : `<div class="insp-readouts"><span>Tipo <code class="insp-type-chip">${CPP_TYPE[node.valueType]}</code></span></div>`}
           ${isBool ? `
             <div class="insp-bool-states insp-gap">
-              <label class="insp-state-card"><span>FALSE</span><input class="field-input" data-node-prop="falseText" type="text" maxlength="12" /></label>
+              <label class="insp-state-card"><span>FALSE</span><input class="field-input" data-node-prop="falseText" type="text" maxlength="28" /></label>
               <span class="insp-arrow">→</span>
-              <label class="insp-state-card is-on"><span>TRUE</span><input class="field-input" data-node-prop="trueText" type="text" maxlength="12" /></label>
+              <label class="insp-state-card is-on"><span>TRUE</span><input class="field-input" data-node-prop="trueText" type="text" maxlength="28" /></label>
             </div>
             <div class="insp-chip-row insp-gap">${chips('data-node-bool-preset', [['OFF|ON', 'OFF/ON'], ['NO|SI', 'NO/SI'], ['PARADA|MARCHA', 'PARADA/MARCHA'], ['CERRADO|ABIERTO', 'CERRADO/ABIERTO']], `${node.falseText}|${node.trueText}`)}</div>
             <span class="bar-visual-group-title insp-gap">Valor inicial / de prueba</span>
             <div class="bar-visual-grid-2">${[[0, node.falseText || 'OFF'], [1, node.trueText || 'ON']].map(([v, text]) =>
               `<button type="button" class="bar-visual-btn${Number(Boolean(num(node.initial))) === v ? ' active' : ''}" data-node-initial-bool="${v}"><strong>${escapeHtml(text)}</strong></button>`).join('')}</div>
+            ${t === 'EDIT_BOOL' ? `
+              <button type="button" class="bar-visual-btn insp-toggle insp-wide insp-gap${node.directToggle ? ' active' : ''}" data-node-toggle="directToggle"><span>Cambiar al pulsar OK (sin flecha)</span><strong>${node.directToggle ? 'Sí' : 'No'}</strong></button>` : ''}
           ` : `
             <div class="insp-two insp-gap">
               <label class="field-label">Unidad<input class="field-input" data-node-prop="unit" type="text" maxlength="8" /></label>
               <label class="field-label">Valor inicial / de prueba<input class="field-input" data-node-prop="initial" type="number" step="any" /></label>
+              <label class="field-label">Prefijo<input class="field-input" data-node-prop="valuePrefix" type="text" maxlength="6" placeholder="ej. P" /></label>
+              ${node.valueType === 'int32' ? `<label class="field-label">Ceros (ej. 2 → 01)<input class="field-input" data-node-prop="zeroPad" type="number" min="0" max="6" /></label>` : ''}
             </div>
             ${node.valueType === 'float' ? `<span class="bar-visual-group-title insp-gap">Decimales</span><div class="insp-chip-row">${chips('data-node-decimals', [[0, '0'], [1, '1'], [2, '2'], [3, '3']], node.decimals)}</div>` : ''}
             ${t === 'EDIT_NUM' ? `
@@ -1088,21 +1280,20 @@
                 <label class="field-label">Mínimo<input class="field-input" data-node-prop="min" type="number" step="any" /></label>
                 <label class="field-label">Máximo<input class="field-input" data-node-prop="max" type="number" step="any" /></label>
                 <label class="field-label">Paso (UP/DOWN)<input class="field-input" data-node-prop="step" type="number" step="any" min="0" /></label>
-                <div class="insp-readouts"><span>LEFT/RIGHT <strong data-menu-readout="bigStep"></strong></span></div>
+                <label class="field-label">Paso (LEFT/RIGHT)<input class="field-input" data-node-prop="lrStep" type="number" step="1" min="0" max="1000" placeholder="10" /></label>
               </div>` : ''}
           `}
-          ${(t === 'EDIT_NUM' || t === 'EDIT_BOOL') ? `
-            <label class="field-label-checkbox insp-gap"><input type="checkbox" data-node-preview-edit ${ui(field).editing ? 'checked' : ''} /><span>Ver en el lienzo como "editando"</span></label>` : ''}
+          ${(t === 'EDIT_NUM' || (t === 'EDIT_BOOL' && !node.directToggle)) ? `
+            <button type="button" class="bar-visual-btn insp-toggle insp-wide insp-gap${ui(field).editing ? ' active' : ''}" data-node-preview-edit><span>Ver en el lienzo como "editando"</span><strong>${ui(field).editing ? 'Sí' : 'No'}</strong></button>` : ''}
         `}`;
     }
     if (!node) return;
     host.querySelectorAll('[data-node-prop]').forEach((input) => {
       if (document.activeElement === input) return;
       const v = node[input.dataset.nodeProp];
-      input.value = v ?? '';
+      if (input.dataset.nodeProp === 'lrStep') input.value = (v && Number(v) > 0) ? String(v) : '';
+      else input.value = v ?? '';
     });
-    const big = host.querySelector('[data-menu-readout="bigStep"]');
-    if (big) big.textContent = `±${formatValue({ ...node, unit: node.unit, type: 'EDIT_NUM' }, num(node.step) * 10)}`;
   }
 
   function contractText(field) {
@@ -1131,6 +1322,10 @@
     });
     section.querySelectorAll('[data-menu-set="textSize"]').forEach((b) => b.classList.toggle('active', Number(b.dataset.value) === Number(field.textSize)));
     section.querySelectorAll('[data-menu-set="frame"]').forEach((b) => b.classList.toggle('active', (b.dataset.value === '1') === Boolean(field.frame)));
+    section.querySelectorAll('[data-menu-set="rowStyle"]').forEach((b) => b.classList.toggle('active', b.dataset.value === (isCardsStyle(field) ? 'CARDS' : 'FLAT')));
+    section.querySelectorAll('[data-menu-toggle]').forEach((b) => b.classList.toggle('active', Boolean(field[b.dataset.menuToggle])));
+    const cardsOpts = section.querySelector('[data-menu-cards-opts]');
+    if (cardsOpts) cardsOpts.hidden = !isCardsStyle(field);
 
     const L = layout(field);
     const set = (name, text) => section.querySelectorAll(`[data-menu-readout="${name}"]`).forEach((el) => { el.textContent = text; });
@@ -1199,10 +1394,24 @@
         if (set.dataset.menuSet === 'textSize') {
           f.font = 'GLCD';
           f.textSize = Number(set.dataset.value);
+        } else if (set.dataset.menuSet === 'rowStyle') {
+          f.rowStyle = set.dataset.value;
+          if (f.rowStyle === 'CARDS') {
+            if (!Number.isFinite(Number(f.rowGap))) f.rowGap = 4;
+            if (!Number.isFinite(Number(f.cornerRadius)) || Number(f.cornerRadius) === 0) f.cornerRadius = 4;
+            if (!Number.isFinite(Number(f.rowPadY))) f.rowPadY = 5;
+            if (!Number.isFinite(Number(f.rowPadX))) f.rowPadX = 8;
+          }
         } else {
           f.frame = set.dataset.value === '1';
         }
       });
+      return;
+    }
+
+    const menuToggle = t.closest('[data-menu-toggle]');
+    if (menuToggle) {
+      mutate((f) => { f[menuToggle.dataset.menuToggle] = !f[menuToggle.dataset.menuToggle]; });
       return;
     }
 
@@ -1294,19 +1503,29 @@
     if (initBool) {
       mutate((f) => { nodeByKey(f.nodes, ui(f).nodeKey).initial = Number(initBool.dataset.nodeInitialBool); });
       section.querySelector('[data-menu-node-editor]').dataset.signature = '';
-    }
-  });
-
-  section.addEventListener('change', (e) => {
-    const t = e.target;
-    if (t.matches('[data-node-preview-edit]')) {
-      const field = selectedMenu();
-      if (field) { ui(field).editing = t.checked; editor()?.render?.(); }
       return;
     }
+    const nodeToggle = t.closest('[data-node-toggle]');
+    if (nodeToggle) {
+      const prop = nodeToggle.dataset.nodeToggle;
+      mutate((f) => {
+        const node = nodeByKey(f.nodes, ui(f).nodeKey);
+        if (!node) return;
+        node[prop] = !node[prop];
+        if (prop === 'directToggle' && node.directToggle) ui(f).editing = false;
+      });
+      section.querySelector('[data-menu-node-editor]').dataset.signature = '';
+      return;
+    }
+    const previewEdit = t.closest('[data-node-preview-edit]');
+    if (previewEdit) {
+      ui(field).editing = !ui(field).editing;
+      section.querySelector('[data-menu-node-editor]').dataset.signature = '';
+      editor()?.render?.();
+    }
   });
 
-  const NUMERIC_PROPS = new Set(['x', 'y', 'width', 'height', 'initial', 'min', 'max', 'step']);
+  const NUMERIC_PROPS = new Set(['x', 'y', 'width', 'height', 'rowGap', 'cornerRadius', 'rowPadY', 'rowPadX', 'initial', 'min', 'max', 'step', 'lrStep', 'zeroPad']);
 
   function applyInput(t, commit) {
     if (t.matches('[data-menu-prop]')) {
@@ -1316,6 +1535,10 @@
         else if (prop === 'y') f.y = clamp(Math.trunc(num(t.value)), 0, SCREEN_H - 1);
         else if (prop === 'width') f.width = clamp(Math.trunc(num(t.value, 40)), 20, SCREEN_W);
         else if (prop === 'height') f.height = clamp(Math.trunc(num(t.value, 14)), 8, SCREEN_H);
+        else if (prop === 'rowGap') f.rowGap = clamp(Math.trunc(num(t.value, 4)), 0, 16);
+        else if (prop === 'cornerRadius') f.cornerRadius = clamp(Math.trunc(num(t.value, 4)), 0, 20);
+        else if (prop === 'rowPadY') f.rowPadY = clamp(Math.trunc(num(t.value, 5)), 1, 16);
+        else if (prop === 'rowPadX') f.rowPadX = clamp(Math.trunc(num(t.value, 8)), 1, 24);
         else if (prop === 'id') f.id = sanitizeSymbol(t.value, f.id).toUpperCase();
         else f[prop] = t.value;
       }, commit);
@@ -1326,9 +1549,17 @@
       mutate((f) => {
         const node = nodeByKey(f.nodes, ui(f).nodeKey);
         if (!node) return;
-        if (NUMERIC_PROPS.has(prop)) { if (t.value !== '' && Number.isFinite(Number(t.value))) node[prop] = Number(t.value); }
-        else if (prop === 'variable') node.variable = sanitizeSymbol(t.value, '');
-        else node[prop] = t.value;
+        if (prop === 'zeroPad') {
+          node.zeroPad = clamp(Math.trunc(num(t.value, 0)), 0, 6);
+        } else if (prop === 'lrStep') {
+          node.lrStep = t.value === '' ? 0 : clamp(Math.trunc(num(t.value, 0)), 0, 1000);
+        } else if (NUMERIC_PROPS.has(prop)) {
+          if (t.value !== '' && Number.isFinite(Number(t.value))) node[prop] = Number(t.value);
+        } else if (prop === 'variable') {
+          node.variable = sanitizeSymbol(t.value, '');
+        } else {
+          node[prop] = t.value;
+        }
       }, commit);
     }
   }

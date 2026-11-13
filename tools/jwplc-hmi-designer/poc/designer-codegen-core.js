@@ -13,6 +13,59 @@
   const SCREEN_W = 320;
   const SCREEN_H = 170;
   const DEFAULT_BAR_THICKNESS = 12; // DEFAULT_BAR_HEIGHT de JWPLC_UI.cpp
+  const MULTI_PAGE_TYPES = new Set([
+    'VALUE', 'BOOL', 'TEXT', 'BAR', 'ICON', 'TREND',
+    'RAW_TEXT', 'LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'
+  ]);
+
+  function supportsMultiPage(field) {
+    return Boolean(field && MULTI_PAGE_TYPES.has(field.type));
+  }
+
+  function fieldPages(field) {
+    if (!field) return [0];
+    const fallback = Math.max(0, Math.min(15, Math.trunc(Number(field.page) || 0)));
+    if (!supportsMultiPage(field) || !Array.isArray(field.pages) || !field.pages.length) {
+      return [fallback];
+    }
+    const seen = new Set();
+    const out = [];
+    field.pages.forEach((raw) => {
+      const p = Math.trunc(Number(raw));
+      if (Number.isInteger(p) && p >= 0 && p < 16 && !seen.has(p)) {
+        seen.add(p);
+        out.push(p);
+      }
+    });
+    return out.length ? out.sort((a, b) => a - b) : [fallback];
+  }
+
+  function fieldOnPage(field, pageId) {
+    if (!field) return false;
+    if (field.type === 'NAV_BAR' || field.global) return true;
+    return fieldPages(field).includes(Math.trunc(Number(pageId) || 0));
+  }
+
+  function fieldPageMaskHex(field) {
+    const pages = fieldPages(field);
+    if (pages.length <= 1) return '';
+    let mask = 0;
+    pages.forEach((p) => { mask |= (1 << p); });
+    return `0x${(mask >>> 0).toString(16).toUpperCase().padStart(4, '0')}U`;
+  }
+
+  function wrapFieldBlockPages(field, block) {
+    const maskHex = fieldPageMaskHex(field);
+    if (!maskHex) return block;
+    const lines = String(block || '').split('\n');
+    const comments = [];
+    while (lines.length && lines[0].trimStart().startsWith('//')) {
+      comments.push(lines.shift());
+    }
+    const indented = lines.join('\n').replace(/^    /gm, '        ');
+    const wrapped = `    JWPLC_UIFieldPages(\n${indented},\n        ${maskHex})`;
+    return comments.length ? `${comments.join('\n')}\n${wrapped}` : wrapped;
+  }
 
   function sanitizeSymbol(value, fallback) {
     const cleaned = String(value || '').trim().replace(/[^A-Za-z0-9_]/g, '_');
@@ -128,12 +181,18 @@
 
   function valueFieldBlock(field, id) {
     const fontArgs = styleFontsArgs(field);
-    return `    JWPLC_UIValueField(\n        ${id},\n        JWPLC_UIRect(${field.x}, ${field.y}),\n        JWPLC_UIText(${textOrNull(field.label)}, ${textOrNull(field.unit)}),\n        ${valueFormatBlock(field)},\n        JWPLC_UIValueStyle(\n            ${field.valueSize},\n            ${field.labelSize},\n            ${cppBool(field.frame)},\n            JWPLC_UI_LAYOUT_${field.layout},\n            JWPLC_UI_ALIGN_${field.align}${fontArgs}),\n        ${field.page},\n        ${fieldColors(field)})`;
+    const primaryPage = fieldPages(field)[0];
+    return wrapFieldBlockPages(
+      field,
+      `    JWPLC_UIValueField(\n        ${id},\n        JWPLC_UIRect(${field.x}, ${field.y}),\n        JWPLC_UIText(${textOrNull(field.label)}, ${textOrNull(field.unit)}),\n        ${valueFormatBlock(field)},\n        JWPLC_UIValueStyle(\n            ${field.valueSize},\n            ${field.labelSize},\n            ${cppBool(field.frame)},\n            JWPLC_UI_LAYOUT_${field.layout},\n            JWPLC_UI_ALIGN_${field.align}${fontArgs}),\n        ${primaryPage},\n        ${fieldColors(field)})`);
   }
 
   function textFieldBlock(field, id) {
     const fontArgs = styleFontsArgs(field);
-    return `    JWPLC_UITextField(\n        ${id},\n        JWPLC_UIRect(${field.x}, ${field.y}),\n        JWPLC_UIText(${textOrNull(field.label)}, ${textOrNull(field.unit)}, ${field.capacity}),\n        JWPLC_UITextFieldStyle(\n            ${field.valueSize},\n            ${field.labelSize},\n            ${cppBool(field.frame)},\n            JWPLC_UI_LAYOUT_${field.layout},\n            JWPLC_UI_ALIGN_${field.align}${fontArgs}),\n        ${field.page},\n        ${fieldColors(field)})`;
+    const primaryPage = fieldPages(field)[0];
+    return wrapFieldBlockPages(
+      field,
+      `    JWPLC_UITextField(\n        ${id},\n        JWPLC_UIRect(${field.x}, ${field.y}),\n        JWPLC_UIText(${textOrNull(field.label)}, ${textOrNull(field.unit)}, ${field.capacity}),\n        JWPLC_UITextFieldStyle(\n            ${field.valueSize},\n            ${field.labelSize},\n            ${cppBool(field.frame)},\n            JWPLC_UI_LAYOUT_${field.layout},\n            JWPLC_UI_ALIGN_${field.align}${fontArgs}),\n        ${primaryPage},\n        ${fieldColors(field)})`);
   }
 
   function boolStateColorsOn(field) {
@@ -170,7 +229,10 @@
   // field: con falseText/trueText ya resueltos (designer-bool ensureBoolState).
   function boolFieldBlock(field, id) {
     const fontArgs = styleFontsArgs(field);
-    return `    JWPLC_UIBoolField(\n        ${id},\n        JWPLC_UIRect(${field.x}, ${field.y}),\n        JWPLC_UIText(${textOrNull(field.label)}, ${textOrNull(field.unit)}),\n${boolTextBlock(field)}        JWPLC_UIBoolStyle(\n            ${field.valueSize},\n            ${field.labelSize},\n            ${cppBool(field.frame)},\n            JWPLC_UI_LAYOUT_${field.layout},\n            JWPLC_UI_ALIGN_${field.align}${fontArgs}),\n        ${field.page || 0},\n        ${fieldColors(field)})`;
+    const primaryPage = fieldPages(field)[0];
+    return wrapFieldBlockPages(
+      field,
+      `    JWPLC_UIBoolField(\n        ${id},\n        JWPLC_UIRect(${field.x}, ${field.y}),\n        JWPLC_UIText(${textOrNull(field.label)}, ${textOrNull(field.unit)}),\n${boolTextBlock(field)}        JWPLC_UIBoolStyle(\n            ${field.valueSize},\n            ${field.labelSize},\n            ${cppBool(field.frame)},\n            JWPLC_UI_LAYOUT_${field.layout},\n            JWPLC_UI_ALIGN_${field.align}${fontArgs}),\n        ${primaryPage},\n        ${fieldColors(field)})`);
   }
 
   // field: normalizado por designer-bar (ensureBarState -> applyFirmwareCaps).
@@ -264,8 +326,11 @@
       configBlock = `,\n        JWPLC_UIBarConfig(\n            ${args.join(',\n            ')})`;
     }
 
-    return `${styleHeader}` +
-      `    JWPLC_UIBarField(\n        ${id},\n        ${rect},\n        JWPLC_UIText(${label}, ${unit}),\n        JWPLC_UIRange(${cppFloat(field.barMin)}, ${cppFloat(field.barMax)}),\n        JWPLC_UIBarStyle(\n            ${field.labelSize},\n            ${cppBool(field.frame)},\n            JWPLC_UI_LAYOUT_${field.layout}),\n        ${field.page || 0},\n        ${colorsBlock(field.labelColor, field.valueColor, field.trackColor || field.backgroundColor, field.frameColor)}${configBlock})`;
+    const primaryPage = fieldPages(field)[0];
+    return wrapFieldBlockPages(
+      field,
+      `${styleHeader}` +
+      `    JWPLC_UIBarField(\n        ${id},\n        ${rect},\n        JWPLC_UIText(${label}, ${unit}),\n        JWPLC_UIRange(${cppFloat(field.barMin)}, ${cppFloat(field.barMax)}),\n        JWPLC_UIBarStyle(\n            ${field.labelSize},\n            ${cppBool(field.frame)},\n            JWPLC_UI_LAYOUT_${field.layout}),\n        ${primaryPage},\n        ${colorsBlock(field.labelColor, field.valueColor, field.trackColor || field.backgroundColor, field.frameColor)}${configBlock})`);
   }
 
   function trendChannelVariables(field, primaryVar) {
@@ -334,7 +399,10 @@
     if (thresholdCount > 0) metaParts.push(`Umbrales: ${thresholdCount}`);
     const styleHeader = `    // Gráfica de Tendencia (${width}x${height}) - ${metaParts.join(' - ')}\n`;
 
-    return `${styleHeader}` +
+    const primaryPage = fieldPages(field)[0];
+    return wrapFieldBlockPages(
+      field,
+      `${styleHeader}` +
       `    JWPLC_UITrendField(\n` +
       `        ${id},\n` +
       `        ${rect},\n` +
@@ -355,8 +423,8 @@
       `            ${gridColor},\n` +
       `            ${textColor},\n` +
       `            ${bgColor}${extrasArgs}),\n` +
-      `        ${field.page || 0},\n` +
-      `        ${colorsBlock(field.labelColor ?? 0xFFFF, field.curveColor ?? 0xFD20, field.backgroundColor ?? 0x0000, field.gridColor ?? 0x4208)})`;
+      `        ${primaryPage},\n` +
+      `        ${colorsBlock(field.labelColor ?? 0xFFFF, field.curveColor ?? 0xFD20, field.backgroundColor ?? 0x0000, field.gridColor ?? 0x4208)})`);
   }
 
   function fieldBlock(field, id) {
@@ -445,6 +513,11 @@
     fontCppSymbol,
     styleFontsArgs,
     fieldBlock,
+    supportsMultiPage,
+    fieldPages,
+    fieldOnPage,
+    fieldPageMaskHex,
+    wrapFieldBlockPages,
     variableDeclaration,
     setterCall
   });

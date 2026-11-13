@@ -678,9 +678,8 @@
       proxyValue('fieldBoolPreview', boolPreview.dataset.boolPreview, true);
       return;
     }
-    const page = e.target.closest('[data-page-id]');
-    if (page) {
-      editor()?.moveSelectedFieldToPage?.(Number(page.dataset.pageId));
+    const pageHost = e.target.closest('[data-page-chips]');
+    if (pageHost && editor()?.handlePageChipHostClick?.(pageHost, e, selectedField(), 'data-page-id')) {
       return;
     }
     const copy = e.target.closest('[data-copy-contract]');
@@ -801,6 +800,11 @@
 
   function syncPages(field) {
     const host = wrap.querySelector('[data-page-chips]');
+    if (!host) return;
+    if (editor()?.renderPageChipsHost) {
+      editor().renderPageChipsHost(host, field, 'data-page-id');
+      return;
+    }
     const pages = editor()?.getPages?.() || [];
     const current = Number(field.page || 0);
     const signature = pages.map((p) => `${p.id}:${p.name}`).join('|') + `#${current}`;

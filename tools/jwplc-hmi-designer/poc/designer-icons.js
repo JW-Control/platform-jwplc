@@ -1300,9 +1300,14 @@
 
     drawAppearance();
 
-    const pages = editor()?.getPages?.() || [];
-    section.querySelector('[data-icon-pages]').innerHTML = pages.map((p) =>
-      `<button type="button" class="insp-chip${Number(p.id) === Number(field.page || 0) ? ' active' : ''}" data-icon-page="${p.id}">${String(Number(p.id) + 1).padStart(2, '0')} · ${escapeHtml(p.name)}</button>`).join('');
+    const pagesHost = section.querySelector('[data-icon-pages]');
+    if (pagesHost && editor()?.renderPageChipsHost) {
+      editor().renderPageChipsHost(pagesHost, field, 'data-icon-page');
+    } else if (pagesHost) {
+      const pages = editor()?.getPages?.() || [];
+      pagesHost.innerHTML = pages.map((p) =>
+        `<button type="button" class="insp-chip${Number(p.id) === Number(field.page || 0) ? ' active' : ''}" data-icon-page="${p.id}">${String(Number(p.id) + 1).padStart(2, '0')} · ${escapeHtml(p.name)}</button>`).join('');
+    }
     section.querySelector('[data-icon-contract]').textContent = contractText(field);
   }
 
@@ -1520,6 +1525,10 @@
       return;
     }
 
+    const iconPagesHost = t.closest('[data-icon-pages]');
+    if (iconPagesHost && editor()?.handlePageChipHostClick?.(iconPagesHost, e, field, 'data-icon-page')) {
+      return;
+    }
     const page = t.closest('[data-icon-page]');
     if (page) { editor()?.moveSelectedFieldToPage?.(Number(page.dataset.iconPage)); }
   });

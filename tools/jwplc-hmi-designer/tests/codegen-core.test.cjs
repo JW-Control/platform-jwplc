@@ -238,6 +238,21 @@ const boolCustomFont = core.boolFieldBlock({
 check(/JWPLC_UIBoolStyle\(\s*2,\s*1,\s*false,\s*JWPLC_UI_LAYOUT_INLINE,\s*JWPLC_UI_ALIGN_CENTER,\s*&JWPLC_FONT_16,\s*&JWPLC_FONT_26\)/.test(boolCustomFont),
   'BOOL: emite &JWPLC_FONT_16 y &JWPLC_FONT_26 en JWPLC_UIBoolStyle');
 
+const multiVal = core.valueFieldBlock({
+  ...value,
+  pages: [0, 2, 6]
+}, 'FIELD_MULTI_VAL');
+check(core.fieldPageMaskHex({ type: 'VALUE', pages: [0, 2, 6] }) === '0x0045U' &&
+  /^\s*JWPLC_UIFieldPages\([\s\S]*,\s*0x0045U\)\s*$/.test(multiVal),
+  'VALUE multipágina: envuelve en JWPLC_UIFieldPages(..., 0x0045U)');
+
+const multiBool = core.boolFieldBlock({
+  ...COLORS, type: 'BOOL', x: 176, y: 5, label: '', unit: '', falseText: '[MID]', trueText: '[REP]',
+  valueSize: 1, labelSize: 1, frame: false, layout: 'INLINE', align: 'CENTER', pages: [2, 3, 4, 5, 6]
+}, 'FIELD_MULTI_BOOL');
+check(/^\s*JWPLC_UIFieldPages\([\s\S]*,\s*0x007CU\)\s*$/.test(multiBool),
+  'BOOL multipágina: envuelve en JWPLC_UIFieldPages(..., 0x007CU)');
+
 const iconsCore = require(path.join(POC, 'designer-icons-core.js'));
 const iconField = {
   ...COLORS, type: 'ICON', x: 10, y: 15, label: 'Bomba 1', labelSize: 1, frame: true,
@@ -291,6 +306,47 @@ check(L.rowH === 20 && L.headerH === 20 && L.rows === 3, 'layout: 2× -> filas d
 const menuWithFont = { ...menus[0], id: 'MENU_FONT', font: 'FONT_16' };
 const genMenuFont = menuApi.generate([menuWithFont]);
 check(/&JWPLC_FONT_16\)/.test(genMenuFont.declarations), 'MENU: emite &JWPLC_FONT_16 en JWPLC_UIMenuField');
+
+const cardMenu = {
+  ...JSON.parse(JSON.stringify(menus[0])),
+  key: 'menu-card',
+  id: 'MENU_CARD',
+  type: 'MENU',
+  page: 0,
+  x: 12,
+  y: 22,
+  width: 296,
+  height: 118,
+  textSize: 2,
+  rowStyle: 'CARDS',
+  rowGap: 4,
+  cornerRadius: 4,
+  rowPadY: 5,
+  rowPadX: 8,
+  inlineValue: true,
+  selectOutlineOnly: true,
+  cardBackground: 0x18E3,
+  cardBorder: 0x07E0,
+  frame: false,
+  nodes: [
+    {
+      key: 'run', parent: null, type: 'EDIT_BOOL', label: '', variable: 'measRun', valueType: 'bool',
+      initial: 0, falseText: 'INICIAR MEDICION', trueText: 'DETENER MEDICION', directToggle: true,
+      hasPillColors: true, pillFalseBg: 0x05C0, pillTrueBg: 0xF800, pillTextColor: 0xFFFF
+    },
+    {
+      key: 'tag', parent: null, type: 'EDIT_NUM', label: 'ETIQUETA', variable: 'measTag', valueType: 'int32',
+      initial: 1, min: 1, max: 99, step: 1, lrStep: 1, valuePrefix: 'P', zeroPad: 2
+    }
+  ]
+};
+const genCardMenu = menuApi.generate([cardMenu]);
+check(/JWPLC_UIMenuCardStyle\(/.test(genCardMenu.declarations) &&
+  /JWPLC_UIMenuNodePill\(/.test(genCardMenu.declarations) &&
+  /JWPLC_UIMenuNodeFormat\(/.test(genCardMenu.declarations) &&
+  /JWPLC_UIMenuNodeLRStep\(/.test(genCardMenu.declarations) &&
+  /JWPLC_UIMenuNodeDirectToggle\(/.test(genCardMenu.declarations),
+  'MENU CARDS: emite JWPLC_UIMenuCardStyle, Pill, Format, LRStep y DirectToggle');
 
 console.log('EVENT_LOG (sin DOM)');
 const evtApi = loadEventLogModule();

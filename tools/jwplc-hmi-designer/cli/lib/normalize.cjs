@@ -98,8 +98,22 @@ function normalizePages(project) {
     fields.push(isObject(field) ? { ...field, page: Number(pageId) } : field);
   });
   project.fields = fields.map((field) => {
-    if (!isObject(field) || field.page === undefined || !remap.has(Number(field.page))) return field;
-    return { ...field, page: remap.get(Number(field.page)) };
+    if (!isObject(field)) return field;
+    const copy = { ...field };
+    if (copy.page !== undefined && remap.has(Number(copy.page))) {
+      copy.page = remap.get(Number(copy.page));
+    }
+    if (Array.isArray(copy.pages) && copy.pages.length) {
+      const remapped = [...new Set(copy.pages.map((p) => remap.get(Number(p))).filter((p) => p !== undefined))].sort((a, b) => a - b);
+      if (remapped.length > 1) {
+        copy.pages = remapped;
+        copy.page = remapped[0];
+      } else {
+        delete copy.pages;
+        if (remapped.length === 1) copy.page = remapped[0];
+      }
+    }
+    return copy;
   });
   if (Array.isArray(project.pixelMaps)) {
     project.pixelMaps = project.pixelMaps.map((map) => (isObject(map) && remap.has(Number(map.page || 0)) ? { ...map, page: remap.get(Number(map.page || 0)) } : map));
@@ -132,6 +146,9 @@ function normalizeMenu(field) {
     const n = { ...node };
     if (n.parent === undefined || n.parent === '') n.parent = null;
     applyDefaults(n, spec.MENU_NODE);
+    ['pillFalseBg', 'pillTrueBg', 'pillTextColor'].forEach((ck) => {
+      if (n[ck] !== undefined) n[ck] = parseColor(n[ck]);
+    });
     if (n.valueType === undefined) n.valueType = (spec.MENU_KINDS[n.type] || [''])[0];
     if (n.valueType === 'int32' && node.decimals === undefined) n.decimals = 0;
     return n;
@@ -179,6 +196,19 @@ function normalizeField(raw, index, ctx) {
     const clock = field.type === 'VALUE' && field.valueKind === 'DATETIME';
     if (!field.variable && !clock) field.variable = uniqueName(symbolize(field.id.replace(/^FIELD_/, '').toLowerCase(), `var${index + 1}`), ctx.variables);
     if (!field.variable && clock) field.variable = 'reloj';
+  }
+
+  if (Array.isArray(field.pages) && !['NAV_BAR', 'MENU', 'EVENT_LOG'].includes(field.type)) {
+    const clean = [...new Set(field.pages.map((p) => Math.trunc(Number(p))).filter((p) => Number.isInteger(p) && p >= 0 && p < spec.LIMITS.pages))].sort((a, b) => a - b);
+    if (clean.length > 1) {
+      field.pages = clean;
+      field.page = clean[0];
+    } else {
+      delete field.pages;
+      if (clean.length === 1) field.page = clean[0];
+    }
+  } else {
+    delete field.pages;
   }
 
   if (field.type === 'BOOL') {

@@ -179,6 +179,19 @@ function validateField(field, i, project, report) {
   if (field.type !== 'NAV_BAR' && Number.isInteger(field.page) && field.page >= project.pages.length) {
     report.error(`${where}.page`, `la página ${field.page} no existe (hay ${project.pages.length}: 0..${project.pages.length - 1})`);
   }
+  if (field.pages !== undefined) {
+    if (!Array.isArray(field.pages) || !field.pages.length) {
+      report.error(`${where}.pages`, 'debe ser un arreglo no vacío de IDs de página');
+    } else if (['NAV_BAR', 'MENU', 'EVENT_LOG'].includes(field.type)) {
+      report.error(`${where}.pages`, `${field.type} no admite múltiples páginas`);
+    } else {
+      field.pages.forEach((p, idx) => {
+        if (!Number.isInteger(p) || p < 0 || p >= project.pages.length) {
+          report.error(`${where}.pages[${idx}]`, `la página ${p} no existe (hay ${project.pages.length}: 0..${project.pages.length - 1})`);
+        }
+      });
+    }
+  }
 
   switch (field.type) {
     case 'TEXT':

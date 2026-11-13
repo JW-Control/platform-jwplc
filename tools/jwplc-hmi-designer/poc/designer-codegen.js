@@ -95,8 +95,20 @@
     return sanitizeSymbol(value, fallback);
   }
 
+  function fieldPages(field) {
+    return window.JWPLCHMICodegenCore?.fieldPages
+      ? window.JWPLCHMICodegenCore.fieldPages(field)
+      : [Number(field?.page || 0)];
+  }
+
+  function fieldOnPage(field, pageId) {
+    return window.JWPLCHMICodegenCore?.fieldOnPage
+      ? window.JWPLCHMICodegenCore.fieldOnPage(field, pageId)
+      : Number(field?.page || 0) === Number(pageId);
+  }
+
   function pageForField(field) {
-    const pageId = Number(field?.page || 0);
+    const pageId = fieldPages(field)[0];
     return pages().find((page) => Number(page.id) === pageId) || {
       id: pageId,
       name: `Página ${pageId + 1}`
@@ -763,7 +775,7 @@ static void jwplcHMIDrawMicroText(JWPLC_TFTClass &tft, int16_t x, int16_t y, con
     pages().forEach((page) => {
       const entries = fields
         .map((field, index) => ({ field, index }))
-        .filter(({ field }) => Number(field.page || 0) === Number(page.id));
+        .filter(({ field }) => fieldPages(field)[0] === Number(page.id));
       if (!entries.length) return;
       const lines = entries.map(({ field, index }) => renderer(field, index)).filter(Boolean);
       if (!lines.length) return;
@@ -959,7 +971,7 @@ static void jwplcHMIDrawMicroText(JWPLC_TFTClass &tft, int16_t x, int16_t y, con
       const lines = fields
         .map((field, index) => ({ field, index }))
         .filter(({ field }) =>
-          Number(field.page || 0) === Number(page.id) &&
+          fieldOnPage(field, page.id) &&
           field.type !== 'TREND' &&
           !isStaticObject(field) &&
           !isClockField(field))
@@ -1016,7 +1028,7 @@ static void jwplcHMIDrawMicroText(JWPLC_TFTClass &tft, int16_t x, int16_t y, con
     pages().forEach((page) => {
       const lines = [];
       fields
-        .filter((field) => Number(field.page || 0) === Number(page.id) && isStaticObject(field) && !field.hidden)
+        .filter((field) => fieldOnPage(field, page.id) && isStaticObject(field) && !field.hidden)
         // En el lienzo, layerOrder menor = más al frente (app.js composeFramebuffer
         // recorre el arreglo al revés). Se dibuja de atrás hacia adelante.
         .sort((a, b) => (Number(b.layerOrder) || 0) - (Number(a.layerOrder) || 0))

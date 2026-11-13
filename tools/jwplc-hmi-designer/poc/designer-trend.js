@@ -837,6 +837,10 @@
   function syncTrendPages(section, field) {
     const host = section.querySelector('[data-trend-page-chips]');
     if (!host || !field) return;
+    if (editor()?.renderPageChipsHost) {
+      editor().renderPageChipsHost(host, field, 'data-trend-page-id');
+      return;
+    }
     const pages = editor()?.getPages?.() || [];
     const current = Number(field.page || 0);
     const signature = pages.map((p) => `${p.id}:${p.name}`).join('|') + `#${current}`;
@@ -1070,6 +1074,10 @@
     const pageChipsHost = section.querySelector('[data-trend-page-chips]');
     if (pageChipsHost) {
       pageChipsHost.addEventListener('click', (e) => {
+        if (editor()?.handlePageChipHostClick) {
+          editor().handlePageChipHostClick(pageChipsHost, e, selectedField(), 'data-trend-page-id');
+          return;
+        }
         const chip = e.target.closest('[data-trend-page-id]');
         if (!chip) return;
         editor()?.moveSelectedFieldToPage?.(Number(chip.dataset.trendPageId));

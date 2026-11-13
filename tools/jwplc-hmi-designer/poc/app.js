@@ -1332,8 +1332,20 @@
     return hmiPages.some((item) => item.id === Number(page));
   }
 
+  function fieldPages(field) {
+    return window.JWPLCHMICodegenCore?.fieldPages
+      ? window.JWPLCHMICodegenCore.fieldPages(field)
+      : [Math.max(0, Math.trunc(Number(field?.page) || 0))];
+  }
+
+  function fieldOnPage(field, page = activePage) {
+    if (!field) return false;
+    if (field.type === 'NAV_BAR' || field.global) return true;
+    return fieldPages(field).includes(Math.trunc(Number(page) || 0));
+  }
+
   function fieldsForPage(page = activePage) {
-    return hmiFields.filter((field) => (field.type === 'NAV_BAR' || field.global) || Number(field.page || 0) === Number(page));
+    return hmiFields.filter((field) => fieldOnPage(field, page));
   }
 
   function setSelectedKeys(keys) {
@@ -1342,7 +1354,7 @@
   }
 
   function selectedFields() {
-    return hmiFields.filter((field) => selectedFieldKeys.includes(field.key) && (field.type === 'NAV_BAR' || field.global || Number(field.page || 0) === activePage));
+    return hmiFields.filter((field) => selectedFieldKeys.includes(field.key) && fieldOnPage(field, activePage));
   }
 
   function selectedField() {
@@ -1422,7 +1434,7 @@
     if (colorToolPrefs.fillShapes) {
       for (let index = hmiFields.length - 1; index >= 0; index--) {
         const f = hmiFields[index];
-        if (Number(f.page || 0) !== activePage || f.hidden) continue;
+        if (!fieldOnPage(f, activePage) || f.hidden) continue;
         if (['RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(f.type) && isPointInsideShapeArea(point.x, point.y, f)) {
           if (f.fill && (Number(f.fillColor) & 0xFFFF) === value) return false;
           f.fill = true;
@@ -3099,7 +3111,7 @@
       }
     }
     activeDrawingOrder = Infinity;
-    if (selectedTool === 'rawText' && !hmiFields.some((f) => f.type === 'RAW_TEXT' && Number(f.page || 0) === activePage)) {
+    if (selectedTool === 'rawText' && !hmiFields.some((f) => f.type === 'RAW_TEXT' && fieldOnPage(f, activePage))) {
       const bg = rawState.transparent ? null : rawState.background;
       drawRawTextAt(framebuffer, rawState.value, rawState.x, rawState.y, rawState.foreground, bg, rawState.size, rawState.font);
     }
@@ -3211,7 +3223,8 @@
     if (field.type === 'ICON') {
       const entry = iconEntry(field);
       const symbol = window.JWPLCHMIIcons?.symbolForField?.(field) || window.JWPLCIconsCore.symbolFor(field.iconId, entry ? entry.width : field.iconSize);
-      return window.JWPLCIconsCore.iconFieldBlock(field, id, symbol, core.cppString);
+      const iconBlock = window.JWPLCIconsCore.iconFieldBlock(field, id, symbol, core.cppString);
+      return core?.wrapFieldBlockPages ? core.wrapFieldBlockPages(field, iconBlock) : iconBlock;
     }
     if (core?.fieldBlock) return core.fieldBlock(field, id);
     return field.type === 'VALUE' ? core.valueFieldBlock(field, id) : core.textFieldBlock(field, id);
@@ -3409,7 +3422,7 @@
     if (items.length > layerSeq) layerSeq = items.length;
 
     const pageFieldsOrdered = items.filter((item) => item.type !== 'PIXELMAP');
-    const nonPageFields = hmiFields.filter((f) => !(f.type === 'NAV_BAR' || f.global) && Number(f.page || 0) !== activePage);
+    const nonPageFields = hmiFields.filter((f) => !fieldOnPage(f, activePage));
     hmiFields = [...pageFieldsOrdered, ...nonPageFields];
 
     const pmAll = window.JWPLCHMIPixelMaps?.getAll?.();
@@ -5022,15 +5035,7 @@
   function syncRawPages(currentField) {
     const host = document.getElementById('rawPageChipRow');
     if (!host) return;
-    const current = Number(currentField?.page ?? activePage);
-    const signature = hmiPages.map((p) => `${p.id}:${p.name}`).join('|') + `#${current}`;
-    if (host.dataset.signature === signature) return;
-    host.dataset.signature = signature;
-    host.innerHTML = hmiPages.map((p) => {
-      const active = Number(p.id) === current;
-      const title = p.name ? `Página ${p.id}: ${p.name}` : `Página ${p.id}`;
-      return `<button type="button" class="insp-chip${active ? ' active' : ''}" data-raw-page-id="${p.id}" title="${title}">${String(Number(p.id) + 1).padStart(2, '0')} · ${p.name || ('Página ' + (Number(p.id) + 1))}</button>`;
-    }).join('');
+    renderPageChipsHost(host, currentField, 'data-raw-page-id');
   }
 
   function syncRawAppearance() {
@@ -5526,7 +5531,7 @@
     pixelLayer.set(snapshot.pixels);
     fieldSerial = snapshot.serial;
     const selected = selectedField();
-    if (!selected || Number(selected.page || 0) !== activePage) {
+    if (!selected || !fieldOnPage(selected, activePage)) {
       const replacement = fieldsForPage(activePage)[0] || null;
       setSelectedKeys(replacement ? [replacement.key] : []);
       selectedTool = replacement ? toolForField(replacement) : 'none';
@@ -5673,7 +5678,7 @@
     if (!pageExists(target) || target === activePage) return false;
     activePage = target;
     const selected = selectedField();
-    if (!selected || Number(selected.page || 0) !== activePage) selectFirstOnPage();
+    if (!selected || !fieldOnPage(selected, activePage)) selectFirstOnPage();
     syncInputsFromState();
     syncToolUI();
     render();
@@ -5750,8 +5755,23 @@
     // Remove page from array
     hmiPages.splice(idx, 1);
 
-    // Remove fields on that page
-    hmiFields = hmiFields.filter((field) => field.type === 'NAV_BAR' || field.global || Number(field.page || 0) !== target);
+    // Remove single-page fields on that page; multi-page fields lose that page
+    hmiFields = hmiFields.filter((field) => {
+      if (field.type === 'NAV_BAR' || field.global) return true;
+      if (Array.isArray(field.pages) && field.pages.length) {
+        const remaining = fieldPages(field).filter((p) => p !== target);
+        if (!remaining.length) return false;
+        if (remaining.length > 1) {
+          field.pages = remaining;
+          field.page = remaining[0];
+        } else {
+          delete field.pages;
+          field.page = remaining[0];
+        }
+        return true;
+      }
+      return Number(field.page || 0) !== target;
+    });
 
     // Remove pixel maps on that page (getAll() devuelve el arreglo vivo).
     const pixelMaps = window.JWPLCHMIPixelMaps?.getAll?.();
@@ -5772,6 +5792,17 @@
     hmiPages.forEach((item) => { item.id = remap.get(item.id); });
     hmiFields.forEach((field) => {
       if (field.type === 'NAV_BAR' || field.global) return;
+      if (Array.isArray(field.pages) && field.pages.length) {
+        const remapped = [...new Set(fieldPages(field).map((p) => remap.get(p)).filter((p) => p !== undefined))].sort((a, b) => a - b);
+        if (remapped.length > 1) {
+          field.pages = remapped;
+          field.page = remapped[0];
+        } else {
+          delete field.pages;
+          field.page = remapped[0] ?? 0;
+        }
+        return;
+      }
       const next = remap.get(Number(field.page || 0));
       if (next !== undefined) field.page = next;
     });
@@ -5793,11 +5824,63 @@
     return true;
   }
 
+  function setSelectedFieldPages(pagesList, { navigateTo = null } = {}) {
+    const field = selectedField();
+    if (!field) return false;
+    const valid = [...new Set((pagesList || [])
+      .map((p) => Math.trunc(Number(p)))
+      .filter((p) => Number.isInteger(p) && pageExists(p)))]
+      .sort((a, b) => a - b);
+    if (!valid.length) return false;
+    const supportsMulti = Boolean(window.JWPLCHMICodegenCore?.supportsMultiPage?.(field));
+    if (supportsMulti && valid.length > 1) {
+      field.pages = valid;
+      field.page = valid[0];
+    } else {
+      delete field.pages;
+      field.page = valid[0];
+    }
+    if (navigateTo !== null && pageExists(navigateTo)) {
+      activePage = navigateTo;
+    } else if (!fieldOnPage(field, activePage)) {
+      activePage = field.page;
+    }
+    setSelectedKeys([field.key]);
+    selectedTool = toolForField(field);
+    syncInputsFromState();
+    syncToolUI();
+    render();
+    commitHistory();
+    window.dispatchEvent(new CustomEvent('jwplc:editor-refresh'));
+    return true;
+  }
+
+  function toggleSelectedFieldPage(page) {
+    const target = Math.trunc(Number(page));
+    const field = selectedField();
+    if (!field || !pageExists(target)) return false;
+    if (!window.JWPLCHMICodegenCore?.supportsMultiPage?.(field)) {
+      return moveSelectedFieldToPage(target);
+    }
+    const current = fieldPages(field);
+    const exists = current.includes(target);
+    if (exists && current.length <= 1) return true;
+    const next = exists ? current.filter((p) => p !== target) : [...current, target];
+    return setSelectedFieldPages(next);
+  }
+
+  function setSelectedFieldAllPages() {
+    const field = selectedField();
+    if (!field || !window.JWPLCHMICodegenCore?.supportsMultiPage?.(field)) return false;
+    return setSelectedFieldPages(hmiPages.map((p) => Number(p.id)));
+  }
+
   function moveSelectedFieldToPage(page) {
     const target = Number(page);
     const field = selectedField();
     if (!field || !pageExists(target)) return false;
-    if (Number(field.page || 0) === target) return true;
+    if (!Array.isArray(field.pages) && Number(field.page || 0) === target) return true;
+    delete field.pages;
     field.page = target;
     activePage = target;
     setSelectedKeys([field.key]);
@@ -5806,6 +5889,82 @@
     syncToolUI();
     render();
     commitHistory();
+    window.dispatchEvent(new CustomEvent('jwplc:editor-refresh'));
+    return true;
+  }
+
+  function buildPageChipHtml(pages, field, attrName = 'data-page-id') {
+    const activePages = fieldPages(field);
+    const supportsMulti = Boolean(field && window.JWPLCHMICodegenCore?.supportsMultiPage?.(field));
+    const isMulti = activePages.length > 1;
+    const allActive = pages.length > 1 && pages.every((p) => activePages.includes(Number(p.id)));
+    const esc = (s) => String(s || '').replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+    const multiControls = (supportsMulti && pages.length > 1)
+      ? `<button type="button" class="insp-chip${isMulti ? ' active' : ''}" data-page-action="multi" title="Mostrar este objeto en varias páginas a la vez (o Shift+clic en una página)">Multi${isMulti ? ` (${activePages.length})` : ''}</button>` +
+        `<button type="button" class="insp-chip${allActive ? ' active' : ''}" data-page-action="all" title="Mostrar en todas las páginas">Todas</button>`
+      : '';
+    const chips = pages.map((p) => {
+      const id = Number(p.id);
+      const active = field ? activePages.includes(id) : id === Number(activePage);
+      const name = p.name || `Página ${id + 1}`;
+      return `<button type="button" class="insp-chip${active ? ' active' : ''}" ${attrName}="${id}" title="Página ${id}: ${esc(name)}">${String(id + 1).padStart(2, '0')} · ${esc(name)}</button>`;
+    }).join('');
+    return multiControls + chips;
+  }
+
+  function renderPageChipsHost(host, field, attrName = 'data-page-id') {
+    if (!host) return;
+    const pages = hmiPages;
+    const activePages = field ? fieldPages(field) : [activePage];
+    if (activePages.length > 1) host.dataset.multiMode = '1';
+    else if (!field || !window.JWPLCHMICodegenCore?.supportsMultiPage?.(field)) delete host.dataset.multiMode;
+    const multiFlag = host.dataset.multiMode === '1' ? 'M1' : 'M0';
+    const keyPart = field?.key || (field?.type || 'NONE');
+    const signature = pages.map((p) => `${p.id}:${p.name}`).join('|') + `#${keyPart}#${activePages.join(',')}#${multiFlag}`;
+    if (host.dataset.signature === signature) return;
+    host.dataset.signature = signature;
+    host.innerHTML = buildPageChipHtml(pages, field, attrName);
+    if (host.dataset.multiMode === '1') {
+      host.querySelector('[data-page-action="multi"]')?.classList.add('active');
+    }
+  }
+
+  function handlePageChipHostClick(host, event, field, attrName = 'data-page-id') {
+    const actionBtn = event.target.closest('[data-page-action]');
+    if (actionBtn) {
+      const action = actionBtn.dataset.pageAction;
+      if (action === 'all') {
+        if (host) host.dataset.multiMode = '1';
+        setSelectedFieldAllPages();
+        return true;
+      }
+      if (action === 'multi') {
+        const current = fieldPages(field);
+        if (current.length > 1) {
+          if (host) delete host.dataset.multiMode;
+          const keep = current.includes(activePage) ? activePage : current[0];
+          moveSelectedFieldToPage(keep);
+        } else if (host) {
+          host.dataset.multiMode = host.dataset.multiMode === '1' ? '0' : '1';
+          if (host.dataset.multiMode === '0') delete host.dataset.multiMode;
+          delete host.dataset.signature;
+          renderPageChipsHost(host, field, attrName);
+        }
+        return true;
+      }
+    }
+    const chip = event.target.closest(`[${attrName}]`);
+    if (!chip) return false;
+    const rawAttr = attrName.replace(/^data-/, '').replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+    const target = Number(chip.dataset[rawAttr]);
+    const useMulti = event.shiftKey || event.ctrlKey || host?.dataset.multiMode === '1' || fieldPages(field).length > 1;
+    if (useMulti && field && window.JWPLCHMICodegenCore?.supportsMultiPage?.(field)) {
+      if (host) host.dataset.multiMode = '1';
+      toggleSelectedFieldPage(target);
+    } else {
+      if (host) delete host.dataset.multiMode;
+      moveSelectedFieldToPage(target);
+    }
     return true;
   }
 
@@ -6710,15 +6869,15 @@
 
   // Chips de páginas
   document.getElementById('rawPageChipRow')?.addEventListener('click', (e) => {
-    const chip = e.target.closest('[data-raw-page-id]');
-    if (!chip) return;
-    const target = Number(chip.dataset.rawPageId);
+    const host = document.getElementById('rawPageChipRow');
     const field = selectedField();
     if (field && field.type === 'RAW_TEXT') {
-      moveSelectedFieldToPage(target);
-    } else {
-      selectPage(target);
+      if (handlePageChipHostClick(host, e, field, 'data-raw-page-id')) syncRawTextInspector();
+      return;
     }
+    const chip = e.target.closest('[data-raw-page-id]');
+    if (!chip) return;
+    selectPage(Number(chip.dataset.rawPageId));
     syncRawTextInspector();
   });
 
@@ -7691,7 +7850,7 @@
           const matchedList = [];
           for (let i = 0; i < hmiFields.length; i++) {
             const f = hmiFields[i];
-            if (Number(f.page || 0) !== activePage) continue;
+            if (!fieldOnPage(f, activePage)) continue;
 
             if (isLeftToRight) {
               const fb = getFieldBounds(f);
@@ -8622,6 +8781,13 @@
     addPage,
     renamePage,
     deletePage,
+    getFieldPages: fieldPages,
+    isFieldOnPage: fieldOnPage,
+    setSelectedFieldPages,
+    toggleSelectedFieldPage,
+    setSelectedFieldAllPages,
+    renderPageChipsHost,
+    handlePageChipHostClick,
     moveSelectedFieldToPage,
     commitHistory,
     syncInputsFromState,

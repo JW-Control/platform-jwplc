@@ -145,6 +145,10 @@
                 "maximum": 15,
                 "default": 0
               },
+              "pages": {
+                "description": "Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez.",
+                "type": "array"
+              },
               "layerOrder": {
                 "description": "Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima).",
                 "type": "integer",
@@ -409,6 +413,10 @@
                 "minimum": 0,
                 "maximum": 15,
                 "default": 0
+              },
+              "pages": {
+                "description": "Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez.",
+                "type": "array"
               },
               "layerOrder": {
                 "description": "Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima).",
@@ -739,6 +747,10 @@
                 "minimum": 0,
                 "maximum": 15,
                 "default": 0
+              },
+              "pages": {
+                "description": "Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez.",
+                "type": "array"
               },
               "layerOrder": {
                 "description": "Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima).",
@@ -1088,6 +1100,10 @@
                 "minimum": 0,
                 "maximum": 15,
                 "default": 0
+              },
+              "pages": {
+                "description": "Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez.",
+                "type": "array"
               },
               "layerOrder": {
                 "description": "Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima).",
@@ -1637,6 +1653,10 @@
                 "maximum": 15,
                 "default": 0
               },
+              "pages": {
+                "description": "Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez.",
+                "type": "array"
+              },
               "layerOrder": {
                 "description": "Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima).",
                 "type": "integer",
@@ -1996,6 +2016,10 @@
                 "maximum": 15,
                 "default": 0
               },
+              "pages": {
+                "description": "Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez.",
+                "type": "array"
+              },
               "layerOrder": {
                 "description": "Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima).",
                 "type": "integer",
@@ -2127,6 +2151,11 @@
               },
               "showLiveValue": {
                 "description": "Muestra el título y valor en vivo integrados en el encabezado de la gráfica.",
+                "type": "boolean",
+                "default": true
+              },
+              "frame": {
+                "description": "Marco exterior de la gráfica.",
                 "type": "boolean",
                 "default": true
               },
@@ -2366,6 +2395,10 @@
                 "maximum": 15,
                 "default": 0
               },
+              "pages": {
+                "description": "Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez.",
+                "type": "array"
+              },
               "layerOrder": {
                 "description": "Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima).",
                 "type": "integer",
@@ -2381,7 +2414,7 @@
                 "type": "boolean"
               },
               "cornerRadius": {
-                "description": "Uso interno.",
+                "description": "Radio de esquinas para tarjetas/píldoras (rowStyle = CARDS).",
                 "type": "integer",
                 "minimum": 0,
                 "maximum": 20,
@@ -2467,6 +2500,75 @@
                 "description": "Marco exterior.",
                 "type": "boolean",
                 "default": true
+              },
+              "rowStyle": {
+                "description": "FLAT: filas planas clásicas. CARDS: píldoras/tarjetas redondeadas separadas.",
+                "enum": [
+                  "FLAT",
+                  "CARDS"
+                ],
+                "default": "FLAT"
+              },
+              "rowGap": {
+                "description": "Separación vertical (px) entre tarjetas (rowStyle = CARDS).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 16,
+                "default": 4
+              },
+              "rowPadY": {
+                "description": "Relleno vertical interior (px) por fila (rowStyle = CARDS).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 16,
+                "default": 5
+              },
+              "rowPadX": {
+                "description": "Relleno horizontal interior (px) por fila (rowStyle = CARDS).",
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 24,
+                "default": 8
+              },
+              "inlineValue": {
+                "description": "Pone etiqueta y valor juntos a la izquierda en lugar de alinear el valor a la derecha.",
+                "type": "boolean",
+                "default": false
+              },
+              "selectOutlineOnly": {
+                "description": "En CARDS, resalta la fila seleccionada con borde y texto de color en lugar de relleno sólido.",
+                "type": "boolean",
+                "default": false
+              },
+              "cardBackground": {
+                "description": "Color de fondo de tarjetas no seleccionadas (CARDS). RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 6371
+              },
+              "cardBorder": {
+                "description": "Color de borde de tarjetas no seleccionadas (CARDS). RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 14823
               },
               "colors": {
                 "type": "object",
@@ -2670,6 +2772,10 @@
                 "maximum": 15,
                 "default": 0
               },
+              "pages": {
+                "description": "Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez.",
+                "type": "array"
+              },
               "layerOrder": {
                 "description": "Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima).",
                 "type": "integer",
@@ -2858,6 +2964,10 @@
                 "maximum": 15,
                 "default": 0
               },
+              "pages": {
+                "description": "Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez.",
+                "type": "array"
+              },
               "layerOrder": {
                 "description": "Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima).",
                 "type": "integer",
@@ -3011,6 +3121,10 @@
                 "maximum": 15,
                 "default": 0
               },
+              "pages": {
+                "description": "Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez.",
+                "type": "array"
+              },
               "layerOrder": {
                 "description": "Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima).",
                 "type": "integer",
@@ -3173,6 +3287,10 @@
                 "minimum": 0,
                 "maximum": 15,
                 "default": 0
+              },
+              "pages": {
+                "description": "Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez.",
+                "type": "array"
               },
               "layerOrder": {
                 "description": "Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima).",
@@ -3337,6 +3455,10 @@
                 "maximum": 15,
                 "default": 0
               },
+              "pages": {
+                "description": "Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez.",
+                "type": "array"
+              },
               "layerOrder": {
                 "description": "Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima).",
                 "type": "integer",
@@ -3500,6 +3622,10 @@
                 "maximum": 15,
                 "default": 0
               },
+              "pages": {
+                "description": "Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez.",
+                "type": "array"
+              },
               "layerOrder": {
                 "description": "Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima).",
                 "type": "integer",
@@ -3662,6 +3788,10 @@
                 "minimum": 0,
                 "maximum": 15,
                 "default": 0
+              },
+              "pages": {
+                "description": "Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez.",
+                "type": "array"
               },
               "layerOrder": {
                 "description": "Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima).",
@@ -4047,8 +4177,9 @@
           ]
         },
         "label": {
-          "description": "Texto de la fila.",
-          "type": "string"
+          "description": "Texto de la fila. Vacío = botón centrado (píldora).",
+          "type": "string",
+          "default": ""
         },
         "variable": {
           "description": "Variable C++ (VIEW, EDIT_NUM, EDIT_BOOL). Puede ser la misma que la de un campo si el tipo coincide.",
@@ -4085,6 +4216,12 @@
           "type": "number",
           "default": 1
         },
+        "lrStep": {
+          "description": "Paso rápido de ◄► (EDIT_NUM). 0 = 10 pasos por defecto; 1 = igual que ▲▼.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000
+        },
         "decimals": {
           "description": "Decimales mostrados (float).",
           "type": "integer",
@@ -4097,6 +4234,18 @@
           "type": "string",
           "default": ""
         },
+        "valuePrefix": {
+          "description": "Prefijo opcional antes del valor numérico (ej. \"P\" -> P01).",
+          "type": "string",
+          "default": ""
+        },
+        "zeroPad": {
+          "description": "Ceros a la izquierda para int32 (ej. 2 -> 01).",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 6,
+          "default": 0
+        },
         "falseText": {
           "description": "Texto para false (bool).",
           "type": "string",
@@ -4107,6 +4256,60 @@
           "type": "string",
           "default": "ON"
         },
+        "directToggle": {
+          "description": "Si es true en EDIT_BOOL, alterna al pulsar OK una sola vez sin entrar al modo flechas.",
+          "type": "boolean"
+        },
+        "hasPillColors": {
+          "description": "Usa relleno propio en el nodo (botón/píldora principal en CARDS).",
+          "type": "boolean",
+          "default": false
+        },
+        "pillFalseBg": {
+          "description": "Fondo cuando el estado bool es false. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            },
+            {
+              "type": "string",
+              "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+            }
+          ],
+          "default": 1504
+        },
+        "pillTrueBg": {
+          "description": "Fondo cuando el estado bool es true. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            },
+            {
+              "type": "string",
+              "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+            }
+          ],
+          "default": 51200
+        },
+        "pillTextColor": {
+          "description": "Color del texto de la píldora. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            },
+            {
+              "type": "string",
+              "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+            }
+          ],
+          "default": 65535
+        },
         "children": {
           "type": "array",
           "items": {
@@ -4116,8 +4319,7 @@
         }
       },
       "required": [
-        "type",
-        "label"
+        "type"
       ]
     },
     "page": {

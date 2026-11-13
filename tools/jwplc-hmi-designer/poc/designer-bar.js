@@ -3439,6 +3439,10 @@
       pageChips.insertAdjacentHTML('beforebegin', '<span class="bar-visual-group-title">Página</span>');
       hideForFirmware(pageLabel);
       pageChips.addEventListener('click', (e) => {
+        if (editor()?.handlePageChipHostClick) {
+          editor().handlePageChipHostClick(pageChips, e, selectedField(), 'data-page-id');
+          return;
+        }
         const chip = e.target.closest('[data-page-id]');
         if (chip) editor()?.moveSelectedFieldToPage?.(Number(chip.dataset.pageId));
       });
@@ -3461,14 +3465,18 @@
     });
     const pageChips = barInspectorWrap.querySelector('#barPlacementPageChips');
     if (pageChips) {
-      const pages = editor()?.getPages?.() || [];
-      const current = Number(field.page || 0);
-      const signature = pages.map((p) => `${p.id}:${p.name}`).join('|') + `#${current}`;
-      if (pageChips.dataset.signature !== signature) {
-        pageChips.dataset.signature = signature;
-        pageChips.innerHTML = pages.map((p) =>
-          `<button type="button" class="insp-chip${Number(p.id) === current ? ' active' : ''}" data-page-id="${p.id}">` +
-          `${String(Number(p.id) + 1).padStart(2, '0')} · ${String(p.name).replace(/[&<>"]/g, '')}</button>`).join('');
+      if (editor()?.renderPageChipsHost) {
+        editor().renderPageChipsHost(pageChips, field, 'data-page-id');
+      } else {
+        const pages = editor()?.getPages?.() || [];
+        const current = Number(field.page || 0);
+        const signature = pages.map((p) => `${p.id}:${p.name}`).join('|') + `#${current}`;
+        if (pageChips.dataset.signature !== signature) {
+          pageChips.dataset.signature = signature;
+          pageChips.innerHTML = pages.map((p) =>
+            `<button type="button" class="insp-chip${Number(p.id) === current ? ' active' : ''}" data-page-id="${p.id}">` +
+            `${String(Number(p.id) + 1).padStart(2, '0')} · ${String(p.name).replace(/[&<>"]/g, '')}</button>`).join('');
+        }
       }
     }
   }
