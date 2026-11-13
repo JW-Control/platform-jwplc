@@ -272,8 +272,8 @@
     loadScript('./designer-bar.js?v=1794581600', () => {
       loadScript('./designer-zone-indicator.js?v=1793801300', () => {
         loadScript('./designer-field-inspector.js?v=1793803100', () => {
-          loadScript('./designer-menu.js?v=1793803100');
-          loadScript('./designer-event-log.js?v=1793802700');
+          loadScript('./designer-menu.js?v=1794588000');
+          loadScript('./designer-event-log.js?v=1794585000');
           loadScript('./designer-trend.js?v=1793807000');
           loadScript('./designer-icons.js?v=1794582100');
           loadScript('./designer-idle.js?v=1793801300');

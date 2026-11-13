@@ -387,7 +387,7 @@ Gráfica de tendencia temporal (JWPLC_UITrend). Declara `float`. Soporta auto-es
 
 Colores del MENU (`colors`), por defecto:
 
-`text` = `0xFFFF` · `background` = `0x0000` · `value` = `0x07FF` · `selectText` = `0x0000` · `selectBackground` = `0x07FF` · `editText` = `0x0000` · `editBackground` = `0xFD20` · `title` = `0x0000` · `titleBackground` = `0xFFFF` · `frame` = `0xFFFF`
+`text` = `0xC618` · `background` = `0x0000` · `value` = `0x07FF` · `selectText` = `0xFFFF` · `selectBackground` = `0x03FF` · `editText` = `0x0000` · `editBackground` = `0xFD20` · `title` = `0xFFFF` · `titleBackground` = `0x2124` · `frame` = `0xFFFF`
 
 ### `EVENT_LOG`
 

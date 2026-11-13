@@ -370,8 +370,8 @@ const MENU_NODE = {
   children: { kind: 'array', desc: 'Atajo: hijos anidados de un SUBMENU (la normalización los aplana con `parent`).' }
 };
 const MENU_COLORS = Object.freeze({
-  text: 0xFFFF, background: 0x0000, value: 0x07FF, selectText: 0x0000, selectBackground: 0x07FF,
-  editText: 0x0000, editBackground: 0xFD20, title: 0x0000, titleBackground: 0xFFFF, frame: 0xFFFF
+  text: 0xC618, background: 0x0000, value: 0x07FF, selectText: 0xFFFF, selectBackground: 0x03FF,
+  editText: 0x0000, editBackground: 0xFD20, title: 0xFFFF, titleBackground: 0x2124, frame: 0xFFFF
 });
 const MENU_KINDS = Object.freeze({ SUBMENU: [''], VIEW: ['float', 'int32', 'bool'], EDIT_NUM: ['float', 'int32'], EDIT_BOOL: ['bool'], GO_IDLE: [''] });
 

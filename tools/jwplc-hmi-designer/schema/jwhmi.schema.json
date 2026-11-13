@@ -2480,7 +2480,7 @@
                         "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
                       }
                     ],
-                    "default": 65535
+                    "default": 50712
                   },
                   "background": {
                     "description": "RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
@@ -2525,7 +2525,7 @@
                         "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
                       }
                     ],
-                    "default": 0
+                    "default": 65535
                   },
                   "selectBackground": {
                     "description": "RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
@@ -2540,7 +2540,7 @@
                         "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
                       }
                     ],
-                    "default": 2047
+                    "default": 1023
                   },
                   "editText": {
                     "description": "RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
@@ -2585,7 +2585,7 @@
                         "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
                       }
                     ],
-                    "default": 0
+                    "default": 65535
                   },
                   "titleBackground": {
                     "description": "RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
@@ -2600,7 +2600,7 @@
                         "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
                       }
                     ],
-                    "default": 65535
+                    "default": 8484
                   },
                   "frame": {
                     "description": "RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
