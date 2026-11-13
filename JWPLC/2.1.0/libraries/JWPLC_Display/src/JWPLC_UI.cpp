@@ -1694,7 +1694,7 @@ namespace
             {
                 glcdTitle[maxChars] = '\0';
             }
-            tft.setTextColor(cfg.textColor, cfg.backgroundColor);
+            tft.setTextColor(cfg.curveColor, cfg.backgroundColor);
             tft.setCursor(g.x + 3, g.y + 2);
             tft.print(glcdTitle);
         }

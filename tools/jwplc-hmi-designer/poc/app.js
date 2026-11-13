@@ -2992,11 +2992,11 @@
       curX += titleStr.length * 6 + 4;
       if (field.preview !== undefined && field.preview !== null && String(field.preview) !== '') {
         const pStr = String(field.preview);
-        drawTextWithFont(buffer, pStr, curX, field.y + 2, text565, bg565, 1, 'GLCD');
+        drawTextWithFont(buffer, pStr, curX, field.y + 2, curve565, bg565, 1, 'GLCD');
         curX += pStr.length * 6 + 4;
       }
       if (field.unit) {
-        drawTextWithFont(buffer, String(field.unit).slice(0, 6), curX, field.y + 2, text565, bg565, 1, 'GLCD');
+        drawTextWithFont(buffer, String(field.unit).slice(0, 6), curX, field.y + 2, curve565, bg565, 1, 'GLCD');
         curX += String(field.unit).slice(0, 6).length * 6 + 6;
       }
 
