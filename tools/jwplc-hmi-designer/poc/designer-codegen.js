@@ -890,12 +890,20 @@ static void jwplcHMIDrawMicroText(JWPLC_TFTClass &tft, int16_t x, int16_t y, con
     const fields = allFields();
     const symbols = new Map(
       pageSymbols().map(({ page, symbol }) => [Number(page.id), symbol]));
+    const trendLines = fields
+      .map((field, index) => ({ field, index }))
+      .filter(({ field }) => field.type === 'TREND' && !isStaticObject(field) && !isClockField(field))
+      .map(({ field, index }) => `    ${setterHint(field, index)}`);
     const cases = [];
 
     pages().forEach((page) => {
       const lines = fields
         .map((field, index) => ({ field, index }))
-        .filter(({ field }) => Number(field.page || 0) === Number(page.id) && !isStaticObject(field) && !isClockField(field))
+        .filter(({ field }) =>
+          Number(field.page || 0) === Number(page.id) &&
+          field.type !== 'TREND' &&
+          !isStaticObject(field) &&
+          !isClockField(field))
         .map(({ field, index }) => `        ${setterHint(field, index)}`);
       if (!lines.length) return;
 
@@ -907,13 +915,24 @@ static void jwplcHMIDrawMicroText(JWPLC_TFTClass &tft, int16_t x, int16_t y, con
         `        break;`);
     });
 
-    const body = cases.length
-      ? `    switch (JWPLC_Display.userPage())\n` +
+    const blocks = [];
+    if (trendLines.length) {
+      blocks.push(
+        `    // Tendencias en segundo plano (se actualizan aunque estés en otra página)\n` +
+        `${trendLines.join('\n')}`);
+    }
+    if (cases.length) {
+      blocks.push(
+        `    switch (JWPLC_Display.userPage())\n` +
         `    {\n` +
         `${cases.join('\n\n')}\n\n` +
         `    default:\n` +
         `        break;\n` +
-        `    }\n`
+        `    }`);
+    }
+
+    const body = blocks.length
+      ? `${blocks.join('\n\n')}\n`
       : `    // Sin campos dinámicos.\n`;
 
     return `// Sincronización gráfica autogenerada (cada tick de refresco).\n` +

@@ -107,5 +107,9 @@ for (const [file, map] of Object.entries(BINDINGS)) {
 const menu = rt.toRuntimeHeader(fs.readFileSync(path.join(GOLDEN, 'menu.h'), 'utf8'), { pageCount: 1 });
 check(menu.unsupported.includes('MENU') && menu.text.startsWith('// ERROR RUNTIME: MENU'), 'menu.h: MENU no admitido, con error al inicio');
 
+const trendMock = '// Código generado por JWPLC HMI Designer\n// API pública JWPLC_UI · Alpha11 A11-4\n#include <JWPLC_Display.h>\nstatic const JWPLC_UIField HMI_FIELDS[] = { JWPLC_UITrendField(1) };\nvoid jwplcHMISetup() {}\nvoid jwplcUIUpdate() { JWPLC_Display.setTrend(1, rt_b01_t); }\n';
+const trendRt = rt.toRuntimeHeader(trendMock, { pageCount: 1 });
+check(trendRt.unsupported.includes('TREND') && trendRt.text.startsWith('// ERROR RUNTIME: TREND'), 'TREND no admitido en Runtime, con error al inicio');
+
 console.log(failures.length ? `\nRESULTADO: FAIL (${failures.length})` : '\nRESULTADO: PASS');
 process.exit(failures.length ? 1 : 0);
