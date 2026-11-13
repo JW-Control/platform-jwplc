@@ -32,11 +32,14 @@ namespace
         uint16_t capacity;
         uint16_t count;
         uint16_t head;
+        uint16_t drawnCount;
+        uint8_t channels;
         uint32_t lastSampleMs;
         uint32_t lastSdMs;
         float drawnLow;
         float drawnHigh;
         bool fullRedraw;
+        bool headerOnly;
         bool hasDrawnScale;
         bool sdStarted;
         bool sdFailed;
@@ -207,8 +210,10 @@ namespace
             minVal -= pad;
             maxVal += pad;
         }
-        const float range = trendNiceNum(maxVal - minVal, false);
-        const float step = trendNiceNum(range / 2.0f, true);
+        const float span = maxVal - minVal;
+        // Dividir en ~4 pasos finos evita saltos de escala desproporcionados (p. ej. 25->40)
+        // manteniendo números limpios e histéresis frente a ruido pequeño.
+        const float step = trendNiceNum(span / 4.0f, true);
         float graphMin = floorf(minVal / step) * step;
         float graphMax = ceilf(maxVal / step) * step;
         if (graphMax <= graphMin)
@@ -284,20 +289,26 @@ namespace
         uint16_t cap = field.def.trendConfig.visibleSamples;
         if (cap < 20) cap = 20;
         if (cap > 320) cap = 320;
+        uint8_t chCount = field.def.trendConfig.channelCount;
+        if (chCount < 1U) chCount = 1U;
+        if (chCount > 3U) chCount = 3U;
 
         TrendRuntime *tr = (TrendRuntime *)calloc(1, sizeof(TrendRuntime));
         if (tr == nullptr)
         {
             return nullptr;
         }
-        tr->samples = (float *)calloc((size_t)cap * 3U, sizeof(float));
+        tr->samples = (float *)calloc((size_t)cap * (size_t)chCount, sizeof(float));
         if (tr->samples == nullptr)
         {
             free(tr);
             return nullptr;
         }
         tr->capacity = cap;
+        tr->channels = chCount;
+        tr->drawnCount = 0U;
         tr->fullRedraw = true;
+        tr->headerOnly = false;
         field.trend = tr;
         return tr;
     }
@@ -388,10 +399,11 @@ namespace
 
     void pushTrendSample(FieldRuntime &field, TrendRuntime &tr, uint32_t now)
     {
-        const size_t slot = (size_t)tr.head * 3U;
+        const uint8_t chStride = (tr.channels >= 1U && tr.channels <= 3U) ? tr.channels : 1U;
+        const size_t slot = (size_t)tr.head * (size_t)chStride;
         tr.samples[slot + 0U] = field.barValue;
-        tr.samples[slot + 1U] = field.trendCh2;
-        tr.samples[slot + 2U] = field.trendCh3;
+        if (chStride >= 2U) tr.samples[slot + 1U] = field.trendCh2;
+        if (chStride >= 3U) tr.samples[slot + 2U] = field.trendCh3;
         tr.head = (uint16_t)((tr.head + 1U) % tr.capacity);
         if (tr.count < tr.capacity)
         {
@@ -428,9 +440,10 @@ namespace
         return false;
     }
 
-    // ICON: filas RGB565 decodificadas que van juntas en un pushImage (1 KB,
-    // 8 filas de un icono de 64 px). Fuera de la pila del loop.
-    uint16_t g_iconRows[JWPLC_UI_ICON_MAX_SIZE * 8];
+    // Buffer de bandas RGB565 compartido entre ICON y TREND anti-parpadeo
+    // (320 * 8 = 2560 píxeles = 5 KB fijos para toda la HMI, sin fragmentar heap).
+    static constexpr size_t BAND_BUFFER_PIXELS = 320U * 8U;
+    uint16_t g_bandRows[BAND_BUFFER_PIXELS];
     size_t g_fieldCount = 0;
 
     JWPLC_UIRefreshMode g_refreshMode = USER_REFRESH_ON_DEMAND;
@@ -457,6 +470,56 @@ namespace
         return nullptr;
     }
 
+    bool isTrendSampleDue(const FieldRuntime &f, uint32_t now)
+    {
+        if (!f.used || f.def.meta.type != JWPLC_UI_FIELD_TREND)
+        {
+            return false;
+        }
+        if (!f.hasValue || f.trend == nullptr || f.trend->count == 0U)
+        {
+            return true;
+        }
+        const uint32_t sampleMs = (f.def.trendConfig.sampleIntervalMs >= 50U)
+                                      ? f.def.trendConfig.sampleIntervalMs
+                                      : 1000U;
+        return (uint32_t)(now - f.trend->lastSampleMs) >= sampleMs;
+    }
+
+    bool anyTrendSampleDueImpl()
+    {
+        const uint32_t now = millis();
+        for (size_t i = 0; i < g_fieldCount; ++i)
+        {
+            if (isTrendSampleDue(g_fields[i], now))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    void tickDueTrendsImpl()
+    {
+        const uint32_t now = millis();
+        for (size_t i = 0; i < g_fieldCount; ++i)
+        {
+            FieldRuntime &f = g_fields[i];
+            if (!f.used || f.def.meta.type != JWPLC_UI_FIELD_TREND || !f.hasValue)
+            {
+                continue;
+            }
+            if (tickTrendField(f, now, false))
+            {
+                if (f.trend != nullptr)
+                {
+                    f.trend->headerOnly = false;
+                }
+                f.dirty = true;
+            }
+        }
+    }
+
     bool anyDirtyOnCurrentPage()
     {
         const uint32_t now = millis();
@@ -470,17 +533,14 @@ namespace
                 continue;
             }
 
-            // Muestreo periódico TREND: sigue acumulando historial/SD en segundo plano
-            if (f.def.meta.type == JWPLC_UI_FIELD_TREND && f.hasValue)
-            {
-                if (tickTrendField(f, now, false))
-                {
-                    f.dirty = true;
-                }
-            }
-
             if (f.def.meta.page != g_page)
             {
+                continue;
+            }
+
+            if (f.def.meta.type == JWPLC_UI_FIELD_TREND && isTrendSampleDue(f, now))
+            {
+                dirtyFound = true;
                 continue;
             }
 
@@ -1286,7 +1346,7 @@ namespace
                     ++x;
                 }
                 const int16_t start = x;
-                uint16_t *out = g_iconRows;
+                uint16_t *out = g_bandRows;
                 while (x < w && !iconAlwaysTransparent(icon, stride, x, y))
                 {
                     const uint8_t packed = row[x >> 1];
@@ -1296,7 +1356,7 @@ namespace
                 }
                 if (x > start)
                 {
-                    tft.pushImage(field.valueX + start, field.valueY + y, x - start, 1, g_iconRows);
+                    tft.pushImage(field.valueX + start, field.valueY + y, x - start, 1, g_bandRows);
                 }
             }
         }
@@ -1349,12 +1409,12 @@ namespace
         const int16_t h = icon->height;
         const size_t stride = ((size_t)w + 1U) / 2U;
         const int16_t rowsPerPush =
-            (int16_t)((sizeof(g_iconRows) / sizeof(g_iconRows[0])) / (size_t)w);
+            (int16_t)((sizeof(g_bandRows) / sizeof(g_bandRows[0])) / (size_t)w);
 
         for (int16_t y0 = 0; y0 < h; y0 += rowsPerPush)
         {
             const int16_t rows = (h - y0 < rowsPerPush) ? (h - y0) : rowsPerPush;
-            uint16_t *out = g_iconRows;
+            uint16_t *out = g_bandRows;
 
             for (int16_t r = 0; r < rows; ++r)
             {
@@ -1375,7 +1435,7 @@ namespace
                 field.valueY + y0,
                 w,
                 rows,
-                g_iconRows);
+                g_bandRows);
         }
     }
 
@@ -1579,6 +1639,8 @@ namespace
         uint8_t chCount = cfg.channelCount;
         if (chCount < 1U) chCount = 1U;
         if (chCount > 3U) chCount = 3U;
+        const uint8_t chStride = (tr.channels >= 1U && tr.channels <= 3U) ? tr.channels : 1U;
+        if (chCount > chStride) chCount = chStride;
 
         bool found = false;
         float dataMin = 0.0f;
@@ -1587,7 +1649,7 @@ namespace
         for (uint16_t i = 0U; i < tr.count; ++i)
         {
             const uint16_t slotIdx = (uint16_t)((oldestIdx + i) % tr.capacity);
-            const size_t base = (size_t)slotIdx * 3U;
+            const size_t base = (size_t)slotIdx * (size_t)chStride;
             for (uint8_t ch = 0U; ch < chCount; ++ch)
             {
                 const float v = tr.samples[base + ch];
@@ -1904,7 +1966,6 @@ namespace
             return;
         }
 
-        tft.fillRect(clearX, g.y + 1, clearW, 10, cfg.backgroundColor);
         tft.setFont(JWPLC_FONT_GLCD);
         tft.setTextSize(1);
 
@@ -1934,22 +1995,130 @@ namespace
         {
             valText[availChars] = '\0';
         }
+        int16_t printedW = 0;
         if (availChars > 0)
         {
             tft.setTextColor(field.hasValue ? cfg.curveColor : cfg.textColor, cfg.backgroundColor);
             tft.setCursor(clearX, g.y + 2);
             tft.print(valText);
+            printedW = (int16_t)strlen(valText) * 6;
+        }
+        // Limpiar solo el sobrante derecho si el texto nuevo es más corto (evita parpadeo en dígitos).
+        if (printedW < clearW)
+        {
+            tft.fillRect(clearX + printedW, g.y + 1, clearW - printedW, 10, cfg.backgroundColor);
         }
     }
 
-    void drawTrendCurves(
+    static inline void plotBandPixel(
+        uint16_t *band,
+        int16_t bandW,
+        int16_t bandX0,
+        int16_t bandX1,
+        int16_t bandY0,
+        int16_t bandY1,
+        int16_t x,
+        int16_t y,
+        uint16_t color)
+    {
+        if (x >= bandX0 && x <= bandX1 && y >= bandY0 && y <= bandY1)
+        {
+            band[(size_t)(y - bandY0) * (size_t)bandW + (size_t)(x - bandX0)] = color;
+        }
+    }
+
+    void rasterizeTrendBandLine(
+        uint16_t *band,
+        int16_t bandW,
+        int16_t bandX0,
+        int16_t bandY0,
+        int16_t bandY1,
+        int16_t x0,
+        int16_t y0,
+        int16_t x1,
+        int16_t y1,
+        uint16_t color)
+    {
+        const int16_t bandX1 = bandX0 + bandW - 1;
+        if ((y0 < bandY0 && y1 < bandY0) || (y0 > bandY1 && y1 > bandY1))
+        {
+            return;
+        }
+        if ((x0 < bandX0 && x1 < bandX0) || (x0 > bandX1 && x1 > bandX1))
+        {
+            return;
+        }
+
+        int16_t dx = abs(x1 - x0);
+        int16_t sx = (x0 < x1) ? 1 : -1;
+        int16_t dy = -abs(y1 - y0);
+        int16_t sy = (y0 < y1) ? 1 : -1;
+        int16_t err = dx + dy;
+
+        for (;;)
+        {
+            plotBandPixel(band, bandW, bandX0, bandX1, bandY0, bandY1, x0, y0, color);
+            if (x0 == x1 && y0 == y1)
+            {
+                break;
+            }
+            const int16_t e2 = (int16_t)(2 * err);
+            if (e2 >= dy)
+            {
+                err += dy;
+                x0 += sx;
+            }
+            if (e2 <= dx)
+            {
+                err += dx;
+                y0 += sy;
+            }
+        }
+    }
+
+    bool computeTrendSamplePoint(
+        uint16_t sampleIndex,
+        uint16_t capacity,
+        float val,
+        int16_t startX,
+        int16_t availW,
+        int16_t maxX,
+        int16_t minY,
+        int16_t maxY,
+        const TrendGeometry &g,
+        const TrendScale &scale,
+        int16_t &outX,
+        int16_t &outY)
+    {
+        if (!std::isfinite(val))
+        {
+            return false;
+        }
+        int16_t px = startX + (int16_t)lroundf(
+                                  ((float)sampleIndex / (float)(capacity - 1U)) * (float)(availW - 1));
+        if (px < startX) px = startX;
+        if (px > maxX) px = maxX;
+
+        int16_t py = 0;
+        trendValueToY(val, scale.low, scale.high, g.topGuideY, g.activeH, py);
+        if (py < minY) py = minY;
+        if (py > maxY) py = maxY;
+
+        outX = px;
+        outY = py;
+        return true;
+    }
+
+    void drawTrendCurveRange(
         JWPLC_TFTClass &tft,
         const JWPLC_UITrendConfig &cfg,
         const TrendRuntime &tr,
         const TrendGeometry &g,
-        const TrendScale &scale)
+        const TrendScale &scale,
+        uint16_t fromSample,
+        uint16_t toSample)
     {
-        if (tr.count == 0U || g.plotW <= 2)
+        if (tr.count == 0U || g.plotW <= 2 || fromSample > toSample || toSample >= tr.count)
         {
             return;
         }
@@ -1957,6 +2126,8 @@ namespace
         uint8_t chCount = cfg.channelCount;
         if (chCount < 1U) chCount = 1U;
         if (chCount > 3U) chCount = 3U;
+        const uint8_t chStride = (tr.channels >= 1U && tr.channels <= 3U) ? tr.channels : 1U;
+        if (chCount > chStride) chCount = chStride;
 
         const uint16_t chColors[3] = {cfg.curveColor, cfg.ch2Color, cfg.ch3Color};
         const uint16_t oldestIdx = (tr.count < tr.capacity) ? 0U : tr.head;
@@ -1979,29 +2150,22 @@ namespace
             int16_t prevY = 0;
             bool hasPrev = false;
 
-            for (uint16_t i = 0U; i < tr.count; ++i)
+            for (uint16_t i = fromSample; i <= toSample; ++i)
             {
                 const uint16_t ringIdx = (uint16_t)((oldestIdx + i) % tr.capacity);
-                const float val = tr.samples[(size_t)ringIdx * 3U + (size_t)ch];
-                if (!std::isfinite(val))
+                const float val = tr.samples[(size_t)ringIdx * (size_t)chStride + (size_t)ch];
+                int16_t px = 0;
+                int16_t py = 0;
+                if (!computeTrendSamplePoint(
+                        i, tr.capacity, val, startX, availW, maxX, minY, maxY, g, scale, px, py))
                 {
                     hasPrev = false;
                     continue;
                 }
 
-                int16_t px = startX + (int16_t)lroundf(
-                                          ((float)i / (float)(tr.capacity - 1U)) * (float)(availW - 1));
-                if (px < startX) px = startX;
-                if (px > maxX) px = maxX;
-
-                int16_t py = 0;
-                trendValueToY(val, scale.low, scale.high, g.topGuideY, g.activeH, py);
-                if (py < minY) py = minY;
-                if (py > maxY) py = maxY;
-
                 if (!hasPrev)
                 {
-                    if (tr.count == 1U)
+                    if (tr.count == 1U || i > fromSample)
                     {
                         tft.drawPixel(px, py, col);
                         if (thick && py + 1 <= maxY)
@@ -2030,6 +2194,180 @@ namespace
         }
     }
 
+    void drawTrendCurves(
+        JWPLC_TFTClass &tft,
+        const JWPLC_UITrendConfig &cfg,
+        const TrendRuntime &tr,
+        const TrendGeometry &g,
+        const TrendScale &scale)
+    {
+        if (tr.count == 0U)
+        {
+            return;
+        }
+        drawTrendCurveRange(tft, cfg, tr, g, scale, 0U, (uint16_t)(tr.count - 1U));
+    }
+
+    // Compone fondo, guías, umbrales y curvas en franjas RGB565 en RAM y las
+    // empuja con pushImage sin borrar previamente la pantalla (cero parpadeo).
+    void drawTrendPlotBands(
+        JWPLC_TFTClass &tft,
+        const JWPLC_UITrendConfig &cfg,
+        const TrendRuntime &tr,
+        const TrendGeometry &g,
+        const TrendScale &scale)
+    {
+        const int16_t clearX = g.plotX + (cfg.showAxes ? 1 : 0);
+        const int16_t clearW = g.plotW - (cfg.showAxes ? 1 : 0);
+        const int16_t minY = g.plotY;
+        const int16_t maxY = cfg.showAxes ? (g.baseAxisY - 1) : g.baseAxisY;
+        const int16_t clearH = maxY - minY + 1;
+
+        if (clearW <= 0 || clearH <= 0)
+        {
+            return;
+        }
+
+        const int16_t rowsPerBand = (int16_t)(BAND_BUFFER_PIXELS / (size_t)clearW);
+        if (rowsPerBand < 1)
+        {
+            tft.fillRect(clearX, minY, clearW, clearH, cfg.backgroundColor);
+            drawTrendGuidesAndThresholds(tft, cfg, g, scale);
+            drawTrendCurves(tft, cfg, tr, g, scale);
+            return;
+        }
+
+        uint8_t chCount = cfg.channelCount;
+        if (chCount < 1U) chCount = 1U;
+        if (chCount > 3U) chCount = 3U;
+        const uint8_t chStride = (tr.channels >= 1U && tr.channels <= 3U) ? tr.channels : 1U;
+        if (chCount > chStride) chCount = chStride;
+
+        const uint16_t chColors[3] = {cfg.curveColor, cfg.ch2Color, cfg.ch3Color};
+        const uint16_t oldestIdx = (tr.count < tr.capacity) ? 0U : tr.head;
+        const int16_t maxX = clearX + clearW - 1;
+        const bool thick = (cfg.lineWidth >= 2U);
+
+        uint8_t thrCount = cfg.thresholdCount;
+        if (thrCount > 2U) thrCount = 2U;
+        const float thrVals[2] = {cfg.thr1Value, cfg.thr2Value};
+        const uint16_t thrCols[2] = {cfg.thr1Color, cfg.thr2Color};
+        int16_t thrYs[2] = {-1, -1};
+        for (uint8_t i = 0U; i < thrCount; ++i)
+        {
+            int16_t ty = 0;
+            if (trendValueToY(thrVals[i], scale.low, scale.high, g.topGuideY, g.activeH, ty) &&
+                ty >= minY && ty <= maxY)
+            {
+                thrYs[i] = ty;
+            }
+        }
+
+        const int16_t guidesY[3] = {g.guide75Y, g.guide50Y, g.guide25Y};
+
+        for (int16_t y0 = minY; y0 <= maxY; y0 += rowsPerBand)
+        {
+            const int16_t rem = (int16_t)(maxY - y0 + 1);
+            const int16_t rows = (rem < rowsPerBand) ? rem : rowsPerBand;
+            const int16_t bandY1 = y0 + rows - 1;
+            const size_t bandPixels = (size_t)clearW * (size_t)rows;
+
+            for (size_t p = 0; p < bandPixels; ++p)
+            {
+                g_bandRows[p] = cfg.backgroundColor;
+            }
+
+            if (cfg.showGuides)
+            {
+                for (uint8_t gi = 0U; gi < 3U; ++gi)
+                {
+                    const int16_t gy = guidesY[gi];
+                    if (gy >= y0 && gy <= bandY1)
+                    {
+                        uint16_t *rowPtr = g_bandRows + (size_t)(gy - y0) * (size_t)clearW;
+                        for (int16_t dx = 0; dx < clearW; ++dx)
+                        {
+                            rowPtr[dx] = cfg.gridColor;
+                        }
+                    }
+                }
+            }
+
+            for (uint8_t ti = 0U; ti < thrCount; ++ti)
+            {
+                const int16_t ty = thrYs[ti];
+                if (ty >= y0 && ty <= bandY1)
+                {
+                    uint16_t *rowPtr = g_bandRows + (size_t)(ty - y0) * (size_t)clearW;
+                    for (int16_t dx = 0; dx < clearW; ++dx)
+                    {
+                        if ((dx % 6) < 3)
+                        {
+                            rowPtr[dx] = thrCols[ti];
+                        }
+                    }
+                }
+            }
+
+            if (tr.count > 0U && clearW > 1 && maxY > minY)
+            {
+                for (int8_t ch = (int8_t)chCount - 1; ch >= 0; --ch)
+                {
+                    const uint16_t col = chColors[ch];
+                    int16_t prevX = 0;
+                    int16_t prevY = 0;
+                    bool hasPrev = false;
+
+                    for (uint16_t i = 0U; i < tr.count; ++i)
+                    {
+                        const uint16_t ringIdx = (uint16_t)((oldestIdx + i) % tr.capacity);
+                        const float val = tr.samples[(size_t)ringIdx * (size_t)chStride + (size_t)ch];
+                        int16_t px = 0;
+                        int16_t py = 0;
+                        if (!computeTrendSamplePoint(
+                                i, tr.capacity, val, clearX, clearW, maxX, minY, maxY, g, scale, px, py))
+                        {
+                            hasPrev = false;
+                            continue;
+                        }
+
+                        if (!hasPrev)
+                        {
+                            if (tr.count == 1U)
+                            {
+                                plotBandPixel(g_bandRows, clearW, clearX, maxX, y0, bandY1, px, py, col);
+                                if (thick && py + 1 <= maxY)
+                                {
+                                    plotBandPixel(g_bandRows, clearW, clearX, maxX, y0, bandY1, px, py + 1, col);
+                                }
+                            }
+                            prevX = px;
+                            prevY = py;
+                            hasPrev = true;
+                            continue;
+                        }
+
+                        rasterizeTrendBandLine(g_bandRows, clearW, clearX, y0, bandY1, prevX, prevY, px, py, col);
+                        if (thick)
+                        {
+                            const int16_t yOff = (prevY + 1 <= maxY && py + 1 <= maxY) ? 1 : -1;
+                            if (prevY + yOff >= minY && py + yOff >= minY)
+                            {
+                                rasterizeTrendBandLine(
+                                    g_bandRows, clearW, clearX, y0, bandY1,
+                                    prevX, (int16_t)(prevY + yOff), px, (int16_t)(py + yOff), col);
+                            }
+                        }
+                        prevX = px;
+                        prevY = py;
+                    }
+                }
+            }
+
+            tft.pushImage(clearX, y0, clearW, rows, g_bandRows);
+        }
+    }
+
     void drawTrendField(JWPLC_TFTClass &tft, FieldRuntime &field)
     {
         const JWPLC_UITrendConfig &cfg = field.def.trendConfig;
@@ -2042,34 +2380,51 @@ namespace
             return;
         }
 
+        if (tr->headerOnly && !tr->fullRedraw && tr->hasDrawnScale)
+        {
+            tft.beginBatch();
+            drawTrendHeaderLive(tft, field, g);
+            tft.endBatch();
+            tr->headerOnly = false;
+            field.dirty = false;
+            return;
+        }
+        tr->headerOnly = false;
+
         const TrendScale scale = computeTrendDisplayedScale(field, *tr);
         const bool scaleChanged = !tr->hasDrawnScale ||
                                   fabsf(scale.low - tr->drawnLow) > 1e-4f ||
                                   fabsf(scale.high - tr->drawnHigh) > 1e-4f;
+        const bool pureAppend = !tr->fullRedraw &&
+                                !scaleChanged &&
+                                tr->drawnCount >= 1U &&
+                                tr->count > tr->drawnCount &&
+                                (tr->count < tr->capacity || tr->head == 0U);
 
         tft.beginBatch();
         if (tr->fullRedraw || scaleChanged)
         {
             drawTrendStaticChrome(tft, field, g, scale);
+            drawTrendHeaderLive(tft, field, g);
+            drawTrendPlotBands(tft, cfg, *tr, g, scale);
             tr->drawnLow = scale.low;
             tr->drawnHigh = scale.high;
             tr->hasDrawnScale = true;
             tr->fullRedraw = false;
+            tr->drawnCount = tr->count;
+        }
+        else if (pureAppend)
+        {
+            drawTrendHeaderLive(tft, field, g);
+            drawTrendCurveRange(tft, cfg, *tr, g, scale, (uint16_t)(tr->drawnCount - 1U), (uint16_t)(tr->count - 1U));
+            tr->drawnCount = tr->count;
         }
         else
         {
-            const int16_t clearX = g.plotX + (cfg.showAxes ? 1 : 0);
-            const int16_t clearW = g.plotW - (cfg.showAxes ? 1 : 0);
-            const int16_t clearH = (g.baseAxisY - g.plotY) + (cfg.showAxes ? 0 : 1);
-            if (clearW > 0 && clearH > 0)
-            {
-                tft.fillRect(clearX, g.plotY, clearW, clearH, cfg.backgroundColor);
-            }
+            drawTrendHeaderLive(tft, field, g);
+            drawTrendPlotBands(tft, cfg, *tr, g, scale);
+            tr->drawnCount = tr->count;
         }
-
-        drawTrendGuidesAndThresholds(tft, cfg, g, scale);
-        drawTrendHeaderLive(tft, field, g);
-        drawTrendCurves(tft, cfg, *tr, g, scale);
         tft.endBatch();
 
         field.dirty = false;
@@ -2089,6 +2444,8 @@ namespace
             if (tr != nullptr)
             {
                 tr->fullRedraw = true;
+                tr->headerOnly = false;
+                tr->drawnCount = 0U;
             }
             field.dirty = true;
             return;
@@ -2960,6 +3317,10 @@ namespace JWPLCUI
         {
             if (tickTrendField(*field, millis(), false))
             {
+                if (field->trend != nullptr)
+                {
+                    field->trend->headerOnly = false;
+                }
                 markFieldDirty(*field);
                 jwplcH3E1RecordSetter(fieldId, true);
             }
@@ -2974,7 +3335,18 @@ namespace JWPLCUI
         if (count >= 2) field->trendCh2 = v2;
         if (count >= 3) field->trendCh3 = v3;
         field->hasValue = true;
-        tickTrendField(*field, millis(), true);
+        const bool sampled = tickTrendField(*field, millis(), true);
+        if (field->trend != nullptr)
+        {
+            if (sampled)
+            {
+                field->trend->headerOnly = false;
+            }
+            else if (!field->dirty && !field->trend->fullRedraw && field->trend->hasDrawnScale)
+            {
+                field->trend->headerOnly = true;
+            }
+        }
         markFieldDirty(*field);
 
         jwplcH3E1RecordSetter(fieldId, true);
@@ -3025,6 +3397,16 @@ namespace JWPLCUI
         g_refreshRequested = false;
     }
 
+    bool anyTrendSampleDue()
+    {
+        return anyTrendSampleDueImpl();
+    }
+
+    void tickDueTrends()
+    {
+        tickDueTrendsImpl();
+    }
+
     void setPage(uint8_t page)
     {
         if (g_page == page)
@@ -3045,6 +3427,8 @@ namespace JWPLCUI
                 if (g_fields[i].trend != nullptr)
                 {
                     g_fields[i].trend->fullRedraw = true;
+                    g_fields[i].trend->headerOnly = false;
+                    g_fields[i].trend->drawnCount = 0U;
                 }
             }
         }
@@ -3081,6 +3465,8 @@ namespace JWPLCUI
         if (field->trend != nullptr)
         {
             field->trend->fullRedraw = true;
+            field->trend->headerOnly = false;
+            field->trend->drawnCount = 0U;
         }
         markFieldDirty(*field);
     }
@@ -3096,6 +3482,8 @@ namespace JWPLCUI
                 if (g_fields[i].trend != nullptr)
                 {
                     g_fields[i].trend->fullRedraw = true;
+                    g_fields[i].trend->headerOnly = false;
+                    g_fields[i].trend->drawnCount = 0U;
                 }
             }
         }
@@ -3122,6 +3510,8 @@ namespace JWPLCUI
                 if (g_fields[i].trend != nullptr)
                 {
                     g_fields[i].trend->fullRedraw = true;
+                    g_fields[i].trend->headerOnly = false;
+                    g_fields[i].trend->drawnCount = 0U;
                 }
             }
         }
@@ -3146,6 +3536,8 @@ namespace JWPLCUI
 
     void drawDirty(JWPLC_TFTClass &tft)
     {
+        tickDueTrends();
+
         const bool profile =
             jwplcH3E1ProfilerEnabled();
 

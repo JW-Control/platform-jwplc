@@ -777,6 +777,8 @@ namespace JWPLCUI
     void requestRefresh();
     bool refreshNeeded();
     void consumeRefreshRequest();
+    bool anyTrendSampleDue();
+    void tickDueTrends();
 
     void setPage(uint8_t page);
     uint8_t currentPage();

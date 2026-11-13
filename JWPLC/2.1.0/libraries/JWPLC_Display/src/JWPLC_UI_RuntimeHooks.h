@@ -22,6 +22,8 @@ extern "C"
 void jwplcUIRuntimeServiceInput(void);
 
 bool jwplcUIRuntimeRefreshNeeded(void);
+bool jwplcUIRuntimeBackgroundTrendDue(void);
+void jwplcUIRuntimeTickDueTrends(void);
 void jwplcUIRuntimeInvalidateAll(bool redrawStatic);
 void jwplcUIRuntimePrepareEnter(void);
 uint8_t jwplcUIRuntimeCurrentPage(void);

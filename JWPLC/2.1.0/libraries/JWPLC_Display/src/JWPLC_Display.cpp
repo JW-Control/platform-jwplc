@@ -72,6 +72,8 @@ extern "C" void __attribute__((weak)) jwplcUIExit(void) {}
 // enlazarse la API de campos, manteniendo exactamente JWPLC_Display.*.
 extern "C" void __attribute__((weak)) jwplcUIRuntimeServiceInput(void) {}
 extern "C" bool __attribute__((weak)) jwplcUIRuntimeRefreshNeeded(void) { return true; }
+extern "C" bool __attribute__((weak)) jwplcUIRuntimeBackgroundTrendDue(void) { return false; }
+extern "C" void __attribute__((weak)) jwplcUIRuntimeTickDueTrends(void) {}
 extern "C" void __attribute__((weak)) jwplcUIRuntimeInvalidateAll(bool redrawStatic) { (void)redrawStatic; }
 extern "C" void __attribute__((weak)) jwplcUIRuntimePrepareEnter(void) {}
 extern "C" uint8_t __attribute__((weak)) jwplcUIRuntimeCurrentPage(void) { return 0; }
@@ -1013,6 +1015,12 @@ extern "C" void jwplcDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC
 
         if (!refreshNeeded)
         {
+            if (jwplcUIRuntimeBackgroundTrendDue())
+            {
+                jwplcUIUpdate();
+                jwplcUIRuntimeTickDueTrends();
+            }
+
             if (profile)
             {
                 jwplcH3E1RecordRefreshSkippedClean();
@@ -1073,6 +1081,12 @@ extern "C" void jwplcDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC
             profile ? micros() : 0U;
 
         releaseTFTBus();
+
+        if (jwplcUIRuntimeBackgroundTrendDue())
+        {
+            jwplcUIUpdate();
+            jwplcUIRuntimeTickDueTrends();
+        }
 
         if (profile)
         {

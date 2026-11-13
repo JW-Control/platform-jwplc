@@ -528,6 +528,16 @@ extern "C" bool jwplcUIRuntimeRefreshNeeded(void)
     return JWPLCUI::refreshNeeded();
 }
 
+extern "C" bool jwplcUIRuntimeBackgroundTrendDue(void)
+{
+    return JWPLCUI::anyTrendSampleDue();
+}
+
+extern "C" void jwplcUIRuntimeTickDueTrends(void)
+{
+    JWPLCUI::tickDueTrends();
+}
+
 extern "C" void jwplcUIRuntimeInvalidateAll(bool redrawStatic)
 {
     jwplcUIEventLogInvalidateAll();
