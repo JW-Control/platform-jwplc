@@ -1,6 +1,8 @@
 #include "JWPLC_UI.h"
 #include "JWPLC_UI_Format.h"
 #include <JWPLC_TFT.h>
+#include <JWPLC_GlobalPeripherals.h>
+#include <JW_SD.h>
 #include "JWPLC_Display_API.h"
 #include "JWPLC_Display_H3E1_Profile.h"
 
@@ -8,6 +10,7 @@
 
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 
 extern "C"
@@ -22,6 +25,24 @@ namespace
     static constexpr int16_t FIELD_GAP = 4;
     static constexpr int16_t DEFAULT_BAR_WIDTH = 80;
     static constexpr int16_t DEFAULT_BAR_HEIGHT = 12;
+
+    struct TrendRuntime
+    {
+        float *samples;
+        uint16_t capacity;
+        uint16_t count;
+        uint16_t head;
+        uint32_t lastSampleMs;
+        uint32_t lastSdMs;
+        float drawnLow;
+        float drawnHigh;
+        bool fullRedraw;
+        bool hasDrawnScale;
+        bool sdStarted;
+        bool sdFailed;
+        bool sdInitAttempted;
+        JWPLCDataLog *sdLog;
+    };
 
     struct FieldRuntime
     {
@@ -38,6 +59,7 @@ namespace
         float barValue;
         float trendCh2;
         float trendCh3;
+        TrendRuntime *trend;
         // BAR: ancho de relleno que hay en pantalla; -1 = desconocido
         // (repintado completo). Con él sólo se pinta o borra el tramo que cambió.
         int16_t barDrawnW;
@@ -66,6 +88,7 @@ namespace
               barValue(0.0f),
               trendCh2(0.0f),
               trendCh3(0.0f),
+              trend(nullptr),
               barDrawnW(-1),
               iconState(0),
               iconAnimFrame(0),
@@ -84,6 +107,326 @@ namespace
     };
 
     FieldRuntime g_fields[JWPLC_UI_MAX_FIELDS];
+
+    void freeTrendRuntime(FieldRuntime &field)
+    {
+        if (field.trend == nullptr)
+        {
+            return;
+        }
+        if (field.trend->samples != nullptr)
+        {
+            free(field.trend->samples);
+            field.trend->samples = nullptr;
+        }
+        if (field.trend->sdLog != nullptr)
+        {
+            field.trend->sdLog->close(true);
+            delete field.trend->sdLog;
+            field.trend->sdLog = nullptr;
+        }
+        free(field.trend);
+        field.trend = nullptr;
+    }
+
+    void freeAllTrendRuntimes()
+    {
+        for (size_t i = 0; i < JWPLC_UI_MAX_FIELDS; ++i)
+        {
+            freeTrendRuntime(g_fields[i]);
+        }
+    }
+
+    struct TrendGeometry
+    {
+        int16_t x;
+        int16_t y;
+        int16_t w;
+        int16_t h;
+        int16_t plotX;
+        int16_t plotY;
+        int16_t plotW;
+        int16_t plotH;
+        int16_t baseAxisY;
+        int16_t topGuideY;
+        int16_t activeH;
+        int16_t guide75Y;
+        int16_t guide50Y;
+        int16_t guide25Y;
+        int16_t timeH;
+    };
+
+    struct TrendScale
+    {
+        float low;
+        float mid;
+        float high;
+    };
+
+    float trendNiceNum(float range, bool roundIt)
+    {
+        if (range <= 0.0f || !std::isfinite(range))
+        {
+            return 1.0f;
+        }
+        const float expVal = floorf(log10f(range));
+        const float f = range / powf(10.0f, expVal);
+        float nf = 1.0f;
+        if (roundIt)
+        {
+            if (f < 1.5f) nf = 1.0f;
+            else if (f < 3.0f) nf = 2.0f;
+            else if (f < 7.0f) nf = 5.0f;
+            else nf = 10.0f;
+        }
+        else
+        {
+            if (f <= 1.0f) nf = 1.0f;
+            else if (f <= 2.0f) nf = 2.0f;
+            else if (f <= 5.0f) nf = 5.0f;
+            else nf = 10.0f;
+        }
+        return nf * powf(10.0f, expVal);
+    }
+
+    TrendScale calculateTrendScale(float minVal, float maxVal)
+    {
+        if (!std::isfinite(minVal) || !std::isfinite(maxVal))
+        {
+            return {0.0f, 50.0f, 100.0f};
+        }
+        if (minVal > maxVal)
+        {
+            const float tmp = minVal;
+            minVal = maxVal;
+            maxVal = tmp;
+        }
+        if (fabsf(maxVal - minVal) < 0.0001f)
+        {
+            const float pad = (fabsf(minVal) < 1.0f) ? 1.0f : fabsf(minVal) * 0.05f;
+            minVal -= pad;
+            maxVal += pad;
+        }
+        const float range = trendNiceNum(maxVal - minVal, false);
+        const float step = trendNiceNum(range / 2.0f, true);
+        float graphMin = floorf(minVal / step) * step;
+        float graphMax = ceilf(maxVal / step) * step;
+        if (graphMax <= graphMin)
+        {
+            graphMax = graphMin + step;
+        }
+        return {graphMin, graphMin + (graphMax - graphMin) * 0.5f, graphMax};
+    }
+
+    TrendGeometry computeTrendGeometry(const FieldRuntime &field)
+    {
+        TrendGeometry g{};
+        const JWPLC_UIField &def = field.def;
+        const JWPLC_UITrendConfig &cfg = def.trendConfig;
+        g.x = def.rect.x;
+        g.y = def.rect.y;
+        g.w = (field.fieldW >= 40) ? field.fieldW : 200;
+        g.h = (field.fieldH >= 30) ? field.fieldH : 80;
+
+        int8_t dec = (int8_t)cfg.decimals;
+        if (dec < 0) dec = 0;
+        if (dec > 3) dec = 3;
+
+        int16_t scaleMargin = 2;
+        if (cfg.showAxes)
+        {
+            scaleMargin = (dec > 1) ? 46 : ((dec == 1) ? 38 : 30);
+        }
+
+        const int16_t topPad = 12;
+        g.timeH = cfg.showTime ? 13 : 4;
+
+        g.plotX = g.x + scaleMargin + 2;
+        g.plotY = g.y + topPad;
+        g.plotW = g.w - scaleMargin - 6;
+        if (g.plotW < 10) g.plotW = 10;
+        g.plotH = g.h - topPad - g.timeH;
+        if (g.plotH < 10) g.plotH = 10;
+
+        g.baseAxisY = g.plotY + g.plotH;
+        g.topGuideY = g.plotY + 4;
+        g.activeH = g.baseAxisY - g.topGuideY;
+        if (g.activeH < 6) g.activeH = 6;
+
+        g.guide75Y = (int16_t)lroundf((float)g.baseAxisY - 0.75f * (float)g.activeH);
+        g.guide50Y = (int16_t)lroundf((float)g.baseAxisY - 0.50f * (float)g.activeH);
+        g.guide25Y = (int16_t)lroundf((float)g.baseAxisY - 0.25f * (float)g.activeH);
+        return g;
+    }
+
+    bool trendValueToY(float val, float minVal, float maxVal, int16_t topGuideY, int16_t activeH, int16_t &outY)
+    {
+        if (!std::isfinite(val) || !std::isfinite(minVal) || !std::isfinite(maxVal) || maxVal <= minVal)
+        {
+            outY = topGuideY + activeH / 2;
+            return false;
+        }
+        const float ratio = (val - minVal) / (maxVal - minVal);
+        const bool inRange = (ratio >= 0.0f && ratio <= 1.0f);
+        float clamped = ratio;
+        if (clamped < 0.0f) clamped = 0.0f;
+        if (clamped > 1.0f) clamped = 1.0f;
+        outY = topGuideY + (int16_t)lroundf((1.0f - clamped) * (float)activeH);
+        return inRange;
+    }
+
+    TrendRuntime *ensureTrendRuntime(FieldRuntime &field)
+    {
+        if (field.trend != nullptr)
+        {
+            return field.trend;
+        }
+        uint16_t cap = field.def.trendConfig.visibleSamples;
+        if (cap < 20) cap = 20;
+        if (cap > 320) cap = 320;
+
+        TrendRuntime *tr = (TrendRuntime *)calloc(1, sizeof(TrendRuntime));
+        if (tr == nullptr)
+        {
+            return nullptr;
+        }
+        tr->samples = (float *)calloc((size_t)cap * 3U, sizeof(float));
+        if (tr->samples == nullptr)
+        {
+            free(tr);
+            return nullptr;
+        }
+        tr->capacity = cap;
+        tr->fullRedraw = true;
+        field.trend = tr;
+        return tr;
+    }
+
+    void writeTrendSdSample(FieldRuntime &field, TrendRuntime &tr, uint32_t now)
+    {
+        const JWPLC_UITrendConfig &cfg = field.def.trendConfig;
+        if (!cfg.enableSD || tr.sdFailed)
+        {
+            return;
+        }
+        if (!JWPLC_SD.isReady())
+        {
+            if (tr.sdInitAttempted)
+            {
+                return;
+            }
+            tr.sdInitAttempted = true;
+            if (!JWPLCSD::isEnabled() || !JWPLCSD::begin() || !JWPLC_SD.isReady())
+            {
+                return;
+            }
+        }
+        const uint32_t sdInt = (cfg.sdIntervalMs >= 100U) ? cfg.sdIntervalMs : 100U;
+        if (tr.sdStarted && (uint32_t)(now - tr.lastSdMs) < sdInt)
+        {
+            return;
+        }
+
+        if (!tr.sdStarted)
+        {
+            if (tr.sdLog == nullptr)
+            {
+                tr.sdLog = new JWPLCDataLog();
+            }
+            if (tr.sdLog == nullptr)
+            {
+                tr.sdFailed = true;
+                return;
+            }
+            char path[32];
+            snprintf(path, sizeof(path), "/TREND_%u.CSV", (unsigned)field.def.meta.id);
+            if (!tr.sdLog->begin(JWPLC_SD, path))
+            {
+                tr.sdFailed = true;
+                return;
+            }
+            tr.sdStarted = true;
+            if (cfg.channelCount >= 3)
+            {
+                tr.sdLog->writeLine("ms,ch1,ch2,ch3");
+            }
+            else if (cfg.channelCount == 2)
+            {
+                tr.sdLog->writeLine("ms,ch1,ch2");
+            }
+            else
+            {
+                tr.sdLog->writeLine("ms,ch1");
+            }
+        }
+
+        tr.lastSdMs = now;
+        char line[96];
+        if (cfg.channelCount >= 3)
+        {
+            snprintf(line, sizeof(line), "%lu,%.3f,%.3f,%.3f",
+                     (unsigned long)now,
+                     (double)field.barValue,
+                     (double)field.trendCh2,
+                     (double)field.trendCh3);
+        }
+        else if (cfg.channelCount == 2)
+        {
+            snprintf(line, sizeof(line), "%lu,%.3f,%.3f",
+                     (unsigned long)now,
+                     (double)field.barValue,
+                     (double)field.trendCh2);
+        }
+        else
+        {
+            snprintf(line, sizeof(line), "%lu,%.3f",
+                     (unsigned long)now,
+                     (double)field.barValue);
+        }
+        tr.sdLog->writeLine(line);
+    }
+
+    void pushTrendSample(FieldRuntime &field, TrendRuntime &tr, uint32_t now)
+    {
+        const size_t slot = (size_t)tr.head * 3U;
+        tr.samples[slot + 0U] = field.barValue;
+        tr.samples[slot + 1U] = field.trendCh2;
+        tr.samples[slot + 2U] = field.trendCh3;
+        tr.head = (uint16_t)((tr.head + 1U) % tr.capacity);
+        if (tr.count < tr.capacity)
+        {
+            tr.count++;
+        }
+        tr.lastSampleMs = now;
+        writeTrendSdSample(field, tr, now);
+    }
+
+    bool tickTrendField(FieldRuntime &field, uint32_t now, bool forceFirstSample)
+    {
+        if (field.def.meta.type != JWPLC_UI_FIELD_TREND || !field.hasValue)
+        {
+            return false;
+        }
+        TrendRuntime *tr = ensureTrendRuntime(field);
+        if (tr == nullptr)
+        {
+            return false;
+        }
+        const uint32_t sampleMs = (field.def.trendConfig.sampleIntervalMs >= 50U)
+                                      ? field.def.trendConfig.sampleIntervalMs
+                                      : 1000U;
+        if (forceFirstSample && tr->count == 0U)
+        {
+            pushTrendSample(field, *tr, now);
+            return true;
+        }
+        if (tr->count > 0U && (uint32_t)(now - tr->lastSampleMs) >= sampleMs)
+        {
+            pushTrendSample(field, *tr, now);
+            return true;
+        }
+        return false;
+    }
 
     // ICON: filas RGB565 decodificadas que van juntas en un pushImage (1 KB,
     // 8 filas de un icono de 64 px). Fuera de la pila del loop.
@@ -122,7 +465,21 @@ namespace
         for (size_t i = 0; i < g_fieldCount; ++i)
         {
             FieldRuntime &f = g_fields[i];
-            if (!f.used || f.def.meta.page != g_page)
+            if (!f.used)
+            {
+                continue;
+            }
+
+            // Muestreo periódico TREND: sigue acumulando historial/SD en segundo plano
+            if (f.def.meta.type == JWPLC_UI_FIELD_TREND && f.hasValue)
+            {
+                if (tickTrendField(f, now, false))
+                {
+                    f.dirty = true;
+                }
+            }
+
+            if (f.def.meta.page != g_page)
             {
                 continue;
             }
@@ -452,6 +809,23 @@ namespace
                 valueH = def.icon->height;
             }
             break;
+
+        case JWPLC_UI_FIELD_TREND:
+        {
+            int16_t tw = (def.rect.width != JWPLC_UI_AUTO) ? def.rect.width : 200;
+            int16_t th = (def.rect.height != JWPLC_UI_AUTO) ? def.rect.height : 80;
+            if (tw < 40) tw = 40;
+            if (th < 30) th = 30;
+            field.fieldX = def.rect.x;
+            field.fieldY = def.rect.y;
+            field.fieldW = tw;
+            field.fieldH = th;
+            field.valueX = def.rect.x;
+            field.valueY = def.rect.y;
+            field.valueW = tw;
+            field.valueH = th;
+            return;
+        }
 
         case JWPLC_UI_FIELD_CIRCULAR:
         {
@@ -1145,15 +1519,517 @@ namespace
         tft.endBatch();
     }
 
+    void formatTrendValue(float val, uint8_t decimals, char *buf, size_t bufSize)
+    {
+        if (buf == nullptr || bufSize == 0)
+        {
+            return;
+        }
+        if (!std::isfinite(val))
+        {
+            snprintf(buf, bufSize, "--");
+            return;
+        }
+        int dec = (int)decimals;
+        if (dec < 0) dec = 0;
+        if (dec > 3) dec = 3;
+        snprintf(buf, bufSize, "%.*f", dec, (double)val);
+    }
+
+    void formatTrendTimeSpan(uint32_t totalSec, char *buf, size_t bufSize)
+    {
+        if (totalSec >= 3600U)
+        {
+            snprintf(buf, bufSize, "%luh", (unsigned long)(totalSec / 3600U));
+        }
+        else if (totalSec >= 60U)
+        {
+            snprintf(buf, bufSize, "%lum", (unsigned long)(totalSec / 60U));
+        }
+        else
+        {
+            snprintf(buf, bufSize, "%lus", (unsigned long)totalSec);
+        }
+    }
+
+    TrendScale computeTrendDisplayedScale(const FieldRuntime &field, const TrendRuntime &tr)
+    {
+        const JWPLC_UIField &def = field.def;
+        const JWPLC_UITrendConfig &cfg = def.trendConfig;
+        const bool manual = (cfg.scaleMode == 1);
+
+        float rMin = def.options.barRange.min;
+        float rMax = def.options.barRange.max;
+        if (!std::isfinite(rMin) || !std::isfinite(rMax) || rMax <= rMin)
+        {
+            rMin = 0.0f;
+            rMax = 100.0f;
+        }
+
+        if (manual)
+        {
+            return {rMin, rMin + (rMax - rMin) * 0.5f, rMax};
+        }
+
+        if (tr.count == 0U)
+        {
+            return calculateTrendScale(rMin, rMax);
+        }
+
+        uint8_t chCount = cfg.channelCount;
+        if (chCount < 1U) chCount = 1U;
+        if (chCount > 3U) chCount = 3U;
+
+        bool found = false;
+        float dataMin = 0.0f;
+        float dataMax = 0.0f;
+        const uint16_t oldestIdx = (tr.count < tr.capacity) ? 0U : tr.head;
+        for (uint16_t i = 0U; i < tr.count; ++i)
+        {
+            const uint16_t slotIdx = (uint16_t)((oldestIdx + i) % tr.capacity);
+            const size_t base = (size_t)slotIdx * 3U;
+            for (uint8_t ch = 0U; ch < chCount; ++ch)
+            {
+                const float v = tr.samples[base + ch];
+                if (!std::isfinite(v))
+                {
+                    continue;
+                }
+                if (!found)
+                {
+                    dataMin = v;
+                    dataMax = v;
+                    found = true;
+                }
+                else
+                {
+                    if (v < dataMin) dataMin = v;
+                    if (v > dataMax) dataMax = v;
+                }
+            }
+        }
+
+        if (!found)
+        {
+            return calculateTrendScale(rMin, rMax);
+        }
+        return calculateTrendScale(dataMin, dataMax);
+    }
+
+    void drawTrendGuidesAndThresholds(
+        JWPLC_TFTClass &tft,
+        const JWPLC_UITrendConfig &cfg,
+        const TrendGeometry &g,
+        const TrendScale &scale)
+    {
+        const int16_t xStart = g.plotX + (cfg.showAxes ? 1 : 0);
+        const int16_t lineW = g.plotW - (cfg.showAxes ? 1 : 0);
+        if (lineW <= 0)
+        {
+            return;
+        }
+
+        if (cfg.showGuides)
+        {
+            tft.drawFastHLine(xStart, g.guide75Y, lineW, cfg.gridColor);
+            tft.drawFastHLine(xStart, g.guide50Y, lineW, cfg.gridColor);
+            tft.drawFastHLine(xStart, g.guide25Y, lineW, cfg.gridColor);
+        }
+
+        uint8_t thrCount = cfg.thresholdCount;
+        if (thrCount > 2U) thrCount = 2U;
+        const float thrVals[2] = {cfg.thr1Value, cfg.thr2Value};
+        const uint16_t thrCols[2] = {cfg.thr1Color, cfg.thr2Color};
+        const int16_t maxY = cfg.showAxes ? (g.baseAxisY - 1) : g.baseAxisY;
+
+        for (uint8_t i = 0U; i < thrCount; ++i)
+        {
+            int16_t ty = 0;
+            if (!trendValueToY(thrVals[i], scale.low, scale.high, g.topGuideY, g.activeH, ty))
+            {
+                continue;
+            }
+            if (ty < g.plotY || ty > maxY)
+            {
+                continue;
+            }
+            for (int16_t dx = 0; dx < lineW; ++dx)
+            {
+                if ((dx % 6) < 3)
+                {
+                    tft.drawPixel(xStart + dx, ty, thrCols[i]);
+                }
+            }
+        }
+    }
+
+    void drawTrendStaticChrome(
+        JWPLC_TFTClass &tft,
+        const FieldRuntime &field,
+        const TrendGeometry &g,
+        const TrendScale &scale)
+    {
+        const JWPLC_UIField &def = field.def;
+        const JWPLC_UITrendConfig &cfg = def.trendConfig;
+
+        tft.fillRect(g.x, g.y, g.w, g.h, cfg.backgroundColor);
+
+        if (def.style.frame && g.w > 1 && g.h > 1)
+        {
+            const uint16_t frameCol = (def.style.colors.frame != 0U)
+                                          ? def.style.colors.frame
+                                          : cfg.gridColor;
+            tft.drawRect(g.x, g.y, g.w, g.h, frameCol);
+        }
+
+        tft.setFont(JWPLC_FONT_GLCD);
+        tft.setTextSize(1);
+
+        if (def.text.label != nullptr && def.text.label[0] != '\0')
+        {
+            char glcdTitle[40];
+            JWPLCUIFormat::utf8ToGlcd(def.text.label, glcdTitle, sizeof(glcdTitle));
+            const int16_t maxChars = (g.w > 24) ? ((g.w / 2 - 4) / 6) : 3;
+            if (maxChars > 0 && (int16_t)strlen(glcdTitle) > maxChars)
+            {
+                glcdTitle[maxChars] = '\0';
+            }
+            tft.setTextColor(cfg.textColor, cfg.backgroundColor);
+            tft.setCursor(g.x + 3, g.y + 2);
+            tft.print(glcdTitle);
+        }
+
+        if (cfg.showAxes)
+        {
+            const int16_t axisH = g.baseAxisY - g.plotY + 1;
+            if (axisH > 0)
+            {
+                tft.drawFastVLine(g.plotX, g.plotY, axisH, cfg.axesColor);
+            }
+            tft.drawFastHLine(g.plotX, g.baseAxisY, g.plotW, cfg.axesColor);
+            tft.drawFastHLine(g.plotX - 2, g.topGuideY, 2, cfg.axesColor);
+            tft.drawFastHLine(g.plotX - 2, g.guide50Y, 2, cfg.axesColor);
+            tft.drawFastHLine(g.plotX - 2, g.baseAxisY, 2, cfg.axesColor);
+
+            const float scaleVals[3] = {scale.high, scale.mid, scale.low};
+            int16_t labelYs[5] = {
+                (int16_t)(g.topGuideY - 3),
+                (int16_t)(g.guide50Y - 3),
+                (int16_t)(g.baseAxisY - 7),
+                0,
+                0};
+            uint8_t placedCount = 3U;
+
+            for (int i = 0; i < 3; ++i)
+            {
+                if (labelYs[i] < g.plotY) labelYs[i] = g.plotY;
+                if (labelYs[i] > g.baseAxisY - 7) labelYs[i] = g.baseAxisY - 7;
+                char numBuf[16];
+                formatTrendValue(scaleVals[i], cfg.decimals, numBuf, sizeof(numBuf));
+                const int16_t tw = (int16_t)strlen(numBuf) * 6;
+                int16_t lx = g.plotX - 3 - tw;
+                if (lx < g.x + 2) lx = g.x + 2;
+                tft.setTextColor(cfg.textColor, cfg.backgroundColor);
+                tft.setCursor(lx, labelYs[i]);
+                tft.print(numBuf);
+            }
+
+            uint8_t thrCount = cfg.thresholdCount;
+            if (thrCount > 2U) thrCount = 2U;
+            const float thrVals[2] = {cfg.thr1Value, cfg.thr2Value};
+            const uint16_t thrCols[2] = {cfg.thr1Color, cfg.thr2Color};
+            for (uint8_t i = 0U; i < thrCount; ++i)
+            {
+                int16_t ty = 0;
+                if (!trendValueToY(thrVals[i], scale.low, scale.high, g.topGuideY, g.activeH, ty))
+                {
+                    continue;
+                }
+                int16_t ly = ty - 3;
+                if (ly < g.plotY) ly = g.plotY;
+                if (ly > g.baseAxisY - 7) ly = g.baseAxisY - 7;
+
+                bool collides = false;
+                for (uint8_t p = 0U; p < placedCount; ++p)
+                {
+                    if (abs((int)(ly - labelYs[p])) < 9)
+                    {
+                        collides = true;
+                        break;
+                    }
+                }
+                if (!collides && placedCount < 5U)
+                {
+                    char numBuf[16];
+                    formatTrendValue(thrVals[i], cfg.decimals, numBuf, sizeof(numBuf));
+                    const int16_t tw = (int16_t)strlen(numBuf) * 6;
+                    int16_t lx = g.plotX - 3 - tw;
+                    if (lx < g.x + 2) lx = g.x + 2;
+                    tft.setTextColor(thrCols[i], cfg.backgroundColor);
+                    tft.setCursor(lx, ly);
+                    tft.print(numBuf);
+                    labelYs[placedCount++] = ly;
+                }
+            }
+        }
+
+        if (cfg.showTime)
+        {
+            const uint32_t sampleMs = (cfg.sampleIntervalMs >= 50U) ? cfg.sampleIntervalMs : 1000U;
+            const uint16_t cap = (cfg.visibleSamples >= 20U) ? ((cfg.visibleSamples <= 320U) ? cfg.visibleSamples : 320U) : 20U;
+            const uint32_t spanSec = (sampleMs * (uint32_t)(cap - 1U)) / 1000U;
+            char spanBuf[16];
+            formatTrendTimeSpan((spanSec > 0U) ? spanSec : 1U, spanBuf, sizeof(spanBuf));
+
+            const int16_t timeY = g.baseAxisY + 3;
+            tft.setTextColor(cfg.textColor, cfg.backgroundColor);
+            tft.setCursor(g.plotX, timeY);
+            tft.print("0s");
+
+            const int16_t spanW = (int16_t)strlen(spanBuf) * 6;
+            int16_t spanX = g.plotX + g.plotW - spanW;
+            if (spanX < g.plotX + 18) spanX = g.plotX + 18;
+            tft.setCursor(spanX, timeY);
+            tft.print(spanBuf);
+        }
+    }
+
+    void drawTrendHeaderLive(
+        JWPLC_TFTClass &tft,
+        const FieldRuntime &field,
+        const TrendGeometry &g)
+    {
+        const JWPLC_UIField &def = field.def;
+        const JWPLC_UITrendConfig &cfg = def.trendConfig;
+
+        int16_t titleEnd = 3;
+        if (def.text.label != nullptr && def.text.label[0] != '\0')
+        {
+            char glcdTitle[40];
+            JWPLCUIFormat::utf8ToGlcd(def.text.label, glcdTitle, sizeof(glcdTitle));
+            const int16_t maxChars = (g.w > 24) ? ((g.w / 2 - 4) / 6) : 3;
+            int16_t len = (int16_t)strlen(glcdTitle);
+            if (maxChars > 0 && len > maxChars) len = maxChars;
+            titleEnd = 3 + len * 6 + 6;
+        }
+
+        const int16_t clearX = g.x + titleEnd;
+        const int16_t clearW = g.w - titleEnd - 2;
+        if (clearW <= 6)
+        {
+            return;
+        }
+
+        tft.fillRect(clearX, g.y + 1, clearW, 10, cfg.backgroundColor);
+        tft.setFont(JWPLC_FONT_GLCD);
+        tft.setTextSize(1);
+
+        int16_t rightLimit = g.x + g.w - 3;
+        uint8_t chCount = cfg.channelCount;
+        if (chCount < 1U) chCount = 1U;
+        if (chCount > 3U) chCount = 3U;
+        if (chCount > 1U && clearW >= 36)
+        {
+            if (chCount >= 3U)
+            {
+                rightLimit -= 8;
+                tft.fillRect(rightLimit, g.y + 3, 6, 6, cfg.ch3Color);
+                rightLimit -= 2;
+            }
+            rightLimit -= 8;
+            tft.fillRect(rightLimit, g.y + 3, 6, 6, cfg.ch2Color);
+            rightLimit -= 3;
+        }
+
+        char valText[32];
+        if (!field.hasValue)
+        {
+            snprintf(valText, sizeof(valText), "--");
+        }
+        else
+        {
+            char numBuf[16];
+            formatTrendValue(field.barValue, cfg.decimals, numBuf, sizeof(numBuf));
+            if (def.text.unit != nullptr && def.text.unit[0] != '\0')
+            {
+                char glcdUnit[16];
+                JWPLCUIFormat::utf8ToGlcd(def.text.unit, glcdUnit, sizeof(glcdUnit));
+                snprintf(valText, sizeof(valText), "%s %s", numBuf, glcdUnit);
+            }
+            else
+            {
+                snprintf(valText, sizeof(valText), "%s", numBuf);
+            }
+        }
+
+        const int16_t availChars = (rightLimit - clearX) / 6;
+        if (availChars > 0 && (int16_t)strlen(valText) > availChars)
+        {
+            valText[availChars] = '\0';
+        }
+        if (availChars > 0)
+        {
+            tft.setTextColor(field.hasValue ? cfg.curveColor : cfg.textColor, cfg.backgroundColor);
+            tft.setCursor(clearX, g.y + 2);
+            tft.print(valText);
+        }
+    }
+
+    void drawTrendCurves(
+        JWPLC_TFTClass &tft,
+        const JWPLC_UITrendConfig &cfg,
+        const TrendRuntime &tr,
+        const TrendGeometry &g,
+        const TrendScale &scale)
+    {
+        if (tr.count == 0U || g.plotW <= 2)
+        {
+            return;
+        }
+
+        uint8_t chCount = cfg.channelCount;
+        if (chCount < 1U) chCount = 1U;
+        if (chCount > 3U) chCount = 3U;
+
+        const uint16_t chColors[3] = {cfg.curveColor, cfg.ch2Color, cfg.ch3Color};
+        const uint16_t oldestIdx = (tr.count < tr.capacity) ? 0U : tr.head;
+        const int16_t startX = g.plotX + (cfg.showAxes ? 1 : 0);
+        const int16_t availW = g.plotW - (cfg.showAxes ? 1 : 0);
+        const int16_t maxX = startX + availW - 1;
+        const int16_t minY = g.plotY;
+        const int16_t maxY = cfg.showAxes ? (g.baseAxisY - 1) : g.baseAxisY;
+        const bool thick = (cfg.lineWidth >= 2U);
+
+        if (availW <= 1 || maxY <= minY)
+        {
+            return;
+        }
+
+        for (int8_t ch = (int8_t)chCount - 1; ch >= 0; --ch)
+        {
+            const uint16_t col = chColors[ch];
+            int16_t prevX = 0;
+            int16_t prevY = 0;
+            bool hasPrev = false;
+
+            for (uint16_t i = 0U; i < tr.count; ++i)
+            {
+                const uint16_t ringIdx = (uint16_t)((oldestIdx + i) % tr.capacity);
+                const float val = tr.samples[(size_t)ringIdx * 3U + (size_t)ch];
+                if (!std::isfinite(val))
+                {
+                    hasPrev = false;
+                    continue;
+                }
+
+                int16_t px = startX + (int16_t)lroundf(
+                                          ((float)i / (float)(tr.capacity - 1U)) * (float)(availW - 1));
+                if (px < startX) px = startX;
+                if (px > maxX) px = maxX;
+
+                int16_t py = 0;
+                trendValueToY(val, scale.low, scale.high, g.topGuideY, g.activeH, py);
+                if (py < minY) py = minY;
+                if (py > maxY) py = maxY;
+
+                if (!hasPrev)
+                {
+                    if (tr.count == 1U)
+                    {
+                        tft.drawPixel(px, py, col);
+                        if (thick && py + 1 <= maxY)
+                        {
+                            tft.drawPixel(px, py + 1, col);
+                        }
+                    }
+                    prevX = px;
+                    prevY = py;
+                    hasPrev = true;
+                    continue;
+                }
+
+                tft.drawLine(prevX, prevY, px, py, col);
+                if (thick)
+                {
+                    const int16_t yOff = (prevY + 1 <= maxY && py + 1 <= maxY) ? 1 : -1;
+                    if (prevY + yOff >= minY && py + yOff >= minY)
+                    {
+                        tft.drawLine(prevX, prevY + yOff, px, py + yOff, col);
+                    }
+                }
+                prevX = px;
+                prevY = py;
+            }
+        }
+    }
+
+    void drawTrendField(JWPLC_TFTClass &tft, FieldRuntime &field)
+    {
+        const JWPLC_UITrendConfig &cfg = field.def.trendConfig;
+        const TrendGeometry g = computeTrendGeometry(field);
+        TrendRuntime *tr = ensureTrendRuntime(field);
+        if (tr == nullptr)
+        {
+            tft.fillRect(g.x, g.y, g.w, g.h, cfg.backgroundColor);
+            field.dirty = false;
+            return;
+        }
+
+        const TrendScale scale = computeTrendDisplayedScale(field, *tr);
+        const bool scaleChanged = !tr->hasDrawnScale ||
+                                  fabsf(scale.low - tr->drawnLow) > 1e-4f ||
+                                  fabsf(scale.high - tr->drawnHigh) > 1e-4f;
+
+        tft.beginBatch();
+        if (tr->fullRedraw || scaleChanged)
+        {
+            drawTrendStaticChrome(tft, field, g, scale);
+            tr->drawnLow = scale.low;
+            tr->drawnHigh = scale.high;
+            tr->hasDrawnScale = true;
+            tr->fullRedraw = false;
+        }
+        else
+        {
+            const int16_t clearX = g.plotX + (cfg.showAxes ? 1 : 0);
+            const int16_t clearW = g.plotW - (cfg.showAxes ? 1 : 0);
+            const int16_t clearH = (g.baseAxisY - g.plotY) + (cfg.showAxes ? 0 : 1);
+            if (clearW > 0 && clearH > 0)
+            {
+                tft.fillRect(clearX, g.plotY, clearW, clearH, cfg.backgroundColor);
+            }
+        }
+
+        drawTrendGuidesAndThresholds(tft, cfg, g, scale);
+        drawTrendHeaderLive(tft, field, g);
+        drawTrendCurves(tft, cfg, *tr, g, scale);
+        tft.endBatch();
+
+        field.dirty = false;
+    }
+
     void drawFieldStatic(JWPLC_TFTClass &tft, FieldRuntime &field)
     {
         computeFieldGeometry(tft, field);
 
         const JWPLC_UIField &def = field.def;
+        field.staticDirty = false;
+
+        // TREND dibuja su propio fondo, marco, ejes y encabezado en drawTrendField().
+        if (def.meta.type == JWPLC_UI_FIELD_TREND)
+        {
+            TrendRuntime *tr = ensureTrendRuntime(field);
+            if (tr != nullptr)
+            {
+                tr->fullRedraw = true;
+            }
+            field.dirty = true;
+            return;
+        }
+
         const uint16_t background = fieldBackground(field);
         // ICON sin fondo: ni recuadro ni fondo detrás de la etiqueta.
         const bool transparent = def.meta.type == JWPLC_UI_FIELD_ICON && def.iconTransparent;
-        field.staticDirty = false;
 
         if (!transparent && field.fieldW > 0 && field.fieldH > 0)
         {
@@ -1221,6 +2097,15 @@ namespace
 
         if (def.text.label != nullptr && def.text.label[0] != '\0')
         {
+            uint16_t labelW = 0;
+            uint16_t labelH = 0;
+            textBounds(
+                tft,
+                def.text.label,
+                def.style.labelTextSize,
+                labelW,
+                labelH,
+                def.style.labelFont);
             if (def.style.labelFont != nullptr && def.style.labelFont->kind != 0)
             {
                 tft.setFont(*def.style.labelFont);
@@ -1250,7 +2135,7 @@ namespace
                 def.style.layout == JWPLC_UI_LAYOUT_STACKED)
             {
                 const int16_t lead = FIELD_PADDING;
-                const int16_t pad = (int16_t)fieldBottomRightPad(def);
+                const int16_t pad = effectiveFieldPadding(def);
                 const int16_t availW = field.fieldW - lead - pad;
                 if (availW > (int16_t)labelW)
                 {
@@ -1266,6 +2151,15 @@ namespace
 
         if (def.text.unit != nullptr && def.text.unit[0] != '\0')
         {
+            uint16_t unitW = 0;
+            uint16_t unitH = 0;
+            textBounds(
+                tft,
+                def.text.unit,
+                def.style.labelTextSize,
+                unitW,
+                unitH,
+                def.style.labelFont);
             if (def.style.labelFont != nullptr && def.style.labelFont->kind != 0)
             {
                 tft.setFont(*def.style.labelFont);
@@ -1288,7 +2182,7 @@ namespace
                 def.style.layout == JWPLC_UI_LAYOUT_STACKED)
             {
                 const int16_t lead = FIELD_PADDING;
-                const int16_t pad = (int16_t)fieldBottomRightPad(def);
+                const int16_t pad = effectiveFieldPadding(def);
                 const int16_t availW = field.fieldW - lead - pad;
                 ux = (availW > (int16_t)unitW)
                          ? (def.rect.x + lead + (availW - (int16_t)unitW) / 2)
@@ -1408,6 +2302,30 @@ namespace
                     (uint8_t)def.meta.type,
                     (uint16_t)field.valueW,
                     (uint16_t)field.valueH,
+                    0U,
+                    (uint32_t)(micros() - totalStartUs),
+                    0U,
+                    0U,
+                    (uint32_t)(micros() - printStartUs));
+            }
+
+            return;
+        }
+
+        // TREND: dibuja gráfica completa o actualización incremental de trazos.
+        if (def.meta.type == JWPLC_UI_FIELD_TREND)
+        {
+            const uint32_t printStartUs = profile ? micros() : 0U;
+
+            drawTrendField(tft, field);
+
+            if (profile)
+            {
+                jwplcH3E1RecordFieldDraw(
+                    def.meta.id,
+                    (uint8_t)def.meta.type,
+                    (uint16_t)field.fieldW,
+                    (uint16_t)field.fieldH,
                     0U,
                     (uint32_t)(micros() - totalStartUs),
                     0U,
@@ -1701,6 +2619,7 @@ namespace JWPLCUI
             return false;
         }
 
+        freeAllTrendRuntimes();
         g_fieldCount = 0;
 
         for (size_t i = 0; i < JWPLC_UI_MAX_FIELDS; ++i)
@@ -1731,6 +2650,7 @@ namespace JWPLCUI
 
     void clearFields()
     {
+        freeAllTrendRuntimes();
         g_fieldCount = 0;
 
         for (size_t i = 0; i < JWPLC_UI_MAX_FIELDS; ++i)
@@ -1971,7 +2891,15 @@ namespace JWPLCUI
                                (count < 3 || field->trendCh3 == v3);
         if (unchanged)
         {
-            jwplcH3E1RecordSetter(fieldId, false);
+            if (tickTrendField(*field, millis(), false))
+            {
+                markFieldDirty(*field);
+                jwplcH3E1RecordSetter(fieldId, true);
+            }
+            else
+            {
+                jwplcH3E1RecordSetter(fieldId, false);
+            }
             return true;
         }
 
@@ -1979,6 +2907,7 @@ namespace JWPLCUI
         if (count >= 2) field->trendCh2 = v2;
         if (count >= 3) field->trendCh3 = v3;
         field->hasValue = true;
+        tickTrendField(*field, millis(), true);
         markFieldDirty(*field);
 
         jwplcH3E1RecordSetter(fieldId, true);
@@ -2046,6 +2975,10 @@ namespace JWPLCUI
             {
                 g_fields[i].dirty = true;
                 g_fields[i].barDrawnW = -1;
+                if (g_fields[i].trend != nullptr)
+                {
+                    g_fields[i].trend->fullRedraw = true;
+                }
             }
         }
 
@@ -2078,6 +3011,10 @@ namespace JWPLCUI
 
         // Invalidación explícita: la pantalla pudo cambiar, barra completa.
         field->barDrawnW = -1;
+        if (field->trend != nullptr)
+        {
+            field->trend->fullRedraw = true;
+        }
         markFieldDirty(*field);
     }
 
@@ -2089,6 +3026,10 @@ namespace JWPLCUI
             {
                 g_fields[i].dirty = true;
                 g_fields[i].barDrawnW = -1;
+                if (g_fields[i].trend != nullptr)
+                {
+                    g_fields[i].trend->fullRedraw = true;
+                }
             }
         }
 
@@ -2111,6 +3052,10 @@ namespace JWPLCUI
             {
                 g_fields[i].dirty = true;
                 g_fields[i].barDrawnW = -1;
+                if (g_fields[i].trend != nullptr)
+                {
+                    g_fields[i].trend->fullRedraw = true;
+                }
             }
         }
 
