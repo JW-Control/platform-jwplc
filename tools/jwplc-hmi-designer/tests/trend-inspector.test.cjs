@@ -170,4 +170,39 @@ assert.strictEqual(trendProps.showGuides.default, true, 'Guías referenciales ac
 console.log('  PASS ejes diferenciados de las guías con color entero (0xFFFF vs 0x4208)');
 console.log('  PASS grosor 1 px por defecto y guías referenciales habilitadas');
 
+// 5. Zonas de resaltado naranja (JWPLCZoneIndicator) y selector de página en Ubicación
+const zonesSample = {
+  width: 200,
+  height: 100,
+  showAxes: true,
+  showGuides: true,
+  showTimeAxis: true,
+  minValue: 0,
+  maxValue: 100,
+  ch2Enabled: true,
+  ch3Enabled: true,
+  thr1Enabled: true,
+  thr1Value: 80,
+  thr2Enabled: true,
+  thr2Value: 20
+};
+const zones = trendModule.trendZonesFor(zonesSample);
+assert(Array.isArray(zones.curveColor) && zones.curveColor.length === 1, 'Zona de Línea / Curva generada');
+assert(Array.isArray(zones.axesColor) && zones.axesColor.length === 2, 'Zona de Ejes incluye eje Y vertical y eje X horizontal');
+assert(Array.isArray(zones.gridColor) && zones.gridColor.length === 2, 'Zona de Guías destaca líneas 75% y 25%');
+assert(Array.isArray(zones.textColor) && zones.textColor.length === 2, 'Zona de Textos cubre etiquetas eje Y y eje de tiempo');
+assert(Array.isArray(zones.backgroundColor) && zones.backgroundColor[0].inset === true, 'Zona de Fondo usa contorno inset');
+assert(Array.isArray(zones.thr1Color) && zones.thr1Color.length === 1, 'Zona de Umbral 1 generada cuando thr1Enabled está activo');
+assert(Array.isArray(zones.ch2Color) && zones.ch2Color.length === 1, 'Zona de Canal 2 generada cuando ch2Enabled está activo');
+assert.strictEqual(trendModule.pickTrendColorKeyAt(zonesSample, 10, 40), 'textColor', 'Clic en margen izquierdo selecciona etiquetas (textColor)');
+assert.strictEqual(trendModule.pickTrendColorKeyAt(zonesSample, 100, zones.thr1Color[0].y + 2), 'thr1Color', 'Clic sobre línea de Umbral 1 selecciona thr1Color');
+console.log('  PASS trendZonesFor y pickTrendColorKeyAt calculan zonas de selección para recuadro naranja');
+
+const fs = require('fs');
+const path = require('path');
+const trendJsSource = fs.readFileSync(path.join(__dirname, '../poc/designer-trend.js'), 'utf8');
+assert(/data-trend-preview-body/.test(trendJsSource) && /JWPLCZoneIndicator/.test(trendJsSource), 'designer-trend.js integra JWPLCZoneIndicator en el preview');
+assert(/data-trend-page-chips/.test(trendJsSource) && /moveSelectedFieldToPage/.test(trendJsSource), 'Ubicación integra chips para mover TREND a otra página');
+console.log('  PASS Inspector TREND incluye indicador naranja de zona y selector de página en Ubicación');
+
 console.log('\nResultado: TODAS PASARON');

@@ -130,6 +130,177 @@
     syncInspector(field);
   }
 
+  function escapeHtml(str) {
+    return String(str || '').replace(/[&<>"]/g, (ch) => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;'
+    }[ch]));
+  }
+
+  function getTrendCore() {
+    if (typeof window !== 'undefined' && window.JWPLCTrendCore) return window.JWPLCTrendCore;
+    if (typeof require === 'function') {
+      try {
+        return require('./designer-trend-core.js');
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  }
+
+  function fallbackGeometry(field, w, h) {
+    const plotX = 35;
+    const topGuideY = 8;
+    const baseAxisY = h - 16;
+    const activeH = Math.max(10, baseAxisY - topGuideY);
+    return {
+      plotX,
+      plotY: 4,
+      plotW: Math.max(10, w - 40),
+      plotH: Math.max(10, h - 20),
+      baseAxisY,
+      topGuideY,
+      activeH,
+      guide75Y: Math.round(topGuideY + activeH * 0.25),
+      guide50Y: Math.round(topGuideY + activeH * 0.50),
+      guide25Y: Math.round(topGuideY + activeH * 0.75),
+      timeH: 14
+    };
+  }
+
+  function curveEnvelopeRect(pts, geo, core, activeH, minCurve = 0, maxCurve = 100) {
+    if (!pts || pts.length < 2 || !core?.trendValueToY) {
+      return { x: geo.plotX, y: geo.topGuideY, w: geo.plotW, h: activeH };
+    }
+    let minY = geo.baseAxisY;
+    let maxY = geo.topGuideY;
+    pts.forEach((v) => {
+      const py = core.trendValueToY(v, minCurve, maxCurve, geo.topGuideY, activeH).y;
+      if (py < minY) minY = py;
+      if (py > maxY) maxY = py;
+    });
+    const y0 = Math.max(geo.topGuideY, minY - 2);
+    const y1 = Math.min(geo.baseAxisY, maxY + 2);
+    return { x: geo.plotX, y: y0, w: geo.plotW, h: Math.max(5, y1 - y0 + 1) };
+  }
+
+  function trendZonesFor(field) {
+    if (!field) return {};
+    const w = Math.max(40, Number(field.width || field.w) || 200);
+    const h = Math.max(30, Number(field.height || field.h) || 80);
+    const core = getTrendCore();
+    const preview = { ...field, x: 0, y: 0, width: w, height: h, w, h };
+    const geo = core?.computeTrendGeometry ? core.computeTrendGeometry(preview) : fallbackGeometry(preview, w, h);
+    const activeH = geo.activeH || Math.max(10, geo.baseAxisY - geo.topGuideY);
+
+    const minVal = Number(field.minValue) || 0;
+    const maxVal = Number(field.maxValue) || 100;
+    const scale = core?.calculateGraphScale
+      ? core.calculateGraphScale(minVal, maxVal)
+      : { low: minVal, mid: (minVal + maxVal) / 2, high: maxVal };
+
+    const showAxes = field.showAxes !== false;
+    const showGuides = field.showGuides !== false;
+    const showTime = field.showTimeAxis !== false;
+
+    const thrRect = (enabled, rawValue) => {
+      if (!enabled) return [];
+      const val = Number(rawValue);
+      if (!Number.isFinite(val)) return [];
+      const res = core?.trendValueToY
+        ? core.trendValueToY(val, scale.low, scale.high, geo.topGuideY, activeH)
+        : {
+            y: Math.round(geo.topGuideY + (1 - (val - scale.low) / ((scale.high - scale.low) || 1)) * activeH),
+            inRange: val >= scale.low && val <= scale.high
+          };
+      if (!res.inRange || res.y < geo.topGuideY || res.y > geo.baseAxisY) return [];
+      return [{ x: geo.plotX, y: Math.max(0, res.y - 2), w: geo.plotW, h: 5 }];
+    };
+
+    const guideRects = [];
+    if (showGuides) {
+      guideRects.push({ x: geo.plotX, y: Math.max(0, geo.guide75Y - 1), w: geo.plotW, h: 3 });
+      guideRects.push({ x: geo.plotX, y: Math.max(0, geo.guide25Y - 1), w: geo.plotW, h: 3 });
+    } else if (field.frame !== false) {
+      guideRects.push({ x: 0, y: 0, w, h, inset: true });
+    }
+
+    const textRects = [];
+    if (showAxes && geo.plotX > 6) {
+      textRects.push({
+        x: 1,
+        y: Math.max(0, geo.topGuideY - 4),
+        w: Math.max(8, geo.plotX - 4),
+        h: Math.max(8, geo.baseAxisY - geo.topGuideY + 6)
+      });
+    }
+    if (showTime && geo.timeH > 0) {
+      textRects.push({
+        x: geo.plotX,
+        y: geo.baseAxisY + 2,
+        w: geo.plotW,
+        h: Math.max(8, h - (geo.baseAxisY + 3))
+      });
+    }
+
+    const ch1Pts = core?.generatePreviewData ? core.generatePreviewData(geo.plotW, 20, 80) : null;
+    const ch2Pts = (field.ch2Enabled && core?.generateSetpointPreviewData)
+      ? core.generateSetpointPreviewData(geo.plotW, 55, 72)
+      : null;
+    const ch3Pts = (field.ch3Enabled && core?.generateTertiaryPreviewData)
+      ? core.generateTertiaryPreviewData(geo.plotW, 15, 70)
+      : null;
+
+    return {
+      curveColor: [curveEnvelopeRect(ch1Pts, geo, core, activeH, 0, 100)],
+      ch2Color: ch2Pts ? [curveEnvelopeRect(ch2Pts, geo, core, activeH, 0, 100)] : [],
+      ch3Color: ch3Pts ? [curveEnvelopeRect(ch3Pts, geo, core, activeH, 0, 100)] : [],
+      thr1Color: thrRect(Boolean(field.thr1Enabled), field.thr1Value ?? 85),
+      thr2Color: thrRect(Boolean(field.thr2Enabled), field.thr2Value ?? 20),
+      axesColor: showAxes
+        ? [
+            { x: Math.max(0, geo.plotX - 3), y: geo.topGuideY, w: 3, h: Math.max(1, geo.baseAxisY - geo.topGuideY + 1) },
+            { x: Math.max(0, geo.plotX - 1), y: geo.baseAxisY, w: geo.plotW + 1, h: 3 }
+          ]
+        : [],
+      textColor: textRects,
+      gridColor: guideRects,
+      backgroundColor: [{ x: 0, y: 0, w, h, inset: true }]
+    };
+  }
+
+  function pointInRect(px, py, r, pad = 2) {
+    return px >= r.x - pad && px <= r.x + r.w + pad && py >= r.y - pad && py <= r.y + r.h + pad;
+  }
+
+  function pickTrendColorKeyAt(field, lx, ly) {
+    const zones = trendZonesFor(field);
+    const priority = ['thr1Color', 'thr2Color', 'axesColor', 'textColor', 'ch2Color', 'ch3Color', 'gridColor', 'curveColor'];
+    for (const key of priority) {
+      const rects = zones[key] || [];
+      const pad = key === 'curveColor' ? 0 : 2;
+      if (rects.some((r) => pointInRect(lx, ly, r, pad))) {
+        return key;
+      }
+    }
+    return 'backgroundColor';
+  }
+
+  function drawTrendZoneIndicator(section, field) {
+    if (!section || !field || typeof window === 'undefined') return;
+    const body = section.querySelector('[data-trend-preview-body]');
+    const canvas = section.querySelector('[data-trend-preview-canvas]');
+    if (!body || !canvas) return;
+    const zones = trendZonesFor(field);
+    const rects = zones[activeColorKey] || [];
+    const paint = () => window.JWPLCZoneIndicator?.draw?.(body, canvas, rects);
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(paint);
+    else paint();
+  }
+
   function drawAppearancePreview(section, field) {
     if (!section) return;
     const canvas = section.querySelector('[data-trend-preview-canvas]');
@@ -157,6 +328,8 @@
 
     if (canvas.width !== w) canvas.width = w;
     if (canvas.height !== h) canvas.height = h;
+    canvas.dataset.logicalW = String(w);
+    canvas.dataset.logicalH = String(h);
 
     const ctx = canvas.getContext('2d');
     const img = ctx.createImageData(w, h);
@@ -172,6 +345,7 @@
       }
     }
     ctx.putImageData(img, 0, 0);
+    drawTrendZoneIndicator(section, previewField);
   }
 
   function ensureTrendInspectorSection() {
@@ -349,9 +523,12 @@
           <div class="insp-panel" data-trend-panel="design:appearance">
             <div class="bar-card">
               <div class="bar-card-section-title">Vista previa en vivo</div>
-              <div class="trend-preview-wrap" style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:6px 0;">
-                <canvas class="trend-preview-canvas" data-trend-preview-canvas width="200" height="80"></canvas>
+              <div class="menu-case">
+                <div class="menu-case-body zone-host" data-trend-preview-body style="justify-content:center; padding:4px 0;">
+                  <canvas class="menu-case-canvas trend-preview-canvas" data-trend-preview-canvas width="200" height="80" style="max-width:calc(100% - 16px); height:auto; cursor:pointer;"></canvas>
+                </div>
               </div>
+              <div class="insp-note" style="margin-top:4px;">El recuadro naranja y ▶ marcan el elemento activo. Haz clic en una zona o chip para editarlo.</div>
             </div>
 
             <div class="bar-card">
@@ -421,6 +598,10 @@
                   <input class="field-input" data-trend-prop="height" type="number" min="30" max="170" />
                 </label>
               </div>
+            </div>
+            <div class="bar-card">
+              <div class="bar-card-section-title">Página</div>
+              <div class="insp-chip-row" data-trend-page-chips></div>
             </div>
           </div>
 
@@ -654,6 +835,34 @@
     thr2Color: 'thr2Enabled'
   };
 
+  function selectColorKey(section, key) {
+    if (!key) return;
+    activeColorKey = key;
+    section.querySelectorAll('[data-trend-colorkey]').forEach((b) => {
+      b.classList.toggle('active', b.dataset.trendColorkey === activeColorKey);
+    });
+    const f = selectedTrendField();
+    if (f && trendColorEditor) {
+      trendColorEditor.set(colorForKey(f, activeColorKey), COLOR_NAMES[activeColorKey] || 'Color');
+    }
+    if (f) drawTrendZoneIndicator(section, f);
+  }
+
+  function syncTrendPages(section, field) {
+    const host = section.querySelector('[data-trend-page-chips]');
+    if (!host || !field) return;
+    const pages = editor()?.getPages?.() || [];
+    const current = Number(field.page || 0);
+    const signature = pages.map((p) => `${p.id}:${p.name}`).join('|') + `#${current}`;
+    if (host.dataset.signature === signature) return;
+    host.dataset.signature = signature;
+    host.innerHTML = pages.map((p) => {
+      const id = Number(p.id);
+      const name = p.name || `Página ${id + 1}`;
+      return `<button type="button" class="insp-chip${id === current ? ' active' : ''}" data-trend-page-id="${id}" title="${escapeHtml(name)}">${String(id + 1).padStart(2, '0')} · ${escapeHtml(name)}</button>`;
+    }).join('');
+  }
+
   function bindEvents(section) {
     // Main tabs
     section.querySelectorAll('[data-trend-main]').forEach((btn) => {
@@ -719,19 +928,48 @@
       });
     });
 
-    // Color tabs
+    // Color tabs & preview canvas click selection
     section.querySelectorAll('[data-trend-colorkey]').forEach((btn) => {
       btn.addEventListener('click', () => {
-        activeColorKey = btn.dataset.trendColorkey;
-        section.querySelectorAll('[data-trend-colorkey]').forEach((b) => {
-          b.classList.toggle('active', b === btn);
-        });
-        const f = selectedTrendField();
-        if (f && trendColorEditor) {
-          trendColorEditor.set(colorForKey(f, activeColorKey), COLOR_NAMES[activeColorKey] || 'Color');
-        }
+        selectColorKey(section, btn.dataset.trendColorkey);
       });
     });
+
+    const previewCanvas = section.querySelector('[data-trend-preview-canvas]');
+    if (previewCanvas) {
+      previewCanvas.addEventListener('click', (e) => {
+        const f = selectedTrendField();
+        if (!f) return;
+        const rect = previewCanvas.getBoundingClientRect();
+        if (!rect.width || !rect.height) return;
+        const logicalW = Number(previewCanvas.dataset.logicalW) || previewCanvas.width || 200;
+        const logicalH = Number(previewCanvas.dataset.logicalH) || previewCanvas.height || 80;
+        const lx = ((e.clientX - rect.left) / rect.width) * logicalW;
+        const ly = ((e.clientY - rect.top) / rect.height) * logicalH;
+        const key = pickTrendColorKeyAt(f, lx, ly);
+        selectColorKey(section, key);
+      });
+    }
+
+    const previewBody = section.querySelector('[data-trend-preview-body]');
+    if (previewBody && typeof ResizeObserver !== 'undefined') {
+      new ResizeObserver(() => {
+        const f = selectedTrendField();
+        if (f && activeMainTab === 'design' && activeSubTab === 'appearance') {
+          drawTrendZoneIndicator(section, f);
+        }
+      }).observe(previewBody);
+    }
+
+    // Move to page chips (Ubicación)
+    const pageChipsHost = section.querySelector('[data-trend-page-chips]');
+    if (pageChipsHost) {
+      pageChipsHost.addEventListener('click', (e) => {
+        const chip = e.target.closest('[data-trend-page-id]');
+        if (!chip) return;
+        editor()?.moveSelectedFieldToPage?.(Number(chip.dataset.trendPageId));
+      });
+    }
 
     // Direct property inputs
     section.querySelectorAll('[data-trend-prop]').forEach((input) => {
@@ -914,6 +1152,9 @@
       trendColorEditor.set(colorForKey(f, activeColorKey), COLOR_NAMES[activeColorKey] || 'Color');
     }
 
+    // Pages (Ubicación)
+    syncTrendPages(section, f);
+
     // Mini-preview
     drawAppearancePreview(section, f);
 
@@ -954,6 +1195,8 @@
     estimateRamUsage,
     ensureTrendInspectorSection,
     syncInspector,
-    drawAppearancePreview
+    drawAppearancePreview,
+    trendZonesFor,
+    pickTrendColorKeyAt
   };
 });
