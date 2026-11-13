@@ -189,7 +189,9 @@
       const seg = (field.circleStyle === 'SEGMENTED');
       const centerMode = field.circleCenterMode === 'PERCENT' ? 1 : (field.circleCenterMode === 'VALUE' ? 2 : 0);
       const centerTextSize = Number(field.circleTextSize) || 1;
-      const centerTextColor = hex565(field.circleTextColor || 0xFFFF);
+      const rawCenterTextColor = Number.isFinite(Number(field.circleTextColor)) ? (Number(field.circleTextColor) & 0xFFFF) : 0xFFFF;
+      // En firmware centerTextColor==0 hereda labelColor; 0x0001 conserva negro real.
+      const centerTextColor = hex565(rawCenterTextColor === 0 ? 0x0001 : rawCenterTextColor);
       const trackColor = hex565(Number.isFinite(Number(field.circleTrackColor)) ? Number(field.circleTrackColor) : (Number.isFinite(Number(field.trackColor)) ? Number(field.trackColor) : 0x0000));
       const styleHeader = `    // Medidor Circular (${sweep}°) - Estilo: ${field.circleStyle || 'CONTINUOUS'} - Inicio: ${field.circleStartAngle || 'TOP'} (${cw ? 'CW' : 'CCW'})\n`;
       const rect = `JWPLC_UIRect(${field.x}, ${field.y}, ${diameter}, ${diameter})`;

@@ -189,6 +189,24 @@ check(/JWPLC_UICircularField\(/.test(circular) &&
   /JWPLC_UICircularStyle\(\s*270,\s*6,\s*1/.test(circular),
   'CIRCULAR: genera JWPLC_UICircularField con JWPLC_UICircularStyle');
 
+const circularBlackText = core.barFieldBlock({
+  ...COLORS,
+  type: 'BAR',
+  barPreset: 'CIRCULAR',
+  x: 10,
+  y: 20,
+  circleRadius: 30,
+  circleCenterMode: 'PERCENT',
+  circleTextColor: 0x0000,
+  barMin: 0,
+  barMax: 100
+}, 'CB');
+check(/0x0001/.test(circularBlackText), 'CIRCULAR: circleTextColor negro explícito (0x0000) sale como 0x0001');
+
+const barJsSrc = fs.readFileSync(path.join(POC, 'designer-bar.js'), 'utf8');
+check(barJsSrc.includes("circleText: 'circleTextColor'") && barJsSrc.includes("'Texto central'"),
+  'CIRCULAR inspector: ranura de color Texto central conectada a circleTextColor');
+
 const valCustomFont = core.valueFieldBlock({
   ...value,
   labelFont: 'FONT_16',

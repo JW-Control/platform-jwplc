@@ -1668,7 +1668,8 @@
         const tb = nominalTextBounds(centerText, effectiveSize);
         const tx = Math.round(g.cx - tb.width / 2);
         const ty = Math.round(g.cy - tb.height / 2);
-        drawClassicText(ctx, centerText, tx, ty, effectiveSize, field.circleTextColor || 0xFFFF, scale);
+        const cText565 = Number.isFinite(Number(field.circleTextColor)) ? (Number(field.circleTextColor) & 0xFFFF) : 0xFFFF;
+        drawClassicText(ctx, centerText, tx, ty, effectiveSize, cText565, scale);
       }
     } else {
       // BARRAS LINEALES (Sólida, Diagonales, Bloques Win XP, Puntos LED)
@@ -3140,12 +3141,13 @@
   // Mismo patrón que TEXT/VALUE/BOOL (designer-field-inspector.js). Colores de
   // JWPLC_UIBarField: value = barra, background = fondo del campo y pista
   // vacía (un solo color), label = etiqueta y unidad, frame = marco.
-  const BAR_COLOR_PROP = { frame: 'frameColor', label: 'labelColor', value: 'valueColor', valueEnd: 'valueColorEnd', track: 'trackColor' };
-  const BAR_COLOR_DEFAULT = { frame: 0xFFFF, label: 0xFFFF, value: 0x07FF, valueEnd: 0x07E0, track: 0x0000 };
+  const BAR_COLOR_PROP = { frame: 'frameColor', label: 'labelColor', value: 'valueColor', circleText: 'circleTextColor', valueEnd: 'valueColorEnd', track: 'trackColor' };
+  const BAR_COLOR_DEFAULT = { frame: 0xFFFF, label: 0xFFFF, value: 0x07FF, circleText: 0xFFFF, valueEnd: 0x07E0, track: 0x0000 };
   const getBarName = (field, key) => {
     const isCirc = (field?.barPreset === 'CIRCULAR');
     const isGrad = barGradActive(field);
     if (key === 'value') return isCirc ? 'Arco' : (isGrad ? 'Barra (Inicio)' : 'Barra');
+    if (key === 'circleText') return 'Texto central';
     if (key === 'valueEnd') return 'Barra (Fin)';
     if (key === 'track') return 'Fondo y pista';
     if (key === 'label') return 'Etiqueta y unidad';
@@ -3156,6 +3158,7 @@
   const getBarLetter = (field, key) => {
     const isCirc = (field?.barPreset === 'CIRCULAR');
     if (key === 'value') return isCirc ? 'A' : 'B';
+    if (key === 'circleText') return 'C';
     if (key === 'valueEnd') return '2';
     if (key === 'track') return 'F';
     if (key === 'label') return 'T';
@@ -3171,11 +3174,14 @@
     return (Number.isFinite(raw) ? raw : BAR_COLOR_DEFAULT[key]) & 0xFFFF;
   };
   const barMiniRows = (field) => {
+    const isCirc = field?.barPreset === 'CIRCULAR';
     const isGrad = barGradActive(field);
+    const centerMode = field?.circleCenterMode || (field?.circleShowPercent ? 'PERCENT' : 'NONE');
     return [
       ...(field?.frame ? ['frame'] : []),
       'label',
       'value',
+      ...(isCirc && centerMode !== 'NONE' ? ['circleText'] : []),
       ...(isGrad ? ['valueEnd'] : []),
       'track'
     ];
@@ -3228,10 +3234,27 @@
       const fillW = Math.round(normalizedFor(preview) * g.valueW);
       valueZone = [{ x: g.valueX, y: g.valueY, w: fillW > 0 ? fillW : g.valueW, h: g.valueH }];
     }
+    let circleTextZone = valueZone;
+    if (isCirc) {
+      const centerText = getCircleCenterText(preview, normalizedFor(preview));
+      if (centerText && preview.circleCenterMode !== 'NONE') {
+        const safeLimit = computeSafeCenterTextSize(preview, centerText);
+        const reqSize = Math.max(1, Math.trunc(Number(preview.circleTextSize) || 1));
+        const effectiveSize = Math.min(reqSize, safeLimit);
+        const tb = nominalTextBounds(centerText, effectiveSize);
+        circleTextZone = [{
+          x: Math.round(g.cx - tb.width / 2),
+          y: Math.round(g.cy - tb.height / 2),
+          w: tb.width,
+          h: tb.height
+        }];
+      }
+    }
     return {
       frame: [{ x: 0, y: 0, w, h }],
       label: label.length ? label : [{ x: g.valueX, y: g.valueY, w: g.valueW, h: g.valueH }],
       value: valueZone,
+      circleText: circleTextZone,
       valueEnd: valueZone,
       track: [{ x: inset, y: inset, w: w - 2 * inset, h: h - 2 * inset, inset: true }]
     };
