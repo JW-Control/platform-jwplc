@@ -584,7 +584,7 @@ namespace
                 continue;
             }
 
-            if (f.def->meta.page != g_page)
+            if (!JWPLC_UIFieldOnPage(f.def->meta, g_page))
             {
                 continue;
             }
@@ -643,7 +643,7 @@ namespace
     {
         field.dirty = true;
 
-        if (field.def->meta.page == g_page)
+        if (JWPLC_UIFieldOnPage(field.def->meta, g_page))
         {
             requestCurrentViewRefresh();
         }
@@ -3502,7 +3502,7 @@ namespace JWPLCUI
         for (size_t i = 0; i < g_fieldCount; ++i)
         {
             if (isFieldUsed(g_fields[i]) &&
-                g_fields[i].def->meta.page == g_page)
+                JWPLC_UIFieldOnPage(g_fields[i].def->meta, g_page))
             {
                 resetFieldRedrawState(g_fields[i]);
             }
@@ -3565,7 +3565,7 @@ namespace JWPLCUI
         for (size_t i = 0; i < g_fieldCount; ++i)
         {
             if (isFieldUsed(g_fields[i]) &&
-                g_fields[i].def->meta.page == g_page)
+                JWPLC_UIFieldOnPage(g_fields[i].def->meta, g_page))
             {
                 resetFieldRedrawState(g_fields[i]);
             }
@@ -3580,7 +3580,7 @@ namespace JWPLCUI
         {
             FieldRuntime &field = g_fields[i];
 
-            if (!isFieldUsed(field) || field.def->meta.page != g_page)
+            if (!isFieldUsed(field) || !JWPLC_UIFieldOnPage(field.def->meta, g_page))
             {
                 continue;
             }
@@ -3606,7 +3606,7 @@ namespace JWPLCUI
             FieldRuntime &field = g_fields[i];
 
             if (!isFieldUsed(field) ||
-                field.def->meta.page != g_page ||
+                !JWPLC_UIFieldOnPage(field.def->meta, g_page) ||
                 !field.dirty)
             {
                 continue;

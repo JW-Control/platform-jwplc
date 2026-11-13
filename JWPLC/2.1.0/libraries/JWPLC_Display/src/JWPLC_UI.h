@@ -53,15 +53,25 @@ struct JWPLC_UIFieldMeta
     uint8_t id;
     uint8_t page;
     JWPLC_UIFieldType type;
+    uint16_t pageMask;
 
     constexpr JWPLC_UIFieldMeta(
         uint8_t idValue = 0,
         uint8_t pageValue = 0,
-        JWPLC_UIFieldType typeValue = JWPLC_UI_FIELD_VALUE)
-        : id(idValue), page(pageValue), type(typeValue)
+        JWPLC_UIFieldType typeValue = JWPLC_UI_FIELD_VALUE,
+        uint16_t pageMaskValue = 0U)
+        : id(idValue), page(pageValue), type(typeValue), pageMask(pageMaskValue)
     {
     }
 };
+
+constexpr bool JWPLC_UIFieldOnPage(const JWPLC_UIFieldMeta &meta, uint8_t page)
+{
+    return (meta.pageMask == 0U)
+               ? (meta.page == page)
+               : (page < 16U &&
+                  ((meta.pageMask & static_cast<uint16_t>(1U << page)) != 0U));
+}
 
 struct JWPLC_UIRect
 {
@@ -1097,6 +1107,14 @@ namespace JWPLCUI
 
     void drawStatic(JWPLC_TFTClass &tft);
     void drawDirty(JWPLC_TFTClass &tft);
+}
+
+JWPLC_UI_CONSTEXPR14 inline JWPLC_UIField JWPLC_UIFieldPages(
+    JWPLC_UIField field,
+    uint16_t pageMask)
+{
+    field.meta.pageMask = pageMask;
+    return field;
 }
 
 #include "JWPLC_UI_Menu.h"

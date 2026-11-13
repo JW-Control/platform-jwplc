@@ -103,9 +103,33 @@ namespace
         return m.def.frame ? 1 : 0;
     }
 
+    bool isCardsStyle(const MenuRuntime &m)
+    {
+        return m.def.rowStyle == JWPLC_UI_MENU_ROW_CARDS;
+    }
+
+    int16_t effectiveRowPadY(const MenuRuntime &m)
+    {
+        if (m.def.rowPadY > 0)
+            return (int16_t)m.def.rowPadY;
+        return isCardsStyle(m) ? 5 : ROW_PAD_Y;
+    }
+
+    int16_t effectiveRowPadX(const MenuRuntime &m)
+    {
+        if (m.def.rowPadX > 0)
+            return (int16_t)m.def.rowPadX;
+        return isCardsStyle(m) ? 8 : ROW_PAD_X;
+    }
+
+    int16_t effectiveRowGap(const MenuRuntime &m)
+    {
+        return isCardsStyle(m) ? (int16_t)m.def.rowGap : 0;
+    }
+
     int16_t rowHeight(const MenuRuntime &m)
     {
-        return (int16_t)(8 * textScale(m) + 2 * ROW_PAD_Y);
+        return (int16_t)(8 * textScale(m) + 2 * effectiveRowPadY(m));
     }
 
     int16_t headerHeight(const MenuRuntime &m)
@@ -116,7 +140,10 @@ namespace
     uint8_t visibleRows(const MenuRuntime &m)
     {
         const int16_t avail = m.def.height - 2 * border(m) - headerHeight(m);
-        int16_t rows = (avail > 0) ? avail / rowHeight(m) : 0;
+        const int16_t rh = rowHeight(m);
+        const int16_t gap = effectiveRowGap(m);
+        const int16_t step = rh + gap;
+        int16_t rows = (avail > 0 && step > 0) ? (avail + gap) / step : 0;
         if (rows > MAX_VISIBLE_ROWS)
             rows = MAX_VISIBLE_ROWS;
         return (uint8_t)rows;
@@ -124,7 +151,7 @@ namespace
 
     int16_t rowY(const MenuRuntime &m, uint8_t row)
     {
-        return (int16_t)(m.def.y + border(m) + headerHeight(m) + row * rowHeight(m));
+        return (int16_t)(m.def.y + border(m) + headerHeight(m) + row * (rowHeight(m) + effectiveRowGap(m)));
     }
 
     // ------------------------------------------------------------------
@@ -151,10 +178,16 @@ namespace
 
     void formatNumber(const JWPLC_UIMenuNode &node, float value, int32_t intValue, char *out, size_t size)
     {
+        const char *pfx = (node.valuePrefix != nullptr) ? node.valuePrefix : "";
         if (node.kind == JWPLC_UI_MENU_VALUE_INT32)
-            snprintf(out, size, "%ld", (long)intValue);
+        {
+            if (node.zeroPad > 1)
+                snprintf(out, size, "%s%0*ld", pfx, (int)node.zeroPad, (long)intValue);
+            else
+                snprintf(out, size, "%s%ld", pfx, (long)intValue);
+        }
         else
-            snprintf(out, size, "%.*f", (int)node.decimals, (double)value);
+            snprintf(out, size, "%s%.*f", pfx, (int)node.decimals, (double)value);
 
         if (node.unit != nullptr && node.unit[0] != '\0')
         {
@@ -400,15 +433,16 @@ namespace
         const uint32_t maxIdx = stepCount(node);
         uint32_t idx = currentStepIndex(m, node);
         bool changed = JWPLC_Buttons.applyAxis(&idx, 0, maxIdx, BTN_DOWN, BTN_UP, false, true);
+        const uint32_t lr = (node.lrStep > 0) ? (uint32_t)node.lrStep : 10U;
 
         for (uint8_t i = 0; i < left; ++i)
         {
-            idx = (idx > 10) ? idx - 10 : 0;
+            idx = (idx > lr) ? idx - lr : 0;
             changed = true;
         }
         for (uint8_t i = 0; i < right; ++i)
         {
-            idx = (idx + 10 < maxIdx) ? idx + 10 : maxIdx;
+            idx = (idx + lr < maxIdx) ? idx + lr : maxIdx;
             changed = true;
         }
 
@@ -468,6 +502,17 @@ namespace
         if (node.type == JWPLC_UI_MENU_SUBMENU)
         {
             enterLevel(m, (uint8_t)nodeIndex);
+            JWPLC_Buttons.clearPendingInput();
+        }
+        else if (ok && node.type == JWPLC_UI_MENU_EDIT_BOOL && node.directToggle)
+        {
+            if (node.value != nullptr)
+            {
+                bool *target = static_cast<bool *>(node.value);
+                *target = !(*target);
+                m.changedNode = (uint8_t)(nodeIndex + 1);
+                markRow(m, pos);
+            }
             JWPLC_Buttons.clearPendingInput();
         }
         else if (ok &&
@@ -599,41 +644,93 @@ namespace
         const int16_t y = rowY(m, row);
         const int16_t w = m.def.width - 2 * b;
         const int16_t h = rowHeight(m);
+        const int16_t padX = effectiveRowPadX(m);
+        const int16_t padY = effectiveRowPadY(m);
         const int16_t cw = 6 * textScale(m);
+        const bool cards = isCardsStyle(m);
 
         const int16_t nodeIndex = childAt(m, currentParent(m), pos);
         const bool selected = (nodeIndex >= 0) && (pos == m.selected[lv]);
         const bool editingRow = selected && m.editing;
 
-        uint16_t bg = c.background;
-        uint16_t fg = c.text;
-        uint16_t vfg = c.value;
-
-        if (editingRow)
-        {
-            bg = c.editBackground;
-            fg = c.editText;
-            vfg = c.editText;
-        }
-        else if (selected && m.focused)
-        {
-            bg = c.selectBackground;
-            fg = c.selectText;
-            vfg = c.selectText;
-        }
-
-        tft.fillRect(x, y, w, h, bg);
-
-        if (selected && !m.focused && !editingRow)
-            tft.drawRect(x, y, w, h, c.selectBackground);
-
         if (nodeIndex < 0)
         {
+            tft.fillRect(x, y, w, h, c.background);
             m.cache[row] = NAN;
             return;
         }
 
         const JWPLC_UIMenuNode &node = m.def.nodes[nodeIndex];
+
+        uint16_t bg = cards ? m.def.cardBackground : c.background;
+        uint16_t fg = c.text;
+        uint16_t vfg = c.value;
+        bool hasCardBorder = cards;
+        uint16_t cardBorderColor = m.def.cardBorder;
+
+        if (node.hasPillColors)
+        {
+            const bool boolState = editingRow ? (m.editInt != 0) : (readValue(node) != 0.0f);
+            bg = boolState ? node.pillTrueBg : node.pillFalseBg;
+            fg = node.pillTextColor;
+            vfg = node.pillTextColor;
+            hasCardBorder = selected;
+            cardBorderColor = (selected && m.focused) ? 0xFFFF : c.selectBackground;
+        }
+        else if (editingRow)
+        {
+            bg = c.editBackground;
+            fg = c.editText;
+            vfg = c.editText;
+            cardBorderColor = c.editBackground;
+        }
+        else if (selected && m.focused)
+        {
+            if (cards && m.def.selectOutlineOnly)
+            {
+                bg = m.def.cardBackground;
+                fg = c.selectText;
+                vfg = c.selectText;
+                hasCardBorder = true;
+                cardBorderColor = c.selectBackground;
+            }
+            else
+            {
+                bg = c.selectBackground;
+                fg = c.selectText;
+                vfg = c.selectText;
+                cardBorderColor = c.selectBackground;
+            }
+        }
+        else if (selected && !m.focused)
+        {
+            hasCardBorder = true;
+            cardBorderColor = c.selectBackground;
+        }
+
+        if (cards)
+        {
+            tft.fillRect(x, y, w, h, c.background);
+            const int16_t r = (int16_t)m.def.cornerRadius;
+            if (r > 0)
+            {
+                tft.fillRoundRect(x, y, w, h, r, bg);
+                if (hasCardBorder)
+                    tft.drawRoundRect(x, y, w, h, r, cardBorderColor);
+            }
+            else
+            {
+                tft.fillRect(x, y, w, h, bg);
+                if (hasCardBorder)
+                    tft.drawRect(x, y, w, h, cardBorderColor);
+            }
+        }
+        else
+        {
+            tft.fillRect(x, y, w, h, bg);
+            if (selected && !m.focused && !editingRow)
+                tft.drawRect(x, y, w, h, c.selectBackground);
+        }
 
         char value[32];
         formatNode(m, node, editingRow, value, sizeof(value));
@@ -646,7 +743,7 @@ namespace
         }
 
         int16_t valueChars = (int16_t)strlen(value);
-        int16_t maxValueChars = (int16_t)((w - 2 * ROW_PAD_X) / cw);
+        int16_t maxValueChars = (int16_t)((w - 2 * padX) / cw);
         if (valueChars > maxValueChars)
         {
             valueChars = maxValueChars;
@@ -656,15 +753,32 @@ namespace
 
         char label[40];
         snprintf(label, sizeof(label), "%s", (node.label != nullptr) ? node.label : "");
-        int16_t labelChars = (int16_t)((w - 2 * ROW_PAD_X - valueW - (valueW > 0 ? cw : 0)) / cw);
+        int16_t labelChars = (int16_t)((w - 2 * padX - valueW - (valueW > 0 ? cw : 0)) / cw);
         if (labelChars < 0)
             labelChars = 0;
         if ((int16_t)strlen(label) > labelChars)
             label[labelChars] = '\0';
+        const int16_t labelW = (int16_t)strlen(label) * cw;
 
-        drawText(tft, m, x + ROW_PAD_X, y + ROW_PAD_Y, label, fg, bg);
-        if (valueW > 0)
-            drawText(tft, m, x + w - ROW_PAD_X - valueW, y + ROW_PAD_Y, value, vfg, bg);
+        if (cards && labelW == 0 && valueW > 0)
+        {
+            const int16_t vx = (int16_t)(x + (w - valueW) / 2);
+            drawText(tft, m, vx, y + padY, value, vfg, bg);
+        }
+        else if (cards && m.def.inlineValue)
+        {
+            if (labelW > 0)
+                drawText(tft, m, x + padX, y + padY, label, fg, bg);
+            if (valueW > 0)
+                drawText(tft, m, x + padX + labelW + (labelW > 0 ? cw : 0), y + padY, value, vfg, bg);
+        }
+        else
+        {
+            if (labelW > 0)
+                drawText(tft, m, x + padX, y + padY, label, fg, bg);
+            if (valueW > 0)
+                drawText(tft, m, x + w - padX - valueW, y + padY, value, vfg, bg);
+        }
 
         m.cache[row] = (node.type == JWPLC_UI_MENU_SUBMENU || node.type == JWPLC_UI_MENU_GO_IDLE) ? 0.0f : readValue(node);
     }
@@ -786,6 +900,14 @@ static JWPLC_UIMenuNode makeNode(JWPLC_UIMenuNodeType type, JWPLC_UIMenuValueKin
     node.unit = nullptr;
     node.falseText = "OFF";
     node.trueText = "ON";
+    node.hasPillColors = false;
+    node.pillFalseBg = 0;
+    node.pillTrueBg = 0;
+    node.pillTextColor = 0xFFFF;
+    node.valuePrefix = nullptr;
+    node.zeroPad = 0;
+    node.lrStep = 0;
+    node.directToggle = false;
     return node;
 }
 
