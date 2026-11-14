@@ -1,0 +1,374 @@
+# JWPLC Basic - mBlock - Gate 2 runtime y Gate 3 (flujo extremo a extremo)
+
+Fecha: 2026-10-24
+Rama: `experiment/mblock-jwplc` (antes `experiment/mblock-jwplc-poc`)
+Entorno: Windows 10, mBlock 5.4.3 (Electron 21.4.4), Arduino CLI 1.5.1,
+core `jwplc:esp32` 2.1.0-alpha.13 instalado, JWPLC Basic por CH340 en COM14.
+
+## Estado
+
+~~~text
+GATE2_RUNTIME_CHILD_PROCESS=FAIL                       [ejecutado]
+GATE2_RUNTIME_LOCAL_HTTP_FROM_RENDERER=PASS            [ejecutado]  (alternativa probada)
+
+GATE3A_BRIDGE_SERVICE=PASS                             [ejecutado]
+GATE3B_EXTENSION_BUILD_WITHOUT_EXTENSION_BUILDER=PASS  [ejecutado]
+GATE3C_DEVICE_DISCOVERY_AND_ADD=PASS                   [ejecutado]
+GATE3D_CODEGEN_JWPLC_TEMPLATE=PASS                     [ejecutado]
+GATE3E_COMPILE_FROM_MBLOCK_RENDERER=PASS               [ejecutado]
+GATE3F_BRIDGE_SECURITY=PASS                            [ejecutado]
+GATE3G_UPLOAD_FROM_MBLOCK=PASS                         [ejecutado] botón "Upload Code" de mBlock -> COM14
+GATE3H_PROGRAM_RUNNING=PASS                            [ejecutado] salida serie del programa de bloques
+GATE3I_PHYSICAL_IO=PASS                                [verificado por el usuario] mismo comportamiento que el sketch de Arduino IDE
+~~~
+
+## Gate 2 runtime: `child_process` dentro de mBlock
+
+Resultado: **FAIL**. Un middleware/driver de extensión no puede lanzar procesos.
+
+Evidencia [ejecutado], vía Chrome DevTools Protocol sobre el renderer
+(`mBlock.exe --remote-debugging-port=9229`):
+
+~~~text
+typeof require             = undefined
+typeof process             = undefined
+typeof window.MbApi.require = function   (cargador de scripts por URL, NO es require de Node)
+window.MeApi               = { fe, sys, ch340, mlink, getMBlockFile, ... }   (contextBridge)
+~~~
+
+Causa [visto] en `resources/app.asar`:
+
+- `packages/main/dist/index.cjs`: la ventana principal usa
+  `webPreferences:{webgl:!0, webSecurity:!1, nodeIntegration:!0, preload:...}` sin
+  `contextIsolation`, que en Electron 21 vale `true` por defecto;
+- `packages/preload/dist/index.cjs` publica `MeApi` con
+  `contextBridge.exposeInMainWorld`: sólo archivos (`fe`), rutas/sistema (`sys`),
+  instalador CH340 y mLink. Ninguna función ejecuta procesos arbitrarios;
+- los middlewares se ejecutan en el renderer (`runMiddlewares` en
+  `renderer/dist/mblock/js/index.*.js`), firma
+  `(app, device, code, params, log, undefined, portAddress, channel)`;
+  si lanzan una excepción, mBlock la registra y sigue con el código original.
+
+El probe Gate 2P que dejó la PoC (`jwplc_basic_poc_008` v0.0.11,
+`require('child_process').execFileSync(...)`) no podía funcionar por la misma causa.
+
+## Alternativa probada: servicio local por HTTP
+
+[ejecutado] Desde el renderer, `fetch('http://127.0.0.1:47999/...')` con
+`Content-Type: application/json` llega a un servidor Node local. Con
+`webSecurity=false` no hay CORS y el renderer **no** envía cabecera `Origin`.
+
+Arquitectura adoptada:
+
+~~~text
+Bloques mBlock (Device jwplc_basic)
+    -> generador Arduino C con plantilla JWPLC
+    -> botón Subir de mBlock
+        -> middleware jwplc_capture_port  (guarda COMx y el canal mLink)
+        -> driver jwplcUploadDriver       (renderer, sin Node)
+            -> cierra el COM que mLink tiene abierto
+            -> POST http://127.0.0.1:47820/upload  (token)
+                -> JWPLC mBlock Bridge (Node, proceso aparte)
+                    -> arduino-cli compile --fqbn jwplc:esp32:jwplcbasic
+                    -> arduino-cli upload  --port COMx   (esptool del core)
+            <- NDJSON: log / etapa / progreso / resultado
+        -> barra de progreso y log de mBlock
+~~~
+
+No se usa el `esptoolByExec` de mLink: escribe un único binario en un único
+offset, sin `--chip` ni parámetros de flash, y rechaza ante cualquier salida por
+stderr. `arduino-cli upload` usa la receta validada del package.
+
+## Gate 3A - Bridge
+
+`tools/mblock-poc/bridge/jwplc-mblock-bridge.cjs` (Node >= 18, sin dependencias).
+
+- `GET /health`, `POST /compile`, `POST /upload` (respuesta NDJSON en streaming).
+- Un trabajo a la vez; build path persistente en `%USERPROFILE%\.jwplc\mblock-bridge\build`.
+- Arduino CLI: `JWPLC_ARDUINO_CLI` o `C:\Program Files\Arduino CLI\arduino-cli.exe`
+  o el CLI incluido en Arduino IDE 2. Ya no se usa el CLI 1.0.2 de Arduino PLC IDE Tools.
+
+Hallazgo [ejecutado]: si el bridge lo lanza una app empaquetada MSIX (como la
+app de escritorio desde la que se automatizó esta prueba), Windows virtualiza
+las escrituras nuevas en `%APPDATA%`/`%LOCALAPPDATA%` y mBlock no ve el token.
+Por eso token y carpeta de trabajo viven en `%USERPROFILE%\.jwplc\mblock-bridge`.
+
+## Gate 3B - Extensión sin Extension Builder
+
+`tools/mblock-poc/extension/build-extension.cjs` genera `dist/jwplc_basic/` y
+`dist/jwplc_basic_v0.1.0.mext` (zip con rutas `/`). `install-extension.cjs`
+copia la carpeta a `%USERPROFILE%\mblock\exts\jwplc_basic` y registra el Device
+en `exts\device.json` (lista local que mBlock lee al arrancar), con backup.
+
+El `index.js` sigue el formato UMD del Extension Builder (`getInfo()` /
+`getHandler()`), sin `feature: ["worker"]`: los handlers quedan vacíos y no
+hace falta `handlerProxy.js`. Ventaja: la extensión es código versionado y
+reproducible; ya no depende de la cuenta ni del editor web.
+
+## Gate 3C - Discovery y alta del Device
+
+[ejecutado] Device Library -> buscar "JWPLC Basic" -> OK. El Device aparece en
+la lista, la paleta muestra la categoría "JWPLC I/O" y la pestaña de código es
+Arduino C. No apareció el aviso `File error. Install Failed` de la PoC.
+
+## Gate 3D - Plantilla Arduino y bloques
+
+[visto] `cores/jwcontrol/main.cpp`: `jwplcSystemTask` (scan de E/S cada 20 ms,
+RTC, Ethernet, display; prioridad 2 > loopTask) espera `initSemaphore`, que se
+libera cuando `setup()` retorna. La plantilla estándar de mBlock genera el
+`por siempre` como `while(1)` dentro de `setup()`: con el core JWPLC dejaría
+el runtime sin arrancar (entradas congeladas, display sin refresco).
+
+Plantilla JWPLC:
+
+- bloque "cuando JWPLC Basic arranca" -> `setup()` (una vez);
+- cuerpo de "por siempre" -> `loop()` (ciclo de scan), sin `while(1)` ni `_loop()`;
+- "esperar" -> `delay(...)`, que cede la CPU (el runtime tiene más prioridad);
+- sin `pinMode()`: el core configura internamente I0_x/Q0_x.
+
+Bloques (categoría JWPLC I/O): poner salida Q0.x encendida/apagada, conmutar
+salida, ¿entrada I0.x activa?, ¿salida Q0.x activa?, escribir salidas Q0 con
+byte, apagar todas las salidas, entradas I0 (byte), salidas Q0 (byte),
+milisegundos desde el arranque, imprimir por serie. Todas las llamadas existen
+en el core (`jwplc_peripherals.h`, redirecciones de `Arduino.h`).
+
+Código generado [ejecutado] para el programa de demostración
+(`test/cdp-program-demo.js`):
+
+~~~cpp
+#include <Arduino.h>
+
+void setup() {
+  Serial.begin(115200);
+  JWPLC_writeOutputs(0);
+}
+
+void loop() {
+  if((digitalRead(I0_0) == HIGH)){
+    digitalWrite(Q0_0, HIGH);
+  }else{
+    digitalWrite(Q0_0, LOW);
+  }
+  digitalWrite(Q0_7, !digitalRead(Q0_7));
+  for(int count2=0;count2<3;count2++){
+    Serial.println(7);
+  }
+  delay((unsigned long)((0.5) * 1000));
+}
+~~~
+
+Limitación conocida: un bloque que espere una entrada ("esperar hasta") colgado
+directamente de "cuando JWPLC Basic arranca" se ejecuta en `setup()`, antes de
+que arranque el scan de E/S; debe ir dentro de "por siempre".
+
+## Gate 3E - Compilación desde mBlock
+
+[ejecutado] Desde el renderer (token leído con `MeApi.fe`, `fetch` al bridge):
+
+~~~text
+FQBN=jwplc:esp32:jwplcbasic
+RESULT=ok exit=0
+COLD_BUILD_MS=71214
+WARM_BUILD_MS=13837
+SKETCH=429501 bytes (10%)  RAM=29532 bytes (9%)
+~~~
+
+## Gate 3F - Seguridad del bridge
+
+[ejecutado]
+
+~~~text
+sin token                         -> 403 invalid token
+Origin: https://evil.example      -> 403 origin not allowed
+port "/dev/x; rm"                 -> 400 invalid port
+fqbn arduino:avr:uno              -> 400 fqbn not allowed
+~~~
+
+Escucha sólo en 127.0.0.1; `spawn` sin shell; el token se regenera en cada arranque.
+
+## Gate 3G - Upload desde mBlock
+
+[ejecutado] Con la JWPLC Basic conectada en mBlock (COM14) y el programa de
+demostración en el workspace, el botón "Upload Code" ejecuta el middleware y el
+driver de la extensión; el bridge compila (33 s) y sube con `arduino-cli upload`
+(esptool v5.2.0 del core, 921600 baudios): bootloader 0x1000, particiones
+0x8000, boot_app0 0xE000 y app 0x10000 (429648 bytes), todos con hash
+verificado, y reset por RTS. Tiempo total 47 s. Log:
+`results/20261024_gate3g/GATE3G_UPLOAD_FROM_MBLOCK.log`.
+
+Intentos fallidos previos (`GATE3G_UPLOAD_PORT_BUSY_ATTEMPTS.log`):
+`PermissionError(13, 'Acceso denegado.')` porque mLink seguía con el COM abierto.
+
+~~~text
+close por el canal mLink (connectType serialport)  -> responde OK, NO libera el COM
+app.getService('connect').disconnect()             -> sólo emite el evento de UI, NO libera
+app._mCtx.ConnectService.disconnect('serialport.COM14') -> libera el COM (lo que hace la GUI)
+~~~
+
+El driver usa la tercera vía. `_mCtx` es interno de mBlock 5.4.3. Tras el
+upload la GUI sigue mostrando "Device connected" aunque el puerto está cerrado
+(desfase cosmético): hay que pulsar Desconectar/Conectar para volver a usarlo.
+
+Nota: mBlock entrega el puerto como `serialport.COM14`; el middleware extrae `COM14`.
+El filtro de conexión `vendorId: 0x7523` (mBlock lo compara con el productId del
+CH340) vuelve a estar en la extensión; sin él la lista de puertos sale vacía.
+
+## Gate 3H - Programa en ejecución
+
+[ejecutado] Lectura de COM14 durante 2,5 s tras el upload: 15 líneas `7`
+(3 por ciclo de 0,5 s), como indica el programa de bloques.
+
+## Gate 3I - E/S física
+
+[verificado por el usuario]
+
+~~~text
+Q0.7 conmutar cada 0,5 s                 -> PASS (parpadea)
+I0.0 -> TFT                               -> PASS (el recuadro de I0.0 responde al instante)
+si I0.0 entonces Q0.0 ON si no OFF        -> la TFT muestra Q0.0, pero no se oye un clic propio (explicado abajo)
+~~~
+
+Análisis [visto] en `cores/jwcontrol`: el indicador Q0.0 de la TFT sale del
+shadow `g_ioState.do_bank1`, que `jwplc_digitalWrite` sólo actualiza si
+`TCA6424A_writePin` (read-modify-write del registro OUTPUT por I2C) devolvió
+éxito. `digitalRead(Q0_7)` del bloque "conmutar" lee ese shadow, no el bus, y el
+programa no lee Q0.0. Por tanto el código generado sí ordena encender Q0.0 y el
+expansor acepta la escritura. Falta aislar si el problema está en el canal Q0.0
+(core o hardware) o en algo del programa. Notar que el programa muestrea I0.0
+una vez cada 0,5 s: un pulso corto puede dejar Q0.0 encendida hasta 0,5 s.
+
+### Prueba aislada de Q0.0
+
+[ejecutado] `test/cdp-program-q00-isolated.js`, subida desde el botón de mBlock
+con la extensión instalada (sin parches en caliente):
+
+~~~cpp
+void setup() {
+  Serial.begin(115200);
+  JWPLC_writeOutputs(0);
+}
+
+void loop() {
+  digitalWrite(Q0_0, HIGH);
+  Serial.println(1);
+  delay((unsigned long)((1) * 1000));
+  digitalWrite(Q0_0, LOW);
+  Serial.println(0);
+  delay((unsigned long)((1) * 1000));
+}
+~~~
+
+~~~text
+RECONEXION_GUI=PASS   [ejecutado] filtro CH340: COM14 aparece sin "mostrar todos"
+UPLOAD=PASS           [ejecutado] 38 s, hash verificado, reset por RTS, primer intento
+SERIE=PASS            [ejecutado] "0 | 1 | 0 | 1" en 4,5 s
+Q0.0_FISICA=PASS      [verificado por el usuario] LED de la TFT y relé conmutan cada 1 s
+~~~
+
+Log: `results/20261024_gate3i/GATE3I_Q00_ISOLATED_UPLOAD.log`.
+
+Conclusión: el canal Q0.0 (core, TCA6424A P10, relé) y los bloques "poner
+salida" funcionan.
+
+### Causa del "fallo" del programa de demostración
+
+Identificada por el propietario: no era un fallo del core ni de mBlock. Con
+`delay(500)` el bucle sólo leía I0.0 una vez cada 0,5 s, así que cualquier
+cambio de Q0.0 caía en el mismo instante que la conmutación de Q0.7: los dos
+relés hacían clic sincronizados y nunca se oía un clic propio de Q0.0. La TFT
+sí reflejaba Q0.0 porque la orden se aplicaba. Lección para los ejemplos de
+bloques: en un PLC, temporizar con `millis()` y no bloquear el scan con esperas.
+
+### Ejemplo del propietario reproducido en bloques
+
+Sketch de referencia (Arduino IDE), validado por el propietario en la placa:
+
+~~~cpp
+bool inside = false;
+
+void setup() {
+  Serial.begin(115200);
+  JWPLC_writeOutputs(0);
+}
+
+void loop() {
+  if ((digitalRead(I0_0) == HIGH)) {
+    digitalWrite(Q0_0, HIGH);
+  } else {
+    digitalWrite(Q0_0, LOW);
+  }
+  while (millis() % 1000 < 500 && inside == false) {
+    digitalWrite(Q0_7, !digitalRead(Q0_7));
+    inside = true;
+  }
+  if (millis() % 1000 >= 500) inside = false;
+}
+~~~
+
+Mismo programa armado con bloques (`test/cdp-program-millis-scan.js`); código
+generado por la extensión [ejecutado]:
+
+~~~cpp
+float inside = 0;
+
+void setup() {
+  JWPLC_writeOutputs(0);
+  inside = 0;
+}
+
+void loop() {
+  if((digitalRead(I0_0) == HIGH)){
+    digitalWrite(Q0_0, HIGH);
+  }else{
+    digitalWrite(Q0_0, LOW);
+  }
+  if((fmod(millis(), 1000) < 500)  &&  (inside == 0.000000)){
+    digitalWrite(Q0_7, !digitalRead(Q0_7));
+    inside = 1;
+  }
+  if(!((fmod(millis(), 1000) < 500))){
+    inside = 0;
+  }
+}
+~~~
+
+Diferencias sin efecto en el comportamiento: el `while` del sketch se ejecuta
+como mucho una vez (su cuerpo pone `inside = true`), equivalente al `if`; las
+variables de mBlock son `float`; el operador "módulo" de mBlock emite `fmod`.
+
+~~~text
+COMPILE=PASS          [ejecutado] 416801 bytes (10%), 13 s
+UPLOAD=PASS           [ejecutado] 28 s, hash verificado, reset por RTS
+FISICA=PASS           [verificado por el usuario] igual que el sketch de Arduino IDE:
+                      Q0.7 con su clic periódico y Q0.0 alineado con el toque en I0.0
+~~~
+
+Logs: `results/20261024_gate3i/GATE3I_MILLIS_SCAN_UPLOAD.log`. Un intento previo
+falló con el COM ocupado (`GATE3I_MILLIS_PORT_BUSY_ATTEMPT.log`) tras dejar la GUI
+con el diálogo de conexión abierto sobre el de subida; desde entonces el bridge
+reintenta hasta 3 veces (cada 2 s) si esptool encuentra el COM ocupado. En el
+upload válido no hizo falta reintentar.
+
+El propietario da por correcto el core/package: el mismo comportamiento se
+obtiene con Arduino IDE y con mBlock.
+
+Ajuste menor del bridge: esptool v5 informa el progreso como `[===] 7.0%`, no
+`(7 %)`; el parser ahora reconoce ambos formatos para la barra de mBlock.
+
+## Pendiente
+
+- Bloques de temporización tipo PLC (TON/TOF, intermitencia con `millis()`) para
+  que los programas no dependan de "esperar".
+- Arranque del bridge sin consola (tarea programada al iniciar sesión o handler
+  de protocolo que la extensión pueda abrir con `MeApi.fe.openLink`).
+- Bloques de siguiente nivel: botonera (BTN_*), TFT vía `JWPLC_Display`/`JWPLC_UI`,
+  RS485/Modbus, entradas analógicas. Verificar cada llamada contra los `.h` y `.a`.
+- Probar el import del `.mext` arrastrándolo a mBlock (hoy se instala con
+  `install-extension.cjs`).
+
+## Herramientas de prueba
+
+`tools/mblock-poc/test/`: cliente CDP mínimo (`cdp.cjs`, `click.cjs`,
+`type.cjs`, `shot.cjs`) y scripts para inspeccionar mBlock 5.4.3 sin tocar su
+instalación (`asar-read.cjs` lee `app.asar`). Requieren lanzar mBlock con
+`--remote-debugging-port=9229`.

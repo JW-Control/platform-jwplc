@@ -1,0 +1,30 @@
+{
+  "projectName": "Demo",
+  "display": { "start": "HMI" },
+  "pages": [
+    {
+      "name": "Planta",
+      "fields": [
+        { "type": "RAW_TEXT", "text": "Mi planta JWPLC", "x": 4, "y": 4, "font": "SANS_BOLD_9" },
+        { "type": "TEXT", "id": "FIELD_ESTADO", "variable": "estado", "label": "Estado", "capacity": 10, "x": 4, "y": 26, "valueSize": 2, "preview": "LISTO" },
+        { "type": "VALUE", "id": "FIELD_TEMP", "variable": "temperatura", "label": "Temp", "unit": "C", "x": 4, "y": 52, "integerDigits": 3, "decimalDigits": 1, "signedValue": true, "valueSize": 2 },
+        { "type": "VALUE", "id": "FIELD_PIEZAS", "variable": "piezas", "label": "Piezas", "x": 4, "y": 78, "integerDigits": 5, "decimalDigits": 0, "valueSize": 2 },
+        { "type": "BOOL", "id": "FIELD_BOMBA", "variable": "bomba", "label": "Bomba", "x": 4, "y": 104, "falseText": "PARADA", "trueText": "MARCHA", "stateColors": true, "falseColor": "RED", "trueColor": "GREEN" },
+        { "type": "BAR", "id": "FIELD_NIVEL", "variable": "nivel", "barLabel": "Tanque", "barUnit": "%", "x": 180, "y": 26, "barWidth": 134, "barMin": 0, "barMax": 100, "barValue": 40, "frame": true, "valueColor": "CYAN", "trackColor": "#202020" }
+      ]
+    },
+    {
+      "name": "Ajustes",
+      "fields": [
+        {
+          "type": "MENU", "id": "MENU_AJUSTES", "title": "Ajustes", "x": 4, "y": 4, "width": 312, "height": 140,
+          "nodes": [
+            { "type": "EDIT_NUM", "label": "Consigna", "variable": "consigna", "valueType": "float", "initial": 30, "min": 0, "max": 100, "step": 1, "decimals": 0, "unit": "C" },
+            { "type": "EDIT_BOOL", "label": "Modo auto", "variable": "modoAuto", "initial": 1, "falseText": "NO", "trueText": "SI" }
+          ]
+        }
+      ]
+    }
+  ],
+  "fields": [ { "type": "NAV_BAR", "preset": "industrial-color" } ]
+}

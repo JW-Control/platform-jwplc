@@ -1,0 +1,12 @@
+[2026-10-24T16:58:07.592Z]   Global variables use 37756 bytes (11%) of dynamic memory, leaving 289924 bytes for local variables. Maximum is 327680 bytes.
+[2026-10-24T16:58:09.145Z] {"type":"result","ok":true,"stage":"compile","exit":0,"ms":96902}
+[2026-10-24T16:58:24.964Z] {"type":"stage","stage":"compile","fqbn":"jwplc_a14:esp32:jwplcbasic"}
+[2026-10-24T16:58:24.964Z] RUN C:\Program Files\Arduino CLI\arduino-cli.exe compile --fqbn jwplc_a14:esp32:jwplcbasic --build-path C:\Users\jeykc\.jwplc\mblock-bridge\build --output-dir C:\Users\jeykc\.jwplc\mblock-bridge\output C:\Users\jeykc\.jwplc\mblock-bridge\sketch\jwplc_mblock
+[2026-10-24T16:58:46.016Z]   Sketch uses 419328 bytes (10%) of program storage space. Maximum is 4063232 bytes.
+[2026-10-24T16:58:46.017Z]   Global variables use 37756 bytes (11%) of dynamic memory, leaving 289924 bytes for local variables. Maximum is 327680 bytes.
+[2026-10-24T16:58:47.100Z] {"type":"result","ok":true,"stage":"compile","exit":0,"ms":22136}
+[2026-10-24T17:02:54.091Z] {"type":"stage","stage":"compile","fqbn":"jwplc_a14:esp32:jwplcbasic"}
+[2026-10-24T17:02:54.091Z] RUN C:\Program Files\Arduino CLI\arduino-cli.exe compile --fqbn jwplc_a14:esp32:jwplcbasic --build-path C:\Users\jeykc\.jwplc\mblock-bridge\build --output-dir C:\Users\jeykc\.jwplc\mblock-bridge\output C:\Users\jeykc\.jwplc\mblock-bridge\sketch\jwplc_mblock
+[2026-10-24T17:03:16.210Z]   Sketch uses 419088 bytes (10%) of program storage space. Maximum is 4063232 bytes.
+[2026-10-24T17:03:16.211Z]   Global variables use 37756 bytes (11%) of dynamic memory, leaving 289924 bytes for local variables. Maximum is 327680 bytes.
+[2026-10-24T17:03:17.430Z] {"type":"result","ok":true,"stage":"compile","exit":0,"ms":23340}

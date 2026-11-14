@@ -1,0 +1,6 @@
+HTTP=200 ms=41999
+{"type":"stage","stage":"compile","fqbn":"jwplc:esp32:jwplcbasic"}
+{"type":"result","ok":true,"stage":"compile","exit":0,"ms":41961}
+pantalla HMI Designer: C:\Users\jeykc\JWPLC-HMI\Demo\JWPLC_HMI_Generated.h
+Sketch uses 466480 bytes (11%) of program storage space. Maximum is 4063232 bytes.
+Global variables use 38884 bytes (11%) of dynamic memory, leaving 288796 bytes for local variables. Maximum is 327680 bytes.
