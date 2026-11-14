@@ -1,3 +1,4 @@
+#include "rom/ets_sys.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -344,6 +345,22 @@ void HardwareSerial::begin(unsigned long baud, uint32_t config, int8_t rxPin, in
   rxPin = rxPin < 0 ? _rxPin : rxPin;
   txPin = txPin < 0 ? _txPin : txPin;
 
+#if defined(JWPLC_BASIC)
+  // JWPLC Basic: los pines por defecto de la UART1 del ESP32 (RX1=26, TX1=27)
+  // son el buzzer y EN_IO, que habilita los reles. Serial1 sin pines tomaria
+  // EN_IO, asi que aqui se exigen pines explicitos y nunca se acepta EN_IO.
+  if (_uart_nr == UART_NUM_1 && rxPin < 0 && txPin < 0) {
+    ets_printf("\r\n[JWPLC] Serial1.begin() sin pines no se permite en el JWPLC Basic: sus pines por"
+                   " defecto (26/27) son el buzzer y EN_IO. Use Serial1.begin(baud, SERIAL_8N1, rx, tx).\r\n");
+    return;
+  }
+  if (rxPin == (int8_t)EN_IO || txPin == (int8_t)EN_IO) {
+    ets_printf("\r\n[JWPLC] Serial%u.begin() rechazado: GPIO%d es EN_IO (habilita los reles).\r\n",
+                   (unsigned)_uart_nr, (int)EN_IO);
+    return;
+  }
+#endif
+
   HSERIAL_MUTEX_LOCK();
   // First Time or after end() --> set default Pins
   if (!uartIsDriverInstalled(_uart)) {
@@ -614,6 +631,14 @@ bool HardwareSerial::setPins(int8_t rxPin, int8_t txPin, int8_t ctsPin, int8_t r
   txPin = digitalPinToGPIONumber(txPin);
   ctsPin = digitalPinToGPIONumber(ctsPin);
   rtsPin = digitalPinToGPIONumber(rtsPin);
+
+#if defined(JWPLC_BASIC)
+  if (rxPin == (int8_t)EN_IO || txPin == (int8_t)EN_IO || ctsPin == (int8_t)EN_IO || rtsPin == (int8_t)EN_IO) {
+    ets_printf("\r\n[JWPLC] Serial%u.setPins() rechazado: GPIO%d es EN_IO (habilita los reles).\r\n",
+                   (unsigned)_uart_nr, (int)EN_IO);
+    return false;
+  }
+#endif
 
   // uartSetPins() checks if pins are valid and, if necessary, detaches the previous ones
   return uartSetPins(_uart_nr, rxPin, txPin, ctsPin, rtsPin);
