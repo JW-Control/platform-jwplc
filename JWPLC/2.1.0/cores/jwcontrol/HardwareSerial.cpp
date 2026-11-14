@@ -1,3 +1,5 @@
+// Este archivo crea el objeto Serial1 del core: se permite solo aquí.
+#define JWPLC_CORE_ALLOW_SERIAL1
 #include "rom/ets_sys.h"
 #include <stdlib.h>
 #include <stdio.h>

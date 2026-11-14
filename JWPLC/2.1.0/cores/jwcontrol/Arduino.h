@@ -161,11 +161,51 @@ void loop1(void);
 
 #include "jwplc_peripherals.h"
 
+// Restricciones de programación del JWPLC Basic (alpha.17). Cuando el pin es una
+// constante (I0_0, Q0_3, 27...) el error sale al compilar; cuando es una variable
+// (I0_X[i]) lo atrapa el core en tiempo de ejecución y lo ignora con un aviso.
+// __builtin_constant_p dentro de static_assert lo resuelve el compilador también
+// con -O0, y para una variable vale false sin evaluar el resto de la condición.
+constexpr bool jwplc_isInputPinValue(uint16_t pin)
+{
+  return (pin & 0xFF00u) == 0x2200u && (pin & 0x00FFu) <= 7u;
+}
+
+constexpr bool jwplc_isOutputPinValue(uint16_t pin)
+{
+  return (pin & 0xFF00u) == 0x2200u && (pin & 0x00FFu) >= 8u && (pin & 0x00FFu) <= 23u;
+}
+
+constexpr bool jwplc_isEnablePinValue(uint16_t pin)
+{
+  return pin == (uint16_t)EN_IO;
+}
+
+#define JWPLC_PIN_IS_CONST(pin) __builtin_constant_p((uint16_t)(pin))
+
 #undef pinMode
-#define pinMode(pin, mode) jwplc_pinMode((uint16_t)(pin), (mode))
+#define pinMode(pin, mode)                                                                     \
+  __extension__({                                                                              \
+    static_assert(!(JWPLC_PIN_IS_CONST(pin) && jwplc_isEnablePinValue((uint16_t)(pin))),       \
+                  "JWPLC Basic: GPIO27 es EN_IO (habilita los reles) y lo maneja el core");    \
+    static_assert(!(JWPLC_PIN_IS_CONST(pin) && __builtin_constant_p(mode) &&                   \
+                    jwplc_isInputPinValue((uint16_t)(pin)) && (mode) == OUTPUT),               \
+                  "JWPLC Basic: I0_x es una entrada; pinMode(I0_x, OUTPUT) no se permite");    \
+    static_assert(!(JWPLC_PIN_IS_CONST(pin) && __builtin_constant_p(mode) &&                   \
+                    jwplc_isOutputPinValue((uint16_t)(pin)) && (mode) != OUTPUT),              \
+                  "JWPLC Basic: Q0_x es una salida; pinMode(Q0_x, INPUT) no se permite");      \
+    jwplc_pinMode((uint16_t)(pin), (mode));                                                    \
+  })
 
 #undef digitalWrite
-#define digitalWrite(pin, val) jwplc_digitalWrite((uint16_t)(pin), (val))
+#define digitalWrite(pin, val)                                                                 \
+  __extension__({                                                                              \
+    static_assert(!(JWPLC_PIN_IS_CONST(pin) && jwplc_isEnablePinValue((uint16_t)(pin))),       \
+                  "JWPLC Basic: GPIO27 es EN_IO (habilita los reles) y lo maneja el core");    \
+    static_assert(!(JWPLC_PIN_IS_CONST(pin) && jwplc_isInputPinValue((uint16_t)(pin))),        \
+                  "JWPLC Basic: I0_x es una entrada; digitalWrite() solo acepta salidas Q0_x"); \
+    jwplc_digitalWrite((uint16_t)(pin), (val));                                                \
+  })
 
 #undef digitalRead
 #define digitalRead(pin) jwplc_digitalRead((uint16_t)(pin))

@@ -74,6 +74,20 @@ static inline bool jwplc_isEnablePin(uint16_t pin)
 #endif
 }
 
+static bool g_warnPinModeDir = false;
+static bool g_warnWriteInput = false;
+
+// Un aviso por tipo de error: el loop() puede repetir la llamada miles de veces.
+static void jwplc_warnOnce(bool *flag, const char *fmt, unsigned value)
+{
+    if (*flag)
+    {
+        return;
+    }
+    *flag = true;
+    ets_printf(fmt, value);
+}
+
 static void jwplc_warnEnablePin(const char *fn)
 {
 #if defined(JWPLC_BASIC)
@@ -529,11 +543,20 @@ void jwplc_pinMode(uint16_t pin, uint8_t mode)
 {
     if (jwplc_isExpanderPin(pin))
     {
-        uint8_t dir = (mode == OUTPUT) ? TCA6424A_OUTPUT : TCA6424A_INPUT;
-        (void)TCA6424A_setPinDirection(
-            TCA6424A_DEFAULT_ADDRESS,
-            jwplc_virtualChannel(pin),
-            dir);
+        // La dirección de cada pin del TCA6424A la fija el core al arrancar
+        // (banco 0 = I0_x entradas, banco 1 = Q0_x salidas) y no se cambia desde
+        // el sketch: un I0_x como salida empujaría la línea de la entrada y un Q0_x
+        // como entrada soltaría el relé. pinMode() en la dirección correcta no
+        // hace nada; en la contraria se ignora con un aviso.
+        const uint8_t channel = jwplc_virtualChannel(pin);
+        const bool wantsOutput = (mode == OUTPUT);
+        if ((jwplc_isInputChannel(channel) && wantsOutput) ||
+            (!jwplc_isInputChannel(channel) && !wantsOutput))
+        {
+            jwplc_warnOnce(&g_warnPinModeDir,
+                           "\r\n[JWPLC] pinMode(0x%04X) ignorado: I0_x son entradas y Q0_x salidas.\r\n",
+                           (unsigned)pin);
+        }
         return;
     }
 
@@ -550,6 +573,16 @@ void jwplc_digitalWrite(uint16_t pin, uint8_t val)
 {
     if (jwplc_isExpanderPin(pin))
     {
+        if (jwplc_isInputChannel(jwplc_virtualChannel(pin)))
+        {
+            // I0_x es una entrada: escribir su registro de salida no mueve nada
+            // hoy, pero deja un valor latente en el TCA. Se ignora con aviso.
+            jwplc_warnOnce(&g_warnWriteInput,
+                           "\r\n[JWPLC] digitalWrite(0x%04X) ignorado: I0_x es una entrada.\r\n",
+                           (unsigned)pin);
+            return;
+        }
+
         // Protege en una misma región el registro físico y el shadow de
         // JWPLC_IO; el driver TCA usa el mismo mutex recursivo del puente.
         if (jwplcI2C_transactionBegin() != 0)
