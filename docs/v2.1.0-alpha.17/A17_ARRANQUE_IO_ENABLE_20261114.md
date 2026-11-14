@@ -99,3 +99,7 @@ PosVarios   pinMode(Q0_0/I0_0) correctos, digitalRead(Q0_1), digitalWrite(I0_X[i
 
 Compilan sin advertencias: `JWPLC_GlobalPeripherals` 00–07, `03.Display_HMI_Pages`, `Expansion_Esclavo_Basic`,
 `ModbusTCP` 01–02 y `RS485` 01–02.
+
+JWPLC Sim `[ejecutado]` (`main` d69fd30, package en esta rama): `GlobalPeripherals`, `Runtime`, `Display`,
+`UI_Widgets`, `ModbusTCP` y `Ethernet` 48/48; `parity` 0 diferencias; `NegWriteI0` también falla al compilar con el
+build `-O0` del Sim; con `pinMode/digitalWrite(I0_X[i])` en variable salen los dos avisos y `Q0_3` se activa normal.
