@@ -22,6 +22,20 @@
 #define JWPLC_MODBUS_TCP_FRAME_TIMEOUT_MS 1000UL
 #endif
 
+// Servidor con varios clientes: entre tramas, el cliente que lleva este tiempo
+// sin enviar nada deja paso a otro socket con una petición esperando. La
+// conexión no se cierra: vuelve a atenderse cuando envíe su próxima petición.
+#ifndef JWPLC_MODBUS_TCP_HANDOVER_IDLE_MS
+#define JWPLC_MODBUS_TCP_HANDOVER_IDLE_MS 10UL
+#endif
+
+// Una conexión sin peticiones durante este tiempo se cierra para liberar su
+// socket del W5500 (cliente colgado, cable cortado del lado del SCADA o
+// conexión medio abierta). 0 = no cerrar nunca por inactividad.
+#ifndef JWPLC_MODBUS_TCP_CLIENT_IDLE_TIMEOUT_MS
+#define JWPLC_MODBUS_TCP_CLIENT_IDLE_TIMEOUT_MS 60000UL
+#endif
+
 #ifndef JWPLC_MODBUS_TCP_RX_BUDGET
 #define JWPLC_MODBUS_TCP_RX_BUDGET 64
 #endif
@@ -185,6 +199,18 @@ public:
     void setFrameTimeoutMs(uint32_t timeoutMs);
     uint32_t frameTimeoutMs() const;
 
+    // Cierre de conexiones inactivas (0 = nunca). Ver
+    // JWPLC_MODBUS_TCP_CLIENT_IDLE_TIMEOUT_MS.
+    void setClientIdleTimeoutMs(uint32_t timeoutMs);
+    uint32_t clientIdleTimeoutMs() const;
+
+    // Unit ID. Por defecto el Server responde a su Unit ID y también a 0 y
+    // 255, los valores que usan muchos clientes Modbus TCP para un equipo
+    // conectado directamente (Modbus Messaging on TCP/IP, §4.4.2).
+    // setStrictUnitId(true) responde solo al Unit ID configurado.
+    void setStrictUnitId(bool strict);
+    bool strictUnitId() const;
+
     // Mapas Server. Coils y Discrete Inputs usan bits empaquetados LSB-first:
     // bit 0 del byte 0 = dirección 0, bit 1 = dirección 1, etc.
     void setCoils(uint8_t *bits, uint16_t count);
@@ -225,6 +251,8 @@ private:
     uint8_t _unitId;
     uint16_t _port;
     uint32_t _frameTimeoutMs;
+    uint32_t _clientIdleTimeoutMs;
+    bool _strictUnitId;
     uint32_t _lastRxMs;
     uint32_t _lastListenAttemptMs;
 
@@ -247,6 +275,15 @@ private:
 
     EthernetServer _server;
     EthernetClient _client;
+
+    // Conexiones conocidas por socket del W5500: el handle (con su token de
+    // lease, para cerrarlas solo si siguen siendo las mismas), el puerto
+    // remoto para contar conexiones nuevas y la última petición recibida.
+    EthernetClient _peers[MAX_SOCK_NUM];
+    uint16_t _peerPort[MAX_SOCK_NUM];
+    uint32_t _peerLastRxMs[MAX_SOCK_NUM];
+    uint8_t _peerSocket;
+    uint8_t _peerMask;
 
     uint8_t *_coils;
     uint16_t _coilCount;
@@ -287,6 +324,11 @@ private:
     void setRxLoadState(uint8_t state);
 
     void dropClient();
+    void forgetPeer(uint8_t socket);
+    void forgetAllPeers();
+    void notePeerActivity(uint32_t nowMs);
+    bool reapIdlePeer(uint32_t nowMs);
+    bool unitIdAccepted(uint8_t unitId) const;
     bool serviceDeferredDrop();
     void ensureServerListening();
     void serviceServer();
