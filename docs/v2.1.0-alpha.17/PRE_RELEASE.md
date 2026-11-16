@@ -35,6 +35,9 @@ formas**.
   Los proyectos de alpha.16 se migran solos a la configuración Modbus nueva.
 - **JW Libraries** (#226): `JW_FRAM` 1.0.4, `JW_MatrixButtons` 1.0.7, `JW_RTC` 1.0.3 y `JW_SD` 1.0.3 desde
   JW-Libraries.
+- **Arranque de E/S y restricciones de programación** (#237): si el expansor de E/S no responde al arrancar, el
+  JWPLC lo avisa por el Serial y lo reintenta cada segundo hasta habilitar los relés (`JWPLC_IO.fault()`). Ya no
+  compilan `Serial1`, `digitalWrite(I0_x)`, `pinMode(I0_x, OUTPUT)`, `pinMode(Q0_x, INPUT)` ni el uso del GPIO27.
 - `JWPLC_Display`, `JW_FRAM` y `JW_MatrixButtons` vuelven a distribuirse **precompiladas** con los `.a`
   regenerados en esta alpha ([A17_CIERRE_PRECOMPILADAS_20261104.md](A17_CIERRE_PRECOMPILADAS_20261104.md)).
 

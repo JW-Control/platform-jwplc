@@ -6,7 +6,7 @@ Actualizado: `2026-11-04` (cierre autorizado por el propietario: integrar Editor
 
 | Repo | Rol | Rama | SHA / estado |
 |---|---|---|---|
-| platform-jwplc | Base de la línea (`…/main`) | `v2.1.0-alpha.17/JWPLC-Sim/main` | `852a415` (#234) |
+| platform-jwplc | Base de la línea (`…/main`) | `v2.1.0-alpha.17/JWPLC-Sim/main` | `f0e5edc` (#237) |
 | platform-jwplc | Línea del editor | `v2.1.0-alpha.17/Editor-Upstream/main` | `0647a84` (VPP 4.3, #227); fusionada en `…/JWPLC-Sim/main` con #234 |
 | platform-jwplc | Feature de cierre | `v2.1.0-alpha.17/JWPLC-Sim/feature/cierre-alpha17` | PR hacia `…/main`, luego `…/main` → `release/v2.1.x` |
 | openplc-editor | Línea cerrada | `v2.1.0-alpha.17/Editor-Upstream/main` | `2bf0b0c`, tag `jwplc-editor-v4.3.3-jwplc.1`; en `release/v2.1.x` @ `6886eed` (#16) |
@@ -33,6 +33,7 @@ contenido ya dentro: `v2.1.0-alpha.16/OpenPLC-HMI/feature/modo-claro-designer` @
 | #233 | `…/feature/ejemplos-digital-block` | `56950b3` | ejemplos con `digitalRead/Write` y `digitalRead/WriteBlock` |
 | #227 | `…/Editor-Upstream/feature/vpp-4.3` | `0647a84` | VPP 2.1.0-alpha.17 (Serial/Network) en la línea Editor-Upstream |
 | #234 | `…/feature/integrar-editor-upstream` | `852a415` | trae `Editor-Upstream/main` a esta línea |
+| #237 | `…/feature/arranque-io-enable` | `f0e5edc` | aviso y reintento si el TCA no arranca (EN_IO=GPIO27); errores de compilación para `Serial1`, `digitalWrite(I0_x)`, `pinMode` cruzado y GPIO27; `core.a` regenerado |
 
 ## 3. Librerías precompiladas y evidencia del cierre
 
