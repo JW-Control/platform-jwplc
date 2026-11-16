@@ -503,7 +503,7 @@
           f[sizeProp] = 1;
         }
       }, true);
-      syncInspector();
+      sync();
       return;
     }
     const sizeBtn = e.target.closest('[data-font-size]');
@@ -532,7 +532,7 @@
           field[sizeProp] = 1;
         }
       }, true);
-      syncInspector();
+      sync();
       return;
     }
     const boldBtn = e.target.closest('[data-font-bold]');
@@ -551,7 +551,7 @@
           field[fontProp] = window.JWPLCDesignerFonts?.fontIdFrom(fam, variant, newBold);
           field[sizeProp] = 1;
         }, true);
-        syncInspector();
+        sync();
       }
       return;
     }

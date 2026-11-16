@@ -14,6 +14,10 @@
 
 #include <cstdio>
 
+// Desde #239 Pages/Menu llaman a jwplcUIRuntimeEnsureLinked() (definida en
+// JWPLC_UI_API.cpp, que este simulador no compila): basta un cuerpo vacío.
+extern "C" void jwplcUIRuntimeEnsureLinked(void) {}
+
 JW_MatrixButtons JWPLC_Buttons;
 JWPLC_DisplayClass JWPLC_Display;
 

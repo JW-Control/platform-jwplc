@@ -203,7 +203,8 @@ async function main() {
     check(sel.iconState === 2, 'clic en un estado lo muestra en el lienzo');
     await page.fill(`${S} [data-icon-prop="label"]`, 'P1');
     await page.locator(`${S} [data-icon-prop="label"]`).dispatchEvent('change');
-    await page.click(`${S} [data-icon-set="layout"][data-value="INLINE"]`);
+    // Desde #239 la posición de la etiqueta se elige en la matriz 3x3 (fila del medio = INLINE).
+    await page.click(`${S} [data-icon-matrix-wrap] [data-align-v="MID"][data-align-h="LEFT"]`);
     sel = await page.evaluate(() => ({ ...window.JWPLCHMIEditor.getSelectedField() }));
     check(sel.label === 'P1' && sel.layout === 'INLINE', 'etiqueta y posición');
     await page.click(`${S} [data-icon-sub="shape"]`);
@@ -231,6 +232,7 @@ async function main() {
     check(sel.iconVarType === 'bool', 'deshacer vuelve al tipo anterior');
 
     const text = await header();
+    // Iconos del catálogo sin colores propios: el header llama a JWPLC_Icons (precompilada en JWPLC_Display).
     check(/JWPLC_UIIconField\(\n {8}FIELD_ICON_\d+,/.test(text) && text.includes('JWPLC_Icons.motor(48)'), 'header con JWPLC_UIIconField y llamada nativa JWPLC_Icons.motor(48)');
     check(text.includes('JWPLC_Display.setIconState(') && /uint8_t \w+ = 0; \/\/ ICON: 0=\S+/.test(text), 'variable uint8_t y setIconState en jwplcUIUpdate()');
     check(!text.includes('HMI_ICON_MOTORES_MOTOR_48'), 'los iconos de catálogo no saturan el sketch con mapas de bits en el header');

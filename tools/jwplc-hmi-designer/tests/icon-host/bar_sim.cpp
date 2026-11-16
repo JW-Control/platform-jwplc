@@ -37,7 +37,7 @@ int main(int argc, char **argv)
     bar(ID_ROUND, JWPLC_UIRect(140, 40, 110, JWPLC_UI_AUTO), JWPLC_UIBarConfig(0, 0, 0, 6)),
     bar(ID_BLOCKS, JWPLC_UIRect(140, 60, 110, JWPLC_UI_AUTO), JWPLC_UIBarConfig(0, JWPLC_UI_BAR_STYLE_BLOCKS)),
     bar(ID_VERT, JWPLC_UIRect(270, 5), JWPLC_UIBarConfig(JWPLC_UI_BAR_VERTICAL, 0, 0, 0, false, 0xFFFF, 1, 14, 60)),
-    JWPLC_UIBarField(ID_VERT_STACKED, JWPLC_UIRect(220, 5), JWPLC_UIText("Nivel", "%"),
+    JWPLC_UIBarField(ID_VERT_STACKED, JWPLC_UIRect(140, 80), JWPLC_UIText("Nivel", "%"),
                      JWPLC_UIRange(0.0f, 100.0f), JWPLC_UIBarStyle(1, false, JWPLC_UI_LAYOUT_STACKED),
                      0, JWPLC_UIColors(0xFFFF, FILL, BG, 0xFFFF),
                      JWPLC_UIBarConfig(JWPLC_UI_BAR_VERTICAL, 0, 0, 0, false, 0xFFFF, 1, 14, 60)),
@@ -90,12 +90,16 @@ int main(int argc, char **argv)
   CHECK(at(vx, vy + 59) == FILL && at(vx + 13, vy + 59) == FILL && at(vx + 14, vy + 59) != FILL, "ancho de 14 px exacto");
   CHECK(at(vx, vy + 30) == FILL && at(vx, vy + 29) != FILL, "al 50 %% llena 30 de 60 px desde abajo");
 
-  // Vertical STACKED con etiqueta ("Nivel", 30 px) y unidad ("%", 6 px):
-  // contentW = 30; autoW = 3 + 3 + 30 = 36;
-  // valueX = 220 + 3 + (30 - 14)/2 = 231;
-  // valueY = 5 + 3 + 8 + 2 = 18;
-  const int vsx = 231, vsy = 18;
-  CHECK(at(vsx, vsy + 59) == FILL && at(vsx + 13, vsy + 59) == FILL && at(vsx + 14, vsy + 59) != FILL, "vertical STACKED: barra centrada en x=231");
+  // Vertical STACKED con etiqueta ("Nivel") y unidad ("%"). El layout mide el
+  // cuerpo nominal 5x7 del GLCD (textBounds descuenta el espaciador): "Nivel"
+  // = 29 x 7 px. Con FIELD_PADDING = 3 y FIELD_GAP = 4:
+  // contentW = 29; autoW = 3 + 3 + 29 = 35 (x 140..174);
+  // valueX = 140 + 3 + (29 - 14)/2 = 150;
+  // valueY = 80 + 3 + 7 + 4 = 94; alto 60 -> filas 94..153.
+  // Va en (140, 80) para no pisarse con BORDER/ROUND (en 220,5 los tapaban).
+  const int vsx = 150, vsy = 94;
+  CHECK(at(vsx, vsy + 59) == FILL && at(vsx + 13, vsy + 59) == FILL && at(vsx + 14, vsy + 59) != FILL &&
+            at(vsx - 1, vsy + 59) != FILL, "vertical STACKED: barra de 14 px centrada en x=150");
   CHECK(at(vsx, vsy + 30) == FILL && at(vsx, vsy + 29) != FILL, "vertical STACKED: al 50 %% llena 30 de 60 px");
 
   // Degradado hasta casi negro: 0x0001 no significa sólido.

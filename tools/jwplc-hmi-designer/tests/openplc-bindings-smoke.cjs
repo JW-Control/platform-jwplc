@@ -138,7 +138,14 @@ async function main() {
     const geometry = () => page.evaluate(() => JSON.stringify(window.JWPLCHMIEditor.getAllFields().map((f) => [f.key, f.x, f.y, f.width, f.height])));
     const before = await geometry();
     const box = await page.locator('#displayCanvas').boundingBox();
-    await page.mouse.move(box.x + box.width * 0.2, box.y + box.height * 0.25);
+    // Se arrastra desde el centro del TEXT: desde #239 el VALUE nuevo cae justo debajo (y = 44) y el
+    // punto fijo de antes (20 %, 25 % del lienzo) quedaba en el hueco entre los dos objetos.
+    const textCenter = await page.evaluate(() => {
+      const E = window.JWPLCHMIEditor;
+      const b = E.getFieldBounds(E.getAllFields().find((f) => f.type === 'TEXT'));
+      return { x: (b.minX + b.maxX) / 2 * E.getZoom(), y: (b.minY + b.maxY) / 2 * E.getZoom() };
+    });
+    await page.mouse.move(box.x + textCenter.x, box.y + textCenter.y);
     await page.mouse.down();
     await page.mouse.move(box.x + box.width * 0.6, box.y + box.height * 0.7, { steps: 8 });
     await page.mouse.up();

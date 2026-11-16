@@ -3222,12 +3222,24 @@
     }
     if (field.type === 'ICON') {
       const entry = iconEntry(field);
-      const symbol = window.JWPLCHMIIcons?.symbolForField?.(field) || window.JWPLCIconsCore.symbolFor(field.iconId, entry ? entry.width : field.iconSize);
+      const symbol = nativeIconCall(field, entry) ||
+        window.JWPLCHMIIcons?.symbolForField?.(field) || window.JWPLCIconsCore.symbolFor(field.iconId, entry ? entry.width : field.iconSize);
       const iconBlock = window.JWPLCIconsCore.iconFieldBlock(field, id, symbol, core.cppString);
       return core?.wrapFieldBlockPages ? core.wrapFieldBlockPages(field, iconBlock) : iconBlock;
     }
     if (core?.fieldBlock) return core.fieldBlock(field, id);
     return field.type === 'VALUE' ? core.valueFieldBlock(field, id) : core.textFieldBlock(field, id);
+  }
+
+  // Icono del catálogo sin colores propios: el header llama a la biblioteca nativa
+  // (JWPLC_Icons.motor(48), precompilada en JWPLC_Display) en vez de copiar su mapa de
+  // bits. Con colores propios (o un icono fuera del catálogo) devuelve null.
+  function nativeIconCall(field, entry) {
+    const core = window.JWPLCIconsCore;
+    if (!core?.iconCallFor || !entry || !core.isCatalogIcon(field.iconId)) return null;
+    const base = core.symbolFor(field.iconId, entry.width);
+    const symbol = window.JWPLCHMIIcons?.symbolForField?.(field) || base;
+    return symbol === base ? core.iconCallFor(field.iconId, entry.width) : null;
   }
 
   // Alpha16: un bloque por (icono, tamaño) usado, en orden de aparición.
@@ -3238,7 +3250,7 @@
     const assets = [];
     fields.filter((field) => field.type === 'ICON').forEach((field) => {
       const entry = iconEntry(field);
-      if (!entry) return;
+      if (!entry || nativeIconCall(field, entry)) return;
       const customSymbol = window.JWPLCHMIIcons?.symbolForField?.(field);
       const symbol = customSymbol || core.symbolFor(field.iconId, entry.width);
       const key = `${field.iconId}@${entry.width}:${symbol}`;
@@ -6618,10 +6630,14 @@
 
   document.addEventListener('click', (e) => {
     const iconContainer = document.getElementById('iconDropdownContainer');
+    // composedPath() y no contains(e.target): un clic en una categoría del menú
+    // Iconos vuelve a dibujar sus botones y e.target ya no está en el documento;
+    // con contains() ese clic cerraba el menú.
+    const path = e.composedPath();
     if (
-      (varDropdownContainer && !varDropdownContainer.contains(e.target)) &&
-      (textDropdownContainer && !textDropdownContainer.contains(e.target)) &&
-      (!iconContainer || !iconContainer.contains(e.target))
+      (varDropdownContainer && !path.includes(varDropdownContainer)) &&
+      (textDropdownContainer && !path.includes(textDropdownContainer)) &&
+      (!iconContainer || !path.includes(iconContainer))
     ) {
       closeAllDropdowns();
     }
