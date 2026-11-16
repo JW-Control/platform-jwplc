@@ -457,4 +457,18 @@ extern HardwareSerial Serial5;
 #endif
 #endif  //!defined(NO_GLOBAL_INSTANCES) && !defined(NO_GLOBAL_SERIAL)
 
+// JWPLC Basic: Serial1 no existe para el sketch. Sus pines por defecto (RX1=26,
+// TX1=27) son el buzzer y EN_IO, y la placa no tiene otro par libre. Usarlo es un
+// error de compilación; HardwareSerial.cpp define JWPLC_CORE_ALLOW_SERIAL1 para
+// poder crear el objeto (que además rechaza esos pines en tiempo de ejecución).
+#if defined(JWPLC_BASIC) && defined(__cplusplus) && !defined(JWPLC_CORE_ALLOW_SERIAL1)
+#define Serial1                                                                                \
+  (*__extension__({                                                                            \
+    static_assert(sizeof(HardwareSerial) == 0,                                                 \
+                  "JWPLC Basic: Serial1 no esta disponible (sus pines son el buzzer y EN_IO). " \
+                  "Use Serial, o Serial2 a traves de JWPLC_RS485 / JWPLC_ModbusRTU");     \
+    (HardwareSerial *)0;                                                                       \
+  }))
+#endif
+
 #endif  // HardwareSerial_h

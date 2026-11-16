@@ -577,6 +577,14 @@ bool JWPLC_IOView::ready() const
     return state != nullptr && state->initialized;
 }
 
+// Definida en cores/jwcontrol/peripherals_init.cpp.
+extern "C" uint8_t jwplcSystemIOFault(void);
+
+uint8_t JWPLC_IOView::fault() const
+{
+    return jwplcSystemIOFault();
+}
+
 uint32_t JWPLC_IOView::lastScanMs() const
 {
     const JWPLC_IOState *state = jwplcGetIOState();
