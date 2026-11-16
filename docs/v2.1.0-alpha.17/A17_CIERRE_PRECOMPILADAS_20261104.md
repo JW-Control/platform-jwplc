@@ -57,3 +57,36 @@ mano desde el directorio de salida del script en vez de usar `--install`, que se
 - `[ejecutado]` compilación ESP32 real de los 79 ejemplos del package con estos `.a`: 79/79 (detalle en `ALPHA17_STATUS.md` §3).
 - `[ejecutado]` HMI Designer `tests/run-all.cjs` 21/21: los headers generados compilan y sus llamadas existen en los `.a`.
 - `[pendiente]` benchmark de compilación en la PC del propietario (Arduino IDE, sketch limpio y recompilación).
+
+## 5. Segunda regeneración (16/11): #238 y #239
+
+Después del 04/11 entraron a `…/main` dos PR que cambian fuentes de librerías precompiladas:
+
+| Librería | Cambio | Resultado |
+|---|---|---|
+| `JWPLC_Display` 1.1.0 | #239 (André): TREND, 64 campos en Flash, máscaras por página, menú CARDS, `JWPLC_Icons` | `.a` regenerado, sigue `precompiled=full` |
+| `JWPLC_ModbusTCP` 0.1.0 | #238: varios clientes, cierre por inactividad, Unit ID 0/255 | `.a` regenerado y **vuelve a `precompiled=full`** (decisión del propietario, 16/11) |
+
+`[ejecutado]` en la nube, misma receta (§2):
+
+```bash
+CTAGS_DIR=$HOME/jwplc-build/ctags tools/alpha16/regenerate_precompiled.sh build JWPLC_Display JWPLC_ModbusTCP
+```
+
+| `.a` | Bytes | SHA-256 | Símbolos eliminados / añadidos |
+|---|---|---|---|
+| `libJWPLC_Display.a` | 2 737 588 | `b1f2a6b8d0bcef441b79f3cb773aa0b7350b15217b238db2ea3c0f85a10b027d` | 46 / 41 |
+| `libJWPLC_ModbusTCP.a` | 479 116 | `849af1163c6ffb51fde1239b3b17ff7c205d8500c4cf6e4857cbcfcb2cb92271` | 0 / 15 |
+
+- Ningún otro `.a` del package importa un símbolo que falte (`IMPORTS_FROM_OTHER_LIBS_MISSING=0`).
+- Los 46 símbolos que salen de `JWPLC_Display` son constructores y ayudantes de `JWPLC_UI.h` (`JWPLC_UIRect`,
+  `JWPLC_UIText`, `JWPLC_UIColors`, `JWPLC_UIBoolText`, `JWPLC_UIValueFormat`, `JWPLC_UIBarField`, …) que #239 pasó a
+  `constexpr`/`inline` en la cabecera (`JWPLC_UI_CONSTEXPR14`) para que las tablas de 64 campos queden en Flash. Ya no
+  hacen falta en el `.a`; como en §3, nada compilado contra el `.a` anterior se mezcla con este.
+- El `.a` de `JWPLC_ModbusTCP` anterior no tenía información de depuración; el nuevo sí (como `JWPLC_Display`), por eso
+  pesa más. El código que entra al firmware pasa de 16 277 a 18 101 B (`size -t`).
+- `[ejecutado]` compilación ESP32 real de los 34 sketches afectados con estos `.a` (16 de `JWPLC_Display`, 2 de
+  `JWPLC_GlobalPeripherals`, 1 de `JWPLC_Runtime`, 4 de `JWPLC_UI_Widgets`, 2 de `JWPLC_ModbusTCP`, 4 de
+  `JW_ModbusRTU` y los 5 proyectos de `tools/jwplc-hmi-designer/pruebas-ia/`): **34/34, 0 advertencias**. Los 2 de
+  Modbus TCP usan el `.a` (`JWPLC_ModbusTCP has been declared precompiled`).
+- `[ejecutado]` HMI Designer `tests/run-all.cjs`: 34/34 (ver `ALPHA17_STATUS.md` §3).

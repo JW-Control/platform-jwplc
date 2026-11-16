@@ -28,8 +28,15 @@ formas**.
 - **Runtime** (#228–#230): ejemplos `Runtime_Intermitente` (dos TON, solo salidas) y `Runtime_Escalonado` (entrada
   I1 y dos TON). `JWPLC_Runtime.loadDemo()` reemplaza el programa guardado en la FRAM si es otro, así el ejemplo
   carga aunque el equipo tenga la «Demo feria».
-- **HMI Designer 2.1.0-alpha.17** (#231, #232): temas claro y oscuro con tokens de diseño, indicadores de nivel,
-  fuentes universales y la vista de enlaces de OpenPLC sin recortes y con su tema.
+- **HMI Designer 2.1.0-alpha.17** (#231, #232, #239): temas claro y oscuro con tokens de diseño, indicadores de
+  nivel, fuentes universales y la vista de enlaces de OpenPLC sin recortes y con su tema. Nuevo widget **TREND**
+  (hasta 3 canales y 2 umbrales, registro en MicroSD), proyectos de **varias páginas**, menú **CARDS**, inspectores
+  de iconos, EVENT_LOG y MENU, y hasta **64 campos** por proyecto en `JWPLC_Display`.
+- **Modbus TCP** (#238): el Server de `JWPLC_ModbusTCP` atiende varios clientes a la vez, cierra las conexiones
+  inactivas y responde también a Unit ID 0 y 255 (`setStrictUnitId(true)` vuelve a la comparación exacta).
+  En `JW_ModbusRTU`, una tabla sin mapa responde la excepción 02.
+- **mBlock 5** (#236): extensión `jwplc_basic` 0.12.0, bridge 0.6.0 e instalador en `tools/mblock-poc/` (prueba de
+  concepto, pendiente de validar en otra máquina).
 - **OpenPLC Editor 4.3.3-jwplc.1** (openplc-editor #14–#16): basado en OpenPLC Editor 4.3.3 de Autonomy, interfaz
   en español y VPP 2.1.0-alpha.17 con las pantallas *Serial* y *Network* nuevas para Modbus (#227).
   Los proyectos de alpha.16 se migran solos a la configuración Modbus nueva.
@@ -38,8 +45,8 @@ formas**.
 - **Arranque de E/S y restricciones de programación** (#237): si el expansor de E/S no responde al arrancar, el
   JWPLC lo avisa por el Serial y lo reintenta cada segundo hasta habilitar los relés (`JWPLC_IO.fault()`). Ya no
   compilan `Serial1`, `digitalWrite(I0_x)`, `pinMode(I0_x, OUTPUT)`, `pinMode(Q0_x, INPUT)` ni el uso del GPIO27.
-- `JWPLC_Display`, `JW_FRAM` y `JW_MatrixButtons` vuelven a distribuirse **precompiladas** con los `.a`
-  regenerados en esta alpha ([A17_CIERRE_PRECOMPILADAS_20261104.md](A17_CIERRE_PRECOMPILADAS_20261104.md)).
+- `JWPLC_Display`, `JWPLC_ModbusTCP`, `JW_FRAM` y `JW_MatrixButtons` vuelven a distribuirse **precompiladas** con
+  los `.a` regenerados en esta alpha ([A17_CIERRE_PRECOMPILADAS_20261104.md](A17_CIERRE_PRECOMPILADAS_20261104.md)).
 
 ## Instalación
 
@@ -67,4 +74,4 @@ Ver `ALPHA17_STATUS.md` §3 (resultados de la matriz ESP32, del Sim y de los tes
 | HMI Designer | 2.1.0-alpha.17 | instaladores: árbol de la Release; dentro del editor: platform-jwplc `4cb23c5` |
 | VPP JWPLC Basic | 2.1.0-alpha.17 | platform-jwplc `0647a84` |
 | OpenPLC Editor – JWPLC Edition | 4.3.3-jwplc.1 | openplc-editor `2bf0b0c` (tag `jwplc-editor-v4.3.3-jwplc.1`) |
-| JWPLC Sim (gate `SIM_REGRESSION`) | — | jwplc-sim `9622dca` |
+| JWPLC Sim (gate `SIM_REGRESSION`) | — | jwplc-sim `5021377` |
