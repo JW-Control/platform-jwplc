@@ -67,14 +67,26 @@ Se implementó una solución de tipografía universal desacoplada en siete capas
 
 ### 2.4 Inspectores de Usuario / UI (`designer-field-inspector.js`, `designer-menu.js`, `designer-event-log.js`)
 - **Inspector de Campos Dinámicos (`designer-field-inspector.js`):**
-  - Tarjeta colapsable **Tipografía** con dos selectores independientes:
-    - *Fuente de Etiqueta*: poblado mediante `availableFontsFor('label')` (oculta `FONT_7SEG_48`).
-    - *Fuente de Valor*: poblado mediante `availableFontsFor(field.type)` (incluye `FONT_7SEG_48` en `VALUE`).
+  - Tarjeta unificada **Tipografía y Escala** con dos bloques de control independientes (Etiqueta y Valor):
+    - *Selector táctil de Familia (Nivel 1):* Chips para `Clásica 5×7`, `Bitmap`, `Sans`, `7-Seg` y `Mono`.
+    - *Selector táctil contextual de Tamaño (Nivel 2):* Chips de escala (`1×..4×`), altura (`16 px`, `26 px`, `48 px`) o puntaje (`9 pt`, `12 pt`, `18 pt`, `24 pt` + `[B]`).
+    - *Badge de altura en píxeles:* Indicador dinámico (`8 px de alto`, `16 px de alto`, etc.) acorde al tamaño real.
+    - Se eliminaron por completo las tarjetas redundantes de tamaño y los dropdowns `<select>`.
+    - `7-Seg` se restringe estrictamente al valor de variables numéricas (`VALUE`), oculto para etiquetas y texto.
   - Integrado al ciclo de vida del inspector con persistencia en el proyecto y soporte completo del historial Undo/Redo.
 - **Inspector de Menú (`designer-menu.js`):**
-  - Tarjeta **Tipografía** en la pestaña de Forma con selector `data-menu-font`.
+  - Tarjeta **Tipografía** en la pestaña de Forma con selector táctil por chips (`Clásica`, `Bitmap`, `Sans` y tamaños contextuales).
 - **Inspector de Historial (`designer-event-log.js`):**
-  - Tarjeta **Tipografía** con selectores para `headerFont` y `rowFont`.
+  - Tarjeta **Tipografía** con selectores táctiles para `headerFont` y `rowFont`.
+
+### 2.5 Resolutores Tipográficos Puros (`designer-fonts.js`)
+Se añadieron funciones puras para mapeo bidireccional entre identificadores de fuente y variantes visuales:
+- `fontFamilyOf(id)`: Clasifica el ID (`GLCD` -> `'glcd'`, `FONT_16`/`FONT_26` -> `'bitmap'`, `FONT_7SEG_48` -> `'7seg'`, FreeFonts -> `'sans'` / `'mono'`).
+- `fontSizeVariantOf(id, scale)`: Extrae variante de tamaño o escala entera.
+- `isBold(id)`: Detecta variantes en negrita de FreeFonts.
+- `fontIdFrom(family, sizeVariant, bold)`: Compone el identificador exacto de firmware.
+- `fontHeightPx(id, scale)`: Determina la altura exacta en píxeles para el badge informativo.
+- Verificado en suite de pruebas `tests/fonts-resolver.test.cjs`.
 
 ---
 

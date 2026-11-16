@@ -168,22 +168,11 @@
             <button type="button" class="bar-visual-btn" data-set="layout" data-value="STACKED" title="Etiqueta arriba, valor abajo">${layoutSvg(true)}<span>Apilado</span></button>
           </div>
         </div>
-        <div class="bar-card">
-          <div class="bar-card-section-title">Tamaño de la etiqueta <span class="insp-hint" data-readout="labelSizePx"></span></div>
-          <div class="insp-chip-row">${chips('labelSize', [1, 2, 3, 4], '×')}</div>
-          <div class="bar-card-section-title insp-gap">Tamaño del valor <span class="insp-hint" data-readout="valueSizePx"></span></div>
-          <div class="insp-chip-row">${chips('valueSize', [1, 2, 3, 4], '×')}</div>
-          <div class="insp-note">Fuente GLCD 5×7 escalada (celda 6×8 px por 1×).</div>
-        </div>
-        <div class="bar-card">
-          <div class="bar-card-section-title">Tipografía</div>
-          <label class="field-label">Fuente de la etiqueta
-            <select class="field-input" data-font-select="labelFont"></select>
-          </label>
-          <label class="field-label insp-gap">Fuente del valor / estado
-            <select class="field-input" data-font-select="valueFont"></select>
-          </label>
-          <div class="insp-note">Permite fuentes GLCD, Bitmap (16/26 px), FreeFonts y 7-Segmentos (para valores numéricos).</div>
+        <div class="bar-card" data-font-card>
+          <div class="bar-card-section-title">Tipografía y Escala</div>
+          <div id="inspFontCtrlLabel" class="insp-font-block"></div>
+          <div id="inspFontCtrlValue" class="insp-font-block"></div>
+          <div class="insp-note">Métricas y glifos reales según la tipografía seleccionada.</div>
         </div>
         <div class="bar-card">
           <div class="bar-card-section-title">Marco</div>
@@ -384,6 +373,11 @@
           <label class="field-label">Variable C++
             <input class="field-input code-input" data-proxy="fieldVariable" type="text" maxlength="32" />
           </label>
+          <label class="field-label insp-gap" data-fi-link-trend-wrap hidden title="Vincula este campo VALUE a una gráfica (TREND) existente para compartir la misma variable C++ sin declarar otra.">Vincular a gráfica (misma variable)
+            <select class="field-input" data-fi-link-trend-select>
+              <option value="">— Variable independiente —</option>
+            </select>
+          </label>
           <div class="insp-readouts">
             <span>Tipo <code class="insp-type-chip" data-readout="cppType">float</code></span>
           </div>
@@ -484,6 +478,81 @@
     const setBtn = e.target.closest('[data-set]');
     if (setBtn && !setBtn.disabled) {
       proxyValue(SET_TARGET[setBtn.dataset.set], setBtn.dataset.value, true);
+      return;
+    }
+    const famBtn = e.target.closest('[data-font-family]');
+    if (famBtn) {
+      const target = famBtn.dataset.fontTarget;
+      const newFam = famBtn.dataset.fontFamily;
+      const fontProp = target === 'label' ? 'labelFont' : 'valueFont';
+      const sizeProp = target === 'label' ? 'labelSize' : 'valueSize';
+      setFieldProps((f) => {
+        if (newFam === 'GLCD') {
+          f[fontProp] = 'GLCD';
+        } else if (newFam === 'BITMAP') {
+          f[fontProp] = 'FONT_16';
+          f[sizeProp] = 1;
+        } else if (newFam === '7SEG') {
+          f[fontProp] = 'FONT_7SEG_48';
+          f[sizeProp] = 1;
+        } else if (newFam === 'SANS') {
+          f[fontProp] = 'SANS_9';
+          f[sizeProp] = 1;
+        } else if (newFam === 'MONO') {
+          f[fontProp] = 'MONO_9';
+          f[sizeProp] = 1;
+        }
+      }, true);
+      syncInspector();
+      return;
+    }
+    const sizeBtn = e.target.closest('[data-font-size]');
+    if (sizeBtn) {
+      const target = sizeBtn.dataset.fontTarget;
+      const sizeVal = sizeBtn.dataset.fontSize;
+      const fontProp = target === 'label' ? 'labelFont' : 'valueFont';
+      const sizeProp = target === 'label' ? 'labelSize' : 'valueSize';
+      const f = selectedField();
+      if (!f) return;
+      const currFont = f[fontProp] || 'GLCD';
+      const fam = window.JWPLCDesignerFonts?.fontFamilyOf(currFont) || 'GLCD';
+      setFieldProps((field) => {
+        if (fam === 'GLCD') {
+          field[sizeProp] = Math.max(1, Math.trunc(Number(sizeVal) || 1));
+          field[fontProp] = 'GLCD';
+        } else if (fam === 'BITMAP') {
+          field[fontProp] = sizeVal === '26' ? 'FONT_26' : 'FONT_16';
+          field[sizeProp] = 1;
+        } else if (fam === '7SEG') {
+          field[fontProp] = 'FONT_7SEG_48';
+          field[sizeProp] = 1;
+        } else if (fam === 'SANS' || fam === 'MONO') {
+          const bold = window.JWPLCDesignerFonts?.isBold(currFont) || false;
+          field[fontProp] = window.JWPLCDesignerFonts?.fontIdFrom(fam, sizeVal, bold) || `${fam}_${sizeVal}`;
+          field[sizeProp] = 1;
+        }
+      }, true);
+      syncInspector();
+      return;
+    }
+    const boldBtn = e.target.closest('[data-font-bold]');
+    if (boldBtn) {
+      const target = boldBtn.dataset.fontBold;
+      const fontProp = target === 'label' ? 'labelFont' : 'valueFont';
+      const sizeProp = target === 'label' ? 'labelSize' : 'valueSize';
+      const f = selectedField();
+      if (!f) return;
+      const currFont = f[fontProp] || 'GLCD';
+      const fam = window.JWPLCDesignerFonts?.fontFamilyOf(currFont) || 'GLCD';
+      if (fam === 'SANS' || fam === 'MONO') {
+        const variant = window.JWPLCDesignerFonts?.fontSizeVariantOf(currFont, 1) || '9';
+        const newBold = !window.JWPLCDesignerFonts?.isBold(currFont);
+        setFieldProps((field) => {
+          field[fontProp] = window.JWPLCDesignerFonts?.fontIdFrom(fam, variant, newBold);
+          field[sizeProp] = 1;
+        }, true);
+        syncInspector();
+      }
       return;
     }
     const kindBtn = e.target.closest('[data-vkind]');
@@ -609,9 +678,8 @@
       proxyValue('fieldBoolPreview', boolPreview.dataset.boolPreview, true);
       return;
     }
-    const page = e.target.closest('[data-page-id]');
-    if (page) {
-      editor()?.moveSelectedFieldToPage?.(Number(page.dataset.pageId));
+    const pageHost = e.target.closest('[data-page-chips]');
+    if (pageHost && editor()?.handlePageChipHostClick?.(pageHost, e, selectedField(), 'data-page-id')) {
       return;
     }
     const copy = e.target.closest('[data-copy-contract]');
@@ -627,16 +695,6 @@
   wrap.querySelectorAll('[data-proxy]').forEach((input) => {
     input.addEventListener('input', () => proxyValue(input.dataset.proxy, input.value, false));
     input.addEventListener('change', () => proxyValue(input.dataset.proxy, input.value, true));
-  });
-
-  wrap.querySelectorAll('[data-font-select]').forEach((sel) => {
-    sel.addEventListener('change', () => {
-      const prop = sel.dataset.fontSelect;
-      setFieldProps((f) => {
-        f[prop] = sel.value;
-      }, true);
-      syncInspector();
-    });
   });
 
   const COLOR_TARGET = {
@@ -666,6 +724,41 @@
   const slider = wrap.querySelector('[data-preview-slider]');
   slider.addEventListener('input', () => proxyValue('fieldPreview', slider.value, false));
   slider.addEventListener('change', () => proxyValue('fieldPreview', slider.value, true));
+
+  const linkTrendWrap = wrap.querySelector('[data-fi-link-trend-wrap]');
+  const linkTrendSelect = wrap.querySelector('[data-fi-link-trend-select]');
+  if (linkTrendSelect) {
+    linkTrendSelect.addEventListener('change', () => {
+      const chosen = linkTrendSelect.value;
+      if (!chosen) return;
+      proxyValue('fieldVariable', chosen, true);
+    });
+  }
+
+  function syncLinkTrend(field) {
+    if (!linkTrendWrap || !linkTrendSelect) return;
+    const fields = editor()?.getAllFields?.() || [];
+    const trends = fields.filter((f) => f && f.type === 'TREND');
+    const canLink = Boolean(field && field.type === 'VALUE' && cppTypeFor(field) === 'float' && trends.length > 0);
+    linkTrendWrap.hidden = !canLink;
+    if (!canLink) return;
+    const opts = ['<option value="">— Variable independiente —</option>'];
+    trends.forEach((t, ti) => {
+      const tName = escapeHtml(t.title || t.label || t.name || t.id || `TREND_${ti + 1}`);
+      const pgLabel = `P${Number(t.page || 0) + 1}`;
+      const chs = [{ lbl: 'CH1', v: String(t.variable || 'tendencia') }];
+      if (t.ch2Enabled && t.ch2Variable) chs.push({ lbl: String(t.ch2Label || 'CH2'), v: String(t.ch2Variable) });
+      if (t.ch3Enabled && t.ch3Variable) chs.push({ lbl: String(t.ch3Label || 'CH3'), v: String(t.ch3Variable) });
+      chs.forEach((ch) => {
+        const val = escapeHtml(ch.v);
+        opts.push(`<option value="${val}">${tName} · ${escapeHtml(ch.lbl)} (${val}) [${pgLabel}]</option>`);
+      });
+    });
+    linkTrendSelect.innerHTML = opts.join('');
+    const curVar = String(field.variable || '');
+    const hasMatch = Array.from(linkTrendSelect.options).some((o) => o.value === curVar);
+    linkTrendSelect.value = hasMatch ? curVar : '';
+  }
 
   // --- Sincronización desde el modelo ----------------------------------------
 
@@ -707,6 +800,11 @@
 
   function syncPages(field) {
     const host = wrap.querySelector('[data-page-chips]');
+    if (!host) return;
+    if (editor()?.renderPageChipsHost) {
+      editor().renderPageChipsHost(host, field, 'data-page-id');
+      return;
+    }
     const pages = editor()?.getPages?.() || [];
     const current = Number(field.page || 0);
     const signature = pages.map((p) => `${p.id}:${p.name}`).join('|') + `#${current}`;
@@ -967,42 +1065,78 @@
     setActive('[data-set="layout"]', field.layout || 'INLINE');
     setActive('[data-set="align"]', field.align || 'RIGHT');
     setActive('[data-set="frame"]', field.frame ? '1' : '0');
-    setActive('[data-set="valueSize"]', Number(field.valueSize) || 1);
-    setActive('[data-set="labelSize"]', Number(field.labelSize) || 1);
-    readout('valueSizePx', `${8 * (Number(field.valueSize) || 1)} px de alto`);
-    readout('labelSizePx', `${8 * (Number(field.labelSize) || 1)} px de alto`);
+    function renderTypographyControl(host, target, title, fontId, scale) {
+      if (!host) return;
+      const fonts = window.JWPLCDesignerFonts;
+      if (!fonts) return;
+      const normFont = fonts.normalizeId(fontId || 'GLCD');
+      const fam = fonts.fontFamilyOf(normFont);
+      const variant = fonts.fontSizeVariantOf(normFont, scale);
+      const bold = fonts.isBold(normFont);
+      const hPx = fonts.fontHeightPx(normFont, scale);
 
-    function populateFontSelect(select, fieldType, currentVal) {
-      if (!select || !window.JWPLCDesignerFonts) return;
-      const isLabel = select.dataset.fontSelect === 'labelFont';
-      const targetType = isLabel ? 'label' : fieldType;
-      const fonts = window.JWPLCDesignerFonts.availableFontsFor(targetType);
-      const val = window.JWPLCDesignerFonts.normalizeId(currentVal || 'GLCD');
-      const signature = `${targetType}:${val}`;
-      if (select.dataset.signature !== signature || !select.children.length) {
-        select.dataset.signature = signature;
-        select.innerHTML = '';
-        const groups = new Map();
-        fonts.forEach((f) => {
-          if (!groups.has(f.group)) {
-            const optgroup = document.createElement('optgroup');
-            optgroup.label = f.group;
-            groups.set(f.group, optgroup);
-            select.appendChild(optgroup);
-          }
-          const opt = document.createElement('option');
-          opt.value = f.id;
-          opt.textContent = f.label;
-          groups.get(f.group).appendChild(opt);
-        });
-        select.value = val;
-      } else if (select.value !== val) {
-        select.value = val;
+      let summary = 'GLCD 1×';
+      if (fam === 'GLCD') summary = `GLCD ${scale || 1}×`;
+      else if (fam === 'BITMAP') summary = `Bitmap ${variant}px`;
+      else if (fam === '7SEG') summary = `7-Segmentos`;
+      else if (fam === 'SANS') summary = `Sans ${variant}pt${bold ? ' B' : ''}`;
+      else if (fam === 'MONO') summary = `Mono ${variant}pt${bold ? ' B' : ''}`;
+
+      let fams = [
+        { id: 'GLCD', label: 'Clásica 5×7' },
+        { id: 'BITMAP', label: 'Bitmap' },
+        { id: 'SANS', label: 'Sans' }
+      ];
+      if (target === 'value' && field.type === 'VALUE') {
+        fams.push({ id: '7SEG', label: '7-Seg' });
+      } else {
+        fams.push({ id: 'MONO', label: 'Mono' });
       }
+
+      let sizeHtml = '';
+      if (fam === 'GLCD') {
+        const sc = Math.max(1, Math.trunc(Number(scale) || 1));
+        sizeHtml = [1, 2, 3, 4].map((s) => `
+          <button type="button" class="insp-chip ${sc === s ? 'active' : ''}" data-font-size="${s}" data-font-target="${target}">${s}×</button>
+        `).join('');
+      } else if (fam === 'BITMAP') {
+        sizeHtml = `
+          <button type="button" class="insp-chip ${variant === '16' ? 'active' : ''}" data-font-size="16" data-font-target="${target}">16 px</button>
+          <button type="button" class="insp-chip ${variant === '26' ? 'active' : ''}" data-font-size="26" data-font-target="${target}">26 px</button>
+        `;
+      } else if (fam === '7SEG') {
+        sizeHtml = `
+          <button type="button" class="insp-chip active" data-font-size="48" data-font-target="${target}">48 px</button>
+          <span style="font-size:9.5px;color:var(--muted);margin-left:4px;">Display digital de 7 segmentos</span>
+        `;
+      } else if (fam === 'SANS' || fam === 'MONO') {
+        sizeHtml = ['9', '12', '18', '24'].map((pt) => `
+          <button type="button" class="insp-chip ${variant === pt ? 'active' : ''}" data-font-size="${pt}" data-font-target="${target}">${pt} pt</button>
+        `).join('') + `
+          <button type="button" class="insp-bold-btn ${bold ? 'active' : ''}" data-font-bold="${target}" title="Negrita (Bold)">B</button>
+        `;
+      }
+
+      host.innerHTML = `
+        <div class="insp-font-head">
+          <span class="insp-font-title">${title}</span>
+          <span class="insp-hint">${hPx} px (${summary})</span>
+        </div>
+        <div class="insp-font-family-row">
+          ${fams.map((f) => `
+            <button type="button" class="insp-font-chip ${fam === f.id ? 'active' : ''}" data-font-family="${f.id}" data-font-target="${target}">${f.label}</button>
+          `).join('')}
+        </div>
+        <div class="insp-font-size-row">
+          <span style="font-size:9.5px;color:var(--muted);font-weight:600;margin-right:2px;">Tamaño:</span>
+          ${sizeHtml}
+        </div>
+      `;
     }
 
-    populateFontSelect(wrap.querySelector('[data-font-select="labelFont"]'), field.type, field.labelFont);
-    populateFontSelect(wrap.querySelector('[data-font-select="valueFont"]'), field.type, field.valueFont);
+    renderTypographyControl(wrap.querySelector('#inspFontCtrlLabel'), 'label', 'Etiqueta', field.labelFont, field.labelSize);
+    const valueTitle = field.type === 'BOOL' ? 'Estado / Valor' : 'Valor';
+    renderTypographyControl(wrap.querySelector('#inspFontCtrlValue'), 'value', valueTitle, field.valueFont, field.valueSize);
 
     if (field.type === 'VALUE') {
       const decs = Number(field.decimalDigits) || 0;
@@ -1072,6 +1206,7 @@
     if (!alignHint.hidden) readout('reserveShort', field.type === 'VALUE' ? ($('valueFormatSampleStatus')?.textContent || '') : 'M'.repeat(Math.max(1, Number(field.capacity) || 1)));
 
     readout('cppType', cppTypeFor(field));
+    syncLinkTrend(field);
     syncPages(field);
 
     wrap.querySelectorAll('[data-mirror]').forEach((el) => {

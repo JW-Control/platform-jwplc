@@ -74,6 +74,7 @@
     if (field?.type === 'VALUE') return `FIELD_VALUE_${serial}`;
     if (field?.type === 'BOOL') return `FIELD_BOOL_${serial}`;
     if (field?.type === 'BAR') return `FIELD_BAR_${serial}`;
+    if (field?.type === 'TREND') return `FIELD_TREND_${serial}`;
     return `FIELD_TEXT_${serial}`;
   }
 
@@ -83,6 +84,7 @@
     if (field?.type === 'VALUE') return `valor${serial}`;
     if (field?.type === 'BOOL') return `estado${serial}`;
     if (field?.type === 'BAR') return `nivel${serial}`;
+    if (field?.type === 'TREND') return `tendencia${serial}`;
     return `texto${serial}`;
   }
 
@@ -93,8 +95,20 @@
     return sanitizeSymbol(value, fallback);
   }
 
+  function fieldPages(field) {
+    return window.JWPLCHMICodegenCore?.fieldPages
+      ? window.JWPLCHMICodegenCore.fieldPages(field)
+      : [Number(field?.page || 0)];
+  }
+
+  function fieldOnPage(field, pageId) {
+    return window.JWPLCHMICodegenCore?.fieldOnPage
+      ? window.JWPLCHMICodegenCore.fieldOnPage(field, pageId)
+      : Number(field?.page || 0) === Number(pageId);
+  }
+
   function pageForField(field) {
-    const pageId = Number(field?.page || 0);
+    const pageId = fieldPages(field)[0];
     return pages().find((page) => Number(page.id) === pageId) || {
       id: pageId,
       name: `Página ${pageId + 1}`
@@ -108,10 +122,75 @@
     return `Página ${String(Number(page?.id || 0) + 1).padStart(2, '0')} · ${name}`;
   }
 
+  function variableTypeFor(field) {
+    const coreType = window.JWPLCHMICodegenCore?.fieldVariableCppType?.(field);
+    if (coreType !== undefined) return coreType;
+    if (!field?.type || isStaticObject(field) || isClockField(field)) return null;
+    if (field.type === 'VALUE' || field.type === 'BAR' || field.type === 'TREND') return 'float';
+    if (field.type === 'BOOL') return 'bool';
+    if (field.type === 'ICON') return field.iconVarType === 'uint8' ? 'uint8_t' : 'bool';
+    if (field.type === 'TEXT') return 'char[]';
+    return null;
+  }
+
+  function canShareVariable(typeA, typeB, firstField, secondField) {
+    if (!typeA || !typeB || typeA !== typeB || typeA === 'char[]') return false;
+    return firstField !== secondField;
+  }
+
+  function collectVariableEntries(fields) {
+    const entries = [];
+    fields.forEach((field, index) => {
+      const varType = variableTypeFor(field);
+      if (!varType) return;
+      entries.push({
+        field,
+        index,
+        prop: 'variable',
+        canonical: canonicalFor(field, 'variable', field.variable, index),
+        type: varType
+      });
+      if (field.type === 'TREND') {
+        const serial = serialFor(field, index);
+        if (field.ch2Enabled) {
+          entries.push({
+            field,
+            index,
+            prop: 'ch2Variable',
+            canonical: sanitizeSymbol(field.ch2Variable, `setpoint${serial}`),
+            type: 'float'
+          });
+        }
+        if (field.ch3Enabled) {
+          entries.push({
+            field,
+            index,
+            prop: 'ch3Variable',
+            canonical: sanitizeSymbol(field.ch3Variable, `canal3_${serial}`),
+            type: 'float'
+          });
+        }
+      }
+    });
+    return entries;
+  }
+
   function duplicateFor(field, property, candidate) {
     const fields = allFields();
     const currentIndex = Math.max(0, fields.indexOf(field));
     const canonical = canonicalFor(field, property, candidate, currentIndex);
+
+    if (property === 'variable') {
+      const myType = variableTypeFor(field);
+      const entries = collectVariableEntries(fields);
+      for (const entry of entries) {
+        if (entry.field === field && entry.prop === 'variable') continue;
+        if (entry.canonical === canonical && !canShareVariable(entry.type, myType, entry.field, field)) {
+          return { field: entry.field, canonical };
+        }
+      }
+      return null;
+    }
 
     for (let index = 0; index < fields.length; index += 1) {
       const other = fields[index];
@@ -203,19 +282,26 @@
     const fields = allFields();
     const issues = [];
 
-    ['id', 'variable'].forEach((property) => {
-      const seen = new Map();
-      fields.forEach((field, index) => {
-        // Un reloj (fecha/hora del RTC) no declara variable.
-        if (property === 'variable' && isClockField(field)) return;
-        const canonical = canonicalFor(field, property, field[property], index);
-        const previous = seen.get(canonical);
-        if (previous) {
-          issues.push({ property, canonical, first: previous, second: field });
-        } else {
-          seen.set(canonical, field);
-        }
-      });
+    const idSeen = new Map();
+    fields.forEach((field, index) => {
+      const canonical = canonicalFor(field, 'id', field.id, index);
+      const previous = idSeen.get(canonical);
+      if (previous) {
+        issues.push({ property: 'id', canonical, first: previous, second: field });
+      } else {
+        idSeen.set(canonical, field);
+      }
+    });
+
+    const varSeen = new Map();
+    collectVariableEntries(fields).forEach((entry) => {
+      const previous = varSeen.get(entry.canonical);
+      if (!previous) {
+        varSeen.set(entry.canonical, entry);
+        return;
+      }
+      if (canShareVariable(previous.type, entry.type, previous.field, entry.field)) return;
+      issues.push({ property: 'variable', canonical: entry.canonical, first: previous.field, second: entry.field });
     });
 
     return issues;
@@ -225,7 +311,8 @@
     if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON', 'RAW_TEXT'].includes(field.type)) return '';
     const variable = canonicalFor(field, 'variable', field.variable, index);
     if (field.type === 'VALUE' && window.JWPLCHMICodegenCore?.valueDeclaration) return window.JWPLCHMICodegenCore.valueDeclaration(field, variable);
-    if (field.type === 'VALUE' || field.type === 'BAR') return `float ${variable} = 0.0f;`;
+    if (field.type === 'TREND' && window.JWPLCHMICodegenCore?.trendVariableDeclarations) return window.JWPLCHMICodegenCore.trendVariableDeclarations(field, variable);
+    if (field.type === 'VALUE' || field.type === 'BAR' || field.type === 'TREND') return `float ${variable} = 0.0f;`;
     if (field.type === 'BOOL') return `bool ${variable} = false;`;
     if (field.type === 'ICON') return window.JWPLCIconsCore.iconDeclaration(field, variable, window.JWPLCHMIIcons?.iconInfo?.(field.iconId)?.stateNames || window.JWPLCIconsCore.stateNamesFor(window.JWPLCIconCatalog, field.iconId));
     return window.JWPLCHMICodegenCore.textDeclaration(field, variable);
@@ -437,11 +524,19 @@ static void jwplcHMIDrawMicroText(JWPLC_TFTClass &tft, int16_t x, int16_t y, con
     const cy = (field.y + field.y2) / 2;
     const rx = Math.abs(field.x2 - field.x) / 2;
     const ry = Math.abs(field.y2 - field.y) / 2;
-    const numSides = field.type === 'TRIANGLE' ? 3 : field.type === 'RECT' ? 4 : Math.max(3, Math.min(20, Math.trunc(Number(field.sides) || 5)));
+    const numSides = field.type === 'TRIANGLE' ? 3 : field.type === 'RECT' ? 4 : field.type === 'ELLIPSE' ? 24 : Math.max(3, Math.min(20, Math.trunc(Number(field.sides) || 5)));
+    const rot = ((Number(field.rotation) || 0) % 360 + 360) % 360;
+    const rotRad = (rot * Math.PI) / 180;
+    const cosR = Math.cos(rotRad);
+    const sinR = Math.sin(rotRad);
     const pts = [];
     for (let i = 0; i < numSides; i++) {
       const angle = (i * 2 * Math.PI / numSides) - Math.PI / 2;
-      pts.push({ x: Math.round(cx + rx * Math.cos(angle)), y: Math.round(cy + ry * Math.sin(angle)) });
+      const lx = rx * Math.cos(angle);
+      const ly = ry * Math.sin(angle);
+      const rxRot = lx * cosR - ly * sinR;
+      const ryRot = lx * sinR + ly * cosR;
+      pts.push({ x: Math.round(cx + rxRot), y: Math.round(cy + ryRot) });
     }
     return pts;
   }
@@ -542,7 +637,7 @@ static void jwplcHMIDrawMicroText(JWPLC_TFTClass &tft, int16_t x, int16_t y, con
       return { lines, helpers };
     }
 
-    if (field.type === 'ELLIPSE') {
+    if (field.type === 'ELLIPSE' && rot === 0) {
       const cx = Math.round(Math.min(field.x, field.x2) + Math.abs(field.x2 - field.x) / 2);
       const cy = Math.round(Math.min(field.y, field.y2) + Math.abs(field.y2 - field.y) / 2);
       const rx = Math.round(Math.abs(field.x2 - field.x) / 2);
@@ -572,7 +667,7 @@ static void jwplcHMIDrawMicroText(JWPLC_TFTClass &tft, int16_t x, int16_t y, con
       return { lines, helpers };
     }
 
-    if (['RECT', 'TRIANGLE', 'POLYGON'].includes(field.type)) {
+    if (['RECT', 'TRIANGLE', 'POLYGON', 'ELLIPSE'].includes(field.type)) {
       const pts = shapeVertices(field);
       if (field.fill && pts.length >= 3) {
         helpers.add('swap');
@@ -619,8 +714,8 @@ static void jwplcHMIDrawMicroText(JWPLC_TFTClass &tft, int16_t x, int16_t y, con
           `tft.print("${text}");`);
       };
 
-      if (font && font.kind === 'free') {
-        // JWPLC_TFT >= 0.3.0: FreeFont con drawString (datum arriba-izquierda,
+      if (font && font.kind !== 'glcd' && fonts?.isSupported?.(font)) {
+        // JWPLC_TFT >= 0.3.0: FreeFont / Bitmap con drawString (datum arriba-izquierda,
         // igual que el lienzo). Con 0.1/0.2 se dibuja en GLCD.
         helpers.add('fonts');
         lines.push('#if JWPLC_HMI_TFT_FONTS');
@@ -664,6 +759,12 @@ static void jwplcHMIDrawMicroText(JWPLC_TFTClass &tft, int16_t x, int16_t y, con
     if (field.type === 'BOOL') return `JWPLC_Display.setBool(${id}, ${variable});`;
     if (field.type === 'ICON') return window.JWPLCIconsCore.iconSetter(id, variable);
     if (field.type === 'BAR') return `JWPLC_Display.setBar(${id}, ${variable});`;
+    if (field.type === 'TREND') {
+      if (window.JWPLCHMICodegenCore?.trendChannelVariables) {
+        return `JWPLC_Display.setTrend(${id}, ${window.JWPLCHMICodegenCore.trendChannelVariables(field, variable).join(', ')});`;
+      }
+      return `JWPLC_Display.setTrend(${id}, ${variable});`;
+    }
     return `JWPLC_Display.setText(${id}, ${variable});`;
   }
 
@@ -674,7 +775,7 @@ static void jwplcHMIDrawMicroText(JWPLC_TFTClass &tft, int16_t x, int16_t y, con
     pages().forEach((page) => {
       const entries = fields
         .map((field, index) => ({ field, index }))
-        .filter(({ field }) => Number(field.page || 0) === Number(page.id));
+        .filter(({ field }) => fieldPages(field)[0] === Number(page.id));
       if (!entries.length) return;
       const lines = entries.map(({ field, index }) => renderer(field, index)).filter(Boolean);
       if (!lines.length) return;
@@ -723,13 +824,32 @@ static void jwplcHMIDrawMicroText(JWPLC_TFTClass &tft, int16_t x, int16_t y, con
           ? `tft.drawFastVLine(${x}, ${y}, ${Math.round(op.len)}, ${css565(op.col)});`
           : `tft.drawFastHLine(${x}, ${y}, ${Math.round(op.len)}, ${css565(op.col)});`);
       } else if (op.op === 'text' && op.str) {
-        if (op.micro) {
+        const fid = op.font || (op.micro ? 'MICRO' : 'GLCD');
+        const sc = Math.max(1, Math.trunc(Number(op.textScale) || 1));
+        const fonts = window.JWPLCDesignerFonts;
+        if (fid === 'MICRO' || op.micro) {
           helpers.add('microText');
           lines.push(`jwplcHMIDrawMicroText(tft, ${x}, ${y}, "${cppStringLiteral(op.str)}", ${css565(op.col)});`);
-        } else {
+        } else if (fid !== 'GLCD' && fonts?.isSupported?.(fid)) {
+          helpers.add('fonts');
+          lines.push('#if JWPLC_HMI_TFT_FONTS');
+          lines.push(`tft.setFont(${fonts.cppSymbol(fid)});`);
+          lines.push(`tft.setTextDatum(JWPLC_TFTDatum::TOP_LEFT);`);
+          lines.push(`tft.setTextSize(1);`);
+          lines.push(`tft.setTextColor(${css565(op.col)});`);
+          lines.push(`tft.drawString("${cppStringLiteral(op.str)}", ${x}, ${y});`);
+          lines.push(`tft.setFont(JWPLC_FONT_GLCD);`);
+          lines.push('#else');
           lines.push(`tft.setCursor(${x}, ${y});`);
           lines.push(`tft.setTextColor(${css565(op.col)});`);
           lines.push(`tft.print("${cppStringLiteral(op.str)}");`);
+          lines.push('#endif');
+        } else {
+          if (sc !== 1) lines.push(`tft.setTextSize(${sc});`);
+          lines.push(`tft.setCursor(${x}, ${y});`);
+          lines.push(`tft.setTextColor(${css565(op.col)});`);
+          lines.push(`tft.print("${cppStringLiteral(op.str)}");`);
+          if (sc !== 1) lines.push(`tft.setTextSize(1);`);
         }
       }
     });
@@ -841,12 +961,20 @@ static void jwplcHMIDrawMicroText(JWPLC_TFTClass &tft, int16_t x, int16_t y, con
     const fields = allFields();
     const symbols = new Map(
       pageSymbols().map(({ page, symbol }) => [Number(page.id), symbol]));
+    const trendLines = fields
+      .map((field, index) => ({ field, index }))
+      .filter(({ field }) => field.type === 'TREND' && !isStaticObject(field) && !isClockField(field))
+      .map(({ field, index }) => `    ${setterHint(field, index)}`);
     const cases = [];
 
     pages().forEach((page) => {
       const lines = fields
         .map((field, index) => ({ field, index }))
-        .filter(({ field }) => Number(field.page || 0) === Number(page.id) && !isStaticObject(field) && !isClockField(field))
+        .filter(({ field }) =>
+          fieldOnPage(field, page.id) &&
+          field.type !== 'TREND' &&
+          !isStaticObject(field) &&
+          !isClockField(field))
         .map(({ field, index }) => `        ${setterHint(field, index)}`);
       if (!lines.length) return;
 
@@ -858,13 +986,24 @@ static void jwplcHMIDrawMicroText(JWPLC_TFTClass &tft, int16_t x, int16_t y, con
         `        break;`);
     });
 
-    const body = cases.length
-      ? `    switch (JWPLC_Display.userPage())\n` +
+    const blocks = [];
+    if (trendLines.length) {
+      blocks.push(
+        `    // Tendencias en segundo plano (se actualizan aunque estés en otra página)\n` +
+        `${trendLines.join('\n')}`);
+    }
+    if (cases.length) {
+      blocks.push(
+        `    switch (JWPLC_Display.userPage())\n` +
         `    {\n` +
         `${cases.join('\n\n')}\n\n` +
         `    default:\n` +
         `        break;\n` +
-        `    }\n`
+        `    }`);
+    }
+
+    const body = blocks.length
+      ? `${blocks.join('\n\n')}\n`
       : `    // Sin campos dinámicos.\n`;
 
     return `// Sincronización gráfica autogenerada (cada tick de refresco).\n` +
@@ -889,7 +1028,7 @@ static void jwplcHMIDrawMicroText(JWPLC_TFTClass &tft, int16_t x, int16_t y, con
     pages().forEach((page) => {
       const lines = [];
       fields
-        .filter((field) => Number(field.page || 0) === Number(page.id) && isStaticObject(field) && !field.hidden)
+        .filter((field) => fieldOnPage(field, page.id) && isStaticObject(field) && !field.hidden)
         // En el lienzo, layerOrder menor = más al frente (app.js composeFramebuffer
         // recorre el arreglo al revés). Se dibuja de atrás hacia adelante.
         .sort((a, b) => (Number(b.layerOrder) || 0) - (Number(a.layerOrder) || 0))
@@ -997,7 +1136,23 @@ static void jwplcHMIDrawMicroText(JWPLC_TFTClass &tft, int16_t x, int16_t y, con
       return `    ${id} = ${fieldSerial},`;
     }, '    ');
 
-    const variables = groupedChunks((field, index) => variableDeclaration(field, index));
+    const declaredVars = new Set();
+    const variables = groupedChunks((field, index) => {
+      const decl = variableDeclaration(field, index);
+      if (!decl) return '';
+      return decl
+        .split('\n')
+        .filter((line) => {
+          const trimmed = line.trim();
+          if (!trimmed) return false;
+          const m = trimmed.match(/^(?:float|bool|uint8_t|int32_t|uint32_t|char)\s+([A-Za-z_][A-Za-z0-9_]*)/);
+          const key = m ? m[1] : trimmed;
+          if (declaredVars.has(key)) return false;
+          declaredVars.add(key);
+          return true;
+        })
+        .join('\n');
+    });
     const navBar = navBarFunctionBlock();
     const pageEnter = generatedPageEnterBlock();
     const uiUpdate = generatedUIUpdateBlock();

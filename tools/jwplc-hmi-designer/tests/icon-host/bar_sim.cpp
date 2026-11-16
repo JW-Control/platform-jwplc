@@ -3,7 +3,7 @@
 // bloques y degradado píxel a píxel. Guarda bar_sim.ppm.
 #include "sim_stubs.h"
 
-enum : uint8_t { ID_DEFAULT = 1, ID_LEGACY, ID_THICK, ID_BORDER, ID_ROUND, ID_BLOCKS, ID_VERT, ID_GRAD };
+enum : uint8_t { ID_DEFAULT = 1, ID_LEGACY, ID_THICK, ID_BORDER, ID_ROUND, ID_BLOCKS, ID_VERT, ID_GRAD, ID_VERT_STACKED };
 
 static const uint16_t FILL = 0xF800, BG = 0x0841, BORDER = 0x07E0;
 
@@ -37,6 +37,10 @@ int main(int argc, char **argv)
     bar(ID_ROUND, JWPLC_UIRect(140, 40, 110, JWPLC_UI_AUTO), JWPLC_UIBarConfig(0, 0, 0, 6)),
     bar(ID_BLOCKS, JWPLC_UIRect(140, 60, 110, JWPLC_UI_AUTO), JWPLC_UIBarConfig(0, JWPLC_UI_BAR_STYLE_BLOCKS)),
     bar(ID_VERT, JWPLC_UIRect(270, 5), JWPLC_UIBarConfig(JWPLC_UI_BAR_VERTICAL, 0, 0, 0, false, 0xFFFF, 1, 14, 60)),
+    JWPLC_UIBarField(ID_VERT_STACKED, JWPLC_UIRect(220, 5), JWPLC_UIText("Nivel", "%"),
+                     JWPLC_UIRange(0.0f, 100.0f), JWPLC_UIBarStyle(1, false, JWPLC_UI_LAYOUT_STACKED),
+                     0, JWPLC_UIColors(0xFFFF, FILL, BG, 0xFFFF),
+                     JWPLC_UIBarConfig(JWPLC_UI_BAR_VERTICAL, 0, 0, 0, false, 0xFFFF, 1, 14, 60)),
     bar(ID_GRAD, JWPLC_UIRect(10, 110, 110, JWPLC_UI_AUTO), JWPLC_UIBarConfig(0, 0, 0x0001)),
   };
 
@@ -53,6 +57,7 @@ int main(int argc, char **argv)
   JWPLCUI::setBar(ID_ROUND, 100.0f);
   JWPLCUI::setBar(ID_BLOCKS, 50.0f);
   JWPLCUI::setBar(ID_VERT, 50.0f);
+  JWPLCUI::setBar(ID_VERT_STACKED, 50.0f);
   JWPLCUI::setBar(ID_GRAD, 100.0f);
   refresh();
 
@@ -84,6 +89,14 @@ int main(int argc, char **argv)
   const int vx = 273, vy = 8;
   CHECK(at(vx, vy + 59) == FILL && at(vx + 13, vy + 59) == FILL && at(vx + 14, vy + 59) != FILL, "ancho de 14 px exacto");
   CHECK(at(vx, vy + 30) == FILL && at(vx, vy + 29) != FILL, "al 50 %% llena 30 de 60 px desde abajo");
+
+  // Vertical STACKED con etiqueta ("Nivel", 30 px) y unidad ("%", 6 px):
+  // contentW = 30; autoW = 3 + 3 + 30 = 36;
+  // valueX = 220 + 3 + (30 - 14)/2 = 231;
+  // valueY = 5 + 3 + 8 + 2 = 18;
+  const int vsx = 231, vsy = 18;
+  CHECK(at(vsx, vsy + 59) == FILL && at(vsx + 13, vsy + 59) == FILL && at(vsx + 14, vsy + 59) != FILL, "vertical STACKED: barra centrada en x=231");
+  CHECK(at(vsx, vsy + 30) == FILL && at(vsx, vsy + 29) != FILL, "vertical STACKED: al 50 %% llena 30 de 60 px");
 
   // Degradado hasta casi negro: 0x0001 no significa sólido.
   CHECK(at(13, 118) == FILL && at(13 + 103, 118) != FILL && (at(13 + 103, 118) >> 11) <= 1, "degradado termina en negro");

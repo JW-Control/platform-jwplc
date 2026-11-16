@@ -108,9 +108,11 @@ class DesignerSession {
   async inspect() {
     return this.page.evaluate(() => {
       const E = window.JWPLCHMIEditor;
+      const core = window.JWPLCHMICodegenCore;
       const boxes = E.getAllFields().map((f, index) => {
         const b = E.getFieldBounds(f);
-        return { index, id: f.id, type: f.type, page: Number(f.page || 0), global: f.type === 'NAV_BAR', minX: b.minX, minY: b.minY, maxX: b.maxX, maxY: b.maxY };
+        const pages = core?.fieldPages ? core.fieldPages(f) : [Number(f.page || 0)];
+        return { index, id: f.id, type: f.type, page: Number(f.page || 0), pages, global: f.type === 'NAV_BAR', minX: b.minX, minY: b.minY, maxX: b.maxX, maxY: b.maxY };
       });
       const issues = (window.JWPLCHMICodegen.validateIdentifiers?.() || []).map((i) => ({ property: i.property, canonical: i.canonical }));
       return { boxes, issues };
@@ -161,10 +163,13 @@ function geometryWarnings(inspection, project) {
     for (let j = i + 1; j < boxes.length; j += 1) {
       const a = boxes[i];
       const b = boxes[j];
-      if (!(a.global || b.global) && a.page !== b.page) continue;
+      const aPages = Array.isArray(a.pages) && a.pages.length ? a.pages : [a.page];
+      const bPages = Array.isArray(b.pages) && b.pages.length ? b.pages : [b.page];
+      const sharedPage = aPages.find((p) => bPages.includes(p));
+      if (!(a.global || b.global) && sharedPage === undefined) continue;
       if (a.global && b.global) continue;
       if (b.type === 'NAV_BAR' && project.navigationBar?.preset === 'counter') continue;
-      if (overlap(a, b)) warnings.push({ path: label(a), message: `se pisa con ${label(b)}${a.global || b.global ? '' : ` en la página ${a.page}`}: el último que se redibuja tapa al otro` });
+      if (overlap(a, b)) warnings.push({ path: label(a), message: `se pisa con ${label(b)}${a.global || b.global ? '' : ` en la página ${sharedPage}`}: el último que se redibuja tapa al otro` });
     }
   }
   inspection.issues.forEach((i) => warnings.push({ path: 'fields', message: `${i.property === 'id' ? 'ID' : 'variable'} C++ duplicado: ${i.canonical}` }));

@@ -132,6 +132,7 @@
 
     if (/JWPLC_Display\.setMenus\(|JWPLC_UIMenu/.test(text)) unsupported.push('MENU');
     if (/JWPLC_UIEventLog|JWPLC_Display\.setEventLog/.test(text)) unsupported.push('EVENT_LOG');
+    if (/JWPLC_UITrend|JWPLC_Display\.setTrend\(/.test(text)) unsupported.push('TREND');
 
     if (!text.includes('#include <JWPLC_Runtime.h>')) {
       text = text.replace('#include <JWPLC_Display.h>', '#include <JWPLC_Display.h>\n#include <JWPLC_Runtime.h>');
@@ -172,9 +173,18 @@
     text = text.replace(
       /^\/\/ La lógica de aplicación debe permanecer en loop\(\)\.\nvoid jwplcUIUpdate\(\)\n\{\n    switch \(JWPLC_Display\.userPage\(\)\)/m,
       '// Los valores salen del programa en marcha del Runtime.\nextern "C" void jwplcRuntimeHMIUpdate(uint8_t page)\n{\n    switch (page)');
-    text = text.replace(
-      /^\/\/ La lógica de aplicación debe permanecer en loop\(\)\.\nvoid jwplcUIUpdate\(\)\n\{/m,
-      '// Los valores salen del programa en marcha del Runtime.\nextern "C" void jwplcRuntimeHMIUpdate(uint8_t page)\n{\n    (void)page;');
+    if (text.includes('void jwplcUIUpdate()')) {
+      text = text.replace(
+        /^\/\/ La lógica de aplicación debe permanecer en loop\(\)\.\nvoid jwplcUIUpdate\(\)\n\{/m,
+        '// Los valores salen del programa en marcha del Runtime.\nextern "C" void jwplcRuntimeHMIUpdate(uint8_t page)\n{');
+      if (text.includes('switch (JWPLC_Display.userPage())')) {
+        text = text.replace('switch (JWPLC_Display.userPage())', 'switch (page)');
+      } else {
+        text = text.replace(
+          'extern "C" void jwplcRuntimeHMIUpdate(uint8_t page)\n{',
+          'extern "C" void jwplcRuntimeHMIUpdate(uint8_t page)\n{\n    (void)page;');
+      }
+    }
 
     text = text.replace(SETTER_RE, (line, indent, setter, id, variable) => {
       // TEXT: el Runtime no tiene variables de texto.

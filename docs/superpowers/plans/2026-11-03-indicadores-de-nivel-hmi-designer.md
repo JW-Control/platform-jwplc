@@ -41,14 +41,14 @@
 - Modify: `JWPLC/2.1.0/libraries/JWPLC_Display/src/JWPLC_UI.cpp`
 - Test: `tools/jwplc-hmi-designer/tests/codegen-core.test.cjs`
 
-- [ ] **Paso 1.1:** En `JWPLC_UI.h`, definir constantes y enumeraciones para la barra:
+- [x] **Paso 1.1:** En `JWPLC_UI.h`, definir constantes y enumeraciones para la barra:
   - `JWPLC_UI_BAR_HORIZONTAL = 0`, `JWPLC_UI_BAR_VERTICAL = 1`
   - `JWPLC_UI_BAR_STYLE_SOLID = 0`, `JWPLC_UI_BAR_STYLE_BLOCKS = 1`
   - Extender `JWPLC_UIBarStyle` y struct de opciones para incluir `orientation` (horizontal/vertical), `barStyle` (sólido/bloques) y color final de degradado con valores por defecto compatibles con código anterior.
-- [ ] **Paso 1.2:** En `JWPLC_UI.cpp`, actualizar `computeFieldGeometry()` para `JWPLC_UI_FIELD_BAR`:
+- [x] **Paso 1.2:** En `JWPLC_UI.cpp`, actualizar `computeFieldGeometry()` para `JWPLC_UI_FIELD_BAR`:
   - Si `rect.height != JWPLC_UI_AUTO`, respetar la altura indicada en lugar de fijar `DEFAULT_BAR_HEIGHT = 12`.
   - Si la orientación es `VERTICAL`, calcular el área de valor `valueW` y `valueH` acordes (la altura es la dimensión principal del tanque, el ancho es el grosor del tanque).
-- [ ] **Paso 1.3:** Compilar sintaxis y pruebas de núcleo para verificar que las firmas sigan siendo válidas.
+- [x] **Paso 1.3:** Compilar sintaxis y pruebas de núcleo para verificar que las firmas sigan siendo válidas.
 
 ---
 
@@ -58,7 +58,7 @@
 - Modify: `JWPLC/2.1.0/libraries/JWPLC_Display/src/JWPLC_UI.cpp`
 - Test: Compilación contra biblioteca ESP32 / pruebas locales.
 
-- [ ] **Paso 2.1:** Implementar función auxiliar de dibujo delta `drawBarDelta(tft, field, oldLevel, newLevel)`:
+- [x] **Paso 2.1:** Implementar función auxiliar de dibujo delta `drawBarDelta(tft, field, oldLevel, newLevel)`:
   - **Horizontal Sólido:**
     - Subida: `tft.fillRect(valX + oldLevel, valY, newLevel - oldLevel, valH, color)`.
     - Bajada: `tft.fillRect(valX + newLevel, valY, oldLevel - newLevel, valH, background)`.
@@ -73,7 +73,7 @@
     - Si `valueColorEnd != 0` y distinto de `valueColor`, calcular el color interpolado según la posición relativa del tramo.
     - En bloques: cada bloque tiene su color fijo precalculado según su posición porcentual.
     - En sólido: pintar las líneas/columnas del delta con el color correspondiente a su avance relativo.
-- [ ] **Paso 2.2:** Conectar `drawBarDelta` tanto en el refresco inicial (`drawFieldDynamic` inicial cuando `barDrawnW == -1`) como en las actualizaciones periódicas (cuando el valor cambia).
+- [x] **Paso 2.2:** Conectar `drawBarDelta` tanto en el refresco inicial (`drawFieldDynamic` inicial cuando `barDrawnW == -1`) como en las actualizaciones periódicas (cuando el valor cambia).
 
 ---
 
@@ -84,9 +84,9 @@
 - Modify: `tools/jwplc-hmi-designer/cli/lib/spec.cjs`
 - Test: `tools/jwplc-hmi-designer/tests/codegen-core.test.cjs`
 
-- [ ] **Paso 3.1:** Escribir prueba unitaria en `tests/codegen-core.test.cjs` que valide la generación de una barra vertical y de una barra con estilo `BLOCKS`.
-- [ ] **Paso 3.2:** En `designer-codegen-core.js` (`barFieldBlock`), emitir los parámetros correspondientes de ancho/alto reales (`rect`), orientación (`VERTICAL` o `HORIZONTAL`) y estilo (`SOLID` o `BLOCKS`).
-- [ ] **Paso 3.3:** Ejecutar `node tools/jwplc-hmi-designer/tests/codegen-core.test.cjs` y verificar que pase al 100%.
+- [x] **Paso 3.1:** Escribir prueba unitaria en `tests/codegen-core.test.cjs` que valide la generación de una barra vertical y de una barra con estilo `BLOCKS`.
+- [x] **Paso 3.2:** En `designer-codegen-core.js` (`barFieldBlock`), emitir los parámetros correspondientes de ancho/alto reales (`rect`), orientación (`VERTICAL` o `HORIZONTAL`) y estilo (`SOLID` o `BLOCKS`).
+- [x] **Paso 3.3:** Ejecutar `node tools/jwplc-hmi-designer/tests/codegen-core.test.cjs` y verificar que pase al 100%.
 
 ---
 
@@ -96,17 +96,17 @@
 - Modify: `tools/jwplc-hmi-designer/poc/designer-bar.js`
 - Test: Sintaxis y validación en navegador / Desktop.
 
-- [ ] **Paso 4.1:** En `closeBarInspector()` y template HTML del inspector:
+- [x] **Paso 4.1:** En `closeBarInspector()` y template HTML del inspector:
   - Retirar `markNeedsFirmware` del botón de orientación `VERTICAL`.
   - Retirar el bloqueo forzado de `barFormaHeight` (permitir grosor editable tanto en horizontal como en vertical).
   - Retirar las opciones de `STRIPES` (Diagonales) y `DOTS` (Puntos) del DOM del inspector de Barra, dejando visibles y activos solo `SOLID` y `BLOCKS`.
   - Retirar las opciones de `DOTS` (Puntos) y `TICKS` (Rayas) del DOM del inspector de Circular, dejando visibles y activos solo `CONTINUOUS` (Sólido) y `SEGMENTED` (Bloques).
-- [ ] **Paso 4.2:** En `applyFirmwareCaps(field)`:
+- [x] **Paso 4.2:** En `applyFirmwareCaps(field)`:
   - Permitir que `field.barOrientation` conserve `'VERTICAL'`.
   - Permitir que `field.barStyle` conserve `'BLOCKS'`.
   - Permitir que `field.circleStyle` sea `'CONTINUOUS'` o `'SEGMENTED'`.
   - Permitir que `field.barHeight` sea editable cuando la barra es horizontal (grosor) o vertical (longitud).
-- [ ] **Paso 4.3:** En `barGeometry(field)` y `drawBarField(ctx, field, scale)`:
+- [x] **Paso 4.3:** En `barGeometry(field)` y `drawBarField(ctx, field, scale)`:
   - Asegurar que el renderizado en canvas 2D del Designer dibuje exactamente igual que el firmware:
     - Vertical llenando desde la base hacia arriba.
     - Bloques discretos con su separación adecuada.
@@ -120,11 +120,11 @@
 - Modify: `tools/jwplc-hmi-designer/poc/index.html`
 - Modify: `tools/jwplc-hmi-designer/poc/app.js`
 
-- [ ] **Paso 5.1:** En el menú desplegable de variables del lienzo (`#variableDropdownMenu`):
+- [x] **Paso 5.1:** En el menú desplegable de variables del lienzo (`#variableDropdownMenu`):
   - Ofrecer opciones claras:
     - **Indicador de Barra (Nivel / Tanque)** (`barField`): crea barra lineal.
     - **Medidor Circular (Gauge / Carga)** (`circularField`): crea directamente un medidor circular.
-- [ ] **Paso 5.2:** En `app.js`, gestionar la creación directa del tipo seleccionado sin obligar al usuario a crearlo horizontal y luego cambiar de preset en el inspector.
+- [x] **Paso 5.2:** En `app.js`, gestionar la creación directa del tipo seleccionado sin obligar al usuario a crearlo horizontal y luego cambiar de preset en el inspector.
 
 ---
 
@@ -136,9 +136,9 @@
 - Update: `tools/jwplc-hmi-designer/poc/service-worker.js` (incrementar cache version)
 - Update: Versión de assets `?v=` en `index.html` y `desktop.html`.
 
-- [ ] **Paso 6.1:** Actualizar pruebas unitarias e inspector smoke para comprobar la orientación vertical y el selector de preset.
-- [ ] **Paso 6.2:** Probar en la app de escritorio / navegador local (`poc/desktop.html`) la creación de:
+- [x] **Paso 6.1:** Actualizar pruebas unitarias e inspector smoke para comprobar la orientación vertical y el selector de preset.
+- [x] **Paso 6.2:** Probar en la app de escritorio / navegador local (`poc/desktop.html`) la creación de:
   - Tanque vertical (nivel 0% a 100%, llenado de abajo a arriba).
   - Barra horizontal sólida y por bloques.
   - Medidor circular (360° y 270°).
-- [ ] **Paso 6.3:** Comprobar la generación C++ contra `JWPLC_Display` verificando que compile limpiamente sin advertencias.
+- [x] **Paso 6.3:** Comprobar la generación C++ contra `JWPLC_Display` verificando que compile limpiamente sin advertencias.

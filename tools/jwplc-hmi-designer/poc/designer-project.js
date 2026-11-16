@@ -308,8 +308,24 @@
 
     data.pages = sorted.map((page) => ({ ...page, id: remap.get(Number(page.id)) }));
     data.fields = data.fields
-      .filter((field) => isGlobal(field) || remap.has(Number(field.page || 0)))
-      .map((field) => isGlobal(field) ? field : { ...field, page: remap.get(Number(field.page || 0)) });
+      .filter((field) => {
+        if (isGlobal(field)) return true;
+        if (Array.isArray(field.pages) && field.pages.length) {
+          return field.pages.some((p) => remap.has(Number(p)));
+        }
+        return remap.has(Number(field.page || 0));
+      })
+      .map((field) => {
+        if (isGlobal(field)) return field;
+        if (Array.isArray(field.pages) && field.pages.length) {
+          const mappedPages = [...new Set(field.pages.map((p) => remap.get(Number(p))).filter((p) => p !== undefined))].sort((a, b) => a - b);
+          if (mappedPages.length > 1) return { ...field, page: mappedPages[0], pages: mappedPages };
+          const copy = { ...field, page: mappedPages[0] ?? 0 };
+          delete copy.pages;
+          return copy;
+        }
+        return { ...field, page: remap.get(Number(field.page || 0)) };
+      });
     if (Array.isArray(data.pixelMaps)) {
       const before = data.pixelMaps.length;
       data.pixelMaps = data.pixelMaps
@@ -329,7 +345,12 @@
     if (!Array.isArray(data.pages) || !data.pages.length || data.pages.length > 16) {
       throw new Error('El proyecto contiene una cantidad de páginas inválida.');
     }
-    if (!Array.isArray(data.fields) || data.fields.length > 32) {
+    const DYNAMIC_FIELD_TYPES = new Set(['TEXT', 'VALUE', 'BOOL', 'BAR', 'ICON', 'TREND']);
+    if (!Array.isArray(data.fields) || data.fields.length > 256) {
+      throw new Error('El proyecto contiene una cantidad de objetos inválida.');
+    }
+    const dynamicCount = data.fields.filter((f) => DYNAMIC_FIELD_TYPES.has(f?.type)).length;
+    if (dynamicCount > 64) {
       throw new Error('El proyecto contiene una cantidad de campos inválida.');
     }
 
@@ -338,12 +359,35 @@
   }
 
   function normalizeImportedFields(fields) {
-    return fields.map((field, index) => ({
-      ...field,
-      key: `${String(field.type || 'TEXT').toLowerCase()}-${index + 1}`,
-      page: Number(field.page || 0),
-      cornerRadius: Number(field.cornerRadius || 0)
-    }));
+    return fields.map((field, index) => {
+      const core = window.JWPLCHMICodegenCore;
+      const pagesList = core?.supportsMultiPage?.(field) && Array.isArray(field.pages) && field.pages.length
+        ? core.fieldPages(field)
+        : null;
+      const normalized = {
+        ...field,
+        key: `${String(field.type || 'TEXT').toLowerCase()}-${index + 1}`,
+        page: pagesList ? pagesList[0] : Number(field.page || 0),
+        cornerRadius: Number(field.cornerRadius || 0)
+      };
+      if (pagesList && pagesList.length > 1) normalized.pages = pagesList;
+      else delete normalized.pages;
+      if (normalized.type === 'NAV_BAR') {
+        const navPages = window.JWPLCHMIPages;
+        if (navPages?.normalizeNavPresetAndLabels) {
+          const { preset, labelFormat } = navPages.normalizeNavPresetAndLabels(normalized);
+          normalized.preset = preset;
+          normalized.labelFormat = labelFormat;
+        }
+        if (navPages?.resolveNavFontSpec) {
+          const { font, textScale, fontSize } = navPages.resolveNavFontSpec(normalized);
+          normalized.font = font;
+          normalized.textScale = textScale;
+          normalized.fontSize = fontSize;
+        }
+      }
+      return normalized;
+    });
   }
 
   async function applyProject(data) {
@@ -379,7 +423,11 @@
 
     const desiredCount = Math.max(1, importedFields.length);
     const currentFields = api.getAllFields();
-    while (currentFields.length < desiredCount) api.addTextField?.();
+    while (currentFields.length < desiredCount) {
+      if (api.addTextField?.() === false) {
+        currentFields.push({ type: 'RECT', key: `tmp-${currentFields.length + 1}`, page: 0, x: 0, y: 0, x2: 1, y2: 1 });
+      }
+    }
 
     window.JWPLCHMIIcons?.loadAssets?.(normalized.iconAssets);
     const liveFields = api.getAllFields();

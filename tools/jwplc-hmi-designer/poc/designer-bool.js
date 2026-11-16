@@ -115,11 +115,11 @@
     const api = editor();
     const current = selectedField();
     if (current?.type === 'BOOL') return;
-    api?.addTextField?.();
+    if (!api?.addTextField?.()) return;
     const field = selectedField();
     if (!field) return;
 
-    const serial = serialFor(field);
+    const serial = api?.nextTypeSerial?.('BOOL') || serialFor(field);
     field.type = 'BOOL';
     field.name = `BOOL ${serial}`;
     field.id = `FIELD_BOOL_${serial}`;
@@ -269,7 +269,7 @@
   function patchUI() {
     const field = selectedField();
     if (field?.type === 'BOOL') ensureBoolState(field);
-    if (gate) gate.textContent = 'v2.1.0-alpha.15';
+    if (gate) gate.textContent = 'v2.1.0-alpha.17';
     if (bottomSummary) bottomSummary.textContent = 'BOOL sobre API pública';
     patchObjectList();
     patchInspector(field);

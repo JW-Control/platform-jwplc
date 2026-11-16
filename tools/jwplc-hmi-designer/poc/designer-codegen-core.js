@@ -13,6 +13,59 @@
   const SCREEN_W = 320;
   const SCREEN_H = 170;
   const DEFAULT_BAR_THICKNESS = 12; // DEFAULT_BAR_HEIGHT de JWPLC_UI.cpp
+  const MULTI_PAGE_TYPES = new Set([
+    'VALUE', 'BOOL', 'TEXT', 'BAR', 'ICON', 'TREND',
+    'RAW_TEXT', 'LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'
+  ]);
+
+  function supportsMultiPage(field) {
+    return Boolean(field && MULTI_PAGE_TYPES.has(field.type));
+  }
+
+  function fieldPages(field) {
+    if (!field) return [0];
+    const fallback = Math.max(0, Math.min(15, Math.trunc(Number(field.page) || 0)));
+    if (!supportsMultiPage(field) || !Array.isArray(field.pages) || !field.pages.length) {
+      return [fallback];
+    }
+    const seen = new Set();
+    const out = [];
+    field.pages.forEach((raw) => {
+      const p = Math.trunc(Number(raw));
+      if (Number.isInteger(p) && p >= 0 && p < 16 && !seen.has(p)) {
+        seen.add(p);
+        out.push(p);
+      }
+    });
+    return out.length ? out.sort((a, b) => a - b) : [fallback];
+  }
+
+  function fieldOnPage(field, pageId) {
+    if (!field) return false;
+    if (field.type === 'NAV_BAR' || field.global) return true;
+    return fieldPages(field).includes(Math.trunc(Number(pageId) || 0));
+  }
+
+  function fieldPageMaskHex(field) {
+    const pages = fieldPages(field);
+    if (pages.length <= 1) return '';
+    let mask = 0;
+    pages.forEach((p) => { mask |= (1 << p); });
+    return `0x${(mask >>> 0).toString(16).toUpperCase().padStart(4, '0')}U`;
+  }
+
+  function wrapFieldBlockPages(field, block) {
+    const maskHex = fieldPageMaskHex(field);
+    if (!maskHex) return block;
+    const lines = String(block || '').split('\n');
+    const comments = [];
+    while (lines.length && lines[0].trimStart().startsWith('//')) {
+      comments.push(lines.shift());
+    }
+    const indented = lines.join('\n').replace(/^    /gm, '        ');
+    const wrapped = `    JWPLC_UIFieldPages(\n${indented},\n        ${maskHex})`;
+    return comments.length ? `${comments.join('\n')}\n${wrapped}` : wrapped;
+  }
 
   function sanitizeSymbol(value, fallback) {
     const cleaned = String(value || '').trim().replace(/[^A-Za-z0-9_]/g, '_');
@@ -128,12 +181,18 @@
 
   function valueFieldBlock(field, id) {
     const fontArgs = styleFontsArgs(field);
-    return `    JWPLC_UIValueField(\n        ${id},\n        JWPLC_UIRect(${field.x}, ${field.y}),\n        JWPLC_UIText(${textOrNull(field.label)}, ${textOrNull(field.unit)}),\n        ${valueFormatBlock(field)},\n        JWPLC_UIValueStyle(\n            ${field.valueSize},\n            ${field.labelSize},\n            ${cppBool(field.frame)},\n            JWPLC_UI_LAYOUT_${field.layout},\n            JWPLC_UI_ALIGN_${field.align}${fontArgs}),\n        ${field.page},\n        ${fieldColors(field)})`;
+    const primaryPage = fieldPages(field)[0];
+    return wrapFieldBlockPages(
+      field,
+      `    JWPLC_UIValueField(\n        ${id},\n        JWPLC_UIRect(${field.x}, ${field.y}),\n        JWPLC_UIText(${textOrNull(field.label)}, ${textOrNull(field.unit)}),\n        ${valueFormatBlock(field)},\n        JWPLC_UIValueStyle(\n            ${field.valueSize},\n            ${field.labelSize},\n            ${cppBool(field.frame)},\n            JWPLC_UI_LAYOUT_${field.layout},\n            JWPLC_UI_ALIGN_${field.align}${fontArgs}),\n        ${primaryPage},\n        ${fieldColors(field)})`);
   }
 
   function textFieldBlock(field, id) {
     const fontArgs = styleFontsArgs(field);
-    return `    JWPLC_UITextField(\n        ${id},\n        JWPLC_UIRect(${field.x}, ${field.y}),\n        JWPLC_UIText(${textOrNull(field.label)}, ${textOrNull(field.unit)}, ${field.capacity}),\n        JWPLC_UITextFieldStyle(\n            ${field.valueSize},\n            ${field.labelSize},\n            ${cppBool(field.frame)},\n            JWPLC_UI_LAYOUT_${field.layout},\n            JWPLC_UI_ALIGN_${field.align}${fontArgs}),\n        ${field.page},\n        ${fieldColors(field)})`;
+    const primaryPage = fieldPages(field)[0];
+    return wrapFieldBlockPages(
+      field,
+      `    JWPLC_UITextField(\n        ${id},\n        JWPLC_UIRect(${field.x}, ${field.y}),\n        JWPLC_UIText(${textOrNull(field.label)}, ${textOrNull(field.unit)}, ${field.capacity}),\n        JWPLC_UITextFieldStyle(\n            ${field.valueSize},\n            ${field.labelSize},\n            ${cppBool(field.frame)},\n            JWPLC_UI_LAYOUT_${field.layout},\n            JWPLC_UI_ALIGN_${field.align}${fontArgs}),\n        ${primaryPage},\n        ${fieldColors(field)})`);
   }
 
   function boolStateColorsOn(field) {
@@ -170,7 +229,10 @@
   // field: con falseText/trueText ya resueltos (designer-bool ensureBoolState).
   function boolFieldBlock(field, id) {
     const fontArgs = styleFontsArgs(field);
-    return `    JWPLC_UIBoolField(\n        ${id},\n        JWPLC_UIRect(${field.x}, ${field.y}),\n        JWPLC_UIText(${textOrNull(field.label)}, ${textOrNull(field.unit)}),\n${boolTextBlock(field)}        JWPLC_UIBoolStyle(\n            ${field.valueSize},\n            ${field.labelSize},\n            ${cppBool(field.frame)},\n            JWPLC_UI_LAYOUT_${field.layout},\n            JWPLC_UI_ALIGN_${field.align}${fontArgs}),\n        ${field.page || 0},\n        ${fieldColors(field)})`;
+    const primaryPage = fieldPages(field)[0];
+    return wrapFieldBlockPages(
+      field,
+      `    JWPLC_UIBoolField(\n        ${id},\n        JWPLC_UIRect(${field.x}, ${field.y}),\n        JWPLC_UIText(${textOrNull(field.label)}, ${textOrNull(field.unit)}),\n${boolTextBlock(field)}        JWPLC_UIBoolStyle(\n            ${field.valueSize},\n            ${field.labelSize},\n            ${cppBool(field.frame)},\n            JWPLC_UI_LAYOUT_${field.layout},\n            JWPLC_UI_ALIGN_${field.align}${fontArgs}),\n        ${primaryPage},\n        ${fieldColors(field)})`);
   }
 
   // field: normalizado por designer-bar (ensureBarState -> applyFirmwareCaps).
@@ -189,7 +251,9 @@
       const seg = (field.circleStyle === 'SEGMENTED');
       const centerMode = field.circleCenterMode === 'PERCENT' ? 1 : (field.circleCenterMode === 'VALUE' ? 2 : 0);
       const centerTextSize = Number(field.circleTextSize) || 1;
-      const centerTextColor = hex565(field.circleTextColor || 0xFFFF);
+      const rawCenterTextColor = Number.isFinite(Number(field.circleTextColor)) ? (Number(field.circleTextColor) & 0xFFFF) : 0xFFFF;
+      // En firmware centerTextColor==0 hereda labelColor; 0x0001 conserva negro real.
+      const centerTextColor = hex565(rawCenterTextColor === 0 ? 0x0001 : rawCenterTextColor);
       const trackColor = hex565(Number.isFinite(Number(field.circleTrackColor)) ? Number(field.circleTrackColor) : (Number.isFinite(Number(field.trackColor)) ? Number(field.trackColor) : 0x0000));
       const styleHeader = `    // Medidor Circular (${sweep}°) - Estilo: ${field.circleStyle || 'CONTINUOUS'} - Inicio: ${field.circleStartAngle || 'TOP'} (${cw ? 'CW' : 'CCW'})\n`;
       const rect = `JWPLC_UIRect(${field.x}, ${field.y}, ${diameter}, ${diameter})`;
@@ -262,14 +326,112 @@
       configBlock = `,\n        JWPLC_UIBarConfig(\n            ${args.join(',\n            ')})`;
     }
 
-    return `${styleHeader}` +
-      `    JWPLC_UIBarField(\n        ${id},\n        ${rect},\n        JWPLC_UIText(${label}, ${unit}),\n        JWPLC_UIRange(${cppFloat(field.barMin)}, ${cppFloat(field.barMax)}),\n        JWPLC_UIBarStyle(\n            ${field.labelSize},\n            ${cppBool(field.frame)},\n            JWPLC_UI_LAYOUT_${field.layout}),\n        ${field.page || 0},\n        ${colorsBlock(field.labelColor, field.valueColor, field.trackColor || field.backgroundColor, field.frameColor)}${configBlock})`;
+    const primaryPage = fieldPages(field)[0];
+    return wrapFieldBlockPages(
+      field,
+      `${styleHeader}` +
+      `    JWPLC_UIBarField(\n        ${id},\n        ${rect},\n        JWPLC_UIText(${label}, ${unit}),\n        JWPLC_UIRange(${cppFloat(field.barMin)}, ${cppFloat(field.barMax)}),\n        JWPLC_UIBarStyle(\n            ${field.labelSize},\n            ${cppBool(field.frame)},\n            JWPLC_UI_LAYOUT_${field.layout}),\n        ${primaryPage},\n        ${colorsBlock(field.labelColor, field.valueColor, field.trackColor || field.backgroundColor, field.frameColor)}${configBlock})`);
+  }
+
+  function trendChannelVariables(field, primaryVar) {
+    const vars = [sanitizeSymbol(primaryVar || field.variable, 'temperatura')];
+    if (field.ch2Enabled) {
+      vars.push(sanitizeSymbol(field.ch2Variable, 'consigna'));
+    }
+    if (field.ch3Enabled) {
+      vars.push(sanitizeSymbol(field.ch3Variable, 'salida'));
+    }
+    return vars;
+  }
+
+  function trendFieldBlock(field, id) {
+    const width = Math.max(40, Math.trunc(Number(field.width || field.w) || 200));
+    const height = Math.max(30, Math.trunc(Number(field.height || field.h) || 80));
+    const rect = `JWPLC_UIRect(${field.x}, ${field.y}, ${width}, ${height})`;
+    const title = textOrNull(field.title || field.label);
+    const unit = textOrNull(field.unit);
+    const minVal = Number(field.minValue) || 0;
+    const maxVal = Number(field.maxValue) || 100;
+    const sampleMs = Math.max(50, Math.trunc(Number(field.sampleIntervalMs) || 1000));
+    const visiblePts = Math.max(20, Math.trunc(Number(field.visibleSamples) || 150));
+    const scaleMode = field.scaleMode === 'MANUAL' ? 1 : 0;
+    const decimals = Math.max(0, Math.min(3, Math.trunc(Number(field.decimals) ?? 1)));
+    const lineW = Number(field.lineWidth) === 2 ? 2 : 1;
+    const showAxes = cppBool(field.showAxes !== false);
+    const showGuides = cppBool(field.showGuides !== false);
+    const showTime = cppBool(field.showTimeAxis !== false);
+    const enableSD = cppBool(Boolean(field.enableSD));
+    const sdIntervalMs = Math.max(100, Math.trunc(Number(field.sdIntervalMs) || 1000));
+    const curveColor = hex565(field.curveColor ?? 0xFD20);
+    const axesColor = hex565(field.axesColor ?? 0xFFFF);
+    const gridColor = hex565(field.gridColor ?? 0x4208);
+    const textColor = hex565(field.textColor ?? 0xFFFF);
+    const bgColor = hex565(field.backgroundColor ?? 0x0000);
+
+    const ch2On = Boolean(field.ch2Enabled);
+    const ch3On = Boolean(field.ch3Enabled);
+    const channelCount = 1 + (ch2On ? 1 : 0) + (ch3On ? 1 : 0);
+    const c2Color = hex565(ch2On ? (field.ch2Color ?? 0x07FF) : (ch3On ? (field.ch3Color ?? 0x07E0) : 0x07FF));
+    const c3Color = hex565(field.ch3Color ?? 0x07E0);
+
+    const activeThresholds = [];
+    if (field.thr1Enabled) activeThresholds.push({ val: Number(field.thr1Value) || 0, color: hex565(field.thr1Color ?? 0xF800) });
+    if (field.thr2Enabled) activeThresholds.push({ val: Number(field.thr2Value) || 0, color: hex565(field.thr2Color ?? 0xFFE0) });
+    const thresholdCount = activeThresholds.length;
+    const t1Val = activeThresholds[0]?.val ?? 85;
+    const t1Color = activeThresholds[0]?.color ?? hex565(0xF800);
+    const t2Val = activeThresholds[1]?.val ?? 20;
+    const t2Color = activeThresholds[1]?.color ?? hex565(0xFFE0);
+
+    const showFrame = cppBool(field.frame !== false);
+    const ch2Lbl = `"${cppString(String(field.ch2Label || 'SP').slice(0, 8))}"`;
+    const ch3Lbl = `"${cppString(String(field.ch3Label || 'CH3').slice(0, 8))}"`;
+    const hideLiveValue = field.showLiveValue === false;
+
+    const hasExtras = channelCount > 1 || thresholdCount > 0 || field.frame === false || hideLiveValue;
+    const liveTailArg = hideLiveValue ? `, false` : '';
+    const extrasArgs = hasExtras
+      ? `,\n            ${showGuides},\n            ${channelCount},\n            ${c2Color},\n            ${c3Color},\n            ${thresholdCount},\n            ${cppFloat(t1Val)},\n            ${t1Color},\n            ${cppFloat(t2Val)},\n            ${t2Color},\n            ${showFrame},\n            ${ch2Lbl},\n            ${ch3Lbl}${liveTailArg}`
+      : (field.showGuides === false ? `,\n            ${showGuides}` : '');
+
+    const metaParts = [`Muestreo: ${sampleMs}ms`, `Escala: ${field.scaleMode || 'AUTO'}`];
+    if (channelCount > 1) metaParts.push(`Canales: ${channelCount}`);
+    if (thresholdCount > 0) metaParts.push(`Umbrales: ${thresholdCount}`);
+    const styleHeader = `    // Gráfica de Tendencia (${width}x${height}) - ${metaParts.join(' - ')}\n`;
+
+    const primaryPage = fieldPages(field)[0];
+    return wrapFieldBlockPages(
+      field,
+      `${styleHeader}` +
+      `    JWPLC_UITrendField(\n` +
+      `        ${id},\n` +
+      `        ${rect},\n` +
+      `        JWPLC_UIText(${title}, ${unit}),\n` +
+      `        JWPLC_UIRange(${cppFloat(minVal)}, ${cppFloat(maxVal)}),\n` +
+      `        JWPLC_UITrendConfig(\n` +
+      `            ${sampleMs},\n` +
+      `            ${visiblePts},\n` +
+      `            ${scaleMode},\n` +
+      `            ${decimals},\n` +
+      `            ${lineW},\n` +
+      `            ${showAxes},\n` +
+      `            ${showTime},\n` +
+      `            ${enableSD},\n` +
+      `            ${sdIntervalMs},\n` +
+      `            ${curveColor},\n` +
+      `            ${axesColor},\n` +
+      `            ${gridColor},\n` +
+      `            ${textColor},\n` +
+      `            ${bgColor}${extrasArgs}),\n` +
+      `        ${primaryPage},\n` +
+      `        ${colorsBlock(field.labelColor ?? 0xFFFF, field.curveColor ?? 0xFD20, field.backgroundColor ?? 0x0000, field.gridColor ?? 0x4208)})`);
   }
 
   function fieldBlock(field, id) {
     if (field.type === 'VALUE') return valueFieldBlock(field, id);
     if (field.type === 'BOOL') return boolFieldBlock(field, id);
     if (field.type === 'BAR') return barFieldBlock(field, id);
+    if (field.type === 'TREND') return trendFieldBlock(field, id);
     return textFieldBlock(field, id);
   }
 
@@ -285,8 +447,30 @@
     return `char ${variable}[${textBufferSize(field)}] = {}; // ${capacity} caracteres (UTF-8: cada tilde ocupa 2 bytes)`;
   }
 
+  function trendVariableDeclarations(field, variable) {
+    return trendChannelVariables(field, variable).map((v) => `float ${v} = 0.0f;`).join('\n');
+  }
+
+  function fieldVariableCppType(field) {
+    if (!field || !field.type) return null;
+    if (field.type === 'VALUE') {
+      if (isClockField(field)) return null;
+      return valueCppType(field);
+    }
+    if (field.type === 'BAR' || field.type === 'TREND') return 'float';
+    if (field.type === 'BOOL') return 'bool';
+    if (field.type === 'ICON') return field.iconVarType === 'uint8' ? 'uint8_t' : 'bool';
+    if (field.type === 'TEXT') return 'char[]';
+    return null;
+  }
+
+  function canShareVariableTypes(typeA, typeB) {
+    return Boolean(typeA && typeB && typeA === typeB && typeA !== 'char[]');
+  }
+
   function variableDeclaration(field, variable) {
     if (field.type === 'VALUE') return valueDeclaration(field, variable);
+    if (field.type === 'TREND') return trendVariableDeclarations(field, variable);
     if (field.type === 'BAR') return `float ${variable} = 0.0f;`;
     if (field.type === 'BOOL') return `bool ${variable} = false;`;
     return textDeclaration(field, variable);
@@ -297,6 +481,10 @@
     if (field.type === 'VALUE') return `JWPLC_Display.setValue(${id}, ${variable});`;
     if (field.type === 'BOOL') return `JWPLC_Display.setBool(${id}, ${variable});`;
     if (field.type === 'BAR') return `JWPLC_Display.setBar(${id}, ${variable});`;
+    if (field.type === 'TREND') {
+      const vars = trendChannelVariables(field, variable);
+      return `JWPLC_Display.setTrend(${id}, ${vars.join(', ')});`;
+    }
     return `JWPLC_Display.setText(${id}, ${variable});`;
   }
 
@@ -317,9 +505,19 @@
     boolFieldBlock,
     boolStateColorsOn,
     barFieldBlock,
+    trendChannelVariables,
+    trendVariableDeclarations,
+    fieldVariableCppType,
+    canShareVariableTypes,
+    trendFieldBlock,
     fontCppSymbol,
     styleFontsArgs,
     fieldBlock,
+    supportsMultiPage,
+    fieldPages,
+    fieldOnPage,
+    fieldPageMaskHex,
+    wrapFieldBlockPages,
     variableDeclaration,
     setterCall
   });

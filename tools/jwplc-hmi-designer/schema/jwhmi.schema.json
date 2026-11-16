@@ -56,11 +56,11 @@
     },
     "fields": {
       "type": "array",
-      "maxItems": 32,
+      "maxItems": 64,
       "items": {
         "$ref": "#/definitions/field"
       },
-      "description": "Objetos (máximo 32 contando la NAV_BAR)."
+      "description": "Objetos (máximo 64 campos dinámicos TEXT/VALUE/BOOL/BAR/ICON/TREND; figuras, RAW_TEXT, MENU, EVENT_LOG y NAV_BAR no gastan cupo)."
     },
     "pixelMaps": {
       "type": "array",
@@ -101,6 +101,7 @@
             "BOOL",
             "BAR",
             "ICON",
+            "TREND",
             "MENU",
             "EVENT_LOG",
             "RAW_TEXT",
@@ -143,6 +144,10 @@
                 "minimum": 0,
                 "maximum": 15,
                 "default": 0
+              },
+              "pages": {
+                "description": "Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez.",
+                "type": "array"
               },
               "layerOrder": {
                 "description": "Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima).",
@@ -408,6 +413,10 @@
                 "minimum": 0,
                 "maximum": 15,
                 "default": 0
+              },
+              "pages": {
+                "description": "Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez.",
+                "type": "array"
               },
               "layerOrder": {
                 "description": "Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima).",
@@ -738,6 +747,10 @@
                 "minimum": 0,
                 "maximum": 15,
                 "default": 0
+              },
+              "pages": {
+                "description": "Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez.",
+                "type": "array"
               },
               "layerOrder": {
                 "description": "Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima).",
@@ -1087,6 +1100,10 @@
                 "minimum": 0,
                 "maximum": 15,
                 "default": 0
+              },
+              "pages": {
+                "description": "Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez.",
+                "type": "array"
               },
               "layerOrder": {
                 "description": "Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima).",
@@ -1636,6 +1653,10 @@
                 "maximum": 15,
                 "default": 0
               },
+              "pages": {
+                "description": "Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez.",
+                "type": "array"
+              },
               "layerOrder": {
                 "description": "Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima).",
                 "type": "integer",
@@ -1970,6 +1991,385 @@
           "if": {
             "properties": {
               "type": {
+                "const": "TREND"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "type": {
+                "const": "TREND"
+              },
+              "name": {
+                "description": "Nombre visible en la lista de objetos del Designer (no llega al C++).",
+                "type": "string"
+              },
+              "id": {
+                "description": "Identificador C++ del objeto (único en el proyecto). Si falta se genera FIELD_<TIPO>_<n>.",
+                "type": "string",
+                "pattern": "^([A-Za-z_][A-Za-z0-9_]*)?$"
+              },
+              "page": {
+                "description": "Página (id) donde se dibuja.",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 15,
+                "default": 0
+              },
+              "pages": {
+                "description": "Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez.",
+                "type": "array"
+              },
+              "layerOrder": {
+                "description": "Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9999
+              },
+              "hidden": {
+                "description": "Oculto en el lienzo y fuera del header.",
+                "type": "boolean"
+              },
+              "locked": {
+                "description": "Bloqueado en el lienzo (no se puede mover con el ratón).",
+                "type": "boolean"
+              },
+              "cornerRadius": {
+                "description": "Lo agrega el Designer al abrir (sólo lo usan RECT y MENU).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 85
+              },
+              "x": {
+                "description": "Esquina superior izquierda, X (px).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 319
+              },
+              "y": {
+                "description": "Esquina superior izquierda, Y (px).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 169
+              },
+              "width": {
+                "description": "Ancho total del widget (px).",
+                "type": "integer",
+                "minimum": 40,
+                "maximum": 320,
+                "default": 200
+              },
+              "height": {
+                "description": "Alto total del widget (px).",
+                "type": "integer",
+                "minimum": 30,
+                "maximum": 170,
+                "default": 80
+              },
+              "variable": {
+                "description": "Variable analógica C++ a graficar.",
+                "type": "string",
+                "pattern": "^([A-Za-z_][A-Za-z0-9_]*)?$",
+                "default": "temperatura"
+              },
+              "title": {
+                "description": "Título / Identificador de la curva.",
+                "type": "string",
+                "default": "TEND"
+              },
+              "unit": {
+                "description": "Unidad de la variable.",
+                "type": "string",
+                "default": ""
+              },
+              "preview": {
+                "description": "Valor de prueba para visualización en el lienzo.",
+                "type": "number",
+                "default": 24.5
+              },
+              "sampleIntervalMs": {
+                "description": "Periodo de muestreo en ms (ej. 1000 = 1 muestra/s, 100 = 10 Hz).",
+                "type": "integer",
+                "minimum": 50,
+                "maximum": 60000,
+                "default": 1000
+              },
+              "visibleSamples": {
+                "description": "Puntos visibles en la ventana en vivo.",
+                "type": "integer",
+                "minimum": 20,
+                "maximum": 320,
+                "default": 150
+              },
+              "scaleMode": {
+                "description": "AUTO: auto-escala dinámica con 3 guías. MANUAL: escala fija con minValue y maxValue.",
+                "enum": [
+                  "AUTO",
+                  "MANUAL"
+                ],
+                "default": "AUTO"
+              },
+              "minValue": {
+                "description": "Valor mínimo en escala MANUAL.",
+                "type": "number",
+                "default": 0
+              },
+              "maxValue": {
+                "description": "Valor máximo en escala MANUAL.",
+                "type": "number",
+                "default": 100
+              },
+              "decimals": {
+                "description": "Decimales mostrados en las etiquetas del eje Y.",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 3,
+                "default": 1
+              },
+              "lineWidth": {
+                "description": "Grosor de la curva en píxeles.",
+                "enum": [
+                  1,
+                  2
+                ],
+                "default": 1
+              },
+              "showAxes": {
+                "description": "Muestra el eje Y y eje X base.",
+                "type": "boolean",
+                "default": true
+              },
+              "showGuides": {
+                "description": "Muestra las líneas guía referenciales (25% y 75%).",
+                "type": "boolean",
+                "default": true
+              },
+              "showTimeAxis": {
+                "description": "Muestra marcas de tiempo en el eje X.",
+                "type": "boolean",
+                "default": true
+              },
+              "showLiveValue": {
+                "description": "Muestra el título y valor en vivo integrados en el encabezado de la gráfica.",
+                "type": "boolean",
+                "default": true
+              },
+              "frame": {
+                "description": "Marco exterior de la gráfica.",
+                "type": "boolean",
+                "default": true
+              },
+              "enableSD": {
+                "description": "Activa el registro continuo en tarjeta MicroSD.",
+                "type": "boolean",
+                "default": false
+              },
+              "sdIntervalMs": {
+                "description": "Periodo de volcado a la tarjeta MicroSD.",
+                "type": "integer",
+                "minimum": 100,
+                "maximum": 60000,
+                "default": 1000
+              },
+              "curveColor": {
+                "description": "Color de la línea de tendencia (Canal 1). RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 64800
+              },
+              "axesColor": {
+                "description": "Color de los ejes de coordenadas (color entero). RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 65535
+              },
+              "gridColor": {
+                "description": "Color de las líneas guía de fondo. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 16904
+              },
+              "textColor": {
+                "description": "Color de las etiquetas y textos. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 65535
+              },
+              "backgroundColor": {
+                "description": "Fondo del área de la gráfica. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 0
+              },
+              "ch2Enabled": {
+                "description": "Activa un segundo canal simultáneo (ej. consigna / setpoint).",
+                "type": "boolean",
+                "default": false
+              },
+              "ch2Variable": {
+                "description": "Variable analógica C++ del canal 2.",
+                "type": "string",
+                "pattern": "^([A-Za-z_][A-Za-z0-9_]*)?$",
+                "default": "consigna"
+              },
+              "ch2Label": {
+                "description": "Etiqueta corta del canal 2 en la leyenda.",
+                "type": "string",
+                "default": "SP"
+              },
+              "ch2Color": {
+                "description": "Color de la curva del canal 2. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 2047
+              },
+              "ch3Enabled": {
+                "description": "Activa un tercer canal simultáneo.",
+                "type": "boolean",
+                "default": false
+              },
+              "ch3Variable": {
+                "description": "Variable analógica C++ del canal 3.",
+                "type": "string",
+                "pattern": "^([A-Za-z_][A-Za-z0-9_]*)?$",
+                "default": "salida"
+              },
+              "ch3Label": {
+                "description": "Etiqueta corta del canal 3 en la leyenda.",
+                "type": "string",
+                "default": "CH3"
+              },
+              "ch3Color": {
+                "description": "Color de la curva del canal 3. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 2016
+              },
+              "thr1Enabled": {
+                "description": "Activa línea horizontal punteada de umbral/alarma 1.",
+                "type": "boolean",
+                "default": false
+              },
+              "thr1Value": {
+                "description": "Valor numérico del umbral 1.",
+                "type": "number",
+                "default": 85
+              },
+              "thr1Color": {
+                "description": "Color de la línea punteada de umbral 1. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 63488
+              },
+              "thr2Enabled": {
+                "description": "Activa línea horizontal punteada de umbral/alarma 2.",
+                "type": "boolean",
+                "default": false
+              },
+              "thr2Value": {
+                "description": "Valor numérico del umbral 2.",
+                "type": "number",
+                "default": 20
+              },
+              "thr2Color": {
+                "description": "Color de la línea punteada de umbral 2. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 65504
+              }
+            },
+            "required": [
+              "type",
+              "x",
+              "y"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
                 "const": "MENU"
               }
             }
@@ -1995,6 +2395,10 @@
                 "maximum": 15,
                 "default": 0
               },
+              "pages": {
+                "description": "Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez.",
+                "type": "array"
+              },
               "layerOrder": {
                 "description": "Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima).",
                 "type": "integer",
@@ -2010,7 +2414,7 @@
                 "type": "boolean"
               },
               "cornerRadius": {
-                "description": "Uso interno.",
+                "description": "Radio de esquinas para tarjetas/píldoras (rowStyle = CARDS).",
                 "type": "integer",
                 "minimum": 0,
                 "maximum": 20,
@@ -2097,6 +2501,75 @@
                 "type": "boolean",
                 "default": true
               },
+              "rowStyle": {
+                "description": "FLAT: filas planas clásicas. CARDS: píldoras/tarjetas redondeadas separadas.",
+                "enum": [
+                  "FLAT",
+                  "CARDS"
+                ],
+                "default": "FLAT"
+              },
+              "rowGap": {
+                "description": "Separación vertical (px) entre tarjetas (rowStyle = CARDS).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 16,
+                "default": 4
+              },
+              "rowPadY": {
+                "description": "Relleno vertical interior (px) por fila (rowStyle = CARDS).",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 16,
+                "default": 5
+              },
+              "rowPadX": {
+                "description": "Relleno horizontal interior (px) por fila (rowStyle = CARDS).",
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 24,
+                "default": 8
+              },
+              "inlineValue": {
+                "description": "Pone etiqueta y valor juntos a la izquierda en lugar de alinear el valor a la derecha.",
+                "type": "boolean",
+                "default": false
+              },
+              "selectOutlineOnly": {
+                "description": "En CARDS, resalta la fila seleccionada con borde y texto de color en lugar de relleno sólido.",
+                "type": "boolean",
+                "default": false
+              },
+              "cardBackground": {
+                "description": "Color de fondo de tarjetas no seleccionadas (CARDS). RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 6371
+              },
+              "cardBorder": {
+                "description": "Color de borde de tarjetas no seleccionadas (CARDS). RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                  }
+                ],
+                "default": 14823
+              },
               "colors": {
                 "type": "object",
                 "description": "Colores: text, background, value, selectText, selectBackground, editText, editBackground, title, titleBackground, frame. Los que falten toman su valor por defecto.",
@@ -2114,7 +2587,7 @@
                         "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
                       }
                     ],
-                    "default": 65535
+                    "default": 50712
                   },
                   "background": {
                     "description": "RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
@@ -2159,7 +2632,7 @@
                         "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
                       }
                     ],
-                    "default": 0
+                    "default": 65535
                   },
                   "selectBackground": {
                     "description": "RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
@@ -2174,7 +2647,7 @@
                         "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
                       }
                     ],
-                    "default": 2047
+                    "default": 1023
                   },
                   "editText": {
                     "description": "RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
@@ -2219,7 +2692,7 @@
                         "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
                       }
                     ],
-                    "default": 0
+                    "default": 65535
                   },
                   "titleBackground": {
                     "description": "RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
@@ -2234,7 +2707,7 @@
                         "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
                       }
                     ],
-                    "default": 65535
+                    "default": 8484
                   },
                   "frame": {
                     "description": "RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
@@ -2298,6 +2771,10 @@
                 "minimum": 0,
                 "maximum": 15,
                 "default": 0
+              },
+              "pages": {
+                "description": "Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez.",
+                "type": "array"
               },
               "layerOrder": {
                 "description": "Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima).",
@@ -2487,6 +2964,10 @@
                 "maximum": 15,
                 "default": 0
               },
+              "pages": {
+                "description": "Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez.",
+                "type": "array"
+              },
               "layerOrder": {
                 "description": "Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima).",
                 "type": "integer",
@@ -2640,6 +3121,10 @@
                 "maximum": 15,
                 "default": 0
               },
+              "pages": {
+                "description": "Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez.",
+                "type": "array"
+              },
               "layerOrder": {
                 "description": "Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima).",
                 "type": "integer",
@@ -2802,6 +3287,10 @@
                 "minimum": 0,
                 "maximum": 15,
                 "default": 0
+              },
+              "pages": {
+                "description": "Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez.",
+                "type": "array"
               },
               "layerOrder": {
                 "description": "Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima).",
@@ -2966,6 +3455,10 @@
                 "maximum": 15,
                 "default": 0
               },
+              "pages": {
+                "description": "Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez.",
+                "type": "array"
+              },
               "layerOrder": {
                 "description": "Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima).",
                 "type": "integer",
@@ -3129,6 +3622,10 @@
                 "maximum": 15,
                 "default": 0
               },
+              "pages": {
+                "description": "Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez.",
+                "type": "array"
+              },
               "layerOrder": {
                 "description": "Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima).",
                 "type": "integer",
@@ -3291,6 +3788,10 @@
                 "minimum": 0,
                 "maximum": 15,
                 "default": 0
+              },
+              "pages": {
+                "description": "Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez.",
+                "type": "array"
               },
               "layerOrder": {
                 "description": "Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima).",
@@ -3461,8 +3962,6 @@
                   "dark-pill",
                   "segmented-bar",
                   "compact-dots",
-                  "edge-tabs",
-                  "numeric-pills",
                   "counter"
                 ],
                 "default": "industrial-color"
@@ -3521,14 +4020,56 @@
                 ],
                 "default": "center"
               },
+              "font": {
+                "description": "Tipografía de pestañas (MICRO 4×6, GLCD, Bitmap o FreeFonts).",
+                "enum": [
+                  "MICRO",
+                  "GLCD",
+                  "FONT2",
+                  "FONT4",
+                  "FONT_16",
+                  "FONT_26",
+                  "SANS_9",
+                  "SANS_BOLD_9",
+                  "SANS_12",
+                  "SANS_BOLD_12",
+                  "SANS_18",
+                  "SANS_BOLD_18",
+                  "SANS_24",
+                  "SANS_BOLD_24",
+                  "SERIF_9",
+                  "SERIF_BOLD_9",
+                  "SERIF_12",
+                  "SERIF_BOLD_12",
+                  "SERIF_18",
+                  "SERIF_BOLD_18",
+                  "SERIF_24",
+                  "SERIF_BOLD_24",
+                  "MONO_9",
+                  "MONO_BOLD_9",
+                  "MONO_12",
+                  "MONO_BOLD_12",
+                  "MONO_18",
+                  "MONO_BOLD_18",
+                  "MONO_24",
+                  "MONO_BOLD_24"
+                ],
+                "default": "GLCD"
+              },
+              "textScale": {
+                "description": "Escala del texto cuando font es GLCD (1× a 4×).",
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 4,
+                "default": 1
+              },
               "fontSize": {
-                "description": "Tamaño del texto.",
+                "description": "Alias legado de tipografía (preferir font y textScale).",
                 "enum": [
                   "normal",
                   "medium",
                   "micro"
-                ],
-                "default": "normal"
+                ]
               },
               "labelFormat": {
                 "description": "short: nombre corto de la página; number: 1, 2, 3; num_short: ambos.",
@@ -3636,8 +4177,9 @@
           ]
         },
         "label": {
-          "description": "Texto de la fila.",
-          "type": "string"
+          "description": "Texto de la fila. Vacío = botón centrado (píldora).",
+          "type": "string",
+          "default": ""
         },
         "variable": {
           "description": "Variable C++ (VIEW, EDIT_NUM, EDIT_BOOL). Puede ser la misma que la de un campo si el tipo coincide.",
@@ -3674,6 +4216,12 @@
           "type": "number",
           "default": 1
         },
+        "lrStep": {
+          "description": "Paso rápido de ◄► (EDIT_NUM). 0 = 10 pasos por defecto; 1 = igual que ▲▼.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000
+        },
         "decimals": {
           "description": "Decimales mostrados (float).",
           "type": "integer",
@@ -3686,6 +4234,18 @@
           "type": "string",
           "default": ""
         },
+        "valuePrefix": {
+          "description": "Prefijo opcional antes del valor numérico (ej. \"P\" -> P01).",
+          "type": "string",
+          "default": ""
+        },
+        "zeroPad": {
+          "description": "Ceros a la izquierda para int32 (ej. 2 -> 01).",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 6,
+          "default": 0
+        },
         "falseText": {
           "description": "Texto para false (bool).",
           "type": "string",
@@ -3696,6 +4256,60 @@
           "type": "string",
           "default": "ON"
         },
+        "directToggle": {
+          "description": "Si es true en EDIT_BOOL, alterna al pulsar OK una sola vez sin entrar al modo flechas.",
+          "type": "boolean"
+        },
+        "hasPillColors": {
+          "description": "Usa relleno propio en el nodo (botón/píldora principal en CARDS).",
+          "type": "boolean",
+          "default": false
+        },
+        "pillFalseBg": {
+          "description": "Fondo cuando el estado bool es false. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            },
+            {
+              "type": "string",
+              "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+            }
+          ],
+          "default": 1504
+        },
+        "pillTrueBg": {
+          "description": "Fondo cuando el estado bool es true. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            },
+            {
+              "type": "string",
+              "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+            }
+          ],
+          "default": 51200
+        },
+        "pillTextColor": {
+          "description": "Color del texto de la píldora. RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            },
+            {
+              "type": "string",
+              "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+            }
+          ],
+          "default": 65535
+        },
         "children": {
           "type": "array",
           "items": {
@@ -3705,8 +4319,7 @@
         }
       },
       "required": [
-        "type",
-        "label"
+        "type"
       ]
     },
     "page": {

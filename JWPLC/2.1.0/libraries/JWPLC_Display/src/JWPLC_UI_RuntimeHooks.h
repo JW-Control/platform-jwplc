@@ -19,9 +19,12 @@ extern "C"
 
 // Se ejecuta siempre en USER antes de decidir si hace falta dibujar. Permite
 // procesar navegación física aunque el refresh haya sido forzado por un botón.
+void jwplcUIRuntimeEnsureLinked(void);
 void jwplcUIRuntimeServiceInput(void);
 
 bool jwplcUIRuntimeRefreshNeeded(void);
+bool jwplcUIRuntimeBackgroundTrendDue(void);
+void jwplcUIRuntimeTickDueTrends(void);
 void jwplcUIRuntimeInvalidateAll(bool redrawStatic);
 void jwplcUIRuntimePrepareEnter(void);
 uint8_t jwplcUIRuntimeCurrentPage(void);
