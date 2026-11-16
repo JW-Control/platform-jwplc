@@ -6,8 +6,8 @@ Actualizado: `2026-11-04` (cierre autorizado por el propietario: integrar Editor
 
 | Repo | Rol | Rama | SHA / estado |
 |---|---|---|---|
-| platform-jwplc | Base de la línea (`…/main`) | `v2.1.0-alpha.17/JWPLC-Sim/main` | `f0e5edc` (#237) |
-| platform-jwplc | Línea del editor | `v2.1.0-alpha.17/Editor-Upstream/main` | `0647a84` (VPP 4.3, #227); fusionada en `…/JWPLC-Sim/main` con #234 |
+| platform-jwplc | Base de la línea (`…/main`) | `v2.1.0-alpha.17/JWPLC-Sim/main` | `c756170` (#236) |
+| platform-jwplc | Línea del editor | `v2.1.0-alpha.17/Editor-Upstream/main` | `0647a84` (VPP 4.3, #227); fusionada en `…/JWPLC-Sim/main` con #234; rama borrada el 14/11 |
 | platform-jwplc | Feature de cierre | `v2.1.0-alpha.17/JWPLC-Sim/feature/cierre-alpha17` | PR hacia `…/main`, luego `…/main` → `release/v2.1.x` |
 | openplc-editor | Línea cerrada | `v2.1.0-alpha.17/Editor-Upstream/main` | `2bf0b0c`, tag `jwplc-editor-v4.3.3-jwplc.1`; en `release/v2.1.x` @ `6886eed` (#16) |
 | openplc-editor | Designer / VPP empaquetados | `PLATFORM_DESIGNER_SHA` / `PLATFORM_VPP_SHA` | platform `4cb23c5` / `0647a84` |
@@ -16,6 +16,9 @@ Actualizado: `2026-11-04` (cierre autorizado por el propietario: integrar Editor
 Ramas borradas el 04/11 (todas fusionadas): features de alpha.16 y alpha.17 en los tres repos. Sin PR y con su
 contenido ya dentro: `v2.1.0-alpha.16/OpenPLC-HMI/feature/modo-claro-designer` @ `1817838`,
 `…/feature/vpp-version-alpha16` @ `55286cd` (platform) y `…/feature/panel-lateral-hmi` @ `3531f31` (editor).
+
+Ramas borradas el 14/11 (platform, todas contenidas en `…/main`): `v2.1.0-alpha.17/JWPLC-Sim/feature/mblock-poc` @
+`852a415e`, `…/feature/integrar-editor-upstream` @ `333b4140` y `v2.1.0-alpha.17/Editor-Upstream/main` @ `0647a84c`.
 
 ## 2. Qué entró en `…/main`
 
@@ -34,6 +37,7 @@ contenido ya dentro: `v2.1.0-alpha.16/OpenPLC-HMI/feature/modo-claro-designer` @
 | #227 | `…/Editor-Upstream/feature/vpp-4.3` | `0647a84` | VPP 2.1.0-alpha.17 (Serial/Network) en la línea Editor-Upstream |
 | #234 | `…/feature/integrar-editor-upstream` | `852a415` | trae `Editor-Upstream/main` a esta línea |
 | #237 | `…/feature/arranque-io-enable` | `f0e5edc` | aviso y reintento si el TCA no arranca (EN_IO=GPIO27); errores de compilación para `Serial1`, `digitalWrite(I0_x)`, `pinMode` cruzado y GPIO27; `core.a` regenerado |
+| #236 | `…/feature/mblock` | `c756170` | prueba de concepto de mBlock en `tools/mblock-poc/` |
 
 ## 3. Librerías precompiladas y evidencia del cierre
 
