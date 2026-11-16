@@ -232,12 +232,10 @@ async function main() {
     check(sel.iconVarType === 'bool', 'deshacer vuelve al tipo anterior');
 
     const text = await header();
-    // La biblioteca nativa JWPLC_Icons (JWPLC_Icons.motor(48)) existe en JWPLC_Display desde #239, pero el
-    // codegen del Designer todavía no la usa: el header sigue llevando el mapa de bits de cada icono usado.
-    // Cuando el codegen pase a JWPLC_Icons.<icono>(tamaño), volver a exigir la llamada nativa aquí.
-    check(/JWPLC_UIIconField\(\n {8}FIELD_ICON_\d+,/.test(text) && text.includes('#ifndef JWPLC_UI_HAS_ICON'), 'header con JWPLC_UIIconField y guarda de versión');
+    // Iconos del catálogo sin colores propios: el header llama a JWPLC_Icons (precompilada en JWPLC_Display).
+    check(/JWPLC_UIIconField\(\n {8}FIELD_ICON_\d+,/.test(text) && text.includes('JWPLC_Icons.motor(48)'), 'header con JWPLC_UIIconField y llamada nativa JWPLC_Icons.motor(48)');
     check(text.includes('JWPLC_Display.setIconState(') && /uint8_t \w+ = 0; \/\/ ICON: 0=\S+/.test(text), 'variable uint8_t y setIconState en jwplcUIUpdate()');
-    check((text.match(/static const JWPLC_UIIcon HMI_ICON_MOTORES_MOTOR_48\(/g) || []).length === 1, 'dos ICON del mismo icono y tamaño comparten un solo JWPLC_UIIcon');
+    check(!text.includes('HMI_ICON_MOTORES_MOTOR_48'), 'los iconos de catálogo no saturan el sketch con mapas de bits en el header');
 
     console.log('GUARDAR / ABRIR');
     const saved = await page.evaluate(() => window.JWPLCHMIProject.serialize());

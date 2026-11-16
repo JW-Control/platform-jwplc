@@ -61,6 +61,17 @@ function wrap(items, perLine, indent) {
   return lines.join(',\n');
 }
 
+function sizesOf(icon) {
+  return Object.keys(icon.sizes).map(Number).sort((a, b) => a - b);
+}
+
+function iconSymbol(icon, size) {
+  return `JWPLC_ICON_${icon.id.replace(/[^A-Za-z0-9]/g, '_').toUpperCase()}_${size}`;
+}
+
+// Cada tamaño es un dato propio (sección propia con -fdata-sections) y los métodos son
+// inline: con el tamaño constante (JWPLC_Icons.motor(48)) el compilador deja una sola
+// referencia y el enlazador (--gc-sections) sólo mete ese tamaño de ese icono en la flash.
 function generateHeader() {
   const lines = [];
   lines.push('// Biblioteca nativa de iconos JWPLC (JWPLC_Display)');
@@ -73,23 +84,34 @@ function generateHeader() {
   lines.push('#include <Arduino.h>');
   lines.push('#include <JWPLC_UI.h>');
   lines.push('');
+  lines.push('// Un JWPLC_UIIcon por icono y tamaño (definidos en JWPLC_Icons.cpp).');
+  for (const icon of catalog.icons) {
+    for (const size of sizesOf(icon)) lines.push(`extern const JWPLC_UIIcon ${iconSymbol(icon, size)};`);
+  }
+  lines.push('');
+  lines.push('// JWPLC_Icons.<icono>(tamaño) con el tamaño fijo sólo enlaza ese tamaño de ese icono.');
   lines.push('class JWPLC_IconsClass');
   lines.push('{');
   lines.push('public:');
-
   for (const cat of catalog.categories) {
     lines.push(`    // --- ${cat.name} ---`);
-    const catIcons = catalog.icons.filter((i) => i.category === cat.id);
-    for (const icon of catIcons) {
-      const method = METHOD_MAP[icon.id];
-      const sizes = Object.keys(icon.sizes).map(Number).sort((a, b) => a - b);
-      lines.push(`    static const JWPLC_UIIcon* ${method}(uint8_t size = ${sizes[0]}); // ${icon.name} [${sizes.join(', ')} px]`);
+    for (const icon of catalog.icons.filter((i) => i.category === cat.id)) {
+      const sizes = sizesOf(icon);
+      lines.push(`    // ${icon.name} [${sizes.join(', ')} px]`);
+      lines.push(`    static inline const JWPLC_UIIcon *${METHOD_MAP[icon.id]}(uint8_t size = ${sizes[0]})`);
+      lines.push('    {');
+      for (let i = 0; i < sizes.length - 1; i += 1) {
+        lines.push(`        if (size <= ${Math.floor((sizes[i] + sizes[i + 1]) / 2)}) return &${iconSymbol(icon, sizes[i])};`);
+      }
+      lines.push(`        return &${iconSymbol(icon, sizes[sizes.length - 1])};`);
+      lines.push('    }');
     }
     lines.push('');
   }
-
-  lines.push('    // Búsqueda genérica por identificador del catálogo ("motores/motor", "motor", etc.)');
-  lines.push('    static const JWPLC_UIIcon* get(const char *iconId, uint8_t size = 24);');
+  lines.push('    // Búsqueda por identificador del catálogo ("motores/motor", "motor", etc.).');
+  lines.push('    // Ojo: enlaza TODOS los iconos en todos sus tamaños (~280 KB de flash). Para un');
+  lines.push('    // icono conocido usar su método, p. ej. JWPLC_Icons.motor(48).');
+  lines.push('    static const JWPLC_UIIcon *get(const char *iconId, uint8_t size = 24);');
   lines.push('};');
   lines.push('');
   lines.push('extern JWPLC_IconsClass JWPLC_Icons;');
@@ -164,36 +186,14 @@ function generateCpp() {
       lines.push(`static const JWPLC_UIIconState ${sym}_STATES[${n}] =\n{\n${states.join(',\n')}\n};`);
 
       // Icon struct
-      lines.push(`static const JWPLC_UIIcon ${sym}(${entry.width}, ${entry.height}, ${n}, ${sym}_STATES, ${entry.transparent});`);
+      lines.push('\n} // namespace');
+      lines.push(`const JWPLC_UIIcon ${iconSymbol(icon, size)}(${entry.width}, ${entry.height}, ${n}, ${sym}_STATES, ${entry.transparent});`);
+      lines.push('namespace {');
     }
   }
 
   lines.push('\n} // namespace anonymous');
   lines.push('');
-
-  // Implement methods
-  for (const icon of catalog.icons) {
-    const method = METHOD_MAP[icon.id];
-    const prefix = icon.id.replace(/[^A-Za-z0-9]/g, '_').toUpperCase();
-    const sizes = Object.keys(icon.sizes).map(Number).sort((a, b) => a - b);
-
-    lines.push(`const JWPLC_UIIcon* JWPLC_IconsClass::${method}(uint8_t size)`);
-    lines.push('{');
-    if (sizes.length === 1) {
-      lines.push(`    return &ICON_${prefix}_${sizes[0]};`);
-    } else {
-      // Find midpoints for nearest match
-      for (let i = 0; i < sizes.length - 1; i += 1) {
-        const sCurrent = sizes[i];
-        const sNext = sizes[i + 1];
-        const threshold = Math.floor((sCurrent + sNext) / 2);
-        lines.push(`    if (size <= ${threshold}) return &ICON_${prefix}_${sCurrent};`);
-      }
-      lines.push(`    return &ICON_${prefix}_${sizes[sizes.length - 1]};`);
-    }
-    lines.push('}');
-    lines.push('');
-  }
 
   // Implement get()
   lines.push('const JWPLC_UIIcon* JWPLC_IconsClass::get(const char *iconId, uint8_t size)');
