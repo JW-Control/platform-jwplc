@@ -65,8 +65,8 @@ Evidencia del 16/11 (con #238 y #239 dentro):
     `drawLine`, `JW_SD.h` ni `jwplcUIRuntimeEnsureLinked()`; el ICON ahora envía 64x64 en 2 bloques (búfer compartido
     320x8) en vez de 8; el tamaño de fuente y la posición de la etiqueta del ICON se eligen con controles nuevos; la
     prueba de la barra vertical STACKED tenía coordenadas mal calculadas y se pisaba con otras barras.
-  - Pendiente para André: `JWPLC_Icons.<icono>(tamaño)` existe en la librería pero el codegen sigue emitiendo el mapa
-    de bits de cada icono en el header; la prueba quedó con el comportamiento actual y una nota.
+  - `JWPLC_Icons`: los métodos pasan a `inline` con un dato por tamaño (`JWPLC_Icons.motor(48)` enlaza 4,8 KB en vez de
+    16,6 KB) y el Designer los usa para los iconos del catálogo sin colores propios (§6 del documento de precompiladas).
 
 Evidencia del 04/11, sobre el árbol de la feature de cierre de entonces:
 
@@ -103,7 +103,7 @@ Evidencia del 04/11, sobre el árbol de la feature de cierre de entonces:
    `release/v2.1.x`; en jwplc-sim, `package.lock` → tag `v2.1.0-alpha.17` y Release del Sim.
 3. Borrar `v2.1.0-alpha.17/JWPLC-Sim/main` y `v2.1.0-alpha.17/Editor-Upstream/main` (anotar sus SHAs aquí) y
    actualizar `RAMAS_Y_TAGS.md` en jwplc-dev-mcp.
-4. André sigue desde `v2.1.0-alpha.17/JWPLC-Sim/main` (o la línea siguiente) en una feature nueva. Pendiente suyo:
-   que el codegen use `JWPLC_Icons.<icono>(tamaño)` en vez de copiar el mapa de bits al header.
+4. André sigue desde `v2.1.0-alpha.17/JWPLC-Sim/main` (o la línea siguiente) en una feature nueva. Si cambia el
+   catálogo de iconos: `node icons/export-cpp-library.cjs` y regenerar el `.a` de `JWPLC_Display`.
 
 `NEXT_GATE=A17_PUBLICACION`

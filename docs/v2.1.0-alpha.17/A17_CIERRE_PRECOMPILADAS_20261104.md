@@ -75,7 +75,7 @@ CTAGS_DIR=$HOME/jwplc-build/ctags tools/alpha16/regenerate_precompiled.sh build 
 
 | `.a` | Bytes | SHA-256 | Símbolos eliminados / añadidos |
 |---|---|---|---|
-| `libJWPLC_Display.a` | 2 737 588 | `b1f2a6b8d0bcef441b79f3cb773aa0b7350b15217b238db2ea3c0f85a10b027d` | 46 / 41 |
+| `libJWPLC_Display.a` | 2 737 588 | `b1f2a6b8d0bcef441b79f3cb773aa0b7350b15217b238db2ea3c0f85a10b027d` | 46 / 41 (reemplazado por el de §6) |
 | `libJWPLC_ModbusTCP.a` | 479 116 | `849af1163c6ffb51fde1239b3b17ff7c205d8500c4cf6e4857cbcfcb2cb92271` | 0 / 15 |
 
 - Ningún otro `.a` del package importa un símbolo que falte (`IMPORTS_FROM_OTHER_LIBS_MISSING=0`).
@@ -90,3 +90,22 @@ CTAGS_DIR=$HOME/jwplc-build/ctags tools/alpha16/regenerate_precompiled.sh build 
   `JW_ModbusRTU` y los 5 proyectos de `tools/jwplc-hmi-designer/pruebas-ia/`): **34/34, 0 advertencias**. Los 2 de
   Modbus TCP usan el `.a` (`JWPLC_ModbusTCP has been declared precompiled`).
 - `[ejecutado]` HMI Designer `tests/run-all.cjs`: 34/34 (ver `ALPHA17_STATUS.md` §3).
+
+## 6. `JWPLC_Icons`: sólo el tamaño usado (16/11)
+
+La biblioteca nativa de iconos (#239) ya iba dentro de `libJWPLC_Display.a`, pero cada método elegía el tamaño
+dentro de la función: `JWPLC_Icons.motor(48)` arrastraba los 4 tamaños del motor y `get()` los 28 iconos (~280 KB).
+Por eso el Designer seguía copiando el mapa de bits al header.
+
+- `icons/export-cpp-library.cjs` genera ahora un `const JWPLC_UIIcon JWPLC_ICON_<ICONO>_<TAMAÑO>` externo por tamaño y
+  los métodos de `JWPLC_IconsClass` como `inline` en `JWPLC_Icons.h`. Con el tamaño fijo el compilador deja una sola
+  referencia y `--gc-sections` sólo enlaza ese tamaño. `get()` sigue en el `.cpp` y avisa que enlaza todo.
+- `[ejecutado]` sketch sonda con `JWPLC_Icons.motor(48)`: **+4 760 B** de flash (antes **+16 632 B**).
+- El Designer emite `JWPLC_Icons.<icono>(tamaño)` para los iconos del catálogo sin colores propios; los que tienen
+  colores propios (o no están en el catálogo) siguen con su mapa de bits en el header.
+- `.a` regenerado: 2 717 940 B, SHA-256 `bc7afc9729be95095a5459d815f79f843556470478fba4befbb7af2cb424a3e6`. Salen 27
+  símbolos (los métodos, ahora `inline`) y entran 111 (un `JWPLC_UIIcon` por icono y tamaño). Ningún otro `.a` importa
+  un símbolo que falte.
+- `[ejecutado]` compilación ESP32 de los 16 ejemplos de `JWPLC_Display` y los 5 de `pruebas-ia`: 21/21, 0 advertencias.
+  HMI Designer `tests/run-all.cjs`: 34/34 (`icon-smoke` vuelve a exigir la llamada nativa y que no haya mapas de bits
+  del catálogo en el header).

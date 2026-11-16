@@ -31,7 +31,8 @@ formas**.
 - **HMI Designer 2.1.0-alpha.17** (#231, #232, #239): temas claro y oscuro con tokens de diseño, indicadores de
   nivel, fuentes universales y la vista de enlaces de OpenPLC sin recortes y con su tema. Nuevo widget **TREND**
   (hasta 3 canales y 2 umbrales, registro en MicroSD), proyectos de **varias páginas**, menú **CARDS**, inspectores
-  de iconos, EVENT_LOG y MENU, y hasta **64 campos** por proyecto en `JWPLC_Display`.
+  de iconos, EVENT_LOG y MENU, y hasta **64 campos** por proyecto en `JWPLC_Display`. Biblioteca de iconos
+  precompilada `JWPLC_Icons` (`JWPLC_Icons.motor(48)`): el header del Designer la usa y sólo se enlaza el tamaño elegido.
 - **Modbus TCP** (#238): el Server de `JWPLC_ModbusTCP` atiende varios clientes a la vez, cierra las conexiones
   inactivas y responde también a Unit ID 0 y 255 (`setStrictUnitId(true)` vuelve a la comparación exacta).
   En `JW_ModbusRTU`, una tabla sin mapa responde la excepción 02.
