@@ -1,0 +1,6 @@
+[2026-10-24T17:43:00.954Z]   Global variables use 38284 bytes (11%) of dynamic memory, leaving 289396 bytes for local variables. Maximum is 327680 bytes.
+[2026-10-24T17:43:02.147Z] {"type":"result","ok":true,"stage":"compile","exit":0,"ms":41108}
+[2026-10-24T17:43:13.988Z] {"type":"stage","stage":"compile","fqbn":"jwplc_a14:esp32:jwplcbasic"}
+[2026-10-24T17:43:52.113Z]   Sketch uses 418864 bytes (10%) of program storage space. Maximum is 4063232 bytes.
+[2026-10-24T17:43:52.113Z]   Global variables use 37764 bytes (11%) of dynamic memory, leaving 289916 bytes for local variables. Maximum is 327680 bytes.
+[2026-10-24T17:43:53.187Z] {"type":"result","ok":true,"stage":"compile","exit":0,"ms":39203}

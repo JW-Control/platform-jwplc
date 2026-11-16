@@ -1,0 +1,14 @@
+[2026-10-24T21:58:26.661Z]   Global variables use 37756 bytes (11%) of dynamic memory, leaving 289924 bytes for local variables. Maximum is 327680 bytes.
+[2026-10-24T21:58:27.904Z] {"type":"result","ok":true,"stage":"compile","exit":0,"ms":97923}
+[2026-10-24T21:58:34.006Z] {"type":"stage","stage":"compile","fqbn":"jwplc:esp32:jwplcbasic"}
+[2026-10-24T21:59:38.478Z]   Sketch uses 468725 bytes (11%) of program storage space. Maximum is 4063232 bytes.
+[2026-10-24T21:59:38.478Z]   Global variables use 38348 bytes (11%) of dynamic memory, leaving 289332 bytes for local variables. Maximum is 327680 bytes.
+[2026-10-24T21:59:39.646Z] {"type":"result","ok":true,"stage":"compile","exit":0,"ms":65646}
+[2026-10-25T00:01:46.764Z] {"type":"stage","stage":"compile","fqbn":"jwplc:esp32:jwplcbasic"}
+[2026-10-25T00:02:24.094Z]   C:\Users\jeykc\.jwplc\mblock-bridge\sketch\jwplc_mblock\jwplc_mblock.ino:4:10: fatal error: JWPLC_mBlock_HMI.h: No such file or directory
+[2026-10-25T00:02:24.169Z] {"type":"result","ok":false,"stage":"compile","exit":1,"ms":37418}
+[2026-10-25T00:02:33.895Z] {"type":"stage","stage":"compile","fqbn":"jwplc:esp32:jwplcbasic"}
+[2026-10-25T00:04:58.904Z]   Sketch uses 455621 bytes (11%) of program storage space. Maximum is 4063232 bytes.
+[2026-10-25T00:04:58.904Z]   Global variables use 38348 bytes (11%) of dynamic memory, leaving 289332 bytes for local variables. Maximum is 327680 bytes.
+[2026-10-25T00:05:00.438Z] {"type":"result","ok":true,"stage":"compile","exit":0,"ms":146548}
+[2026-10-25T00:05:06.917Z] {"type":"result","ok":false,"stage":"compile","exit":1,"ms":0}

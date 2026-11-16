@@ -1,0 +1,182 @@
+============================================================
+ JWPLC MBLOCK POC - GATE 1
+ ESP32 UPLOAD / COMPILER ROUTING
+============================================================
+
+DATE=2026-09-10 00:07:44 -05:00
+BRANCH=experiment/mblock-jwplc-poc
+HEAD=ac68645e14009aa13feffa28b54cf7193e8fdc00
+MBLOCK_ROOT=C:\Users\Public\Programs\mblock
+
+============================================================
+ SECTION 1 - ESPTOOL_BY_EXEC
+============================================================
+
+FILE=C:\Users\Public\Programs\mblock\resources\ml\v1\platforms\esptool\esptoolByExec.js
+SHA256=E8CFCB3FC196910034E3C524A90EC98BD82117B9A97C534CB766C9B7858EE887
+----- BEGIN FILE -----
+[código minificado de mBlock omitido: 2091 caracteres]
+
+----- END FILE -----
+
+FILE=C:\Users\Public\Programs\mblock\resources\app\mlink-v1\platforms\esptool\esptoolByExec.js
+SHA256=E8CFCB3FC196910034E3C524A90EC98BD82117B9A97C534CB766C9B7858EE887
+----- BEGIN FILE -----
+[código minificado de mBlock omitido: 2091 caracteres]
+
+----- END FILE -----
+
+============================================================
+ SECTION 2 - MLINK ROUTER
+============================================================
+
+FILE=C:\Users\Public\Programs\mblock\resources\ml\v1\constant.js
+----- MATCHES -----
+  C:\Users\Public\Programs\mblock\resources\ml\v1\constant.js:6:const ROUTER = {
+  C:\Users\Public\Programs\mblock\resources\ml\v1\constant.js:7:  CONNECT_TYPE: {
+  C:\Users\Public\Programs\mblock\resources\ml\v1\constant.js:8:    SERIALPORT: 'serialport',
+  C:\Users\Public\Programs\mblock\resources\ml\v1\constant.js:9:    WLAN_SCAN: 'wlanScan',
+> C:\Users\Public\Programs\mblock\resources\ml\v1\constant.js:10:    ESPTOOL_BY_EXEC: 'esptoolByExec',
+  C:\Users\Public\Programs\mblock\resources\ml\v1\constant.js:11:    BLE: 'ble',
+  C:\Users\Public\Programs\mblock\resources\ml\v1\constant.js:12:    HID: 'hid',
+  C:\Users\Public\Programs\mblock\resources\ml\v1\constant.js:13:    WIFI: 'wifi',
+  C:\Users\Public\Programs\mblock\resources\ml\v1\constant.js:14:    MICROBIT: 'microbit',
+> C:\Users\Public\Programs\mblock\resources\ml\v1\constant.js:15:    ARDUINO: 'arduino',
+  C:\Users\Public\Programs\mblock\resources\ml\v1\constant.js:16:    UPDATER: 'updater',
+  C:\Users\Public\Programs\mblock\resources\ml\v1\constant.js:17:  },
+  C:\Users\Public\Programs\mblock\resources\ml\v1\constant.js:18:  RESOURCE_PATH: path.resolve(HOMEPATH, 'mblock'),
+  C:\Users\Public\Programs\mblock\resources\ml\v1\constant.js:19:  LOCAL_SERVER_PATH: path.resolve(HOMEPATH, 'mlink', 'www'),
+  C:\Users\Public\Programs\mblock\resources\ml\v1\constant.js:20:  CAPTURE_PATH: path.resolve(HOMEPATH, 'mlink', 'capture'),
+  C:\Users\Public\Programs\mblock\resources\ml\v1\constant.js:21:  LOGGER_PATH: path.resolve(HOMEPATH, appName, 'logs'),
+  C:\Users\Public\Programs\mblock\resources\ml\v1\constant.js:22:};
+  C:\Users\Public\Programs\mblock\resources\ml\v1\constant.js:23:
+  C:\Users\Public\Programs\mblock\resources\ml\v1\constant.js:30:  { name: ROUTER.CONNECT_TYPE.WLAN_SCAN, path: '/platforms/wlanScan' },
+  C:\Users\Public\Programs\mblock\resources\ml\v1\constant.js:31:  { name: ROUTER.CONNECT_TYPE.MICROBIT, path: '/platforms/microbit' },
+  C:\Users\Public\Programs\mblock\resources\ml\v1\constant.js:32:  { name: ROUTER.CONNECT_TYPE.BLE, path: '/platforms/ble/ble' },
+  C:\Users\Public\Programs\mblock\resources\ml\v1\constant.js:33:  { name: ROUTER.CONNECT_TYPE.HID, path: '/platforms/hid/hid' },
+> C:\Users\Public\Programs\mblock\resources\ml\v1\constant.js:34:  { name: ROUTER.CONNECT_TYPE.ARDUINO, path: '/platforms/arduino' },
+  C:\Users\Public\Programs\mblock\resources\ml\v1\constant.js:35:  {
+> C:\Users\Public\Programs\mblock\resources\ml\v1\constant.js:36:    name: ROUTER.CONNECT_TYPE.ESPTOOL_BY_EXEC,
+> C:\Users\Public\Programs\mblock\resources\ml\v1\constant.js:37:    path: '/platforms/esptool/esptoolByExec',
+  C:\Users\Public\Programs\mblock\resources\ml\v1\constant.js:38:  },
+  C:\Users\Public\Programs\mblock\resources\ml\v1\constant.js:39:  { name: ROUTER.CONNECT_TYPE.UPDATER, path: '/updater' },
+  C:\Users\Public\Programs\mblock\resources\ml\v1\constant.js:40:];
+  C:\Users\Public\Programs\mblock\resources\ml\v1\constant.js:41:
+  C:\Users\Public\Programs\mblock\resources\ml\v1\constant.js:42:module.exports = {
+  C:\Users\Public\Programs\mblock\resources\ml\v1\constant.js:43:  ROUTER: ROUTER,
+  C:\Users\Public\Programs\mblock\resources\ml\v1\constant.js:44:  HOMEPATH: HOMEPATH,
+  C:\Users\Public\Programs\mblock\resources\ml\v1\constant.js:45:  CONNECT_TYPES: CONNECT_TYPES,
+
+FILE=C:\Users\Public\Programs\mblock\resources\ml\v1\router.js
+----- MATCHES -----
+  C:\Users\Public\Programs\mblock\resources\ml\v1\router.js:10:const {
+  C:\Users\Public\Programs\mblock\resources\ml\v1\router.js:11:  serialport: serialport,
+  C:\Users\Public\Programs\mblock\resources\ml\v1\router.js:12:  wifi: wifi,
+  C:\Users\Public\Programs\mblock\resources\ml\v1\router.js:13:  wlanScan: wlanScan,
+> C:\Users\Public\Programs\mblock\resources\ml\v1\router.js:14:  esptoolByExec: esptoolByExec,
+  C:\Users\Public\Programs\mblock\resources\ml\v1\router.js:15:  ble: ble,
+  C:\Users\Public\Programs\mblock\resources\ml\v1\router.js:16:  hid: hid,
+  C:\Users\Public\Programs\mblock\resources\ml\v1\router.js:17:  microbit: microbit,
+> C:\Users\Public\Programs\mblock\resources\ml\v1\router.js:18:  arduino: arduino,
+  C:\Users\Public\Programs\mblock\resources\ml\v1\router.js:19:  updater: updater,
+  C:\Users\Public\Programs\mblock\resources\ml\v1\router.js:20:} = connectTypes;
+  C:\Users\Public\Programs\mblock\resources\ml\v1\router.js:21:class Router {
+  C:\Users\Public\Programs\mblock\resources\ml\v1\router.js:22:  reflect(e) {
+  C:\Users\Public\Programs\mblock\resources\ml\v1\router.js:23:    switch ((logger.debug(e), e)) {
+  C:\Users\Public\Programs\mblock\resources\ml\v1\router.js:24:      case ROUTER.CONNECT_TYPE.SERIALPORT:
+  C:\Users\Public\Programs\mblock\resources\ml\v1\router.js:25:        return serialport;
+  C:\Users\Public\Programs\mblock\resources\ml\v1\router.js:26:      case ROUTER.CONNECT_TYPE.WLAN_SCAN:
+  C:\Users\Public\Programs\mblock\resources\ml\v1\router.js:27:        return wlanScan;
+> C:\Users\Public\Programs\mblock\resources\ml\v1\router.js:28:      case ROUTER.CONNECT_TYPE.ESPTOOL_BY_EXEC:
+> C:\Users\Public\Programs\mblock\resources\ml\v1\router.js:29:        return esptoolByExec;
+  C:\Users\Public\Programs\mblock\resources\ml\v1\router.js:30:      case ROUTER.CONNECT_TYPE.BLE:
+  C:\Users\Public\Programs\mblock\resources\ml\v1\router.js:31:        return ble;
+  C:\Users\Public\Programs\mblock\resources\ml\v1\router.js:32:      case ROUTER.CONNECT_TYPE.HID:
+  C:\Users\Public\Programs\mblock\resources\ml\v1\router.js:33:        return hid;
+  C:\Users\Public\Programs\mblock\resources\ml\v1\router.js:34:      case ROUTER.CONNECT_TYPE.WIFI:
+  C:\Users\Public\Programs\mblock\resources\ml\v1\router.js:35:        return wifi;
+  C:\Users\Public\Programs\mblock\resources\ml\v1\router.js:36:      case ROUTER.CONNECT_TYPE.MICROBIT:
+  C:\Users\Public\Programs\mblock\resources\ml\v1\router.js:37:        return microbit;
+> C:\Users\Public\Programs\mblock\resources\ml\v1\router.js:38:      case ROUTER.CONNECT_TYPE.ARDUINO:
+> C:\Users\Public\Programs\mblock\resources\ml\v1\router.js:39:        return new arduino();
+  C:\Users\Public\Programs\mblock\resources\ml\v1\router.js:40:      case ROUTER.CONNECT_TYPE.UPDATER:
+  C:\Users\Public\Programs\mblock\resources\ml\v1\router.js:41:        return new updater();
+  C:\Users\Public\Programs\mblock\resources\ml\v1\router.js:42:      default:
+  C:\Users\Public\Programs\mblock\resources\ml\v1\router.js:43:        throw (
+  C:\Users\Public\Programs\mblock\resources\ml\v1\router.js:44:          (logger.error('unknown "connectType".'),
+  C:\Users\Public\Programs\mblock\resources\ml\v1\router.js:45:          new Error('unknown "connectType".'))
+  C:\Users\Public\Programs\mblock\resources\ml\v1\router.js:46:        );
+  C:\Users\Public\Programs\mblock\resources\ml\v1\router.js:47:    }
+
+FILE=C:\Users\Public\Programs\mblock\resources\app\mlink-v1\constant.js
+----- MATCHES -----
+> C:\Users\Public\Programs\mblock\resources\app\mlink-v1\constant.js:1: [código minificado de mBlock omitido: 1288 caracteres]
+
+FILE=C:\Users\Public\Programs\mblock\resources\app\mlink-v1\router.js
+----- MATCHES -----
+> C:\Users\Public\Programs\mblock\resources\app\mlink-v1\router.js:1: [código minificado de mBlock omitido: 1543 caracteres]
+
+============================================================
+ SECTION 3 - BUILTIN ESPTOOL USERS
+============================================================
+
+FILE=C:\Users\Public\Programs\mblock\resources\app\mblock\chunks\mblock.1b6023f8e30d059bf11d.js
+LINE=1: [código minificado de mBlock omitido: 3666671 caracteres]
+
+FILE=C:\Users\Public\Programs\mblock\resources\app\mblock\chunks\mblock.50676005446d3a480f97.js
+LINE=1: [código minificado de mBlock omitido: 442213 caracteres]
+
+FILE=C:\Users\Public\Programs\mblock\resources\app\mblock\exts\codey\index.js
+LINE=1: [código minificado de mBlock omitido: 682910 caracteres]
+
+FILE=C:\Users\Public\Programs\mblock\resources\app\mblock\exts\codey\src\index.js
+LINE=2794: "driverName": "esptoolByExec"
+
+============================================================
+ SECTION 4 - ARDUINO COMPILER
+============================================================
+
+ROOT=C:\Users\Public\Programs\mblock\resources\ml\v1\platforms\arduino
+FILE=C:\Users\Public\Programs\mblock\resources\ml\v1\platforms\arduino\avr-ino.js
+FILE=C:\Users\Public\Programs\mblock\resources\ml\v1\platforms\arduino\boards.js
+FILE=C:\Users\Public\Programs\mblock\resources\ml\v1\platforms\arduino\compiler.js
+FILE=C:\Users\Public\Programs\mblock\resources\ml\v1\platforms\arduino\index.js
+FILE=C:\Users\Public\Programs\mblock\resources\ml\v1\platforms\arduino\pre-processor.js
+
+----- COMPILER REFERENCES -----
+> C:\Users\Public\Programs\mblock\resources\ml\v1\platforms\arduino\avr-ino.js:1: [código minificado de mBlock omitido: 966 caracteres]
+> C:\Users\Public\Programs\mblock\resources\ml\v1\platforms\arduino\compiler.js:1: [código minificado de mBlock omitido: 4346 caracteres]
+> C:\Users\Public\Programs\mblock\resources\ml\v1\platforms\arduino\index.js:1: [código minificado de mBlock omitido: 1300 caracteres]
+
+ROOT=C:\Users\Public\Programs\mblock\resources\app\mlink-v1\platforms\arduino
+FILE=C:\Users\Public\Programs\mblock\resources\app\mlink-v1\platforms\arduino\avr-ino.js
+FILE=C:\Users\Public\Programs\mblock\resources\app\mlink-v1\platforms\arduino\boards.js
+FILE=C:\Users\Public\Programs\mblock\resources\app\mlink-v1\platforms\arduino\compiler.js
+FILE=C:\Users\Public\Programs\mblock\resources\app\mlink-v1\platforms\arduino\index.js
+FILE=C:\Users\Public\Programs\mblock\resources\app\mlink-v1\platforms\arduino\pre-processor.js
+
+----- COMPILER REFERENCES -----
+> C:\Users\Public\Programs\mblock\resources\app\mlink-v1\platforms\arduino\avr-ino.js:1: [código minificado de mBlock omitido: 973 caracteres]
+> C:\Users\Public\Programs\mblock\resources\app\mlink-v1\platforms\arduino\compiler.js:1: [código minificado de mBlock omitido: 4353 caracteres]
+> C:\Users\Public\Programs\mblock\resources\app\mlink-v1\platforms\arduino\index.js:1: [código minificado de mBlock omitido: 1307 caracteres]
+
+============================================================
+ SECTION 5 - ESP32 COMPILER BINARIES
+============================================================
+
+SEARCH=xtensa-esp32-elf-g++.exe
+FOUND=NO
+
+SEARCH=xtensa-esp32-elf-gcc.exe
+FOUND=NO
+
+SEARCH=arduino-cli.exe
+FOUND=NO
+
+SEARCH=esptool.exe
+FOUND=C:\Users\Public\Programs\mblock\resources\app\mlink-v1\platforms\esptool\bin\esptool.exe
+FOUND=C:\Users\Public\Programs\mblock\resources\ml\v1\platforms\esptool\bin\esptool.exe
+
+============================================================
+ GATE1_SCAN_COMPLETE=YES
+============================================================
