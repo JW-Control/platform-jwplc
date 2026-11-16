@@ -13,7 +13,7 @@
 'use strict';
 
 const SCREEN = Object.freeze({ width: 320, height: 170 });
-const LIMITS = Object.freeze({ pages: 16, fields: 32, pixelMaps: 16, menus: 4, menuNodes: 64, menuDepth: 3, nameLength: 48 });
+const LIMITS = Object.freeze({ pages: 16, fields: 64, totalObjects: 256, pixelMaps: 16, menus: 4, menuNodes: 64, menuDepth: 3, nameLength: 48 });
 
 // Colores con nombre (RGB565). Los ocho primeros son la paleta del Designer;
 // el resto, los TFT_* de TFT_eSPI más comunes.
@@ -40,6 +40,7 @@ const BASE = {
   name: str('Nombre visible en la lista de objetos del Designer (no llega al C++).'),
   id: { kind: 'symbol', desc: 'Identificador C++ del objeto (único en el proyecto). Si falta se genera FIELD_<TIPO>_<n>.' },
   page: int(0, LIMITS.pages - 1, 'Página (id) donde se dibuja.', { default: 0 }),
+  pages: { kind: 'array', desc: 'Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez.' },
   layerOrder: int(0, 9999, 'Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima).'),
   hidden: bool('Oculto en el lienzo y fuera del header.', { internal: true }),
   locked: bool('Bloqueado en el lienzo (no se puede mover con el ratón).', { internal: true }),
@@ -196,6 +197,53 @@ const TYPES = {
       capacity: int(1, 39, 'Uso interno.', { default: 1, internal: true })
     }
   },
+  TREND: {
+    group: 'campo',
+    desc: 'Gráfica de tendencia temporal (JWPLC_UITrend). Declara `float`. Soporta auto-escala dinámica o fija, muestreo configurable y registro opcional en MicroSD.',
+    props: {
+      ...BASE,
+      ...POS,
+      width: int(40, SCREEN.width, 'Ancho total del widget (px).', { default: 200 }),
+      height: int(30, SCREEN.height, 'Alto total del widget (px).', { default: 80 }),
+      variable: { kind: 'symbol', desc: 'Variable analógica C++ a graficar.', default: 'temperatura' },
+      title: str('Título / Identificador de la curva.', { default: 'TEND' }),
+      unit: str('Unidad de la variable.', { default: '' }),
+      preview: num('Valor de prueba para visualización en el lienzo.', { default: 24.5 }),
+      sampleIntervalMs: int(50, 60000, 'Periodo de muestreo en ms (ej. 1000 = 1 muestra/s, 100 = 10 Hz).', { default: 1000 }),
+      visibleSamples: int(20, SCREEN.width, 'Puntos visibles en la ventana en vivo.', { default: 150 }),
+      scaleMode: oneOf(['AUTO', 'MANUAL'], 'AUTO: auto-escala dinámica con 3 guías. MANUAL: escala fija con minValue y maxValue.', { default: 'AUTO' }),
+      minValue: num('Valor mínimo en escala MANUAL.', { default: 0 }),
+      maxValue: num('Valor máximo en escala MANUAL.', { default: 100 }),
+      decimals: int(0, 3, 'Decimales mostrados en las etiquetas del eje Y.', { default: 1 }),
+      lineWidth: oneOf([1, 2], 'Grosor de la curva en píxeles.', { default: 1 }),
+      showAxes: bool('Muestra el eje Y y eje X base.', { default: true }),
+      showGuides: bool('Muestra las líneas guía referenciales (25% y 75%).', { default: true }),
+      showTimeAxis: bool('Muestra marcas de tiempo en el eje X.', { default: true }),
+      showLiveValue: bool('Muestra el título y valor en vivo integrados en el encabezado de la gráfica.', { default: true }),
+      frame: bool('Marco exterior de la gráfica.', { default: true }),
+      enableSD: bool('Activa el registro continuo en tarjeta MicroSD.', { default: false }),
+      sdIntervalMs: int(100, 60000, 'Periodo de volcado a la tarjeta MicroSD.', { default: 1000 }),
+      curveColor: color('Color de la línea de tendencia (Canal 1).', { default: 0xFD20 }),
+      axesColor: color('Color de los ejes de coordenadas (color entero).', { default: 0xFFFF }),
+      gridColor: color('Color de las líneas guía de fondo.', { default: 0x4208 }),
+      textColor: color('Color de las etiquetas y textos.', { default: 0xFFFF }),
+      backgroundColor: color('Fondo del área de la gráfica.', { default: 0x0000 }),
+      ch2Enabled: bool('Activa un segundo canal simultáneo (ej. consigna / setpoint).', { default: false }),
+      ch2Variable: { kind: 'symbol', desc: 'Variable analógica C++ del canal 2.', default: 'consigna' },
+      ch2Label: str('Etiqueta corta del canal 2 en la leyenda.', { default: 'SP' }),
+      ch2Color: color('Color de la curva del canal 2.', { default: 0x07FF }),
+      ch3Enabled: bool('Activa un tercer canal simultáneo.', { default: false }),
+      ch3Variable: { kind: 'symbol', desc: 'Variable analógica C++ del canal 3.', default: 'salida' },
+      ch3Label: str('Etiqueta corta del canal 3 en la leyenda.', { default: 'CH3' }),
+      ch3Color: color('Color de la curva del canal 3.', { default: 0x07E0 }),
+      thr1Enabled: bool('Activa línea horizontal punteada de umbral/alarma 1.', { default: false }),
+      thr1Value: num('Valor numérico del umbral 1.', { default: 85 }),
+      thr1Color: color('Color de la línea punteada de umbral 1.', { default: 0xF800 }),
+      thr2Enabled: bool('Activa línea horizontal punteada de umbral/alarma 2.', { default: false }),
+      thr2Value: num('Valor numérico del umbral 2.', { default: 20 }),
+      thr2Color: color('Color de la línea punteada de umbral 2.', { default: 0xFFE0 })
+    }
+  },
   MENU: {
     group: 'menu',
     desc: 'Árbol de menús para ver y editar variables con la botonera. Uno por página, hasta 4 en el proyecto, 64 nodos y 3 niveles.',
@@ -208,7 +256,15 @@ const TYPES = {
       textSize: oneOf([1, 2], 'Escala del texto.', { default: 1 }),
       font: oneOf(FONTS, 'Tipografía del menú (GLCD por defecto, bitmap o FreeFonts).', { default: 'GLCD' }),
       frame: bool('Marco exterior.', { default: true }),
-      cornerRadius: int(0, 20, 'Uso interno.', { default: 0, internal: true }),
+      cornerRadius: int(0, 20, 'Radio de esquinas para tarjetas/píldoras (rowStyle = CARDS).', { default: 0 }),
+      rowStyle: oneOf(['FLAT', 'CARDS'], 'FLAT: filas planas clásicas. CARDS: píldoras/tarjetas redondeadas separadas.', { default: 'FLAT' }),
+      rowGap: int(0, 16, 'Separación vertical (px) entre tarjetas (rowStyle = CARDS).', { default: 4 }),
+      rowPadY: int(0, 16, 'Relleno vertical interior (px) por fila (rowStyle = CARDS).', { default: 5 }),
+      rowPadX: int(1, 24, 'Relleno horizontal interior (px) por fila (rowStyle = CARDS).', { default: 8 }),
+      inlineValue: bool('Pone etiqueta y valor juntos a la izquierda en lugar de alinear el valor a la derecha.', { default: false }),
+      selectOutlineOnly: bool('En CARDS, resalta la fila seleccionada con borde y texto de color en lugar de relleno sólido.', { default: false }),
+      cardBackground: color('Color de fondo de tarjetas no seleccionadas (CARDS).', { default: 0x18E3 }),
+      cardBorder: color('Color de borde de tarjetas no seleccionadas (CARDS).', { default: 0x39E7 }),
       colors: { kind: 'object', desc: 'Colores: text, background, value, selectText, selectBackground, editText, editBackground, title, titleBackground, frame. Los que falten toman su valor por defecto.', default: null },
       nodes: { kind: 'array', desc: 'Nodos del árbol (ver «Nodos de MENU»). Se pueden anidar con `children` en lugar de `parent`.', required: true }
     }
@@ -281,7 +337,7 @@ TYPES.NAV_BAR = {
     name: { ...BASE.name, default: 'Barra de Navegación' },
     key: { kind: 'string', desc: 'Siempre NAV_BAR.', default: 'NAV_BAR', internal: true },
     label: { kind: 'string', desc: 'Siempre NAV_BAR.', default: 'NAV_BAR', internal: true },
-    preset: oneOf(['industrial-color', 'dark-pill', 'segmented-bar', 'compact-dots', 'edge-tabs', 'numeric-pills', 'counter'], 'Estilo. counter: sólo el indicador NN/TT que pinta el firmware (sin barra).', { default: 'industrial-color' }),
+    preset: oneOf(['industrial-color', 'dark-pill', 'segmented-bar', 'compact-dots', 'counter'], 'Estilo. counter: sólo el indicador NN/TT que pinta el firmware (sin barra).', { default: 'industrial-color' }),
     position: oneOf(['bottom', 'top', 'left', 'right'], 'Borde de la pantalla.', { default: 'bottom' }),
     x: int(0, SCREEN.width - 1, 'X (se calcula de position si falta).'),
     y: int(0, SCREEN.height - 1, 'Y (se calcula de position si falta).'),
@@ -289,7 +345,9 @@ TYPES.NAV_BAR = {
     height: int(8, SCREEN.height, 'Alto (~22 horizontal, 170 vertical).', { default: 22 }),
     tabDistribution: oneOf(['center', 'start', 'end', 'stretch'], 'Reparto de las pestañas.', { doc: 'center' }),
     textAlign: oneOf(['center', 'left', 'right'], 'Texto dentro de la pestaña.', { doc: 'center' }),
-    fontSize: oneOf(['normal', 'medium', 'micro'], 'Tamaño del texto.', { doc: 'normal' }),
+    font: oneOf(['MICRO', ...FONTS.filter((f) => f !== 'FONT_7SEG_48' && f !== '7SEG_48')], 'Tipografía de pestañas (MICRO 4×6, GLCD, Bitmap o FreeFonts).', { doc: 'GLCD' }),
+    textScale: int(1, 4, 'Escala del texto cuando font es GLCD (1× a 4×).', { doc: 1 }),
+    fontSize: oneOf(['normal', 'medium', 'micro'], 'Alias legado de tipografía (preferir font y textScale).', { internal: true }),
     labelFormat: oneOf(['short', 'number', 'num_short'], 'short: nombre corto de la página; number: 1, 2, 3; num_short: ambos.', { doc: 'short' }),
     bgMode: oneOf(['solid', 'dark', 'transparent'], 'Fondo de la barra.', { doc: 'solid' }),
     borderMode: oneOf(['none', 'line', 'frame'], 'Borde de la barra.', { doc: 'none' }),
@@ -309,22 +367,30 @@ const MENU_NODE = {
   key: str('Clave única del nodo dentro del MENU (se genera si falta).'),
   parent: { kind: 'string', desc: 'Clave del nodo padre (SUBMENU). null = raíz. Con `children` no hace falta.', default: null },
   type: oneOf(['SUBMENU', 'VIEW', 'EDIT_NUM', 'EDIT_BOOL', 'GO_IDLE'], 'SUBMENU: abre hijos. VIEW: muestra una variable. EDIT_NUM/EDIT_BOOL: el operador la edita. GO_IDLE: vuelve a la pantalla de inicio.', { required: true }),
-  label: str('Texto de la fila.', { required: true }),
+  label: str('Texto de la fila. Vacío = botón centrado (píldora).', { default: '' }),
   variable: { kind: 'symbol', desc: 'Variable C++ (VIEW, EDIT_NUM, EDIT_BOOL). Puede ser la misma que la de un campo si el tipo coincide.', default: '' },
   valueType: oneOf(['float', 'int32', 'bool', ''], 'VIEW: float|int32|bool. EDIT_NUM: float|int32. EDIT_BOOL: bool. SUBMENU/GO_IDLE: vacío.'),
   initial: num('Valor inicial de la variable.', { default: 0 }),
   min: num('Mínimo (EDIT_NUM).', { default: 0 }),
   max: num('Máximo (EDIT_NUM).', { default: 100 }),
   step: num('Paso de ▲▼ (EDIT_NUM). int32: entero.', { default: 1 }),
+  lrStep: int(0, 1000, 'Paso rápido de ◄► (EDIT_NUM). 0 = 10 pasos por defecto; 1 = igual que ▲▼.'),
   decimals: int(0, 6, 'Decimales mostrados (float).', { default: 1 }),
   unit: str('Unidad.', { default: '' }),
+  valuePrefix: str('Prefijo opcional antes del valor numérico (ej. "P" -> P01).', { default: '' }),
+  zeroPad: int(0, 6, 'Ceros a la izquierda para int32 (ej. 2 -> 01).', { default: 0 }),
   falseText: str('Texto para false (bool).', { default: 'OFF' }),
   trueText: str('Texto para true (bool).', { default: 'ON' }),
+  directToggle: bool('Si es true en EDIT_BOOL, alterna al pulsar OK una sola vez sin entrar al modo flechas.'),
+  hasPillColors: bool('Usa relleno propio en el nodo (botón/píldora principal en CARDS).', { default: false }),
+  pillFalseBg: color('Fondo cuando el estado bool es false.', { default: 0x05E0 }),
+  pillTrueBg: color('Fondo cuando el estado bool es true.', { default: 0xC800 }),
+  pillTextColor: color('Color del texto de la píldora.', { default: 0xFFFF }),
   children: { kind: 'array', desc: 'Atajo: hijos anidados de un SUBMENU (la normalización los aplana con `parent`).' }
 };
 const MENU_COLORS = Object.freeze({
-  text: 0xFFFF, background: 0x0000, value: 0x07FF, selectText: 0x0000, selectBackground: 0x07FF,
-  editText: 0x0000, editBackground: 0xFD20, title: 0x0000, titleBackground: 0xFFFF, frame: 0xFFFF
+  text: 0xC618, background: 0x0000, value: 0x07FF, selectText: 0xFFFF, selectBackground: 0x03FF,
+  editText: 0x0000, editBackground: 0xFD20, title: 0xFFFF, titleBackground: 0x2124, frame: 0xFFFF
 });
 const MENU_KINDS = Object.freeze({ SUBMENU: [''], VIEW: ['float', 'int32', 'bool'], EDIT_NUM: ['float', 'int32'], EDIT_BOOL: ['bool'], GO_IDLE: [''] });
 
@@ -367,7 +433,7 @@ const PROJECT = {
   navigationBar: { kind: 'object', desc: 'Copia de la configuración de la NAV_BAR (la rellena la normalización).', internal: true },
   display: { kind: 'object', desc: 'Pantalla IDLE y arranque (ver «display»).' },
   pages: { kind: 'array', desc: 'Páginas (1 a 16).', required: true },
-  fields: { kind: 'array', desc: 'Objetos (máximo 32 contando la NAV_BAR).', default: [] },
+  fields: { kind: 'array', desc: 'Objetos (máximo 64 campos dinámicos TEXT/VALUE/BOOL/BAR/ICON/TREND; figuras, RAW_TEXT, MENU, EVENT_LOG y NAV_BAR no gastan cupo).', default: [] },
   pixelMaps: { kind: 'array', desc: 'Capas de píxeles (máximo 16).', default: [] },
   iconAssets: { kind: 'object', desc: 'Copia de los bitmaps de los ICON usados (la guarda el Designer).', internal: true },
   declarativeOnly: { kind: 'bool', desc: 'Siempre true.', default: true, internal: true },
@@ -378,6 +444,6 @@ const TARGET = Object.freeze({ display: 'ST7789', width: 320, height: 170, rotat
 
 module.exports = {
   SCREEN, LIMITS, NAMED_COLORS, FONTS, TYPES, MENU_NODE, MENU_COLORS, MENU_KINDS, PAGE, DISPLAY, PIXELMAP, PROJECT, TARGET,
-  FIELD_TYPES: ['TEXT', 'VALUE', 'BOOL', 'BAR', 'ICON'],
+  FIELD_TYPES: ['TEXT', 'VALUE', 'BOOL', 'BAR', 'ICON', 'TREND'],
   SHAPE_TYPES: Object.keys(SHAPE_DESC)
 };

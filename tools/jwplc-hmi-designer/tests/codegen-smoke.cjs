@@ -159,7 +159,9 @@ async function main() {
     const vf = headers.i1Formats || '';
     check(/JWPLC_UIDurationFormat\(\n\s*JWPLC_UI_DURATION_MM_SS/.test(vf) && /'\.'\)/.test(vf) && /int32_t t_restante = 0;/.test(vf),
       'emite JWPLC_UIDurationFormat, el separador y variables enteras');
-    check(/JWPLC_UIValueFormat JWPLC_UIDurationFormat\(/.test(fs.readFileSync(path.join(LIBS, 'JWPLC_Display', 'src', 'JWPLC_UI_Format.cpp'), 'utf8')),
+    const fmtSources = fs.readFileSync(path.join(LIBS, 'JWPLC_Display', 'src', 'JWPLC_UI.h'), 'utf8') +
+      '\n' + fs.readFileSync(path.join(LIBS, 'JWPLC_Display', 'src', 'JWPLC_UI_Format.cpp'), 'utf8');
+    check(/JWPLC_UIValueFormat JWPLC_UIDurationFormat\(/.test(fmtSources),
       'JWPLC_UIDurationFormat está definido en el firmware (modo fuente)');
     check(/JWPLC_UIBoolPilot\(\n\s*0x4208,\n\s*0x07E0\),/.test(vf) && /JWPLC_UIBoolPilot\(\n\s*0x4208,\n\s*0xFFE0,\n\s*0x0000,\n\s*0xF800\),/.test(vf),
       'BOOL piloto: JWPLC_UIBoolPilot de 2 argumentos y de 4 (fondo por estado)');
@@ -181,27 +183,35 @@ async function main() {
     check(/JWPLC_UIText\("Presi\\242n", "\\367C"\)/.test(ac) && /tft\.print\("L\\241nea 2 \\371 \\250Listo\?"\)/.test(ac),
       'etiquetas, unidades y RAW_TEXT GLCD con bytes cp437 en octal');
 
-    console.log('Escenario: barra de navegación (6 estilos x 3 tipografías x horizontal/vertical)');
+    console.log('Escenario: barra de navegación (4 estilos x 4 tipografías x horizontal/vertical)');
     check((await load(FULL_PROJECT)) === null, 'el proyecto abre');
-    const presets = ['industrial-color', 'dark-pill', 'segmented-bar', 'compact-dots', 'edge-tabs', 'numeric-pills'];
-    const fontSizes = ['micro', 'normal', 'medium'];
+    const presets = ['industrial-color', 'dark-pill', 'segmented-bar', 'compact-dots'];
+    const fontSpecs = [
+      { id: 'micro', cfg: { font: 'MICRO', textScale: 1, fontSize: 'micro' } },
+      { id: 'glcd1', cfg: { font: 'GLCD', textScale: 1, fontSize: 'normal' } },
+      { id: 'glcd2', cfg: { font: 'GLCD', textScale: 2, fontSize: 'normal' } },
+      { id: 'sans9', cfg: { font: 'SANS_9', textScale: 1, fontSize: 'normal' } }
+    ];
     const positions = ['bottom', 'left'];
     let navCount = 0;
     for (const preset of presets) {
-      for (const fontSize of fontSizes) {
+      for (const fspec of fontSpecs) {
         for (const position of positions) {
           await page.evaluate((cfg) => {
             window.JWPLCHMIPages.setNavBarConfig(cfg);
-          }, { preset, fontSize, position, textAlign: navCount % 3 === 0 ? 'left' : (navCount % 3 === 1 ? 'center' : 'right'), labelFormat: navCount % 2 ? 'num_short' : 'short', borderMode: 'line' });
+          }, { preset, ...fspec.cfg, position, textAlign: navCount % 3 === 0 ? 'left' : (navCount % 3 === 1 ? 'center' : 'right'), labelFormat: navCount % 2 ? 'num_short' : 'short', borderMode: 'line' });
           const text = await header();
-          const key = `nav_${preset}_${fontSize}_${position}`;
+          const key = `nav_${preset}_${fspec.id}_${position}`;
           if (!text || !/static void jwplcDrawPageNavBar/.test(text)) {
             check(false, `${key}: barra generada`);
           } else {
             headers[key] = text;
             const usesMicroText = /jwplcHMIDrawMicroText\(tft,/.test(text);
-            const expectsMicro = fontSize === 'micro' && preset !== 'compact-dots';
+            const expectsMicro = fspec.id === 'micro' && preset !== 'compact-dots';
             if (usesMicroText !== expectsMicro) check(false, `${key}: microfuente ${usesMicroText ? 'presente' : 'ausente'}`);
+            if (fspec.id === 'sans9' && preset !== 'compact-dots' && !/JWPLC_FONT_SANS_9/.test(text)) {
+              check(false, `${key}: FreeFont JWPLC_FONT_SANS_9 presente`);
+            }
             // Alpha15: pestaña activa en dos estados + redibujo al cambiar de modo.
             const tabFn = text.slice(text.indexOf('static void jwplcDrawPageNavTab'), text.indexOf('static void jwplcDrawPageNavBar'));
             if (!/if \(selecting\)/.test(tabFn) || !/jwplcDrawPageNavTab\(activePage, JWPLC_Display\.isUserPageSelection\(\)\)/.test(text) ||
@@ -213,7 +223,7 @@ async function main() {
         }
       }
     }
-    check(Object.keys(headers).filter((k) => k.startsWith('nav_')).length === presets.length * fontSizes.length * positions.length,
+    check(Object.keys(headers).filter((k) => k.startsWith('nav_')).length === presets.length * fontSpecs.length * positions.length,
       `${navCount} combinaciones generan jwplcDrawPageNavBar, la pestaña activa en dos estados y jwplcUIPageModeChanged`);
 
     check(pageErrors.length === 0, `sin errores JS (${pageErrors.join(' | ') || 'ninguno'})`);

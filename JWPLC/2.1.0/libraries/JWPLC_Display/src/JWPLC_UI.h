@@ -8,7 +8,12 @@ class JWPLC_TFTClass;
 struct JWPLC_TFTFont;
 
 static constexpr int16_t JWPLC_UI_AUTO = -1;
-static constexpr uint8_t JWPLC_UI_MAX_FIELDS = 32;
+static constexpr uint8_t JWPLC_UI_MAX_FIELDS = 64;
+#if defined(__cplusplus) && (__cplusplus >= 201402L)
+#define JWPLC_UI_CONSTEXPR14 constexpr
+#else
+#define JWPLC_UI_CONSTEXPR14 inline
+#endif
 
 enum JWPLC_UIFieldType : uint8_t
 {
@@ -17,7 +22,8 @@ enum JWPLC_UIFieldType : uint8_t
     JWPLC_UI_FIELD_BOOL,
     JWPLC_UI_FIELD_BAR,
     JWPLC_UI_FIELD_ICON,
-    JWPLC_UI_FIELD_CIRCULAR
+    JWPLC_UI_FIELD_CIRCULAR,
+    JWPLC_UI_FIELD_TREND
 };
 
 enum JWPLC_UIFieldLayout : uint8_t
@@ -47,12 +53,25 @@ struct JWPLC_UIFieldMeta
     uint8_t id;
     uint8_t page;
     JWPLC_UIFieldType type;
+    uint16_t pageMask;
 
-    JWPLC_UIFieldMeta(
+    constexpr JWPLC_UIFieldMeta(
         uint8_t idValue = 0,
         uint8_t pageValue = 0,
-        JWPLC_UIFieldType typeValue = JWPLC_UI_FIELD_VALUE);
+        JWPLC_UIFieldType typeValue = JWPLC_UI_FIELD_VALUE,
+        uint16_t pageMaskValue = 0U)
+        : id(idValue), page(pageValue), type(typeValue), pageMask(pageMaskValue)
+    {
+    }
 };
+
+constexpr bool JWPLC_UIFieldOnPage(const JWPLC_UIFieldMeta &meta, uint8_t page)
+{
+    return (meta.pageMask == 0U)
+               ? (meta.page == page)
+               : (page < 16U &&
+                  ((meta.pageMask & static_cast<uint16_t>(1U << page)) != 0U));
+}
 
 struct JWPLC_UIRect
 {
@@ -61,11 +80,14 @@ struct JWPLC_UIRect
     int16_t width;
     int16_t height;
 
-    JWPLC_UIRect(
+    constexpr JWPLC_UIRect(
         int16_t xValue = 0,
         int16_t yValue = 0,
         int16_t widthValue = JWPLC_UI_AUTO,
-        int16_t heightValue = JWPLC_UI_AUTO);
+        int16_t heightValue = JWPLC_UI_AUTO)
+        : x(xValue), y(yValue), width(widthValue), height(heightValue)
+    {
+    }
 };
 
 struct JWPLC_UIText
@@ -74,10 +96,13 @@ struct JWPLC_UIText
     const char *unit;
     uint8_t capacity;
 
-    JWPLC_UIText(
+    constexpr JWPLC_UIText(
         const char *labelValue = nullptr,
         const char *unitValue = nullptr,
-        uint8_t capacityValue = 12);
+        uint8_t capacityValue = 12)
+        : label(labelValue), unit(unitValue), capacity(capacityValue)
+    {
+    }
 };
 
 struct JWPLC_UIColors
@@ -87,11 +112,17 @@ struct JWPLC_UIColors
     uint16_t background;
     uint16_t frame;
 
-    JWPLC_UIColors(
+    constexpr JWPLC_UIColors(
         uint16_t labelValue = 0xFFFF,
         uint16_t valueValue = 0xFFFF,
         uint16_t backgroundValue = 0x0000,
-        uint16_t frameValue = 0xFFFF);
+        uint16_t frameValue = 0xFFFF)
+        : label(labelValue),
+          value(valueValue),
+          background(backgroundValue),
+          frame(frameValue)
+    {
+    }
 };
 
 struct JWPLC_UIStyle
@@ -109,7 +140,7 @@ struct JWPLC_UIStyle
     const JWPLC_TFTFont *labelFont = nullptr;
     const JWPLC_TFTFont *valueFont = nullptr;
 
-    JWPLC_UIStyle(
+    constexpr JWPLC_UIStyle(
         uint8_t labelSizeValue = 1,
         uint8_t valueSizeValue = 2,
         bool frameValue = false,
@@ -117,7 +148,17 @@ struct JWPLC_UIStyle
         JWPLC_UIValueAlign alignValue = JWPLC_UI_ALIGN_RIGHT,
         JWPLC_UIColors colorsValue = JWPLC_UIColors(),
         const JWPLC_TFTFont *labelFontValue = nullptr,
-        const JWPLC_TFTFont *valueFontValue = nullptr);
+        const JWPLC_TFTFont *valueFontValue = nullptr)
+        : labelTextSize(labelSizeValue),
+          valueTextSize(valueSizeValue),
+          frame(frameValue),
+          layout(layoutValue),
+          valueAlign(alignValue),
+          colors(colorsValue),
+          labelFont(labelFontValue),
+          valueFont(valueFontValue)
+    {
+    }
 };
 
 // signedValue=true permite negativos y reserva espacio para '-'.
@@ -185,32 +226,65 @@ struct JWPLC_UIValueFormat
     JWPLC_UIDurationUnit durationUnit;
     JWPLC_UIDateTimePattern dateTimePattern;
 
-    // Constructor de 4 argumentos de Alpha11/12: se conserva para que el .a
-    // mantenga su símbolo (ABI_COMPAT). Equivale a thousandsSeparator = 0.
-    JWPLC_UIValueFormat(
+    constexpr JWPLC_UIValueFormat(
         uint8_t integerDigitsValue = 3,
         uint8_t decimalDigitsValue = 0,
         bool signedValueValue = false,
-        bool leadingZerosValue = false);
+        bool leadingZerosValue = false)
+        : integerDigits(integerDigitsValue),
+          decimalDigits(decimalDigitsValue),
+          signedValue(signedValueValue),
+          leadingZeros(leadingZerosValue),
+          thousandsSeparator(0),
+          kind(JWPLC_UI_VALUE_NUMBER),
+          durationPattern(JWPLC_UI_DURATION_MM_SS),
+          durationUnit(JWPLC_UI_DURATION_SECONDS),
+          dateTimePattern(JWPLC_UI_DATETIME_HH_MM)
+    {
+    }
 
-    JWPLC_UIValueFormat(
+    constexpr JWPLC_UIValueFormat(
         uint8_t integerDigitsValue,
         uint8_t decimalDigitsValue,
         bool signedValueValue,
         bool leadingZerosValue,
-        char thousandsSeparatorValue);
+        char thousandsSeparatorValue)
+        : integerDigits(integerDigitsValue),
+          decimalDigits(decimalDigitsValue),
+          signedValue(signedValueValue),
+          leadingZeros(leadingZerosValue),
+          thousandsSeparator(thousandsSeparatorValue),
+          kind(JWPLC_UI_VALUE_NUMBER),
+          durationPattern(JWPLC_UI_DURATION_MM_SS),
+          durationUnit(JWPLC_UI_DURATION_SECONDS),
+          dateTimePattern(JWPLC_UI_DATETIME_HH_MM)
+    {
+    }
 };
 
 // Formato de duración para JWPLC_UIValueField (setValue con segundos o ms).
-JWPLC_UIValueFormat JWPLC_UIDurationFormat(
+JWPLC_UI_CONSTEXPR14 inline JWPLC_UIValueFormat JWPLC_UIDurationFormat(
     JWPLC_UIDurationPattern pattern = JWPLC_UI_DURATION_MM_SS,
     JWPLC_UIDurationUnit unit = JWPLC_UI_DURATION_SECONDS,
     uint8_t leadDigits = 2,
-    bool signedValue = false);
+    bool signedValue = false)
+{
+    JWPLC_UIValueFormat format(leadDigits, 0, signedValue, false, 0);
+    format.kind = JWPLC_UI_VALUE_DURATION;
+    format.durationPattern = pattern;
+    format.durationUnit = unit;
+    return format;
+}
 
 // Fecha/hora del RTC para JWPLC_UIValueField (sin variable ni setValue).
-JWPLC_UIValueFormat JWPLC_UIDateTimeFormat(
-    JWPLC_UIDateTimePattern pattern = JWPLC_UI_DATETIME_HH_MM);
+JWPLC_UI_CONSTEXPR14 inline JWPLC_UIValueFormat JWPLC_UIDateTimeFormat(
+    JWPLC_UIDateTimePattern pattern = JWPLC_UI_DATETIME_HH_MM)
+{
+    JWPLC_UIValueFormat format(2, 0, false, false, 0);
+    format.kind = JWPLC_UI_VALUE_DATETIME;
+    format.dateTimePattern = pattern;
+    return format;
+}
 
 // Alpha15: colores del valor por estado.
 //   (falso, verdadero)                          -> colors.value / colors.background
@@ -246,35 +320,75 @@ struct JWPLC_UIBoolText
     uint8_t stateColors; // JWPLC_UI_BOOL_STATE_TEXT | JWPLC_UI_BOOL_STATE_BACKGROUND
     JWPLC_UIBoolRepresentation representation;
 
-    JWPLC_UIBoolText(
+    constexpr JWPLC_UIBoolText(
         const char *falseTextValue = "OFF",
-        const char *trueTextValue = "ON");
+        const char *trueTextValue = "ON")
+        : falseText(falseTextValue),
+          trueText(trueTextValue),
+          falseColor(0),
+          trueColor(0),
+          falseBackground(0),
+          trueBackground(0),
+          stateColors(0),
+          representation(JWPLC_UI_BOOL_AS_TEXT)
+    {
+    }
 
-    JWPLC_UIBoolText(
+    constexpr JWPLC_UIBoolText(
         const char *falseTextValue,
         const char *trueTextValue,
         uint16_t falseColorValue,
-        uint16_t trueColorValue);
+        uint16_t trueColorValue)
+        : falseText(falseTextValue),
+          trueText(trueTextValue),
+          falseColor(falseColorValue),
+          trueColor(trueColorValue),
+          falseBackground(0),
+          trueBackground(0),
+          stateColors(JWPLC_UI_BOOL_STATE_TEXT),
+          representation(JWPLC_UI_BOOL_AS_TEXT)
+    {
+    }
 
-    JWPLC_UIBoolText(
+    constexpr JWPLC_UIBoolText(
         const char *falseTextValue,
         const char *trueTextValue,
         uint16_t falseColorValue,
         uint16_t trueColorValue,
         uint16_t falseBackgroundValue,
-        uint16_t trueBackgroundValue);
+        uint16_t trueBackgroundValue)
+        : falseText(falseTextValue),
+          trueText(trueTextValue),
+          falseColor(falseColorValue),
+          trueColor(trueColorValue),
+          falseBackground(falseBackgroundValue),
+          trueBackground(trueBackgroundValue),
+          stateColors(JWPLC_UI_BOOL_STATE_TEXT | JWPLC_UI_BOOL_STATE_BACKGROUND),
+          representation(JWPLC_UI_BOOL_AS_TEXT)
+    {
+    }
 };
 
 // Piloto: color del círculo por estado y, opcional, fondo del campo por estado.
-JWPLC_UIBoolText JWPLC_UIBoolPilot(
+JWPLC_UI_CONSTEXPR14 inline JWPLC_UIBoolText JWPLC_UIBoolPilot(
     uint16_t falseColor,
-    uint16_t trueColor);
+    uint16_t trueColor)
+{
+    JWPLC_UIBoolText pilot("OFF", "ON", falseColor, trueColor);
+    pilot.representation = JWPLC_UI_BOOL_AS_PILOT;
+    return pilot;
+}
 
-JWPLC_UIBoolText JWPLC_UIBoolPilot(
+JWPLC_UI_CONSTEXPR14 inline JWPLC_UIBoolText JWPLC_UIBoolPilot(
     uint16_t falseColor,
     uint16_t trueColor,
     uint16_t falseBackground,
-    uint16_t trueBackground);
+    uint16_t trueBackground)
+{
+    JWPLC_UIBoolText pilot("OFF", "ON", falseColor, trueColor, falseBackground, trueBackground);
+    pilot.representation = JWPLC_UI_BOOL_AS_PILOT;
+    return pilot;
+}
 
 // Alpha16: ICONO con estado. Una imagen por estado (motor parado / en
 // marcha / falla...), elegida con setIconState() o setBool(); sin animación.
@@ -447,12 +561,106 @@ struct JWPLC_UICircularStyle
     }
 };
 
+#define JWPLC_UI_HAS_TREND 1
+
+struct JWPLC_UITrendConfig
+{
+    uint16_t sampleIntervalMs;
+    uint16_t visibleSamples;
+    uint8_t scaleMode; // 0 = AUTO, 1 = MANUAL
+    uint8_t decimals;
+    uint8_t lineWidth;
+    bool showAxes;
+    bool showTime;
+    bool enableSD;
+    uint16_t sdIntervalMs;
+    uint16_t curveColor;
+    uint16_t axesColor;
+    uint16_t gridColor;
+    uint16_t textColor;
+    uint16_t backgroundColor;
+    bool showGuides;
+    uint8_t channelCount;   // 1..3 canales simultáneos
+    uint16_t ch2Color;      // Color canal 2 (por defecto cian)
+    uint16_t ch3Color;      // Color canal 3 (por defecto verde)
+    uint8_t thresholdCount; // 0..2 líneas horizontales punteadas
+    float thr1Value;        // Valor umbral 1
+    uint16_t thr1Color;     // Color umbral 1 (por defecto rojo)
+    float thr2Value;        // Valor umbral 2
+    uint16_t thr2Color;     // Color umbral 2 (por defecto amarillo)
+    bool showFrame;         // Mostrar borde exterior
+    const char *ch2Label;   // Etiqueta canal 2 en encabezado
+    const char *ch3Label;   // Etiqueta canal 3 en encabezado
+    bool showLiveValue;     // Mostrar título y valor en vivo integrados en la gráfica
+
+    constexpr JWPLC_UITrendConfig(
+        uint16_t sampleIntervalMsVal = 1000,
+        uint16_t visibleSamplesVal = 150,
+        uint8_t scaleModeVal = 0,
+        uint8_t decimalsVal = 1,
+        uint8_t lineWidthVal = 1,
+        bool showAxesVal = true,
+        bool showTimeVal = true,
+        bool enableSDVal = false,
+        uint16_t sdIntervalMsVal = 1000,
+        uint16_t curveColorVal = 0xFD20,
+        uint16_t axesColorVal = 0xFFFF,
+        uint16_t gridColorVal = 0x4208,
+        uint16_t textColorVal = 0xFFFF,
+        uint16_t backgroundColorVal = 0x0000,
+        bool showGuidesVal = true,
+        uint8_t channelCountVal = 1,
+        uint16_t ch2ColorVal = 0x07FF,
+        uint16_t ch3ColorVal = 0x07E0,
+        uint8_t thresholdCountVal = 0,
+        float thr1ValueVal = 85.0f,
+        uint16_t thr1ColorVal = 0xF800,
+        float thr2ValueVal = 20.0f,
+        uint16_t thr2ColorVal = 0xFFE0,
+        bool showFrameVal = true,
+        const char *ch2LabelVal = "SP",
+        const char *ch3LabelVal = "CH3",
+        bool showLiveValueVal = true)
+        : sampleIntervalMs(sampleIntervalMsVal),
+          visibleSamples(visibleSamplesVal),
+          scaleMode(scaleModeVal),
+          decimals(decimalsVal),
+          lineWidth(lineWidthVal),
+          showAxes(showAxesVal),
+          showTime(showTimeVal),
+          enableSD(enableSDVal),
+          sdIntervalMs(sdIntervalMsVal),
+          curveColor(curveColorVal),
+          axesColor(axesColorVal),
+          gridColor(gridColorVal),
+          textColor(textColorVal),
+          backgroundColor(backgroundColorVal),
+          showGuides(showGuidesVal),
+          channelCount(channelCountVal),
+          ch2Color(ch2ColorVal),
+          ch3Color(ch3ColorVal),
+          thresholdCount(thresholdCountVal),
+          thr1Value(thr1ValueVal),
+          thr1Color(thr1ColorVal),
+          thr2Value(thr2ValueVal),
+          thr2Color(thr2ColorVal),
+          showFrame(showFrameVal),
+          ch2Label(ch2LabelVal),
+          ch3Label(ch3LabelVal),
+          showLiveValue(showLiveValueVal)
+    {
+    }
+};
+
 struct JWPLC_UIRange
 {
     float min;
     float max;
 
-    JWPLC_UIRange(float minValue = 0.0f, float maxValue = 100.0f);
+    constexpr JWPLC_UIRange(float minValue = 0.0f, float maxValue = 100.0f)
+        : min(minValue), max(maxValue)
+    {
+    }
 };
 
 // Mirror interno para el motor actual. No forma parte de la inicializacion
@@ -463,10 +671,15 @@ struct JWPLC_UIFieldOptions
     JWPLC_UIBoolText boolText;
     JWPLC_UIRange barRange;
 
-    JWPLC_UIFieldOptions(
+    constexpr JWPLC_UIFieldOptions(
         uint8_t textCapacityValue = 12,
         JWPLC_UIBoolText boolTextValue = JWPLC_UIBoolText(),
-        JWPLC_UIRange barRangeValue = JWPLC_UIRange());
+        JWPLC_UIRange barRangeValue = JWPLC_UIRange())
+        : textCapacity(textCapacityValue),
+          boolText(boolTextValue),
+          barRange(barRangeValue)
+    {
+    }
 };
 
 // Definicion HMI agrupada. La inicializacion publica queda una fila por grupo:
@@ -494,8 +707,9 @@ struct JWPLC_UIField
     // Medidor circular (JWPLC_UICircularField)
     JWPLC_UICircularStyle circularStyle = JWPLC_UICircularStyle();
     JWPLC_UIBarConfig barConfig = JWPLC_UIBarConfig();
+    JWPLC_UITrendConfig trendConfig = JWPLC_UITrendConfig();
 
-    JWPLC_UIField(
+    constexpr JWPLC_UIField(
         JWPLC_UIFieldMeta metaValue = JWPLC_UIFieldMeta(),
         JWPLC_UIRect rectValue = JWPLC_UIRect(),
         JWPLC_UIText textValue = JWPLC_UIText(),
@@ -503,78 +717,172 @@ struct JWPLC_UIField
         JWPLC_UIColors colorsValue = JWPLC_UIColors(),
         JWPLC_UIValueFormat formatValue = JWPLC_UIValueFormat(),
         JWPLC_UIBoolText boolTextValue = JWPLC_UIBoolText(),
-        JWPLC_UIRange barRangeValue = JWPLC_UIRange());
+        JWPLC_UIRange barRangeValue = JWPLC_UIRange())
+        : meta(metaValue),
+          rect(rectValue),
+          text(textValue),
+          style(
+              styleValue.labelTextSize,
+              styleValue.valueTextSize,
+              styleValue.frame,
+              styleValue.layout,
+              styleValue.valueAlign,
+              colorsValue,
+              styleValue.labelFont,
+              styleValue.valueFont),
+          colors(colorsValue),
+          format(formatValue),
+          boolText(boolTextValue),
+          barRange(barRangeValue),
+          options(textValue.capacity, boolTextValue, barRangeValue)
+    {
+    }
 };
 
-JWPLC_UIStyle JWPLC_UIValueStyle(
+constexpr JWPLC_UIStyle JWPLC_UIValueStyle(
     uint8_t valueTextSize = 2,
     uint8_t labelTextSize = 1,
     bool frame = false,
     JWPLC_UIFieldLayout layout = JWPLC_UI_LAYOUT_INLINE,
     JWPLC_UIValueAlign align = JWPLC_UI_ALIGN_RIGHT,
     const JWPLC_TFTFont *labelFont = nullptr,
-    const JWPLC_TFTFont *valueFont = nullptr);
+    const JWPLC_TFTFont *valueFont = nullptr)
+{
+    return JWPLC_UIStyle(
+        labelTextSize,
+        valueTextSize,
+        frame,
+        layout,
+        align,
+        JWPLC_UIColors(),
+        labelFont,
+        valueFont);
+}
 
-JWPLC_UIStyle JWPLC_UITextFieldStyle(
+constexpr JWPLC_UIStyle JWPLC_UITextFieldStyle(
     uint8_t valueTextSize = 1,
     uint8_t labelTextSize = 1,
     bool frame = false,
     JWPLC_UIFieldLayout layout = JWPLC_UI_LAYOUT_INLINE,
     JWPLC_UIValueAlign align = JWPLC_UI_ALIGN_LEFT,
     const JWPLC_TFTFont *labelFont = nullptr,
-    const JWPLC_TFTFont *valueFont = nullptr);
+    const JWPLC_TFTFont *valueFont = nullptr)
+{
+    return JWPLC_UIValueStyle(
+        valueTextSize,
+        labelTextSize,
+        frame,
+        layout,
+        align,
+        labelFont,
+        valueFont);
+}
 
-JWPLC_UIStyle JWPLC_UIBoolStyle(
+constexpr JWPLC_UIStyle JWPLC_UIBoolStyle(
     uint8_t valueTextSize = 2,
     uint8_t labelTextSize = 1,
     bool frame = false,
     JWPLC_UIFieldLayout layout = JWPLC_UI_LAYOUT_INLINE,
     JWPLC_UIValueAlign align = JWPLC_UI_ALIGN_CENTER,
     const JWPLC_TFTFont *labelFont = nullptr,
-    const JWPLC_TFTFont *valueFont = nullptr);
+    const JWPLC_TFTFont *valueFont = nullptr)
+{
+    return JWPLC_UIValueStyle(
+        valueTextSize,
+        labelTextSize,
+        frame,
+        layout,
+        align,
+        labelFont,
+        valueFont);
+}
 
-JWPLC_UIStyle JWPLC_UIBarStyle(
+constexpr JWPLC_UIStyle JWPLC_UIBarStyle(
     uint8_t labelTextSize = 1,
     bool frame = false,
-    JWPLC_UIFieldLayout layout = JWPLC_UI_LAYOUT_STACKED);
+    JWPLC_UIFieldLayout layout = JWPLC_UI_LAYOUT_STACKED)
+{
+    return JWPLC_UIValueStyle(
+        1,
+        labelTextSize,
+        frame,
+        layout,
+        JWPLC_UI_ALIGN_LEFT);
+}
 
 // ICON: la etiqueta (opcional) va arriba (STACKED) o a la izquierda (INLINE);
 // el icono se alinea a la izquierda del área de valor.
-JWPLC_UIStyle JWPLC_UIIconStyle(
+constexpr JWPLC_UIStyle JWPLC_UIIconStyle(
     uint8_t labelTextSize = 1,
     bool frame = false,
-    JWPLC_UIFieldLayout layout = JWPLC_UI_LAYOUT_STACKED);
+    JWPLC_UIFieldLayout layout = JWPLC_UI_LAYOUT_STACKED)
+{
+    // valueTextSize 1: el margen derecho/inferior sólo depende de la etiqueta.
+    return JWPLC_UIValueStyle(
+        1,
+        labelTextSize,
+        frame,
+        layout,
+        JWPLC_UI_ALIGN_LEFT);
+}
 
 // ---------------------------------------------------------------------
 // Helpers agrupados: control completo sin llenar el struct miembro a miembro.
 // ---------------------------------------------------------------------
-JWPLC_UIField JWPLC_UIValueField(
+constexpr JWPLC_UIField JWPLC_UIValueField(
     uint8_t id,
     JWPLC_UIRect rect,
     JWPLC_UIText text = JWPLC_UIText(),
     JWPLC_UIValueFormat format = JWPLC_UIValueFormat(),
     JWPLC_UIStyle style = JWPLC_UIValueStyle(),
     uint8_t page = 0,
-    JWPLC_UIColors colors = JWPLC_UIColors());
+    JWPLC_UIColors colors = JWPLC_UIColors())
+{
+    return JWPLC_UIField(
+        JWPLC_UIFieldMeta(id, page, JWPLC_UI_FIELD_VALUE),
+        rect,
+        text,
+        style,
+        colors,
+        format);
+}
 
-JWPLC_UIField JWPLC_UITextField(
+constexpr JWPLC_UIField JWPLC_UITextField(
     uint8_t id,
     JWPLC_UIRect rect,
     JWPLC_UIText text = JWPLC_UIText(),
     JWPLC_UIStyle style = JWPLC_UITextFieldStyle(),
     uint8_t page = 0,
-    JWPLC_UIColors colors = JWPLC_UIColors());
+    JWPLC_UIColors colors = JWPLC_UIColors())
+{
+    return JWPLC_UIField(
+        JWPLC_UIFieldMeta(id, page, JWPLC_UI_FIELD_TEXT),
+        rect,
+        text,
+        style,
+        colors);
+}
 
-JWPLC_UIField JWPLC_UIBoolField(
+constexpr JWPLC_UIField JWPLC_UIBoolField(
     uint8_t id,
     JWPLC_UIRect rect,
     JWPLC_UIText text = JWPLC_UIText(),
     JWPLC_UIBoolText boolText = JWPLC_UIBoolText(),
     JWPLC_UIStyle style = JWPLC_UIBoolStyle(),
     uint8_t page = 0,
-    JWPLC_UIColors colors = JWPLC_UIColors());
+    JWPLC_UIColors colors = JWPLC_UIColors())
+{
+    return JWPLC_UIField(
+        JWPLC_UIFieldMeta(id, page, JWPLC_UI_FIELD_BOOL),
+        rect,
+        text,
+        style,
+        colors,
+        JWPLC_UIValueFormat(),
+        boolText);
+}
 
-JWPLC_UIField JWPLC_UIBarField(
+JWPLC_UI_CONSTEXPR14 inline JWPLC_UIField JWPLC_UIBarField(
     uint8_t id,
     JWPLC_UIRect rect,
     JWPLC_UIText text = JWPLC_UIText(),
@@ -582,9 +890,22 @@ JWPLC_UIField JWPLC_UIBarField(
     JWPLC_UIStyle style = JWPLC_UIBarStyle(),
     uint8_t page = 0,
     JWPLC_UIColors colors = JWPLC_UIColors(),
-    JWPLC_UIBarConfig barConfig = JWPLC_UIBarConfig());
+    JWPLC_UIBarConfig barConfig = JWPLC_UIBarConfig())
+{
+    JWPLC_UIField field(
+        JWPLC_UIFieldMeta(id, page, JWPLC_UI_FIELD_BAR),
+        rect,
+        text,
+        style,
+        colors,
+        JWPLC_UIValueFormat(),
+        JWPLC_UIBoolText(),
+        range);
+    field.barConfig = barConfig;
+    return field;
+}
 
-JWPLC_UIField JWPLC_UIIconField(
+JWPLC_UI_CONSTEXPR14 inline JWPLC_UIField JWPLC_UIIconField(
     uint8_t id,
     JWPLC_UIRect rect,
     const JWPLC_UIIcon *icon,
@@ -592,46 +913,118 @@ JWPLC_UIField JWPLC_UIIconField(
     JWPLC_UIStyle style = JWPLC_UIIconStyle(),
     uint8_t page = 0,
     JWPLC_UIColors colors = JWPLC_UIColors(),
-    bool transparentBackground = false);
+    bool transparentBackground = false)
+{
+    JWPLC_UIField field(
+        JWPLC_UIFieldMeta(id, page, JWPLC_UI_FIELD_ICON),
+        rect,
+        text,
+        style,
+        colors);
+    field.icon = icon;
+    field.iconTransparent = transparentBackground;
+    return field;
+}
 
-JWPLC_UIField JWPLC_UICircularField(
+JWPLC_UI_CONSTEXPR14 inline JWPLC_UIField JWPLC_UICircularField(
     uint8_t id,
     JWPLC_UIRect rect,
     JWPLC_UIText text = JWPLC_UIText(),
     JWPLC_UIRange range = JWPLC_UIRange(),
     JWPLC_UICircularStyle circularStyle = JWPLC_UICircularStyle(),
     uint8_t page = 0,
-    JWPLC_UIColors colors = JWPLC_UIColors());
+    JWPLC_UIColors colors = JWPLC_UIColors())
+{
+    JWPLC_UIField field(
+        JWPLC_UIFieldMeta(id, page, JWPLC_UI_FIELD_CIRCULAR),
+        rect,
+        text,
+        JWPLC_UIStyle(circularStyle.labelTextSize, 1, circularStyle.frame, JWPLC_UI_LAYOUT_STACKED),
+        colors,
+        JWPLC_UIValueFormat(),
+        JWPLC_UIBoolText(),
+        range);
+    field.circularStyle = circularStyle;
+    return field;
+}
+
+JWPLC_UI_CONSTEXPR14 inline JWPLC_UIField JWPLC_UITrendField(
+    uint8_t id,
+    JWPLC_UIRect rect,
+    JWPLC_UIText text = JWPLC_UIText(),
+    JWPLC_UIRange range = JWPLC_UIRange(),
+    JWPLC_UITrendConfig trendConfig = JWPLC_UITrendConfig(),
+    uint8_t page = 0,
+    JWPLC_UIColors colors = JWPLC_UIColors())
+{
+    JWPLC_UIField field(
+        JWPLC_UIFieldMeta(id, page, JWPLC_UI_FIELD_TREND),
+        rect,
+        text,
+        JWPLC_UIStyle(1, 1, trendConfig.showFrame, JWPLC_UI_LAYOUT_STACKED),
+        colors,
+        JWPLC_UIValueFormat(),
+        JWPLC_UIBoolText(),
+        range);
+    field.trendConfig = trendConfig;
+    return field;
+}
 
 // ---------------------------------------------------------------------
 // Helpers cortos para el caso comun.
 // ---------------------------------------------------------------------
-JWPLC_UIField JWPLC_UIValueField(
+constexpr JWPLC_UIField JWPLC_UIValueField(
     uint8_t id,
     int16_t x,
     int16_t y,
     const char *label = nullptr,
     const char *unit = nullptr,
     JWPLC_UIValueFormat format = JWPLC_UIValueFormat(),
-    uint8_t page = 0);
+    uint8_t page = 0)
+{
+    return JWPLC_UIValueField(
+        id,
+        JWPLC_UIRect(x, y),
+        JWPLC_UIText(label, unit),
+        format,
+        JWPLC_UIValueStyle(),
+        page);
+}
 
-JWPLC_UIField JWPLC_UITextField(
+constexpr JWPLC_UIField JWPLC_UITextField(
     uint8_t id,
     int16_t x,
     int16_t y,
     const char *label = nullptr,
     uint8_t textCapacity = 12,
-    uint8_t page = 0);
+    uint8_t page = 0)
+{
+    return JWPLC_UITextField(
+        id,
+        JWPLC_UIRect(x, y),
+        JWPLC_UIText(label, nullptr, textCapacity),
+        JWPLC_UITextFieldStyle(),
+        page);
+}
 
-JWPLC_UIField JWPLC_UIBoolField(
+constexpr JWPLC_UIField JWPLC_UIBoolField(
     uint8_t id,
     int16_t x,
     int16_t y,
     const char *label = nullptr,
     JWPLC_UIBoolText boolText = JWPLC_UIBoolText(),
-    uint8_t page = 0);
+    uint8_t page = 0)
+{
+    return JWPLC_UIBoolField(
+        id,
+        JWPLC_UIRect(x, y),
+        JWPLC_UIText(label),
+        boolText,
+        JWPLC_UIBoolStyle(),
+        page);
+}
 
-JWPLC_UIField JWPLC_UIBarField(
+JWPLC_UI_CONSTEXPR14 inline JWPLC_UIField JWPLC_UIBarField(
     uint8_t id,
     int16_t x,
     int16_t y,
@@ -640,9 +1033,20 @@ JWPLC_UIField JWPLC_UIBarField(
     int16_t width = 100,
     int16_t height = 28,
     uint8_t page = 0,
-    JWPLC_UIBarConfig barConfig = JWPLC_UIBarConfig());
+    JWPLC_UIBarConfig barConfig = JWPLC_UIBarConfig())
+{
+    return JWPLC_UIBarField(
+        id,
+        JWPLC_UIRect(x, y, width, height),
+        JWPLC_UIText(label),
+        range,
+        JWPLC_UIBarStyle(),
+        page,
+        JWPLC_UIColors(),
+        barConfig);
+}
 
-JWPLC_UIField JWPLC_UICircularField(
+JWPLC_UI_CONSTEXPR14 inline JWPLC_UIField JWPLC_UICircularField(
     uint8_t id,
     int16_t x,
     int16_t y,
@@ -650,7 +1054,16 @@ JWPLC_UIField JWPLC_UICircularField(
     const char *label = nullptr,
     JWPLC_UIRange range = JWPLC_UIRange(),
     uint16_t sweep = 360,
-    uint8_t page = 0);
+    uint8_t page = 0)
+{
+    return JWPLC_UICircularField(
+        id,
+        JWPLC_UIRect(x, y, diameter, diameter),
+        JWPLC_UIText(label),
+        range,
+        JWPLC_UICircularStyle(sweep),
+        page);
+}
 
 namespace JWPLCUI
 {
@@ -662,6 +1075,9 @@ namespace JWPLCUI
     bool setText(uint8_t fieldId, const char *value);
     bool setBool(uint8_t fieldId, bool value);
     bool setBar(uint8_t fieldId, float value);
+    bool setTrend(uint8_t fieldId, float value);
+    bool setTrend(uint8_t fieldId, float v1, float v2);
+    bool setTrend(uint8_t fieldId, float v1, float v2, float v3);
     // ICON: estado 0..stateCount-1 (fuera de rango se ve el último estado).
     bool setIconState(uint8_t fieldId, uint8_t state);
 
@@ -675,6 +1091,8 @@ namespace JWPLCUI
     void requestRefresh();
     bool refreshNeeded();
     void consumeRefreshRequest();
+    bool anyTrendSampleDue();
+    void tickDueTrends();
 
     void setPage(uint8_t page);
     uint8_t currentPage();
@@ -689,6 +1107,14 @@ namespace JWPLCUI
 
     void drawStatic(JWPLC_TFTClass &tft);
     void drawDirty(JWPLC_TFTClass &tft);
+}
+
+JWPLC_UI_CONSTEXPR14 inline JWPLC_UIField JWPLC_UIFieldPages(
+    JWPLC_UIField field,
+    uint16_t pageMask)
+{
+    field.meta.pageMask = pageMask;
+    return field;
 }
 
 #include "JWPLC_UI_Menu.h"

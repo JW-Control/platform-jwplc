@@ -1,0 +1,134 @@
+{
+  "$schema": "../../schema/jwhmi.schema.json",
+  "projectName": "Tendencias_04",
+  "display": {
+    "start": "HMI",
+    "wake": "ANY",
+    "back": "ESC",
+    "timeoutS": 300
+  },
+  "pages": [
+    {
+      "name": "Proceso",
+      "color": "#0088FF",
+      "fields": [
+        { "type": "RECT", "x": 0, "y": 0, "x2": 319, "y2": 20, "fill": true, "fillColor": "NAVY", "frameColor": "NAVY" },
+        { "type": "RAW_TEXT", "text": "PLANTA TERMICA", "x": 4, "y": 6, "font": "GLCD", "size": 1, "textColor": "WHITE" },
+        { "type": "VALUE", "id": "FIELD_HORA", "variable": "reloj", "label": "", "x": 244, "y": 2, "valueKind": "DATETIME", "dateTimePattern": "HH_MM", "valueSize": 1, "valueColor": "CYAN", "backgroundColor": "NAVY" },
+        {
+          "type": "TREND",
+          "id": "FIELD_TEND_HORNO",
+          "variable": "tempHorno",
+          "title": "HORNO",
+          "unit": "°C",
+          "x": 4,
+          "y": 24,
+          "width": 312,
+          "height": 118,
+          "sampleIntervalMs": 250,
+          "visibleSamples": 60,
+          "scaleMode": "AUTO",
+          "minValue": 0,
+          "maxValue": 100,
+          "decimals": 1,
+          "lineWidth": 2,
+          "showAxes": true,
+          "showGuides": true,
+          "showTimeAxis": true,
+          "enableSD": true,
+          "sdIntervalMs": 500,
+          "curveColor": "#FF8800",
+          "axesColor": "WHITE",
+          "gridColor": "#404040",
+          "textColor": "WHITE",
+          "backgroundColor": "BLACK",
+          "ch2Enabled": true,
+          "ch2Variable": "consignaHorno",
+          "ch2Label": "SP",
+          "ch2Color": "CYAN",
+          "ch3Enabled": true,
+          "ch3Variable": "potenciaSalida",
+          "ch3Label": "OUT",
+          "ch3Color": "GREEN",
+          "thr1Enabled": true,
+          "thr1Value": 85,
+          "thr1Color": "RED",
+          "thr2Enabled": true,
+          "thr2Value": 25,
+          "thr2Color": "YELLOW",
+          "preview": 68.4
+        }
+      ]
+    },
+    {
+      "name": "Compacta",
+      "color": "#00AA88",
+      "fields": [
+        { "type": "RECT", "x": 0, "y": 0, "x2": 319, "y2": 20, "fill": true, "fillColor": "NAVY", "frameColor": "NAVY" },
+        { "type": "RAW_TEXT", "text": "PRESION Y NIVEL", "x": 4, "y": 6, "font": "GLCD", "size": 1, "textColor": "WHITE" },
+        {
+          "type": "TREND",
+          "id": "FIELD_TEND_PRESION",
+          "variable": "presionLinea",
+          "title": "PRES",
+          "unit": "bar",
+          "x": 4,
+          "y": 24,
+          "width": 176,
+          "height": 86,
+          "sampleIntervalMs": 200,
+          "visibleSamples": 50,
+          "scaleMode": "MANUAL",
+          "minValue": 0,
+          "maxValue": 10,
+          "decimals": 1,
+          "lineWidth": 1,
+          "showAxes": true,
+          "showGuides": true,
+          "showTimeAxis": true,
+          "enableSD": false,
+          "curveColor": "CYAN",
+          "axesColor": "WHITE",
+          "gridColor": "#404040",
+          "textColor": "WHITE",
+          "backgroundColor": "#081018",
+          "thr1Enabled": true,
+          "thr1Value": 8.0,
+          "thr1Color": "RED",
+          "preview": 5.4
+        },
+        { "type": "VALUE", "id": "FIELD_PRESION_VAL", "variable": "presionActual", "label": "Pres", "unit": "bar", "x": 186, "y": 24, "integerDigits": 2, "decimalDigits": 1, "layout": "STACKED", "valueSize": 1, "labelSize": 1, "valueColor": "CYAN", "preview": "5.4" },
+        { "type": "VALUE", "id": "FIELD_CAUDAL_VAL", "variable": "caudalLinea", "label": "Caudal", "unit": "L/m", "x": 186, "y": 56, "integerDigits": 3, "decimalDigits": 0, "layout": "STACKED", "valueSize": 1, "labelSize": 1, "valueColor": "WHITE", "preview": "120" },
+        { "type": "BOOL", "id": "FIELD_VALV_ALIVIO", "variable": "valvAlivio", "label": "Alivio", "x": 186, "y": 88, "boolStyle": "PILOT", "falseText": "OK", "trueText": "ABR", "falseColor": "GREEN", "trueColor": "RED", "valueSize": 1, "labelSize": 1 },
+        { "type": "BAR", "id": "FIELD_NIVEL_TQ", "variable": "nivelTanque", "barLabel": "Nivel", "barUnit": "%", "x": 4, "y": 116, "layout": "INLINE", "barWidth": 250, "barHeight": 16, "barMin": 0, "barMax": 100, "valueColor": "#00A8FF", "frame": true, "preview": "64" }
+      ]
+    },
+    {
+      "name": "Ajustes",
+      "color": "#FFAA00",
+      "fields": [
+        { "type": "RECT", "x": 0, "y": 0, "x2": 319, "y2": 20, "fill": true, "fillColor": "NAVY", "frameColor": "NAVY" },
+        { "type": "RAW_TEXT", "text": "AJUSTES DE CONTROL", "x": 4, "y": 6, "font": "GLCD", "size": 1, "textColor": "WHITE" },
+        {
+          "type": "MENU",
+          "id": "MENU_CONTROL",
+          "title": "Parametros Horno",
+          "x": 6,
+          "y": 26,
+          "width": 308,
+          "height": 114,
+          "textSize": 1,
+          "frame": true,
+          "nodes": [
+            { "key": "sp", "type": "EDIT_NUM", "label": "Consigna", "variable": "consignaSetpoint", "min": 20, "max": 95, "step": 1, "decimals": 1, "unit": "°C", "initial": 65 },
+            { "key": "run", "type": "EDIT_BOOL", "label": "Marcha", "variable": "marchaHorno", "falseText": "PARO", "trueText": "MARCHA", "initial": 1 },
+            { "key": "idle", "type": "GO_IDLE", "label": "Volver a inicio" }
+          ]
+        }
+      ]
+    }
+  ],
+  "fields": [
+    { "type": "NAV_BAR", "preset": "industrial-color" }
+  ]
+}

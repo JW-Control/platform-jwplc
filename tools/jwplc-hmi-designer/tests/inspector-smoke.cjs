@@ -506,7 +506,7 @@ async function main() {
       const card = document.getElementById('barAppMini');
       const canvas = card.querySelector('[data-bar-case]');
       return {
-        legacyHidden: document.getElementById('barAppLegacyCard').offsetParent === null,
+        legacyHidden: document.getElementById('barAppLegacyCard') === null || document.getElementById('barAppLegacyCard').offsetParent === null,
         canvas: canvas ? canvas.width > 0 && canvas.height > 0 : false,
         rows: [...card.querySelectorAll('[data-bar-legend]')].map((r) => r.dataset.barLegend).join(','),
         marker: card.querySelectorAll('svg.zone-indicator path.zone-marker').length,

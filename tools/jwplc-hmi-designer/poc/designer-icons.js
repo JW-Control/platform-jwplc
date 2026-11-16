@@ -40,6 +40,7 @@
     return /^[A-Za-z_]/.test(cleaned) ? cleaned : `_${cleaned}`;
   };
   const css565 = (v) => `rgb(${((v >> 11) & 0x1F) * 255 / 31 | 0}, ${((v >> 5) & 0x3F) * 255 / 63 | 0}, ${(v & 0x1F) * 255 / 31 | 0})`;
+  const rgb565Raw = (v) => `${((v >> 11) & 0x1F) * 255 / 31 | 0}, ${((v >> 5) & 0x3F) * 255 / 63 | 0}, ${(v & 0x1F) * 255 / 31 | 0}`;
 
   // ---------------------------------------------------------------------------
   // Datos: catálogo + copia del proyecto
@@ -175,11 +176,86 @@
     .pilot-states-control { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
     .pilot-states-btn { width: 28px; height: 28px; border-radius: 4px; border: 1px solid rgba(255,255,255,.2); background: #1a2530; color: #fff; font-weight: bold; cursor: pointer; }
     .pilot-states-btn:hover { background: #26384a; }
-    .baliza-tier-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 6px; background: rgba(255,255,255,.03); border-radius: 4px; margin-bottom: 4px; border: 1px solid rgba(255,255,255,.06); }
-    .baliza-tier-info { display: flex; align-items: center; gap: 6px; font-size: 11.5px; }
-    .baliza-tier-info i { display: inline-block; width: 12px; height: 12px; border-radius: 2px; }
-    .baliza-tier-toggle { padding: 2px 8px; font-size: 11px; border-radius: 3px; cursor: pointer; border: 1px solid rgba(255,255,255,.15); background: #131c24; color: #bbb; }
-    .baliza-tier-toggle.active { background: #007acc; color: #fff; border-color: #38a5ff; font-weight: 700; }
+    .baliza-tier-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 7px 10px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      margin-bottom: 5px;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.15s ease;
+    }
+    .baliza-tier-item:hover {
+      background: var(--panel-3);
+      border-color: var(--line-soft);
+      transform: translateY(-1px);
+    }
+    .baliza-tier-item.is-on {
+      background: linear-gradient(90deg, rgba(var(--tier-rgb), 0.12) 0%, var(--panel) 100%);
+      border-color: rgba(var(--tier-rgb), 0.5);
+      box-shadow: inset 3px 0 0 var(--tier-col), 0 2px 6px rgba(0,0,0,0.25);
+    }
+    .baliza-tier-left {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+    }
+    .baliza-tier-led {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+      background: var(--tier-col);
+      opacity: 0.35;
+      border: 1px solid rgba(255,255,255,0.15);
+      transition: all 0.15s ease;
+      flex-shrink: 0;
+    }
+    .baliza-tier-item.is-on .baliza-tier-led {
+      opacity: 1;
+      border-color: rgba(255,255,255,0.7);
+      box-shadow: 0 0 10px var(--tier-col), 0 0 3px #ffffff;
+    }
+    .baliza-tier-name {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      transition: color 0.15s ease;
+    }
+    .baliza-tier-item.is-on .baliza-tier-name {
+      color: #ffffff;
+    }
+    .baliza-tier-name small {
+      font-size: 10.5px;
+      opacity: 0.7;
+      font-weight: 500;
+      margin-left: 2px;
+    }
+    .baliza-tier-pill {
+      font-size: 9.5px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      padding: 2.5px 8px;
+      border-radius: 4px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      color: var(--muted);
+      transition: all 0.15s ease;
+    }
+    .baliza-tier-item.is-on .baliza-tier-pill {
+      background: rgba(var(--tier-rgb), 0.2);
+      border-color: rgba(var(--tier-rgb), 0.6);
+      color: var(--tier-col);
+      box-shadow: 0 0 6px rgba(var(--tier-rgb), 0.3);
+    }
+    .baliza-tier-row { display: contents; }
+    .baliza-tier-info { display: contents; }
+    .baliza-tier-toggle { cursor: pointer; }
     .color-swatch-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 4px; border: 1px solid rgba(255,255,255,.15); background: #121820; font-size: 11px; cursor: pointer; color: #fff; }
     .color-swatch-chip i { width: 12px; height: 12px; border-radius: 2px; border: 1px solid rgba(255,255,255,.3); }
     .color-swatch-chip.active { border-color: #52c9ff; background: rgba(82,201,255,.15); }
@@ -268,8 +344,8 @@
   toolBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     // Cierra los otros menús de la barra (Variables, Texto).
-    document.querySelectorAll('.var-dropdown-menu, .text-dropdown-menu').forEach((m) => { if (m !== block) m.style.display = 'none'; });
-    document.querySelectorAll('.var-dropdown-container.open, .text-dropdown-container.open').forEach((c) => c.classList.remove('open'));
+    document.querySelectorAll('.variable-dropdown-menu, .var-dropdown-menu, .text-dropdown-menu').forEach((m) => { if (m !== block) m.style.display = 'none'; });
+    document.querySelectorAll('.variable-dropdown-container.open, .var-dropdown-container.open, .text-dropdown-container.open').forEach((c) => c.classList.remove('open'));
     setMenuOpen(block.style.display === 'none');
   });
   document.addEventListener('click', (e) => {
@@ -415,63 +491,38 @@
       <div class="insp-body">
         <div class="insp-panel" data-icon-panel="design:shape">
           <div class="bar-card">
-            <div class="icon-current">
-              <canvas data-icon-current></canvas>
-              <div>
-                <strong data-icon-readout="name">—</strong>
-                <div class="insp-note" data-icon-readout="category"></div>
-              </div>
-            </div>
-            <div class="bar-card-section-title insp-gap" style="margin-top:6px" data-icon-quick-states-title>Estado actual <small style="opacity:.7">· clic para probar</small></div>
-            <div class="insp-chip-row" data-icon-quick-states></div>
-            <label class="field-label insp-gap">Icono
-              <select class="field-input" data-icon-prop="iconId"></select>
-            </label>
+            <div class="bar-card-section-title">Tamaño</div>
+            <div class="insp-chip-row" data-icon-sizes></div>
           </div>
-          <!-- Configuración del Piloto Modular (solo si es piloto) -->
-          <div class="bar-card" data-icon-pilot-card hidden>
-            <div class="bar-card-section-title">Configuración del Piloto</div>
-            <span class="bar-visual-group-title">Modo</span>
-            <div class="bar-visual-grid-2">
-              <button type="button" class="bar-visual-btn" data-pilot-mode="bool"><strong>ON / OFF</strong><span>Variable bool (2 estados)</span></button>
-              <button type="button" class="bar-visual-btn" data-pilot-mode="uint8"><strong>Multi-estado</strong><span>Variable uint8_t</span></button>
-            </div>
-            <div data-pilot-states-section class="insp-gap" hidden>
-              <span class="bar-visual-group-title">Cantidad de estados</span>
-              <div class="insp-chip-row" data-pilot-states-quick>
-                <button type="button" class="insp-chip" data-pilot-states-set="2">2</button>
-                <button type="button" class="insp-chip" data-pilot-states-set="3">3</button>
-                <button type="button" class="insp-chip" data-pilot-states-set="4">4</button>
-                <button type="button" class="insp-chip" data-pilot-states-set="5">5</button>
-                <button type="button" class="insp-chip" data-pilot-states-set="6">6</button>
-                <button type="button" class="insp-chip" data-pilot-states-set="8">8</button>
+          <div class="bar-card">
+            <div style="display:grid;grid-template-columns:1fr 1px 1fr;gap:12px;align-items:stretch">
+              <!-- Sección Marco -->
+              <div style="display:flex;flex-direction:column;gap:6px">
+                <div style="display:flex;align-items:center;gap:6px">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#52c9ff" stroke-width="2.2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+                  <span class="bar-visual-group-title" style="font-weight:700;color:#cce4f7;letter-spacing:0.3px">Marco</span>
+                </div>
+                <div class="bar-visual-grid-2">
+                  <button type="button" class="bar-visual-btn" data-icon-set="frame" data-value="0"><span>Sin marco</span></button>
+                  <button type="button" class="bar-visual-btn" data-icon-set="frame" data-value="1"><span>Con marco</span></button>
+                </div>
               </div>
-            </div>
-            <span class="bar-visual-group-title insp-gap">Estados configurados</span>
-            <div data-pilot-states-list class="pilot-states-list"></div>
-            <div class="color-presets-row insp-gap">
-              <span style="font-size:10px;opacity:.7;line-height:20px">Paletas rápidas:</span>
-              <button type="button" class="color-preset-pill" data-apply-color="0x07E0">Verde</button>
-              <button type="button" class="color-preset-pill" data-apply-color="0xF800">Rojo</button>
-              <button type="button" class="color-preset-pill" data-apply-color="0xFDE0">Ámbar</button>
-              <button type="button" class="color-preset-pill" data-apply-color="0x041F">Azul</button>
-              <button type="button" class="color-preset-pill" data-apply-color="0xFFFF">Blanco</button>
-              <button type="button" class="color-preset-pill" data-apply-color="0x4208">Apagado</button>
-            </div>
-          </div>
 
-          <!-- Configuración de la Torre de Señalización (Baliza) -->
-          <div class="bar-card" data-icon-baliza-card hidden>
-            <div class="bar-card-section-title">Torre de Señalización (Baliza)</div>
-            <span class="bar-visual-group-title">Cantidad de pisos</span>
-            <div class="insp-chip-row" data-baliza-tier-count-group>
-              <button type="button" class="insp-chip" data-baliza-tier-count="1">1 Piso</button>
-              <button type="button" class="insp-chip" data-baliza-tier-count="2">2 Pisos</button>
-              <button type="button" class="insp-chip" data-baliza-tier-count="3">3 Pisos</button>
-              <button type="button" class="insp-chip active" data-baliza-tier-count="4">4 Pisos</button>
+              <!-- Divisor vertical entre Marco y Fondo -->
+              <div style="background:rgba(255,255,255,0.12);width:1px;margin:2px 0;align-self:stretch" data-icon-mf-divider></div>
+
+              <!-- Sección Fondo -->
+              <div style="display:flex;flex-direction:column;gap:6px">
+                <div style="display:flex;align-items:center;gap:6px">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ffb74d" stroke-width="2.2"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>
+                  <span class="bar-visual-group-title" style="font-weight:700;color:#cce4f7;letter-spacing:0.3px">Fondo</span>
+                </div>
+                <div class="bar-visual-grid-2">
+                  <button type="button" class="bar-visual-btn" data-icon-set="transparentBackground" data-value="0"><span>Color</span></button>
+                  <button type="button" class="bar-visual-btn" data-icon-set="transparentBackground" data-value="1"><span>Sin fondo</span></button>
+                </div>
+              </div>
             </div>
-            <span class="bar-visual-group-title insp-gap">Pisos (prueba en vivo y color)</span>
-            <div data-baliza-tiers-list></div>
           </div>
           <!-- Velocidad de animación (slider de 4 niveles con animación y FPS) -->
           <div class="bar-card" data-icon-anim-card hidden>
@@ -498,25 +549,37 @@
             </div>
           </div>
 
-          <div class="bar-card">
-            <div class="bar-card-section-title">Tamaño</div>
-            <div class="insp-chip-row" data-icon-sizes></div>
-            <div class="insp-note">Tamaños dibujados para este icono. Cambiar el tamaño no deforma: usa otra imagen.</div>
-          </div>
-          <div class="bar-card">
-            <div class="bar-card-section-title">Marco</div>
+          <!-- Configuración del Piloto Modular (solo si es piloto) -->
+          <div class="bar-card" data-icon-pilot-card hidden>
+            <div class="bar-card-section-title">Configuración del Piloto</div>
+            <span class="bar-visual-group-title">Modo</span>
             <div class="bar-visual-grid-2">
-              <button type="button" class="bar-visual-btn" data-icon-set="frame" data-value="0"><span>Sin marco</span></button>
-              <button type="button" class="bar-visual-btn" data-icon-set="frame" data-value="1"><span>Con marco</span></button>
+              <button type="button" class="bar-visual-btn" data-pilot-mode="bool"><strong>ON / OFF</strong><span>Variable bool (2 estados)</span></button>
+              <button type="button" class="bar-visual-btn" data-pilot-mode="uint8"><strong>Multi-estado</strong><span>Variable uint8_t</span></button>
+            </div>
+            <div data-pilot-states-section class="insp-gap" hidden>
+              <span class="bar-visual-group-title">Cantidad de estados</span>
+              <div class="insp-chip-row" data-pilot-states-quick>
+                <button type="button" class="insp-chip" data-pilot-states-set="2">2</button>
+                <button type="button" class="insp-chip" data-pilot-states-set="3">3</button>
+                <button type="button" class="insp-chip" data-pilot-states-set="4">4</button>
+                <button type="button" class="insp-chip" data-pilot-states-set="5">5</button>
+                <button type="button" class="insp-chip" data-pilot-states-set="6">6</button>
+                <button type="button" class="insp-chip" data-pilot-states-set="8">8</button>
+              </div>
             </div>
           </div>
-          <div class="bar-card">
-            <div class="bar-card-section-title">Fondo</div>
-            <div class="bar-visual-grid-2">
-              <button type="button" class="bar-visual-btn" data-icon-set="transparentBackground" data-value="0"><span>Con color de fondo</span></button>
-              <button type="button" class="bar-visual-btn" data-icon-set="transparentBackground" data-value="1"><span>Sin fondo</span></button>
+
+          <!-- Configuración de la Torre de Señalización (Baliza) en Forma -->
+          <div class="bar-card" data-icon-baliza-card hidden>
+            <div class="bar-card-section-title">Torre de Señalización (Baliza)</div>
+            <span class="bar-visual-group-title">Cantidad de pisos</span>
+            <div class="insp-chip-row" data-baliza-tier-count-group>
+              <button type="button" class="insp-chip" data-baliza-tier-count="1">1 Piso</button>
+              <button type="button" class="insp-chip" data-baliza-tier-count="2">2 Pisos</button>
+              <button type="button" class="insp-chip" data-baliza-tier-count="3">3 Pisos</button>
+              <button type="button" class="insp-chip active" data-baliza-tier-count="4">4 Pisos</button>
             </div>
-            <div class="insp-note">Sin fondo se ve lo que hay debajo (figuras, texto fijo). Lo que cambia entre estados sigue usando el color de fondo para no dejar restos en la TFT.</div>
           </div>
         </div>
 
@@ -525,18 +588,52 @@
             <div class="bar-card-section-title">Estados <small style="opacity:.7">· clic para verlo en el lienzo</small></div>
             <div class="icon-states" data-icon-states></div>
           </div>
+          <!-- Nombres de estados de Piloto (solo si es piloto) -->
+          <div class="bar-card" data-icon-pilot-names-card hidden>
+            <div class="bar-card-section-title">Nombres de Estados <small style="opacity:.7">· personalización</small></div>
+            <div data-pilot-states-list style="margin-top:6px"></div>
+          </div>
+          <!-- Torre de Señalización: prueba de pisos en vivo (Baliza) -->
+          <div class="bar-card" data-icon-baliza-content hidden>
+            <div class="bar-card-section-title">Pisos de la Torre <small style="opacity:.7">· prueba en vivo en el lienzo</small></div>
+            <div data-baliza-tiers-list style="margin-top:6px"></div>
+            <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:6px;margin-top:10px">
+              <button type="button" class="bar-visual-btn" data-baliza-quick="all-on" title="Encender todos los pisos" style="padding:6px 4px;font-size:10px;gap:2px">
+                <span style="color:#00e676;font-weight:700">⚡ Todos ON</span>
+              </button>
+              <button type="button" class="bar-visual-btn" data-baliza-quick="all-off" title="Apagar todos los pisos" style="padding:6px 4px;font-size:10px;gap:2px">
+                <span style="color:var(--muted);font-weight:600">⚪ Todos OFF</span>
+              </button>
+              <button type="button" class="bar-visual-btn" data-baliza-quick="cycle" title="Alternar combinaciones" style="padding:6px 4px;font-size:10px;gap:2px">
+                <span style="color:#52c9ff;font-weight:600">🔀 Alternar</span>
+              </button>
+            </div>
+          </div>
           <div class="bar-card">
             <div class="bar-card-section-title">Etiqueta (opcional)</div>
             <label class="field-label">Texto<input class="field-input" data-icon-prop="label" type="text" maxlength="24" placeholder="Sin etiqueta" /></label>
-            <span class="bar-visual-group-title insp-gap">Posición</span>
-            <div class="bar-visual-grid-2">
-              <button type="button" class="bar-visual-btn" data-icon-set="layout" data-value="STACKED"><span>Arriba del icono</span></button>
-              <button type="button" class="bar-visual-btn" data-icon-set="layout" data-value="INLINE"><span>A la izquierda</span></button>
-            </div>
-            <span class="bar-visual-group-title insp-gap">Tamaño de texto</span>
-            <div class="bar-visual-grid-2">
-              <button type="button" class="bar-visual-btn" data-icon-set="labelSize" data-value="1"><strong>Aa</strong><span>1×</span></button>
-              <button type="button" class="bar-visual-btn" data-icon-set="labelSize" data-value="2"><strong style="font-size:15px">Aa</strong><span>2×</span></button>
+            <div class="bar-align-matrix-row" style="margin-top:8px;">
+              <div class="bar-matrix-col">
+                <span class="bar-matrix-label">Alineación (3×3)</span>
+                <div class="align-matrix-3x3" data-icon-matrix-wrap>
+                  <button type="button" class="matrix-cell" data-align-v="TOP" data-align-h="LEFT" title="Arriba Izquierda">↖</button>
+                  <button type="button" class="matrix-cell active" data-align-v="TOP" data-align-h="CENTER" title="Arriba Centro">↑</button>
+                  <button type="button" class="matrix-cell" data-align-v="TOP" data-align-h="RIGHT" title="Arriba Derecha">↗</button>
+                  <button type="button" class="matrix-cell" data-align-v="MID" data-align-h="LEFT" title="Medio Izquierda">←</button>
+                  <button type="button" class="matrix-cell" data-align-v="MID" data-align-h="CENTER" title="Centro">·</button>
+                  <button type="button" class="matrix-cell" data-align-v="MID" data-align-h="RIGHT" title="Medio Derecha">→</button>
+                  <button type="button" class="matrix-cell" data-align-v="BOTTOM" data-align-h="LEFT" title="Abajo Izquierda">↙</button>
+                  <button type="button" class="matrix-cell" data-align-v="BOTTOM" data-align-h="CENTER" title="Abajo Centro">↓</button>
+                  <button type="button" class="matrix-cell" data-align-v="BOTTOM" data-align-h="RIGHT" title="Abajo Derecha">↘</button>
+                </div>
+              </div>
+              <div class="bar-options-col">
+                <span class="bar-visual-group-title" style="margin-bottom:4px;display:block">Tamaño texto</span>
+                <div class="bar-visual-grid-2">
+                  <button type="button" class="bar-visual-btn" data-icon-set="labelSize" data-value="1"><strong>Aa</strong><span>1×</span></button>
+                  <button type="button" class="bar-visual-btn" data-icon-set="labelSize" data-value="2"><strong style="font-size:14px">Aa</strong><span>2×</span></button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -544,18 +641,17 @@
         <div class="insp-panel" data-icon-panel="design:appearance" hidden>
           <div class="menu-case">
             <div class="bar-card-section-title">Vista</div>
-            <div class="menu-case-body field-case-body zone-host is-below" data-icon-case-body="single">
+            <div class="menu-case-body field-case-body zone-host" data-icon-case-body="single">
               <canvas class="menu-case-canvas field-case-canvas" data-icon-case="single"></canvas>
               <div class="menu-case-legend" data-icon-case-legend></div>
             </div>
           </div>
           <div class="menu-palette">
-            <div class="insp-note">Clic en una fila (texto o cuadro) para editar ese color: el contorno y el ▶ marcan lo que cambia en la vista.</div>
-            <div data-icon-color-editor></div>
-            <div class="bar-card insp-gap" data-icon-presets-card style="margin-top:10px">
-              <div class="bar-card-section-title" data-icon-presets-title>Paleta rápida</div>
-              <div class="color-presets-row" data-icon-presets-row style="margin-top:4px;flex-wrap:wrap;gap:6px"></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+              <span class="insp-note" style="margin:0">Clic en un componente para editar su color.</span>
+              <button type="button" class="insp-chip" data-icon-reset-color title="Restablecer color por defecto del componente activo" style="font-size:10px;padding:2px 8px;cursor:pointer">↺ Color por defecto</button>
             </div>
+            <div data-icon-color-editor></div>
           </div>
         </div>
 
@@ -650,10 +746,13 @@
   });
   if (colorEditor) section.querySelector('[data-icon-color-editor]').appendChild(colorEditor.el);
 
-  // Selector de icono agrupado por categoría.
-  section.querySelector('[data-icon-prop="iconId"]').innerHTML = catalog.categories.map((c) =>
-    `<optgroup label="${escapeHtml(c.name)}">${catalog.icons.filter((i) => i.category === c.id)
-      .map((i) => `<option value="${i.id}">${escapeHtml(i.name)}</option>`).join('')}</optgroup>`).join('');
+  // Selector de icono agrupado por categoría (si está presente).
+  const iconIdSelect = section.querySelector('[data-icon-prop="iconId"]');
+  if (iconIdSelect) {
+    iconIdSelect.innerHTML = catalog.categories.map((c) =>
+      `<optgroup label="${escapeHtml(c.name)}">${catalog.icons.filter((i) => i.category === c.id)
+        .map((i) => `<option value="${i.id}">${escapeHtml(i.name)}</option>`).join('')}</optgroup>`).join('');
+  }
 
   function mutate(fn, commit = true) {
     const field = selectedIcon();
@@ -688,12 +787,44 @@
       `// jwplcUIUpdate() (generado) llama:\n${core.iconSetter(id, variable, field)}`;
   }
 
-    const SPEED_CONFIG = {
-    1: { label: 'Muy lento', fps: '4 FPS', ms: 250, spinDur: '2.0s' },
-    2: { label: 'Lento', fps: '7 FPS', ms: 140, spinDur: '1.2s' },
-    3: { label: 'Rápido', fps: '12 FPS', ms: 80, spinDur: '0.6s' },
-    4: { label: 'Muy rápido', fps: '20 FPS', ms: 50, spinDur: '0.25s' }
+  const SPEED_CONFIG = {
+    1: { label: 'Muy lento', fps: '4 FPS', ms: 250, spinDur: '2.2s', color: '#64b5f6', bg: 'rgba(100,181,246,0.15)', border: 'rgba(100,181,246,0.4)' },
+    2: { label: 'Lento', fps: '7 FPS', ms: 140, spinDur: '1.3s', color: '#00e5ff', bg: 'rgba(0,229,255,0.15)', border: 'rgba(0,229,255,0.4)' },
+    3: { label: 'Rápido', fps: '12 FPS', ms: 80, spinDur: '0.55s', color: '#00e676', bg: 'rgba(0,230,118,0.15)', border: 'rgba(0,230,118,0.4)' },
+    4: { label: 'Muy rápido', fps: '20 FPS', ms: 50, spinDur: '0.22s', color: '#ff9100', bg: 'rgba(255,145,0,0.18)', border: 'rgba(255,145,0,0.45)' }
   };
+
+  function updateSpeedUI(lvl) {
+    const cfg = SPEED_CONFIG[lvl];
+    if (!cfg || !section) return;
+    const lbl = section.querySelector('[data-anim-speed-label]');
+    if (lbl) {
+      lbl.textContent = cfg.label;
+      lbl.style.color = cfg.color;
+    }
+    const badge = section.querySelector('[data-anim-fps-badge]');
+    if (badge) {
+      badge.textContent = cfg.fps;
+      badge.style.color = cfg.color;
+      badge.style.background = cfg.bg;
+      badge.style.border = `1px solid ${cfg.border}`;
+    }
+    const indicator = section.querySelector('.anim-speed-indicator');
+    if (indicator) {
+      indicator.style.background = cfg.bg;
+      indicator.style.borderColor = cfg.border;
+    }
+    const spinner = section.querySelector('.anim-spinner-icon');
+    if (spinner) {
+      spinner.style.setProperty('--anim-spin-duration', cfg.spinDur);
+      spinner.setAttribute('stroke', cfg.color);
+      spinner.style.stroke = cfg.color;
+    }
+    const slider = section.querySelector('[data-icon-anim-slider]');
+    if (slider) {
+      slider.style.accentColor = cfg.color;
+    }
+  }
 
   let cachedZones = null;
 
@@ -708,6 +839,7 @@
     const isBaliza = field.iconId === 'pilotos/baliza';
 
     const preview = { ...field, x: 0, y: 0 };
+    delete preview.bodyColor;
     if (isBaliza) {
       const tCount = Math.max(1, Math.min(4, Number(field.tierCount || 4)));
       preview.iconState = (1 << tCount) - 1; // Encender todos los pisos configurados para que los colores se vean en la vista
@@ -727,16 +859,34 @@
     const w = Math.max(1, Math.min(out.width, Math.ceil(out.g.fieldW)));
     const h = Math.max(1, Math.min(out.height, Math.ceil(out.g.fieldH)));
 
-    body.classList.add('is-below');
-    body.dataset.placement = 'below';
+    body.classList.remove('is-below');
+    body.dataset.placement = 'right';
+    if (window.ResizeObserver && !body.dataset.resizeWired) {
+      body.dataset.resizeWired = '1';
+      new ResizeObserver(() => {
+        if (body.clientWidth > 0) drawAppearance();
+      }).observe(body);
+    }
 
-    const scale = 2;
+    // Resolución interna nítida; tamaño visual acotado al espacio disponible para
+    // que iconos de 64–96 px no empujen la leyenda fuera del panel.
+    const scale = (w <= 36 && h <= 36) ? 3 : 2;
+    const legend = body.querySelector('[data-icon-case-legend]');
+    const gutter = (window.JWPLCZoneIndicator?.CHANNEL ?? 12) + 26;
+    const bodyW = body.clientWidth || section.clientWidth || 300;
+    const legendW = Math.max(legend?.offsetWidth || 0, 120);
+    const maxW = Math.max(64, bodyW - legendW - gutter);
+    const maxH = 140;
+    const cssScale = Math.min(scale, maxW / w, maxH / h);
+    const dispW = Math.max(1, Math.round(w * cssScale));
+    const dispH = Math.max(1, Math.round(h * cssScale));
+
     if (canvas.width !== w * scale) canvas.width = w * scale;
     if (canvas.height !== h * scale) canvas.height = h * scale;
     canvas.dataset.logicalW = String(w);
     canvas.dataset.logicalH = String(h);
-    canvas.style.width = `${w * scale}px`;
-    canvas.style.height = `${h * scale}px`;
+    canvas.style.width = `${dispW}px`;
+    canvas.style.height = `${dispH}px`;
 
     const ctx = canvas.getContext('2d');
     const img = ctx.createImageData(canvas.width, canvas.height);
@@ -757,7 +907,9 @@
     const inset = field.frame ? 1 : 0;
     const labelRects = [];
     if (g.labelBounds && g.labelBounds.width > 0) {
-      labelRects.push({ x: 3, y: 3, w: g.labelBounds.width, h: g.labelBounds.height });
+      const lx = g.labelX !== undefined ? Math.round(g.labelX) : 3;
+      const ly = g.labelY !== undefined ? Math.round(g.labelY) : 3;
+      labelRects.push({ x: lx, y: ly, w: g.labelBounds.width, h: g.labelBounds.height });
     }
     const iconRect = { x: Math.round(g.valueX), y: Math.round(g.valueY), w: Math.max(1, Math.round(g.valueW)), h: Math.max(1, Math.round(g.valueH)) };
     const background = { rects: [{ x: inset, y: inset, w: w - 2 * inset, h: h - 2 * inset, inset: true }] };
@@ -765,7 +917,6 @@
     cachedZones = {
       frameColor: { rects: [{ x: 0, y: 0, w, h }] },
       labelColor: { rects: labelRects.length ? labelRects : [iconRect] },
-      bodyColor: { rects: [iconRect] },
       backgroundColor: background
     };
     if (isBaliza) {
@@ -793,7 +944,7 @@
       row.classList.toggle('is-active', active);
       if (active) rects = cachedZones[activeColorKey].rects;
     });
-    window.JWPLCZoneIndicator?.draw(body, canvas, rects);
+    requestAnimationFrame(() => window.JWPLCZoneIndicator?.draw(body, canvas, rects));
   }
 
   function sync() {
@@ -858,6 +1009,13 @@
           : prop === 'layout' ? b.dataset.value === (field.layout === 'INLINE' ? 'INLINE' : 'STACKED')
             : b.dataset.value === (field.iconVarType === 'uint8' ? 'uint8' : 'bool');
       b.classList.toggle('active', value);
+    });
+
+    // Matriz 3x3 de alineación de etiqueta
+    const curAlignV = field.alignV || (field.layout === 'INLINE' ? 'MID' : 'TOP');
+    const curAlignH = field.alignH || 'CENTER';
+    section.querySelectorAll('[data-icon-matrix-wrap] .matrix-cell').forEach((c) => {
+      c.classList.toggle('active', c.dataset.alignV === curAlignV && c.dataset.alignH === curAlignH);
     });
 
     // Ocultar "Estado actual" tanto en Baliza como en Piloto (ambos tienen su control interactivo de estados en Forma)
@@ -930,26 +1088,29 @@
         pilotCard.querySelectorAll('[data-pilot-states-set]').forEach((b) => {
           b.classList.toggle('active', Number(b.dataset.pilotStatesSet) === effectiveCount);
         });
+      }
+    }
 
-        const pilotList = pilotCard.querySelector('[data-pilot-states-list]');
+    // --- Piloto en panel Contenido (Nombres de estados) ---
+    const pilotNamesCard = section.querySelector('[data-icon-pilot-names-card]');
+    if (pilotNamesCard) {
+      pilotNamesCard.hidden = !isPilot;
+      if (isPilot) {
+        const pilotList = pilotNamesCard.querySelector('[data-pilot-states-list]');
         if (pilotList) {
           pilotList.innerHTML = Array.from({ length: effectiveCount }, (_, idx) => {
-            const cVal = core.to565(field.stateColors[idx] !== undefined ? field.stateColors[idx] : (idx === 0 ? 0x4208 : 0x07E0));
-            const isActColor = activeColorKey === `pilotState:${idx}`;
-            return `<div class="pilot-state-row" style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
-              <span style="font-size:11px;font-weight:700;width:18px;text-align:center;opacity:.8">${idx}</span>
-              <input class="field-input" data-pilot-state-name="${idx}" value="${escapeHtml(names[idx] || `Estado ${idx}`)}" placeholder="Nombre" style="flex:1" maxlength="20" />
-              <button type="button" class="insp-chip${isActColor ? ' active' : ''}" data-pilot-state-idx="${idx}" title="Cambiar color del estado ${idx}" style="padding:4px 8px">
-                <i style="display:inline-block;width:12px;height:12px;border-radius:2px;background:${css565(cVal)};border:1px solid rgba(255,255,255,.3)"></i>
-              </button>
-              <button type="button" class="insp-chip${idx === curState ? ' active' : ''}" data-icon-state="${idx}" title="Probar estado en lienzo">Probar</button>
+            const defName = idx === 0 ? 'Apagado' : idx === 1 ? 'Encendido' : `Estado ${idx}`;
+            const curName = (field.stateNames && field.stateNames[idx]) || names[idx] || defName;
+            return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+              <span style="font-size:11px;font-weight:700;width:24px;text-align:center;color:var(--muted);background:rgba(255,255,255,0.05);padding:3px 0;border-radius:4px;border:1px solid rgba(255,255,255,0.08)">${idx}</span>
+              <input class="field-input" data-pilot-state-name="${idx}" value="${escapeHtml(curName)}" placeholder="${escapeHtml(defName)}" style="flex:1" maxlength="20" />
             </div>`;
           }).join('');
         }
       }
     }
 
-    // --- Baliza en panel Forma ---
+    // --- Baliza en panel Forma (Cantidad de pisos) ---
     const balizaCard = section.querySelector('[data-icon-baliza-card]');
     if (balizaCard) {
       balizaCard.hidden = !isBaliza;
@@ -960,23 +1121,30 @@
         balizaCard.querySelectorAll('[data-baliza-tier-count]').forEach((b) => {
           b.classList.toggle('active', Number(b.dataset.balizaTierCount) === tierCount);
         });
+      }
+    }
 
+    // --- Baliza en panel Contenido (Prueba de pisos en vivo) ---
+    const balizaContent = section.querySelector('[data-icon-baliza-content]');
+    if (balizaContent) {
+      balizaContent.hidden = !isBaliza;
+      if (isBaliza) {
+        const tierCount = Math.max(1, Math.min(4, Number(field.tierCount || 4)));
         const tierLabels = ['Verde', 'Ámbar', 'Rojo', 'Azul'];
-        const listEl = balizaCard.querySelector('[data-baliza-tiers-list]');
+        const listEl = balizaContent.querySelector('[data-baliza-tiers-list]');
         if (listEl) {
           let listHtml = '';
           for (let t = tierCount - 1; t >= 0; t -= 1) {
             const cVal = core.to565(field.tierColors[t] !== undefined ? field.tierColors[t] : 0xFFFF);
             const isTierOn = Boolean((Number(field.iconState || 0) >> t) & 1);
             const isColorActive = activeColorKey === `balizaTier:${t}`;
-            listHtml += `<div class="baliza-tier-row">
-              <div class="baliza-tier-info">
-                <i style="background:${css565(cVal)}"></i>
-                <strong>Piso ${t + 1} (${tierLabels[t]})</strong>
+            listHtml += `<div class="baliza-tier-item${isTierOn ? ' is-on' : ''}" data-baliza-toggle-tier="${t}" style="--tier-col:${css565(cVal)};--tier-rgb:${rgb565Raw(cVal)};">
+              <div class="baliza-tier-left">
+                <span class="baliza-tier-led"></span>
+                <span class="baliza-tier-name">Piso ${t + 1} <small>(${tierLabels[t]})</small></span>
               </div>
-              <div style="display:flex;align-items:center;gap:6px">
-                <button type="button" class="baliza-tier-toggle${isTierOn ? ' active' : ''}" data-baliza-toggle-tier="${t}">${isTierOn ? 'ENCENDIDO' : 'APAGADO'}</button>
-                <button type="button" class="insp-chip${isColorActive ? ' active' : ''}" data-baliza-tier-color-idx="${t}">Color</button>
+              <div class="baliza-tier-status">
+                <span class="baliza-tier-pill baliza-tier-toggle${isTierOn ? ' active' : ''}">${isTierOn ? 'ENCENDIDO' : 'APAGADO'}</span>
               </div>
             </div>`;
           }
@@ -1031,15 +1199,9 @@
         else if (curMs >= 110) lvl = 2;
         else if (curMs >= 65) lvl = 3;
         else lvl = 4;
-        const cfg = SPEED_CONFIG[lvl];
         const slider = animCard.querySelector('[data-icon-anim-slider]');
         if (slider && document.activeElement !== slider) slider.value = String(lvl);
-        const lbl = animCard.querySelector('[data-anim-speed-label]');
-        if (lbl) lbl.textContent = cfg.label;
-        const badge = animCard.querySelector('[data-anim-fps-badge]');
-        if (badge) badge.textContent = cfg.fps;
-        const spinner = animCard.querySelector('.anim-spinner-icon');
-        if (spinner) spinner.style.setProperty('--anim-spin-duration', cfg.spinDur);
+        updateSpeedUI(lvl);
       }
     }
 
@@ -1076,16 +1238,6 @@
           color: cVal
         });
       }
-    } else {
-      const bColor = field.bodyColor !== undefined ? (core.to565(field.bodyColor) || 0) : 0x5555;
-      legendRows.push({
-        key: 'bodyColor',
-        label: 'Icono / Cuerpo',
-        letter: 'C',
-        name: 'Icono / Cuerpo',
-        desc: field.bodyColor !== undefined ? 'color personalizado' : 'color original',
-        color: bColor
-      });
     }
 
     // Elementos de campo
@@ -1148,9 +1300,14 @@
 
     drawAppearance();
 
-    const pages = editor()?.getPages?.() || [];
-    section.querySelector('[data-icon-pages]').innerHTML = pages.map((p) =>
-      `<button type="button" class="insp-chip${Number(p.id) === Number(field.page || 0) ? ' active' : ''}" data-icon-page="${p.id}">${String(Number(p.id) + 1).padStart(2, '0')} · ${escapeHtml(p.name)}</button>`).join('');
+    const pagesHost = section.querySelector('[data-icon-pages]');
+    if (pagesHost && editor()?.renderPageChipsHost) {
+      editor().renderPageChipsHost(pagesHost, field, 'data-icon-page');
+    } else if (pagesHost) {
+      const pages = editor()?.getPages?.() || [];
+      pagesHost.innerHTML = pages.map((p) =>
+        `<button type="button" class="insp-chip${Number(p.id) === Number(field.page || 0) ? ' active' : ''}" data-icon-page="${p.id}">${String(Number(p.id) + 1).padStart(2, '0')} · ${escapeHtml(p.name)}</button>`).join('');
+    }
     section.querySelector('[data-icon-contract]').textContent = contractText(field);
   }
 
@@ -1165,6 +1322,43 @@
     const action = t.closest('[data-icon-action]')?.dataset.iconAction;
     if (action === 'duplicate') { editor()?.duplicateSelectedField?.(); return; }
     if (action === 'delete') { editor()?.deleteSelectedField?.(); return; }
+    const resetColorBtn = t.closest('[data-icon-reset-color]');
+    if (resetColorBtn) {
+      mutate((f) => {
+        if (activeColorKey === 'bodyColor') {
+          delete f.bodyColor;
+        } else if (activeColorKey === 'labelColor') {
+          f.labelColor = 0xFFFF;
+        } else if (activeColorKey === 'backgroundColor') {
+          f.backgroundColor = 0x0000;
+        } else if (activeColorKey === 'frameColor') {
+          f.frameColor = 0x52C9FF;
+        } else if (activeColorKey.startsWith('pilotState:')) {
+          const idx = Number(activeColorKey.split(':')[1]);
+          const defaultPaletteColors = [0x4208, 0x07E0, 0xF800, 0xFDE0, 0x041F, 0xFFFF, 0x07FF, 0x8010];
+          if (Array.isArray(f.stateColors)) f.stateColors[idx] = defaultPaletteColors[idx] || 0x07E0;
+        } else if (activeColorKey.startsWith('balizaTier:')) {
+          const idx = Number(activeColorKey.split(':')[1]);
+          const defaultTierColors = [0x07E0, 0xFDE0, 0xF800, 0x041F];
+          if (Array.isArray(f.tierColors)) f.tierColors[idx] = defaultTierColors[idx] || 0xFFFF;
+        }
+      });
+      sync();
+      return;
+    }
+    const matrixCell = t.closest('[data-icon-matrix-wrap] .matrix-cell');
+    if (matrixCell) {
+      const v = matrixCell.dataset.alignV || 'TOP';
+      const h = matrixCell.dataset.alignH || 'LEFT';
+      mutate((f) => {
+        f.alignV = v;
+        f.alignH = h;
+        f.layout = v === 'MID' ? 'INLINE' : 'STACKED';
+        f.align = h;
+      });
+      sync();
+      return;
+    }
     const setBtn = t.closest('[data-icon-set]');
     if (setBtn) {
       const prop = setBtn.dataset.iconSet;
@@ -1283,10 +1477,32 @@
       return;
     }
 
-    // Baliza tier color chip
+    // Baliza quick presets (Todos ON / Todos OFF / Alternar)
+    const balizaQuickBtn = t.closest('[data-baliza-quick]');
+    if (balizaQuickBtn) {
+      const act = balizaQuickBtn.dataset.balizaQuick;
+      const count = Math.max(1, Math.min(4, Number(field.tierCount || 4)));
+      const maxMask = (1 << count) - 1;
+      mutate((f) => {
+        if (act === 'all-on') {
+          f.iconState = maxMask;
+        } else if (act === 'all-off') {
+          f.iconState = 0;
+        } else if (act === 'cycle') {
+          const cur = Number(f.iconState || 0);
+          f.iconState = ((cur + 1) % (1 << count)) & maxMask;
+        }
+      });
+      sync();
+      return;
+    }
+
+    // Baliza tier color chip (salta directamente a Apariencia)
     const balizaTierColorBtn = t.closest('[data-baliza-tier-color-idx]');
     if (balizaTierColorBtn) {
       activeColorKey = `balizaTier:${balizaTierColorBtn.dataset.balizaTierColorIdx}`;
+      tabs.sub = 'appearance';
+      applyTabs();
       sync();
       return;
     }
@@ -1309,27 +1525,10 @@
       return;
     }
 
-    // Body color activate chip
-    const bodyColorAct = t.closest('[data-body-color-activate]');
-    if (bodyColorAct) {
-      activeColorKey = 'bodyColor';
-      sync();
+    const iconPagesHost = t.closest('[data-icon-pages]');
+    if (iconPagesHost && editor()?.handlePageChipHostClick?.(iconPagesHost, e, field, 'data-icon-page')) {
       return;
     }
-
-    // Body color preset
-    const bodyPresetBtn = t.closest('[data-body-color-preset]');
-    if (bodyPresetBtn) {
-      const preset = bodyPresetBtn.dataset.bodyColorPreset;
-      mutate((f) => {
-        if (preset === 'reset') delete f.bodyColor;
-        else f.bodyColor = preset;
-      });
-      activeColorKey = 'bodyColor';
-      sync();
-      return;
-    }
-
     const page = t.closest('[data-icon-page]');
     if (page) { editor()?.moveSelectedFieldToPage?.(Number(page.dataset.iconPage)); }
   });
@@ -1347,12 +1546,7 @@
       const lvl = Math.max(1, Math.min(4, Number(t.value) || 3));
       const cfg = SPEED_CONFIG[lvl];
       mutate((f) => { f.animIntervalMs = cfg.ms; }, commit);
-      const lbl = section.querySelector('[data-anim-speed-label]');
-      if (lbl) lbl.textContent = cfg.label;
-      const badge = section.querySelector('[data-anim-fps-badge]');
-      if (badge) badge.textContent = cfg.fps;
-      const spinner = section.querySelector('.anim-spinner-icon');
-      if (spinner) spinner.style.setProperty('--anim-spin-duration', cfg.spinDur);
+      updateSpeedUI(lvl);
       return;
     }
     if (t.matches('[data-tier-prop="variable"]')) {
