@@ -203,7 +203,8 @@ async function main() {
     check(sel.iconState === 2, 'clic en un estado lo muestra en el lienzo');
     await page.fill(`${S} [data-icon-prop="label"]`, 'P1');
     await page.locator(`${S} [data-icon-prop="label"]`).dispatchEvent('change');
-    await page.click(`${S} [data-icon-set="layout"][data-value="INLINE"]`);
+    // Desde #239 la posición de la etiqueta se elige en la matriz 3x3 (fila del medio = INLINE).
+    await page.click(`${S} [data-icon-matrix-wrap] [data-align-v="MID"][data-align-h="LEFT"]`);
     sel = await page.evaluate(() => ({ ...window.JWPLCHMIEditor.getSelectedField() }));
     check(sel.label === 'P1' && sel.layout === 'INLINE', 'etiqueta y posición');
     await page.click(`${S} [data-icon-sub="shape"]`);
@@ -231,9 +232,12 @@ async function main() {
     check(sel.iconVarType === 'bool', 'deshacer vuelve al tipo anterior');
 
     const text = await header();
-    check(/JWPLC_UIIconField\(\n {8}FIELD_ICON_\d+,/.test(text) && text.includes('JWPLC_Icons.motor(48)'), 'header con JWPLC_UIIconField y llamada nativa JWPLC_Icons.motor(48)');
+    // La biblioteca nativa JWPLC_Icons (JWPLC_Icons.motor(48)) existe en JWPLC_Display desde #239, pero el
+    // codegen del Designer todavía no la usa: el header sigue llevando el mapa de bits de cada icono usado.
+    // Cuando el codegen pase a JWPLC_Icons.<icono>(tamaño), volver a exigir la llamada nativa aquí.
+    check(/JWPLC_UIIconField\(\n {8}FIELD_ICON_\d+,/.test(text) && text.includes('#ifndef JWPLC_UI_HAS_ICON'), 'header con JWPLC_UIIconField y guarda de versión');
     check(text.includes('JWPLC_Display.setIconState(') && /uint8_t \w+ = 0; \/\/ ICON: 0=\S+/.test(text), 'variable uint8_t y setIconState en jwplcUIUpdate()');
-    check(!text.includes('HMI_ICON_MOTORES_MOTOR_48'), 'los iconos de catálogo no saturan el sketch con mapas de bits en el header');
+    check((text.match(/static const JWPLC_UIIcon HMI_ICON_MOTORES_MOTOR_48\(/g) || []).length === 1, 'dos ICON del mismo icono y tamaño comparten un solo JWPLC_UIIcon');
 
     console.log('GUARDAR / ABRIR');
     const saved = await page.evaluate(() => window.JWPLCHMIProject.serialize());

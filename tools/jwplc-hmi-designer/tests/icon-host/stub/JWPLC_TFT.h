@@ -28,6 +28,22 @@ public:
   bool beginBatch(uint32_t = 50) { return true; }
   void endBatch() {}
   void drawPixel(int16_t x, int16_t y, uint16_t c) { pixel(x, y, c); }
+  // TREND (#239): trazos entre muestras (Bresenham, como TFT_eSPI).
+  bool drawLine(int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint16_t c, uint32_t = 50)
+  {
+    int dx = x1 > x0 ? x1 - x0 : x0 - x1, sx = x0 < x1 ? 1 : -1;
+    int dy = y1 > y0 ? y0 - y1 : y1 - y0, sy = y0 < y1 ? 1 : -1;
+    int err = dx + dy, x = x0, y = y0;
+    for (;;)
+    {
+      pixel(x, y, c);
+      if (x == x1 && y == y1) break;
+      const int e2 = 2 * err;
+      if (e2 >= dy) { err += dy; x += sx; }
+      if (e2 <= dx) { err += dx; y += sy; }
+    }
+    return true;
+  }
   int16_t width() const { return W; }
   int16_t height() const { return H; }
   void getTextBounds(const char *s, int16_t x, int16_t y, int16_t *x1, int16_t *y1, uint16_t *w, uint16_t *h);

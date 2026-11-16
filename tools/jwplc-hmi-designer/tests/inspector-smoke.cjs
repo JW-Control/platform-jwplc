@@ -102,7 +102,8 @@ async function main() {
     check(oldVisible === 0, 'los <details> viejos quedan ocultos');
     await sub('shape');
     await page.click(`${W}[data-set="layout"][data-value="STACKED"]`);
-    await page.click(`${W}[data-set="valueSize"][data-value="3"]`);
+    // Desde #239 el tamaño se elige en el selector tipográfico unificado (GLCD 1×..4×).
+    await page.click(`${W}[data-font-target="value"][data-font-size="3"]`);
     await page.click(`${W}[data-set="frame"][data-value="1"]`);
     await shot('value_forma');
     await sub('content');

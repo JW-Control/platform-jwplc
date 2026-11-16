@@ -16,7 +16,8 @@ static const uint16_t PAL_B[16] = { 0x2222, 0x8410, 0x8410, 0x8410, 0x8410, 0, 0
 static const JWPLC_UIIconState SMALL_STATES[] = { { SMALL_PX, PAL_A }, { SMALL_PX, PAL_B } };
 static const JWPLC_UIIcon SMALL(5, 3, 2, SMALL_STATES, 0);
 
-// 64x64 sin transparente (8 envíos de 8 filas): diagonal de índices.
+// 64x64 sin transparente: diagonal de índices. Desde #239 el ICON usa el búfer de
+// bandas compartido (320 x 8 = 2560 px): 40 filas de 64 px por envío, 2 envíos (antes 8).
 static uint8_t BIG_PX[64 * 32];
 static uint16_t BIG_PAL0[16], BIG_PAL1[16], BIG_PAL2[16];
 static const JWPLC_UIIconState BIG_STATES[] = { { BIG_PX, BIG_PAL0 }, { BIG_PX, BIG_PAL1 }, { BIG_PX, BIG_PAL2 } };
@@ -84,7 +85,7 @@ int main(int argc, char **argv)
   // Etiqueta arriba (STACKED): 7 px de texto + 4 de separación.
   CHECK(iconMatches(tft, SMALL, 0, 43, 10 + 3 + 7 + 4, 0x0010), "con etiqueta STACKED el icono va bajo la etiqueta");
   CHECK(tft.fb[10 * 320 + 40] == 0x07FF, "marco del campo");
-  CHECK(iconMatches(tft, BIG, 0, 103, 24, 0x0000), "64x64 en 8 envíos");
+  CHECK(iconMatches(tft, BIG, 0, 103, 24, 0x0000), "64x64 completo");
   // INLINE con etiqueta de escala 2: "M2" mide 2*6*2 - 2 = 22 px + 4 de separación.
   CHECK(iconMatches(tft, SMALL, 0, 10 + 3 + 22 + 4, 123, 0x0000), "INLINE: el icono va a la derecha de la etiqueta");
 
@@ -114,7 +115,7 @@ int main(int argc, char **argv)
   tft.pushImages = 0;
   CHECK(JWPLC_Display.setBool(ID_BIG, true), "setBool en un ICON = estado 1");
   JWPLCUI::drawDirty(tft);
-  CHECK(iconMatches(tft, BIG, 1, 103, 24, 0x0000) && tft.pushImages == 8, "64x64 estado 1 (push=%d)", tft.pushImages);
+  CHECK(iconMatches(tft, BIG, 1, 103, 24, 0x0000) && tft.pushImages == 2, "64x64 estado 1 en 2 envíos de 40 + 24 filas (push=%d)", tft.pushImages);
   CHECK(!JWPLC_Display.setIconState(ID_BIG, 7), "estado fuera de rango devuelve false");
   JWPLCUI::drawDirty(tft);
   CHECK(iconMatches(tft, BIG, 2, 103, 24, 0x0000), "fuera de rango se ve el último estado");

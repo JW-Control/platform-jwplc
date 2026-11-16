@@ -6618,10 +6618,14 @@
 
   document.addEventListener('click', (e) => {
     const iconContainer = document.getElementById('iconDropdownContainer');
+    // composedPath() y no contains(e.target): un clic en una categoría del menú
+    // Iconos vuelve a dibujar sus botones y e.target ya no está en el documento;
+    // con contains() ese clic cerraba el menú.
+    const path = e.composedPath();
     if (
-      (varDropdownContainer && !varDropdownContainer.contains(e.target)) &&
-      (textDropdownContainer && !textDropdownContainer.contains(e.target)) &&
-      (!iconContainer || !iconContainer.contains(e.target))
+      (varDropdownContainer && !path.includes(varDropdownContainer)) &&
+      (textDropdownContainer && !path.includes(textDropdownContainer)) &&
+      (!iconContainer || !path.includes(iconContainer))
     ) {
       closeAllDropdowns();
     }

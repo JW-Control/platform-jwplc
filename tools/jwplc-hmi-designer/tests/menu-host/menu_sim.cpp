@@ -13,6 +13,10 @@
 #include <cstdio>
 #include <string>
 
+// Desde #239 el menú llama a jwplcUIRuntimeEnsureLinked() (definida en
+// JWPLC_UI_API.cpp, que este simulador no compila): basta un cuerpo vacío.
+extern "C" void jwplcUIRuntimeEnsureLinked(void) {}
+
 // ---------------------------------------------------------------------------
 // Stubs de las dependencias del motor
 // ---------------------------------------------------------------------------
