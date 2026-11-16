@@ -418,6 +418,7 @@ void jwplcSystemTask(void *pvParameters)
   uint32_t lastRtcTick = 0;
   uint32_t lastEthernetTick = 0;
   uint32_t lastDisplayTick = 0;
+  uint32_t lastIoRetry = millis();
 
   for (;;)
   {
@@ -444,6 +445,15 @@ void jwplcSystemTask(void *pvParameters)
       {
         jwplcSystemScanIO();
       }
+    }
+
+    // Si el TCA6424A no respondio al arrancar, EN_IO sigue en 0. Se reintenta
+    // aqui (fuera del loop() del sketch) hasta que el expansor quede listo.
+    if (!jwplcGetIOState()->initialized &&
+        (uint32_t)(now - lastIoRetry) >= JWPLC_IO_RETRY_PERIOD_MS)
+    {
+      lastIoRetry = now;
+      jwplcPeripheralsRetryIO();
     }
 
     if ((uint32_t)(now - lastRtcTick) >= getJWPLCRTCPeriod_ms())
