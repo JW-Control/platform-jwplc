@@ -19,7 +19,9 @@ extern "C"
 #include "jwplc_peripherals.h"
 }
 
-#if defined(ESP32)
+// El JWPLC Sim define ESP32 pero no trae los headers del SoC: sin soc.h,
+// isFlashFieldArray() cae en su rama portable (devuelve false).
+#if defined(ESP32) && defined(__has_include) && __has_include(<soc/soc.h>)
 #include <soc/soc.h>
 #endif
 
