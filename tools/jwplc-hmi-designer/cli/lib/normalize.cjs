@@ -14,6 +14,7 @@
 
 const spec = require('./spec.cjs');
 const icons = require('./icons.cjs');
+const qrCore = require('../../poc/designer-qr-core.js');
 
 const clone = (value) => JSON.parse(JSON.stringify(value === undefined ? null : value));
 const isObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -215,10 +216,21 @@ function normalizeField(raw, index, ctx) {
   field.id = field.id ? String(field.id) : uniqueName(`${prefix}_${index + 1}`, ctx.ids);
   if (!field.name) field.name = field.type === 'RAW_TEXT' ? String(field.text || field.id).slice(0, 24) : field.id;
 
-  if (spec.FIELD_TYPES.includes(field.type)) {
+  if (spec.FIELD_TYPES.includes(field.type) || (field.type === 'QR' && field.sourceMode === 'VARIABLE')) {
     const clock = field.type === 'VALUE' && field.valueKind === 'DATETIME';
-    if (!field.variable && !clock) field.variable = uniqueName(symbolize(field.id.replace(/^FIELD_/, '').toLowerCase(), `var${index + 1}`), ctx.variables);
+    if ((!field.variable || (field.type === 'QR' && !raw.variable)) && !clock) {
+      field.variable = uniqueName(symbolize(field.id.replace(/^FIELD_/, '').toLowerCase(), `var${index + 1}`), ctx.variables);
+    }
     if (!field.variable && clock) field.variable = 'reloj';
+  }
+  if (field.type === 'QR') {
+    if (raw.text === undefined && raw.preset && qrCore.PRESETS[field.preset]) {
+      field.text = qrCore.PRESETS[field.preset].defaultText;
+    }
+    field.scale = qrCore.clampScale(field.scale);
+    field.ecc = qrCore.normalizeEcc(field.ecc);
+    field.quietZone = qrCore.clampQuietZone(field.quietZone);
+    field.maxLength = qrCore.clampMaxLength(field.maxLength);
   }
 
   if (Array.isArray(field.pages) && !['NAV_BAR', 'MENU', 'EVENT_LOG'].includes(field.type)) {
@@ -339,6 +351,7 @@ function normalizePopup(raw, index) {
   if (raw.blocksIdle === undefined) p.blocksIdle = presetKey === 'CRIT' || presetKey === 'CONFIRM';
   if (raw.latched === undefined) p.latched = presetKey === 'CRIT' || presetKey === 'CONFIRM';
   if (raw.logToEventLog === undefined) p.logToEventLog = presetKey === 'CRIT';
+  if (p.messageTextSize === undefined && raw.textSize !== undefined) p.messageTextSize = raw.textSize;
   const baseColors = spec.POPUP_PRESET_COLORS[presetKey];
   p.colors = { ...baseColors, ...(isObject(p.colors) ? p.colors : {}) };
   for (const key of Object.keys(p.colors)) p.colors[key] = parseColor(p.colors[key]);

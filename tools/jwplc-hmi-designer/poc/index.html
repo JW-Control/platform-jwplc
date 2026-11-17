@@ -6,7 +6,7 @@
   <meta name="color-scheme" content="light dark" />
   <title>JWPLC HMI Designer</title>
   <meta name="jwplc-designer-version" content="2.1.0-alpha.17" />
-  <link rel="stylesheet" href="./styles.css?v=1794880900" />
+  <link rel="stylesheet" href="./styles.css?v=1794932400" />
   <link rel="stylesheet" href="./designer-light-theme.css?v=1794880500" />
   <script src="./designer-theme.js?v=1793802700"></script>
 </head>
@@ -264,10 +264,18 @@
                   <span>Texto GFX estático directo en pantalla</span>
                 </div>
               </button>
-              <div class="var-menu-footer">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
-                <span>Próximamente: Selector y carga de fuentes tipográficas</span>
-              </div>
+              <button type="button" class="tool text-dropdown-item" data-tool="qrField" id="qrToolBtn">
+                <div class="var-item-icon">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+                    <path d="M14 14h3v3h-3zM18 14h3v3h-3zM14 18h3v3h-3zM18 18h3v3h-3z"/>
+                  </svg>
+                </div>
+                <div class="var-item-text">
+                  <strong>Código QR (QR)</strong>
+                  <span>Enlace web, Wi-Fi o código dinámico (JWPLC_UIQR)</span>
+                </div>
+              </button>
             </div>
           </div>
 
@@ -2094,16 +2102,17 @@
   <script src="./designer-fonts-data.js?v=1793801300"></script>
   <script src="./designer-fonts.js?v=1793803100"></script>
   <script src="./designer-value-format.js?v=1793801300"></script>
-  <script src="./designer-codegen-core.js?v=1794881000"></script>
+  <script src="./designer-codegen-core.js?v=1794882000"></script>
   <script src="./designer-runtime-core.js?v=1793810000"></script>
   <script src="./designer-icon-catalog.js?v=1793801700"></script>
   <script src="./designer-icons-core.js?v=1793801900"></script>
   <script src="./designer-trend-core.js?v=1793807000"></script>
+  <script src="./designer-qr-core.js?v=1794882000"></script>
   <script src="./designer-dialog.js?v=1793801300"></script>
   <script src="./designer-layout-resizer.js?v=1793803200"></script>
-  <script src="./app.js?v=1794881000"></script>
-  <script src="./ux-foundation.js?v=1794881000"></script>
-  <script src="./designer-codegen.js?v=1794881000"></script>
+  <script src="./app.js?v=1794882000"></script>
+  <script src="./ux-foundation.js?v=1794882000"></script>
+  <script src="./designer-codegen.js?v=1794882000"></script>
 
   
 

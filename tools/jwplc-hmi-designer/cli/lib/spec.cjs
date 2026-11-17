@@ -301,6 +301,26 @@ const TYPES = {
       backgroundColor: color('Fondo detrás del texto (si no es transparente).', { default: 0x0000 }),
       transparentBackground: bool('Sin fondo detrás del texto.', { default: true })
     }
+  },
+  QR: {
+    group: 'estatico',
+    desc: 'Código QR (estático en Flash o dinámico con `JWPLC_UIQR` cuando `sourceMode` es `VARIABLE`).',
+    props: {
+      ...BASE,
+      ...POS,
+      sourceMode: oneOf(['STATIC', 'VARIABLE'], 'STATIC: fijo en Flash (`jwplcUIPageEnter`). VARIABLE: `char[]` dinámico con `JWPLC_UIQR`.', { default: 'STATIC' }),
+      preset: oneOf(['URL', 'PAIR', 'DOCS', 'WIFI', 'SUPPORT', 'CUSTOM'], 'Plantilla rápida en el Designer.', { default: 'URL' }),
+      text: str('Enlace o texto del QR (o valor inicial / de prueba en el lienzo si `sourceMode` es `VARIABLE`).', { default: 'http://192.168.1.50' }),
+      variable: { kind: 'symbol', desc: 'Variable C++ `char[]` cuando `sourceMode` es `VARIABLE`.', default: 'qrTexto' },
+      maxLength: int(16, 213, 'Capacidad del buffer `char[]` en bytes cuando `sourceMode` es `VARIABLE`.', { default: 80 }),
+      scale: int(1, 4, 'Píxeles por módulo QR.', { default: 3 }),
+      ecc: oneOf(['L', 'M', 'Q', 'H'], 'Nivel de corrección de errores Reed-Solomon (`QR_LEVEL_*`).', { default: 'M' }),
+      quietZone: int(0, 4, 'Margen claro en módulos alrededor del QR (4 recomendado / estándar `JWPLC_UIQR`).', { default: 4 }),
+      frame: bool('Marco exterior de 1 px alrededor del margen.', { default: false }),
+      fgColor: color('Color de los módulos oscuros.', { default: 0x0000 }),
+      bgColor: color('Color del fondo y margen.', { default: 0xFFFF }),
+      frameColor: color('Color del marco exterior.', { default: 0xFFFF })
+    }
   }
 };
 
@@ -442,6 +462,7 @@ const POPUP = {
   width: int(120, SCREEN.width - 8, 'Ancho del cuadro (px).', { default: 248 }),
   height: int(72, SCREEN.height - 8, 'Alto del cuadro (px).', { default: 116 }),
   cornerRadius: int(0, 12, 'Radio de esquinas (px).', { default: 6 }),
+  messageTextSize: int(1, 3, 'Escala del texto GLCD del mensaje (1 = 6×8 px, 2 = 12×16 px, 3 = 18×24 px).', { default: 1 }),
   colors: { kind: 'object', desc: 'Colores RGB565 opcionales.', default: null }
 };
 

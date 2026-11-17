@@ -1552,6 +1552,7 @@
     if (field.type === 'NAV_BAR') return 'navBarField';
     if (field.type === 'MENU') return 'menuField';
     if (field.type === 'EVENT_LOG') return 'eventLogField';
+    if (field.type === 'QR') return 'qrField';
     if (field.type === 'ICON') return 'iconField';
     return 'pointer';
   }
@@ -2643,6 +2644,16 @@
       return { x, y, minX: x, maxX: x + w - 1, minY: y, maxY: y + h - 1, width: w, height: h };
     }
 
+    if (field.type === 'QR') {
+      if (window.JWPLCHMIQR?.computeBounds) return window.JWPLCHMIQR.computeBounds(field);
+      const m = window.JWPLCQRCore?.computeMetrics?.(field);
+      const x = Math.trunc(Number(field.x) || 0);
+      const y = Math.trunc(Number(field.y) || 0);
+      const w = m?.width || 66;
+      const h = m?.height || 66;
+      return { x, y, minX: x, maxX: x + w - 1, minY: y, maxY: y + h - 1, width: w, height: h };
+    }
+
     if (field.type === 'NAV_BAR') {
       const isVert = field.position === 'left' || field.position === 'right' || field.orientation === 'vertical';
       const defaultW = isVert ? 22 : 320;
@@ -2822,7 +2833,7 @@
         unitBounds: { width: 0, height: 0 }
       };
     }
-    if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON', 'RAW_TEXT'].includes(field.type)) {
+    if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON', 'RAW_TEXT', 'QR'].includes(field.type)) {
       const b = getFieldBounds(field);
       return {
         pad: 0,
@@ -3014,6 +3025,13 @@
         drawRect: (x, y, w, h, c) => drawBufferRect(buffer, x, y, w, h, c),
         drawText: (text, x, y, fg, bg, sz, fontId) => drawRawTextAt(buffer, text, x, y, fg, bg, sz || 1, fontId),
         pixel: (x, y, c) => setBufferPixel(buffer, x, y, c)
+      });
+      const b = getFieldBounds(field);
+      g = { fieldX: b.x, fieldY: b.y, fieldW: b.width, fieldH: b.height };
+    } else if (field.type === 'QR') {
+      window.JWPLCHMIQR?.paint?.(field, {
+        fillRect: (x, y, w, h, c) => fillBufferRect(buffer, x, y, w, h, c),
+        drawRect: (x, y, w, h, c) => drawBufferRect(buffer, x, y, w, h, c)
       });
       const b = getFieldBounds(field);
       g = { fieldX: b.x, fieldY: b.y, fieldW: b.width, fieldH: b.height };
@@ -3283,6 +3301,11 @@
           drawText: (text, x, y, fg, bg, sz, fontId) => drawRawTextAt(framebuffer, text, x, y, fg, bg, sz || 1, fontId),
           pixel: (x, y, c) => setBufferPixel(framebuffer, x, y, c)
         });
+      } else if (field.type === 'QR') {
+        window.JWPLCHMIQR?.paint?.(field, {
+          fillRect: (x, y, w, h, c) => fillBufferRect(framebuffer, x, y, w, h, c),
+          drawRect: (x, y, w, h, c) => drawBufferRect(framebuffer, x, y, w, h, c)
+        });
       } else if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(field.type)) {
         drawShape(framebuffer, field);
       } else if (field.type === 'RAW_TEXT') {
@@ -3465,9 +3488,9 @@
   }
 
   function buildContractText() {
-    const validFields = hmiFields.filter(f => !['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON', 'RAW_TEXT', 'NAV_BAR', 'MENU', 'EVENT_LOG'].includes(f.type));
+    const validFields = hmiFields.filter(f => !['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON', 'RAW_TEXT', 'QR', 'NAV_BAR', 'MENU', 'EVENT_LOG'].includes(f.type));
     const hasPopups = (window.JWPLCHMIPopups?.all?.()?.length || 0) > 0;
-    const hasStaticObjects = hasPopups || hmiFields.some(f => ['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON', 'RAW_TEXT', 'NAV_BAR', 'MENU', 'EVENT_LOG'].includes(f.type));
+    const hasStaticObjects = hasPopups || hmiFields.some(f => ['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON', 'RAW_TEXT', 'QR', 'NAV_BAR', 'MENU', 'EVENT_LOG'].includes(f.type));
     if (validFields.length === 0 && !hasStaticObjects) return '// Sin campos HMI. Agrega TEXT, VALUE, BOOL o BAR para comenzar.';
     if (validFields.length === 0) {
       // Sólo gráfica estática: sin HMI_FIELDS (un arreglo vacío no es C++ válido).
@@ -3683,7 +3706,8 @@
       EVENT_LOG: 'Historial',
       MENU: 'Menú',
       ICON: 'Icono',
-      TREND: 'Tendencia'
+      TREND: 'Tendencia',
+      QR: 'Código QR'
     };
     const tName = typeNames[field.type] || field.type || 'Objeto';
     const typeCount = list ? list.slice(0, index + 1).filter((f) => f.type === field.type).length : (index + 1);
@@ -3717,6 +3741,7 @@
       else if (field.type === 'MENU') icon = '▤';
       else if (field.type === 'EVENT_LOG') icon = '📋';
       else if (field.type === 'ICON') icon = '◈';
+      else if (field.type === 'QR') icon = '▦';
 
       button.innerHTML = `
         <span class="object-icon">${icon}</span>
@@ -4053,8 +4078,8 @@
 
     if (fields && fields.length === 1 && selPms.length === 0) {
       const f = fields[0];
-      // RAW_TEXT: sin handles de resize (el texto no se deforma geometricamente)
-      if (f.type === 'RAW_TEXT') return [];
+      // RAW_TEXT y QR: sin handles de resize (el tamaño depende de fuente/escala)
+      if (f.type === 'RAW_TEXT' || f.type === 'QR') return [];
       if (f.type === 'LINE') {
         const pts = getShapeTransformedVertices(f);
         const p1 = pts[0] || { x: f.x ?? 0, y: f.y ?? 0 };
@@ -4729,7 +4754,7 @@
       }
     }
 
-    const isTextTool = ['textField', 'rawText'].includes(selectedTool);
+    const isTextTool = ['textField', 'rawText', 'qrField'].includes(selectedTool);
     const textToolBtn = document.getElementById('textToolBtn');
     if (textToolBtn) {
       textToolBtn.classList.toggle('active', isTextTool);
@@ -4750,6 +4775,7 @@
     const isEventLog = field?.type === 'EVENT_LOG';
     const isIcon = field?.type === 'ICON';
     const isTrend = field?.type === 'TREND';
+    const isQr = field?.type === 'QR';
     const iconSection = document.getElementById('iconInspectorSection');
     if (iconSection) {
       iconSection.hidden = !isIcon;
@@ -4761,6 +4787,14 @@
       trendSection.style.display = isTrend ? '' : 'none';
       if (isTrend && window.JWPLCHMITrend?.syncInspector) {
         window.JWPLCHMITrend.syncInspector(field);
+      }
+    }
+    const qrSection = document.getElementById('qrInspectorSection');
+    if (qrSection) {
+      qrSection.hidden = !isQr;
+      qrSection.style.display = isQr ? '' : 'none';
+      if (isQr && window.JWPLCHMIQR?.syncInspector) {
+        window.JWPLCHMIQR.syncInspector();
       }
     }
     const menuSection = document.getElementById('menuInspectorSection');
@@ -4800,7 +4834,7 @@
         syncRawTextInspector();
       }
     }
-    const showField = Boolean(field && fieldTools.includes(selectedTool) && field.type !== 'RAW_TEXT' && !isShape && field.type !== 'NAV_BAR' && !isMenu && !isEventLog && !isIcon && !isTrend);
+    const showField = Boolean(field && fieldTools.includes(selectedTool) && field.type !== 'RAW_TEXT' && !isShape && field.type !== 'NAV_BAR' && !isMenu && !isEventLog && !isIcon && !isTrend && !isQr);
     if (fieldSection) {
       fieldSection.hidden = !showField;
       fieldSection.style.display = showField ? '' : 'none';
@@ -5607,6 +5641,14 @@
       return;
     }
 
+    if (field.type === 'QR') {
+      if (fieldSection) { fieldSection.hidden = true; fieldSection.style.display = 'none'; }
+      if (fieldMetricsSection) fieldMetricsSection.hidden = true;
+      window.JWPLCHMIQR?.syncInspector?.();
+      inspectorContract.textContent = window.JWPLCHMIQR?.contractText?.(field) || '// Código QR';
+      return;
+    }
+
     fieldName.value = field.name || '';
     fieldId.value = field.id || '';
     fieldVariable.value = field.variable || '';
@@ -5799,7 +5841,8 @@
   // ID C++ y variable de la copia: consecutivos. Figuras y RAW_TEXT sólo
   // tienen ID (y variable si la traían).
   function assignSequentialSymbols(copy, source) {
-    const isStatic = ['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON', 'RAW_TEXT'].includes(source.type);
+    const isStatic = ['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON', 'RAW_TEXT'].includes(source.type) ||
+      (source.type === 'QR' && source.sourceMode !== 'VARIABLE');
     if (source.id || !isStatic) copy.id = nextSequential(sanitizeSymbol(source.id, fieldFallbackId(source, 0)), 'id');
     if (source.variable || !isStatic) copy.variable = nextSequential(sanitizeSymbol(source.variable, variableFallback(source, 0)), 'variable');
   }
@@ -6555,6 +6598,30 @@
     commitHistory();
   }
 
+  function addQrField() {
+    const api = window.JWPLCHMIQR;
+    if (!api || hmiFields.length >= MAX_TOTAL_OBJECTS) return null;
+    fieldSerial += 1;
+    const serial = nextTypeSerial('QR');
+    const field = api.createDefault(`qr-${fieldSerial}`, serial, activePage);
+    field.name = uniqueName(`QR ${serial}`);
+    field.id = uniqueFieldSymbol(`FIELD_QR_${serial}`);
+    field.variable = uniqueVariable(`qrTexto${serial}`);
+    field.page = activePage;
+    placeNewField(field);
+    assignNewLayerOrder(field);
+    applyDefaultViewScope(field);
+    hmiFields.push(field);
+    setSelectedKeys([field.key]);
+    selectedTool = 'qrField';
+    syncInputsFromState();
+    syncToolUI();
+    window.dispatchEvent(new CustomEvent('jwplc:tool-changed', { detail: { tool: 'qrField' } }));
+    render();
+    commitHistory();
+    return field;
+  }
+
   function duplicateSelectedField() {
     const sources = selectedFields();
     const selPms = window.JWPLCHMIPixelMaps?.getSelectedMaps?.() || [];
@@ -6824,6 +6891,10 @@
         addTrendField();
         return;
       }
+      if (tool === 'qrField') {
+        addQrField();
+        return;
+      }
       selectedTool = tool;
       if (!['pointer', 'textField', 'valueField', 'boolField', 'barField', 'trendField', 'navBarField', 'menuField'].includes(tool)) {
         setSelectedKeys([]);
@@ -6865,12 +6936,14 @@
 
   const TEXT_ICONS = {
     textField: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V4h16v3"/><path d="M12 4v16"/><path d="M8 20h8"/></svg>',
-    rawText: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5L12 3.5l8 16"/><line x1="7" y1="14.5" x2="17" y2="14.5"/></svg>'
+    rawText: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5L12 3.5l8 16"/><line x1="7" y1="14.5" x2="17" y2="14.5"/></svg>',
+    qrField: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3zM18 14h3v3h-3zM14 18h3v3h-3zM18 18h3v3h-3z"/></svg>'
   };
 
   const TEXT_TITLES = {
     textField: 'Herramientas de Texto · Texto Dinámico (TEXT)',
-    rawText: 'Herramientas de Texto · Texto RAW (A)'
+    rawText: 'Herramientas de Texto · Texto RAW (A)',
+    qrField: 'Herramientas de Texto · Código QR (QR)'
   };
 
   function updateVariableButtonDisplay(tool) {
@@ -9216,6 +9289,7 @@
     addTextField,
     addValueField,
     addTrendField,
+    addQrField,
     defaultTrendField,
     addRawTextField,
     addIconField,

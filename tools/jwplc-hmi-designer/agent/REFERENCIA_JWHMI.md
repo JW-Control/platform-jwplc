@@ -474,6 +474,34 @@ Texto fijo (se dibuja una vez al entrar a la página). Admite fuentes GLCD, bitm
 | `backgroundColor` | color | `0x0000` | Fondo detrás del texto (si no es transparente). |
 | `transparentBackground` | bool | `true` | Sin fondo detrás del texto. |
 
+### `QR`
+
+Código QR (estático en Flash o dinámico con `JWPLC_UIQR` cuando `sourceMode` es `VARIABLE`).
+
+| Propiedad | Tipo / valores | Por defecto | Descripción |
+|---|---|---|---|
+| `type` **(obligatoria)** | texto |  | Tipo de objeto. |
+| `name` | texto |  | Nombre visible en la lista de objetos del Designer (no llega al C++). |
+| `id` | identificador C++ |  | Identificador C++ del objeto (único en el proyecto). Si falta se genera FIELD_<TIPO>_<n>. |
+| `page` | entero 0..15 | `0` | Página (id) donde se dibuja. |
+| `pages` | arreglo |  | Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez. |
+| `views` | arreglo |  | Subvistas opcionales (índices 0..7 dentro de la página) donde aparece el objeto. Omitido o vacío = visible en todas. |
+| `layerOrder` | entero 0..9999 |  | Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima). |
+| `x` **(obligatoria)** | entero 0..319 |  | Esquina superior izquierda, X (px). |
+| `y` **(obligatoria)** | entero 0..169 |  | Esquina superior izquierda, Y (px). |
+| `sourceMode` | `"STATIC"` · `"VARIABLE"` | `"STATIC"` | STATIC: fijo en Flash (`jwplcUIPageEnter`). VARIABLE: `char[]` dinámico con `JWPLC_UIQR`. |
+| `preset` | `"URL"` · `"PAIR"` · `"DOCS"` · `"WIFI"` · `"SUPPORT"` · `"CUSTOM"` | `"URL"` | Plantilla rápida en el Designer. |
+| `text` | texto | `"http://192.168.1.50"` | Enlace o texto del QR (o valor inicial / de prueba en el lienzo si `sourceMode` es `VARIABLE`). |
+| `variable` | identificador C++ | `"qrTexto"` | Variable C++ `char[]` cuando `sourceMode` es `VARIABLE`. |
+| `maxLength` | entero 16..213 | `80` | Capacidad del buffer `char[]` en bytes cuando `sourceMode` es `VARIABLE`. |
+| `scale` | entero 1..4 | `3` | Píxeles por módulo QR. |
+| `ecc` | `"L"` · `"M"` · `"Q"` · `"H"` | `"M"` | Nivel de corrección de errores Reed-Solomon (`QR_LEVEL_*`). |
+| `quietZone` | entero 0..4 | `4` | Margen claro en módulos alrededor del QR (4 recomendado / estándar `JWPLC_UIQR`). |
+| `frame` | bool | `false` | Marco exterior de 1 px alrededor del margen. |
+| `fgColor` | color | `0x0000` | Color de los módulos oscuros. |
+| `bgColor` | color | `0xFFFF` | Color del fondo y margen. |
+| `frameColor` | color | `0xFFFF` | Color del marco exterior. |
+
 ### Figuras: `LINE`, `RECT`, `ELLIPSE`, `TRIANGLE`, `POLYGON`
 
 - `LINE`: Línea de (x,y) a (x2,y2).
@@ -559,6 +587,7 @@ Modales I5-I6 sobre IDLE o USER (`INFO`, `WARN`, `CRIT`, `CONFIRM`). Máximo `12
 | `width` | entero 120..312 | `248` | Ancho del cuadro (px). |
 | `height` | entero 72..162 | `116` | Alto del cuadro (px). |
 | `cornerRadius` | entero 0..12 | `6` | Radio de esquinas (px). |
+| `messageTextSize` | entero 1..3 | `1` | Escala del texto GLCD del mensaje (1 = 6×8 px, 2 = 12×16 px, 3 = 18×24 px). |
 | `colors` | objeto |  | Colores RGB565 opcionales. |
 
 Colores por defecto según preset (`colors`):

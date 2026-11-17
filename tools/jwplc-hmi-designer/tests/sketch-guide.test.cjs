@@ -61,7 +61,8 @@ for (const file of goldens) {
   let log = '';
   try {
     execFileSync('g++', ['-std=gnu++17', '-fsyntax-only', '-Wall', '-Werror=unused-variable', `-I${dir}`, `-I${STUB}`,
-      `-I${path.join(LIBS, 'JWPLC_Display', 'src')}`, `-I${path.join(LIBS, 'JWPLC_TFT', 'src')}`, path.join(dir, 'sketch.cpp')], { stdio: 'pipe' });
+      `-I${path.join(LIBS, 'JWPLC_Display', 'src')}`, `-I${path.join(LIBS, 'JWPLC_TFT', 'src')}`,
+      `-I${path.join(LIBS, 'JWPLC_UI_Widgets', 'src')}`, path.join(dir, 'sketch.cpp')], { stdio: 'pipe' });
   } catch (error) {
     ok = false;
     log = String(error.stderr || error.message).split('\n').slice(0, 8).join('\n');

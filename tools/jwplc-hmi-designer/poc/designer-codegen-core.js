@@ -14,7 +14,7 @@
   const SCREEN_H = 170;
   const DEFAULT_BAR_THICKNESS = 12; // DEFAULT_BAR_HEIGHT de JWPLC_UI.cpp
   const MULTI_PAGE_TYPES = new Set([
-    'VALUE', 'BOOL', 'TEXT', 'BAR', 'ICON', 'TREND',
+    'VALUE', 'BOOL', 'TEXT', 'BAR', 'ICON', 'TREND', 'QR',
     'RAW_TEXT', 'LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'
   ]);
 

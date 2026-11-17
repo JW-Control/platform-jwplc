@@ -12,6 +12,7 @@ const path = require('path');
 const vm = require('vm');
 const spec = require('./spec.cjs');
 const icons = require('./icons.cjs');
+const qrCore = require('../../poc/designer-qr-core.js');
 
 const POC = path.resolve(__dirname, '..', '..', 'poc');
 const SYMBOL = /^[A-Za-z_][A-Za-z0-9_]*$/;
@@ -153,6 +154,7 @@ function noGlyph(report, at, text) {
 // Tipo C++ de la variable de cada campo (como designer-codegen-core.js).
 function cppType(field) {
   if (field.type === 'TEXT') return 'char[]';
+  if (field.type === 'QR') return field.sourceMode === 'VARIABLE' ? 'char[]' : null;
   if (field.type === 'BOOL') return 'bool';
   if (field.type === 'BAR' || field.type === 'TREND') return 'float';
   if (field.type === 'ICON') return field.iconVarType === 'uint8' ? 'uint8_t' : 'bool';
@@ -251,6 +253,25 @@ function validateField(field, i, project, report) {
     }
   }
   if (field.type === 'ICON') validateIcon(field, where, project, report);
+  if (field.type === 'QR') {
+    const m = qrCore.computeMetrics(field);
+    if (field.sourceMode === 'VARIABLE' && !field.variable) {
+      report.error(`${where}.variable`, 'falta variable C++ para QR en modo VARIABLE');
+    }
+    if (!m.ok) {
+      if (field.sourceMode === 'VARIABLE' && m.encoded?.empty) {
+        report.warn(`${where}.text`, 'el texto de vista previa del QR está vacío');
+      } else {
+        report.error(`${where}.text`, m.encoded?.error || 'contenido inválido para QR');
+      }
+    }
+    if (field.sourceMode === 'VARIABLE' && m.byteLength > field.maxLength) {
+      report.warn(`${where}.maxLength`, `el texto inicial (${m.byteLength} B) supera maxLength (${field.maxLength} B)`);
+    }
+    if (!m.fitsScreen) {
+      report.warn(`${where}.scale`, `el QR (${m.width}×${m.height} px) supera la pantalla 320×170 px`);
+    }
+  }
   if (spec.SHAPE_TYPES.includes(field.type)) {
     if (field.type !== 'LINE' && (field.x === field.x2 || field.y === field.y2)) report.warn(where, 'la caja tiene ancho o alto 0: no se verá');
   }

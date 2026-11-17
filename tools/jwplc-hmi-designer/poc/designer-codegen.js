@@ -75,6 +75,7 @@
     if (field?.type === 'BOOL') return `FIELD_BOOL_${serial}`;
     if (field?.type === 'BAR') return `FIELD_BAR_${serial}`;
     if (field?.type === 'TREND') return `FIELD_TREND_${serial}`;
+    if (field?.type === 'QR') return `FIELD_QR_${serial}`;
     return `FIELD_TEXT_${serial}`;
   }
 
@@ -85,6 +86,7 @@
     if (field?.type === 'BOOL') return `estado${serial}`;
     if (field?.type === 'BAR') return `nivel${serial}`;
     if (field?.type === 'TREND') return `tendencia${serial}`;
+    if (field?.type === 'QR') return `qrTexto${serial}`;
     return `texto${serial}`;
   }
 
@@ -129,6 +131,7 @@
   }
 
   function variableTypeFor(field) {
+    if (field?.type === 'QR') return field.sourceMode === 'VARIABLE' ? 'char[]' : null;
     const coreType = window.JWPLCHMICodegenCore?.fieldVariableCppType?.(field);
     if (coreType !== undefined) return coreType;
     if (!field?.type || isStaticObject(field) || isClockField(field)) return null;
@@ -333,8 +336,23 @@
     return issues;
   }
 
+  function utf8CppEscape(value) {
+    return String(value || '')
+      .replace(/[\r\n]+/g, ' ')
+      .replace(/\\/g, '\\\\')
+      .replace(/"/g, '\\"');
+  }
+
   function variableDeclaration(field, index) {
     if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON', 'RAW_TEXT'].includes(field.type)) return '';
+    if (field.type === 'QR') {
+      if (field.sourceMode !== 'VARIABLE') return '';
+      const qrCore = window.JWPLCQRCore;
+      const variable = canonicalFor(field, 'variable', field.variable, index);
+      const maxLen = qrCore ? qrCore.clampMaxLength(field.maxLength) : Math.max(16, Math.min(213, Math.trunc(Number(field.maxLength) || 80)));
+      const init = utf8CppEscape(field.text || '').slice(0, maxLen);
+      return `char ${variable}[${maxLen + 1}] = "${init}"; // QR: máximo ${maxLen} bytes`;
+    }
     const variable = canonicalFor(field, 'variable', field.variable, index);
     if (field.type === 'VALUE' && window.JWPLCHMICodegenCore?.valueDeclaration) return window.JWPLCHMICodegenCore.valueDeclaration(field, variable);
     if (field.type === 'TREND' && window.JWPLCHMICodegenCore?.trendVariableDeclarations) return window.JWPLCHMICodegenCore.trendVariableDeclarations(field, variable);
@@ -347,6 +365,7 @@
   const STATIC_TYPES = ['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON', 'RAW_TEXT'];
 
   function isStaticObject(field) {
+    if (field?.type === 'QR') return field.sourceMode !== 'VARIABLE';
     return STATIC_TYPES.includes(field?.type);
   }
 
@@ -538,6 +557,92 @@ static void jwplcHMIDrawMicroText(JWPLC_TFTClass &tft, int16_t x, int16_t y, con
         }
     }
 #endif
+}`,
+    drawQR: `static void jwplcHMIDrawQR(JWPLC_TFTClass &tft,
+    int16_t x, int16_t y, uint8_t size, uint8_t scale, uint8_t quiet,
+    uint16_t fg, uint16_t bg, bool frame, uint16_t frameColor, const uint8_t *bits)
+{
+    const int16_t pad = (frame && quiet == 0) ? 1 : 0;
+    const int16_t qrSide = (int16_t)((size + 2 * quiet) * scale);
+    const int16_t totalSide = (int16_t)(qrSide + pad * 2);
+    tft.fillRect(x, y, totalSide, totalSide, bg);
+    const int16_t ox = (int16_t)(x + pad + quiet * scale);
+    const int16_t oy = (int16_t)(y + pad + quiet * scale);
+    for (uint8_t my = 0; my < size; my++)
+    {
+        uint8_t mx = 0;
+        while (mx < size)
+        {
+            const uint16_t idx = (uint16_t)my * size + mx;
+            const bool dark = (bits[idx >> 3] & (0x80u >> (idx & 7))) != 0;
+            if (!dark)
+            {
+                mx++;
+                continue;
+            }
+            uint8_t run = 1;
+            while ((uint8_t)(mx + run) < size)
+            {
+                const uint16_t nidx = (uint16_t)my * size + (uint8_t)(mx + run);
+                if ((bits[nidx >> 3] & (0x80u >> (nidx & 7))) == 0) break;
+                run++;
+            }
+            tft.fillRect((int16_t)(ox + mx * scale), (int16_t)(oy + my * scale),
+                         (int16_t)(run * scale), scale, fg);
+            mx = (uint8_t)(mx + run);
+        }
+    }
+    if (frame)
+    {
+        tft.drawRect(x, y, totalSide, totalSide, frameColor);
+    }
+}`,
+    updateQR: `static void jwplcHMIUpdateQR(JWPLC_UIQR &qr, char *last, size_t lastCap, bool &drawn,
+    const char *text, int16_t x, int16_t y, uint8_t scale, uint8_t ecc, uint8_t quiet,
+    uint16_t fg, uint16_t bg, bool frame, uint16_t frameColor)
+{
+    const char *src = text ? text : "";
+    if (drawn && strncmp(last, src, lastCap) == 0)
+    {
+        return;
+    }
+    strncpy(last, src, lastCap - 1);
+    last[lastCap - 1] = '\\0';
+    drawn = true;
+    JWPLC_TFTClass &tft = JWPLC_Display.tft();
+    if (src[0] == '\\0' || !qr.setText(src, ecc))
+    {
+        const uint8_t fallbackSize = 21;
+        const int16_t pad = (frame && quiet == 0) ? 1 : 0;
+        const int16_t totalSide = (int16_t)((fallbackSize + 2 * quiet) * scale + pad * 2);
+        tft.fillRect(x, y, totalSide, totalSide, bg);
+        if (frame) tft.drawRect(x, y, totalSide, totalSide, frameColor);
+        return;
+    }
+    const uint8_t modSize = qr.size();
+    const int16_t pad = (frame && quiet == 0) ? 1 : 0;
+    const int16_t qrSide = (int16_t)((modSize + 2 * quiet) * scale);
+    const int16_t totalSide = (int16_t)(qrSide + pad * 2);
+    tft.fillRect(x, y, totalSide, totalSide, bg);
+    const int16_t ox = (int16_t)(x + pad + quiet * scale);
+    const int16_t oy = (int16_t)(y + pad + quiet * scale);
+    for (uint8_t my = 0; my < modSize; my++)
+    {
+        uint8_t mx = 0;
+        while (mx < modSize)
+        {
+            if (!qr.module(mx, my)) { mx++; continue; }
+            uint8_t run = 1;
+            while ((uint8_t)(mx + run) < modSize && qr.module((uint8_t)(mx + run), my)) run++;
+            tft.fillRect((int16_t)(ox + mx * scale), (int16_t)(oy + my * scale),
+                         (int16_t)(run * scale), scale, fg);
+            mx = (uint8_t)(mx + run);
+        }
+    }
+    if (frame)
+    {
+        tft.drawRect(x, y, totalSide, totalSide, frameColor);
+    }
 }`
   };
 
@@ -770,17 +875,101 @@ static void jwplcHMIDrawMicroText(JWPLC_TFTClass &tft, int16_t x, int16_t y, con
       return { lines, helpers };
     }
 
+    if (field.type === 'QR') {
+      const qrCore = window.JWPLCQRCore;
+      if (!qrCore || field.sourceMode === 'VARIABLE') return { lines, helpers };
+      const m = qrCore.computeMetrics(field);
+      const idx = Math.max(0, allFields().indexOf(field));
+      const id = canonicalFor(field, 'id', field.id, idx);
+      const fg = hex565(field.fgColor ?? 0x0000);
+      const bg = hex565(field.bgColor ?? 0xFFFF);
+      const fc = hex565(field.frameColor ?? 0xFFFF);
+      const frameArg = field.frame ? 'true' : 'false';
+      if (!m.ok) {
+        lines.push(`// QR ${id} no generado: ${m.encoded?.error || 'contenido inválido'}`);
+        return { lines, helpers };
+      }
+      helpers.add('drawQR');
+      lines.push(`jwplcHMIDrawQR(tft, ${Math.trunc(Number(field.x) || 0)}, ${Math.trunc(Number(field.y) || 0)}, ${m.moduleCount}, ${m.scale}, ${m.quietZone}, ${fg}, ${bg}, ${frameArg}, ${fc}, QR_${id}_BITS);`);
+      return { lines, helpers };
+    }
+
     return { lines, helpers };
+  }
+
+  function qrStaticAssetsBlock() {
+    const qrCore = window.JWPLCQRCore;
+    if (!qrCore) return '';
+    const fields = allFields();
+    const blocks = [];
+    const seen = new Set();
+    fields.forEach((field, index) => {
+      if (field.type !== 'QR' || field.sourceMode === 'VARIABLE' || field.hidden) return;
+      const id = canonicalFor(field, 'id', field.id, index);
+      if (seen.has(id)) return;
+      seen.add(id);
+      const m = qrCore.computeMetrics(field);
+      if (!m.ok) return;
+      const bytes = qrCore.packModulesToBytes(m.encoded);
+      const rows = [];
+      for (let i = 0; i < bytes.length; i += 16) {
+        rows.push('    ' + bytes.slice(i, i + 16).map((b) => `0x${b.toString(16).toUpperCase().padStart(2, '0')}`).join(', '));
+      }
+      blocks.push(
+        `// QR estático ${id} (${m.moduleCount}x${m.moduleCount}, v${m.version}, nivel ${m.ecc}, ${bytes.length} B)\n` +
+        `static const uint8_t QR_${id}_BITS[] =\n{\n${rows.join(',\n')}\n};`
+      );
+    });
+    return blocks.join('\n\n');
+  }
+
+  function qrDynamicStateBlock() {
+    const qrCore = window.JWPLCQRCore;
+    if (!qrCore) return '';
+    const fields = allFields();
+    const lines = [];
+    const seen = new Set();
+    fields.forEach((field, index) => {
+      if (field.type !== 'QR' || field.sourceMode !== 'VARIABLE' || field.hidden) return;
+      const id = canonicalFor(field, 'id', field.id, index);
+      if (seen.has(id)) return;
+      seen.add(id);
+      const maxLen = qrCore.clampMaxLength(field.maxLength);
+      lines.push(
+        `static JWPLC_UIQR jwplcHMIQr_${id};\n` +
+        `static char jwplcHMIQrLast_${id}[${maxLen + 1}] = "";\n` +
+        `static bool jwplcHMIQrDrawn_${id} = false;`
+      );
+    });
+    return lines.join('\n');
   }
 
   function isClockField(field) {
     return Boolean(window.JWPLCHMICodegenCore?.isClockField?.(field));
   }
 
-  function setterHint(field, index) {
+  function setterHint(field, index, pageSymbol = null) {
     if (isStaticObject(field) || isClockField(field)) return '';
     const id = canonicalFor(field, 'id', field.id, index);
     const variable = canonicalFor(field, 'variable', field.variable, index);
+    if (field.type === 'QR') {
+      const qrCore = window.JWPLCQRCore;
+      const ecc = qrCore ? qrCore.normalizeEcc(field.ecc) : 'M';
+      const eccCpp = qrCore?.ECC_LEVELS?.[ecc]?.cpp || `QR_LEVEL_${ecc}`;
+      const scale = qrCore ? qrCore.clampScale(field.scale) : 3;
+      const quiet = qrCore ? qrCore.clampQuietZone(field.quietZone) : 4;
+      const fg = hex565(field.fgColor ?? 0x0000);
+      const bg = hex565(field.bgColor ?? 0xFFFF);
+      const fc = hex565(field.frameColor ?? 0xFFFF);
+      const frameArg = field.frame ? 'true' : 'false';
+      const call = `jwplcHMIUpdateQR(jwplcHMIQr_${id}, jwplcHMIQrLast_${id}, sizeof(jwplcHMIQrLast_${id}), jwplcHMIQrDrawn_${id}, ${variable}, ${Math.trunc(Number(field.x) || 0)}, ${Math.trunc(Number(field.y) || 0)}, ${scale}, ${eccCpp}, ${quiet}, ${fg}, ${bg}, ${frameArg}, ${fc});`;
+      const vs = fieldViews(field);
+      if (vs && vs.length && pageSymbol) {
+        const mask = `0x${vs.reduce((a, v) => a | (1 << v), 0).toString(16).toUpperCase().padStart(2, '0')}U`;
+        return `if (((1U << JWPLC_Display.pageView(${pageSymbol})) & ${mask}) != 0U) ${call} else jwplcHMIQrDrawn_${id} = false;`;
+      }
+      return call;
+    }
     if (field.type === 'VALUE') return `JWPLC_Display.setValue(${id}, ${variable});`;
     if (field.type === 'BOOL') return `JWPLC_Display.setBool(${id}, ${variable});`;
     if (field.type === 'ICON') return window.JWPLCIconsCore.iconSetter(id, variable);
@@ -994,17 +1183,18 @@ static void jwplcHMIDrawMicroText(JWPLC_TFTClass &tft, int16_t x, int16_t y, con
     const cases = [];
 
     pages().forEach((page) => {
+      const symbol = symbols.get(Number(page.id)) || String(Number(page.id));
       const lines = fields
         .map((field, index) => ({ field, index }))
         .filter(({ field }) =>
           fieldOnPage(field, page.id) &&
+          !field.hidden &&
           field.type !== 'TREND' &&
           !isStaticObject(field) &&
           !isClockField(field))
-        .map(({ field, index }) => `        ${setterHint(field, index)}`);
+        .map(({ field, index }) => `        ${setterHint(field, index, symbol)}`);
       if (!lines.length) return;
 
-      const symbol = symbols.get(Number(page.id)) || String(Number(page.id));
       cases.push(
         `    case ${symbol}:\n` +
         `        // ${pageComment(page)}\n` +
@@ -1108,6 +1298,15 @@ static void jwplcHMIDrawMicroText(JWPLC_TFTClass &tft, int16_t x, int16_t y, con
         flushGroup();
       }
 
+      const dynQrs = fields
+        .map((field, index) => ({ field, index }))
+        .filter(({ field }) => field.type === 'QR' && field.sourceMode === 'VARIABLE' && !field.hidden && fieldOnPage(field, page.id));
+      dynQrs.forEach(({ field, index }) => {
+        helpers.add('updateQR');
+        const id = canonicalFor(field, 'id', field.id, index);
+        lines.push(`        jwplcHMIQrDrawn_${id} = false;`);
+      });
+
       if (!lines.length) return;
       cases.push(
         `    case ${symbol}:\n` +
@@ -1127,8 +1326,11 @@ static void jwplcHMIDrawMicroText(JWPLC_TFTClass &tft, int16_t x, int16_t y, con
     parts.push(`void jwplcUIPageEnter(uint8_t page)`);
     parts.push(`{`);
     if (cases.length) {
-      parts.push(`    JWPLC_TFTClass &tft = JWPLC_Display.tft();`);
-      parts.push(``);
+      const usesTft = cases.some((c) => /\btft\.|jwplcHMIFill|jwplcHMIDraw/.test(c));
+      if (usesTft) {
+        parts.push(`    JWPLC_TFTClass &tft = JWPLC_Display.tft();`);
+        parts.push(``);
+      }
       parts.push(`    switch (page)`);
       parts.push(`    {`);
       parts.push(cases.join('\n\n'));
@@ -1148,7 +1350,7 @@ static void jwplcHMIDrawMicroText(JWPLC_TFTClass &tft, int16_t x, int16_t y, con
     parts.push(`    }`);
     parts.push(`}`);
 
-    const order = ['fonts', 'swap', 'fillTriangle', 'fillEllipse', 'drawEllipse', 'microText'];
+    const order = ['fonts', 'swap', 'fillTriangle', 'fillEllipse', 'drawEllipse', 'microText', 'drawQR', 'updateQR'];
     return { block: parts.join('\n'), helpers: order.filter((name) => helpers.has(name)) };
   }
 
@@ -1186,19 +1388,26 @@ static void jwplcHMIDrawMicroText(JWPLC_TFTClass &tft, int16_t x, int16_t y, con
       .replace('// API pública JWPLC_UI · Alpha11 A11-3E', '// API pública JWPLC_UI · Alpha11 A11-4')
       .replace('// API pública JWPLC_UI · Alpha11 A11-3D', '// API pública JWPLC_UI · Alpha11 A11-4');
 
-    if (text.includes('#pragma once')) return text;
+    const needsQrWidgets = allFields().some((f) => f.type === 'QR' && f.sourceMode === 'VARIABLE' && !f.hidden);
 
-    const marker = '// API pública JWPLC_UI · Alpha11 A11-4';
-    const replacement = `${marker}\n// Destino recomendado: JWPLC_HMI_Generated.h\n// Archivo autogenerado: regenerar desde el Designer en lugar de editar a mano.\n\n#pragma once\n\n#include <JWPLC_Display.h>`;
-    return text.replace(marker, replacement);
+    if (!text.includes('#pragma once')) {
+      const marker = '// API pública JWPLC_UI · Alpha11 A11-4';
+      const replacement = `${marker}\n// Destino recomendado: JWPLC_HMI_Generated.h\n// Archivo autogenerado: regenerar desde el Designer en lugar de editar a mano.\n\n#pragma once\n\n#include <JWPLC_Display.h>`;
+      text = text.replace(marker, replacement);
+    }
+
+    if (needsQrWidgets && !text.includes('#include <JWPLC_UI_Widgets.h>')) {
+      text = text.replace('#include <JWPLC_Display.h>', '#include <JWPLC_Display.h>\n#include <JWPLC_UI_Widgets.h>');
+    }
+    return text;
   }
 
   function groupGeneratedSections(text) {
-    // Sólo los campos del runtime (TEXT/VALUE/BOOL/BAR) llevan HMIFieldId,
+    // Sólo los campos del runtime (TEXT/VALUE/BOOL/BAR/ICON/TREND) llevan HMIFieldId,
     // numerados de forma consecutiva.
     let fieldSerial = 0;
     const enumLines = groupedChunks((field, index) => {
-      if (isStaticObject(field)) return '';
+      if (isStaticObject(field) || field.type === 'QR') return '';
       fieldSerial += 1;
       const id = canonicalFor(field, 'id', field.id, index);
       return `    ${id} = ${fieldSerial},`;
@@ -1225,7 +1434,9 @@ static void jwplcHMIDrawMicroText(JWPLC_TFTClass &tft, int16_t x, int16_t y, con
     const pageEnter = generatedPageEnterBlock();
     const uiUpdate = generatedUIUpdateBlock();
     const helperNames = [...new Set([...pageEnter.helpers, ...navBar.helpers])];
-    const fullUiBlock = [helpersBlock(helperNames), navBar.block, pageEnter.block, uiUpdate]
+    const qrAssets = qrStaticAssetsBlock();
+    const qrDynState = qrDynamicStateBlock();
+    const fullUiBlock = [helpersBlock(helperNames), qrAssets, qrDynState, navBar.block, pageEnter.block, uiUpdate]
       .filter(Boolean)
       .join('\n\n');
     const pageEnum = pageEnumBlock();
