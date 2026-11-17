@@ -462,7 +462,7 @@ const popupsSample = [
   { ...popupsApi.presetDefaults('INFO', 0), name: 'LISTO', code: 'I01', acceptText: 'LISTO', autoCloseMs: 2500 },
   { ...popupsApi.presetDefaults('WARN', 1), name: 'TEMP_ALTA', code: 'W02', colors: { ...popupsApi.PRESET_COLORS.WARN, headerBg: 0xFFE0 } },
   { ...popupsApi.presetDefaults('CRIT', 2), name: 'SOBRE_TEMP', code: 'E104', errCode: 'E104', triggerVar: 'alarmaCrit' },
-  { ...popupsApi.presetDefaults('CONFIRM', 3), name: 'CONFIRMAR_INICIO', confirmOutVar: 'confirmarAccion', targetPage: 0, targetView: 1, x: 20, width: 260 }
+  { ...popupsApi.presetDefaults('CONFIRM', 3), name: 'CONFIRMAR_INICIO', confirmOutVar: 'confirmarAccion', targetPage: 0, targetView: 1, x: 20, width: 260, messageTextSize: 2 }
 ];
 const fieldsForPopupCheck = [
   { type: 'BOOL', id: 'F_ALARMA', variable: 'alarmaCrit' },
@@ -486,6 +486,7 @@ check(/#ifndef JWPLC_UI_HAS_POPUP/.test(genPopups.declarations) &&
   /JWPLC_UIPopupButtons\(/.test(genPopups.declarations) &&
   /JWPLC_UIPopupNavTarget\(\s*[\s\S]*PAGE_0,\s*1/.test(genPopups.declarations) &&
   /JWPLC_UIPopupRect\(/.test(genPopups.declarations) &&
+  /JWPLC_UIPopupTextSize\(\s*[\s\S]*2\)/.test(genPopups.declarations) &&
   /JWPLC_UIPopupColorsOverride\(/.test(genPopups.declarations) &&
   /JWPLC_Display\.setPopups\(/.test(genPopups.setup),
   'POPUPS: emite todos los presets y modificadores C++ I5-I6');

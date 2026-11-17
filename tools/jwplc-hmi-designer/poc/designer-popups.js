@@ -123,6 +123,7 @@
       logToEventLog: key === 'CRIT',
       targetPage: -1,
       targetView: -1,
+      messageTextSize: 1,
       ...DEFAULT_RECT,
       colors: { ...PRESET_COLORS[key] }
     };
@@ -162,7 +163,8 @@
       targetView: src.targetView !== undefined ? clamp(Math.trunc(num(src.targetView, -1)), -1, 7) : -1,
       width: clamp(Math.trunc(num(src.width, DEFAULT_RECT.width)), 120, SCREEN_W - 8),
       height: clamp(Math.trunc(num(src.height, DEFAULT_RECT.height)), 72, SCREEN_H - 8),
-      cornerRadius: clamp(Math.trunc(num(src.cornerRadius, DEFAULT_RECT.cornerRadius)), 0, 12)
+      cornerRadius: clamp(Math.trunc(num(src.cornerRadius, DEFAULT_RECT.cornerRadius)), 0, 12),
+      messageTextSize: clamp(Math.trunc(num(src.messageTextSize !== undefined ? src.messageTextSize : src.textSize, 1)), 1, 3)
     };
     merged.x = clamp(Math.trunc(num(src.x, Math.round((SCREEN_W - merged.width) / 2))), 0, SCREEN_W - merged.width);
     merged.y = clamp(Math.trunc(num(src.y, Math.round((SCREEN_H - merged.height) / 2))), 0, SCREEN_H - merged.height);
@@ -215,12 +217,13 @@
     ctx.stroke();
   }
 
-  function drawGlcdText(ctx, text, x, y, css) {
+  function drawGlcdText(ctx, text, x, y, css, scale = 1) {
+    const s = clamp(Math.trunc(Number(scale) || 1), 1, 3);
     const font = typeof window !== 'undefined' ? window.JWPLCGfxClassicFont : null;
     if (!font || !text) {
       if (text) {
         ctx.fillStyle = css;
-        ctx.font = '8px monospace';
+        ctx.font = `${8 * s}px monospace`;
         ctx.textBaseline = 'top';
         ctx.fillText(String(text), x, y);
       }
@@ -234,10 +237,10 @@
       for (let col = 0; col < font.cellWidth; col += 1) {
         const bits = col < font.bytesPerGlyph ? glyph[col] : 0;
         for (let row = 0; row < font.cellHeight; row += 1) {
-          if ((bits >> row) & 1) ctx.fillRect(cursorX + col, baseY + row, 1, 1);
+          if ((bits >> row) & 1) ctx.fillRect(cursorX + col * s, baseY + row * s, s, s);
         }
       }
-      cursorX += font.cellWidth;
+      cursorX += font.cellWidth * s;
     }
   }
 
@@ -344,15 +347,18 @@
     const bodyY = y + 2 + HEADER_H + 4;
     const bodyW = w - 20;
     const bodyH = h - HEADER_H - 34;
-    const maxChars = Math.max(4, Math.floor(bodyW / CHAR_W));
-    const maxLines = Math.max(1, Math.min(6, Math.floor(bodyH / LINE_H)));
+    const msgScale = clamp(Math.trunc(num(p.messageTextSize, 1)), 1, 3);
+    const msgCharW = CHAR_W * msgScale;
+    const msgLineH = msgScale === 1 ? LINE_H : (CHAR_H * msgScale + 4);
+    const maxChars = Math.max(4, Math.floor(bodyW / msgCharW));
+    const maxLines = Math.max(1, Math.min(6, Math.floor(bodyH / msgLineH)));
     const lines = wrapLines(p.message, maxChars, maxLines);
-    const totalH = lines.length * LINE_H;
+    const totalH = lines.length * msgLineH;
     const startY = totalH < bodyH ? Math.floor(bodyY + (bodyH - totalH) / 2 + 1) : bodyY;
     lines.forEach((line, idx) => {
-      const lw = line.length * CHAR_W;
+      const lw = line.length * msgCharW;
       const lx = Math.max(bodyX, Math.floor(bodyX + (bodyW - lw) / 2));
-      drawGlcdText(ctx, line, lx, startY + idx * LINE_H, txtCss);
+      drawGlcdText(ctx, line, lx, startY + idx * msgLineH, txtCss, msgScale);
     });
 
     const btnY = y + h - 25;
@@ -505,6 +511,9 @@
       }
       if (p.x !== DEFAULT_RECT.x || p.y !== DEFAULT_RECT.y || p.width !== DEFAULT_RECT.width || p.height !== DEFAULT_RECT.height || p.cornerRadius !== DEFAULT_RECT.cornerRadius) {
         expr = `JWPLC_UIPopupRect(\n        ${expr},\n        ${p.x}, ${p.y}, ${p.width}, ${p.height}, ${p.cornerRadius})`;
+      }
+      if (p.messageTextSize !== 1) {
+        expr = `JWPLC_UIPopupTextSize(\n        ${expr},\n        ${p.messageTextSize})`;
       }
       if (colorsDiffer(p.colors, PRESET_COLORS[p.preset])) {
         const cols = [
@@ -811,6 +820,12 @@
               <label class="field-label">Título cabecera<input class="field-input" data-popup-prop="title" type="text" maxlength="35" /></label>
               <label class="field-label" data-popup-code-wrap>Código derecha (opcional, ej. E104)<input class="field-input code-input" data-popup-prop="code" type="text" maxlength="8" /></label>
               <label class="field-label">Mensaje (multilínea)<textarea class="field-input popup-textarea" data-popup-prop="message" maxlength="127"></textarea></label>
+              <span class="bar-visual-group-title insp-gap">Tamaño texto del mensaje</span>
+              <div class="bar-visual-grid-3">
+                <button type="button" class="bar-visual-btn" data-popup-textsize="1"><strong>1×</strong><span>Normal</span></button>
+                <button type="button" class="bar-visual-btn" data-popup-textsize="2"><strong>2×</strong><span>Grande</span></button>
+                <button type="button" class="bar-visual-btn" data-popup-textsize="3"><strong>3×</strong><span>Extra</span></button>
+              </div>
             </div>
             <div class="bar-card">
               <div class="insp-two">
@@ -830,12 +845,15 @@
           <div class="insp-panel" data-popup-panel="design:appearance" hidden>
             <div class="bar-card">
               <div class="bar-card-header">
-                <span class="bar-card-section-title" style="margin:0;">Colores del modal</span>
+                <span class="bar-card-section-title" style="margin:0;">Vista previa y colores</span>
                 <button type="button" class="insp-chip" data-popup-reset-colors>Restaurar preset</button>
+              </div>
+              <div class="popup-preview-stage insp-gap">
+                <canvas class="popup-preview-canvas" data-popup-preview-canvas width="248" height="116" title="Clic en una zona (cabecera, cuerpo, borde o botón) para editar su color"></canvas>
               </div>
               <div class="menu-legend insp-gap" data-popup-swatch-list></div>
               <div class="menu-palette">
-                <div class="insp-note">Clic en un cuadro de color para editarlo en RGB565.</div>
+                <div class="insp-note">Clic en la vista previa o en una fila para editar su color en RGB565.</div>
                 <div data-popup-color-editor></div>
               </div>
             </div>
@@ -941,6 +959,12 @@
         });
         return;
       }
+      const textSizeBtn = t.closest('[data-popup-textsize]');
+      if (textSizeBtn) {
+        const nextScale = Number(textSizeBtn.dataset.popupTextsize) || 1;
+        mutateSelected((p) => { p.messageTextSize = nextScale; });
+        return;
+      }
       const focusBtn = t.closest('[data-popup-focus]');
       if (focusBtn) {
         previewFocusIndex = Number(focusBtn.dataset.popupFocus) === 1 ? 1 : 0;
@@ -983,6 +1007,21 @@
       if (t.closest('[data-popup-copy]')) {
         const text = rightSection.querySelector('[data-popup-contract]')?.textContent || '';
         navigator.clipboard?.writeText?.(text).catch(() => {});
+        return;
+      }
+      const prevCanvas = t.closest('[data-popup-preview-canvas]');
+      if (prevCanvas) {
+        const cur = findSelected();
+        if (!cur) return;
+        const rect = prevCanvas.getBoundingClientRect();
+        const pad = 4;
+        const lx = ((e.clientX - rect.left) * prevCanvas.width) / Math.max(1, rect.width) - pad;
+        const ly = ((e.clientY - rect.top) * prevCanvas.height) / Math.max(1, rect.height) - pad;
+        const zoneKey = detectPopupZoneAt(cur, lx, ly);
+        if (zoneKey) {
+          activeColorKey = zoneKey;
+          syncRightInspector();
+        }
       }
     });
 
@@ -1039,6 +1078,77 @@
       : '<div class="insp-note">Aún no hay ventanas emergentes.</div>';
   }
 
+  function detectPopupZoneAt(p, lx, ly) {
+    const w = p.width;
+    const h = p.height;
+    if (lx < 0 || ly < 0 || lx > w || ly > h) return null;
+    if (lx <= 4 || lx >= w - 4 || ly <= 3 || ly >= h - 4) return 'border';
+    if (ly <= HEADER_H + 4) {
+      return activeColorKey === 'headerBg' ? 'headerText' : 'headerBg';
+    }
+    const btnY = h - 25;
+    if (ly >= btnY - 2 && ly <= btnY + 20) {
+      if (p.preset === 'CONFIRM') {
+        const btnW = 94;
+        const gap = 12;
+        const startX = Math.floor((w - (btnW * 2 + gap)) / 2);
+        if (lx >= startX && lx <= startX + btnW) {
+          return activeColorKey === 'cancelBg' ? 'cancelText' : 'cancelBg';
+        }
+        if (lx >= startX + btnW + gap && lx <= startX + btnW * 2 + gap) {
+          return activeColorKey === 'acceptBg' ? 'acceptText' : 'acceptBg';
+        }
+      } else {
+        const btnW = 86;
+        const bx = Math.floor((w - btnW) / 2);
+        if (lx >= bx && lx <= bx + btnW) {
+          return activeColorKey === 'acceptBg' ? 'acceptText' : 'acceptBg';
+        }
+      }
+    }
+    return activeColorKey === 'background' ? 'text' : 'background';
+  }
+
+  function renderAppearancePreview(p) {
+    if (!rightSection) return;
+    const canvas = rightSection.querySelector('[data-popup-preview-canvas]');
+    if (!canvas || !canvas.getContext) return;
+    const pad = 4;
+    const targetW = p.width + pad * 2;
+    const targetH = p.height + pad * 2;
+    if (canvas.width !== targetW) canvas.width = targetW;
+    if (canvas.height !== targetH) canvas.height = targetH;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, targetW, targetH);
+    const localPopup = { ...p, x: pad, y: pad };
+    paintPopup(ctx, localPopup, p.preset === 'CONFIRM' ? previewFocusIndex : 0);
+
+    // Resaltado sutil de la zona activa en edición
+    ctx.save();
+    ctx.strokeStyle = '#ff9a43';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 2]);
+    if (activeColorKey === 'headerBg' || activeColorKey === 'headerText') {
+      ctx.strokeRect(pad + 2.5, pad + 2.5, p.width - 5, HEADER_H - 1);
+    } else if (activeColorKey === 'border') {
+      ctx.strokeRect(pad + 0.5, pad + 0.5, p.width - 1, p.height - 1);
+    } else if (activeColorKey === 'acceptBg' || activeColorKey === 'acceptText') {
+      const btnY = pad + p.height - 25;
+      const btnW = p.preset === 'CONFIRM' ? 94 : 86;
+      const bx = p.preset === 'CONFIRM'
+        ? Math.floor(pad + (p.width - (94 * 2 + 12)) / 2) + 94 + 12
+        : Math.floor(pad + (p.width - 86) / 2);
+      ctx.strokeRect(bx - 1.5, btnY - 1.5, btnW + 3, 21);
+    } else if (p.preset === 'CONFIRM' && (activeColorKey === 'cancelBg' || activeColorKey === 'cancelText')) {
+      const btnY = pad + p.height - 25;
+      const bx = Math.floor(pad + (p.width - (94 * 2 + 12)) / 2);
+      ctx.strokeRect(bx - 1.5, btnY - 1.5, 97, 21);
+    } else {
+      ctx.strokeRect(pad + 8.5, pad + HEADER_H + 4.5, p.width - 17, p.height - HEADER_H - 32);
+    }
+    ctx.restore();
+  }
+
   function syncRightInspector() {
     if (!rightSection || !openModeState) return;
     const p = findSelected();
@@ -1068,6 +1178,7 @@
     if (badgeEl) badgeEl.textContent = `Inspector — POPUP #${p.id} · ${p.preset}`;
 
     rightSection.querySelectorAll('[data-popup-preset]').forEach((b) => b.classList.toggle('active', b.dataset.popupPreset === p.preset));
+    rightSection.querySelectorAll('[data-popup-textsize]').forEach((b) => b.classList.toggle('active', Number(b.dataset.popupTextsize) === Number(p.messageTextSize || 1)));
     rightSection.querySelector('[data-popup-code-wrap]').hidden = p.preset === 'CONFIRM';
     rightSection.querySelector('[data-popup-cancel-wrap]').hidden = p.preset !== 'CONFIRM';
     rightSection.querySelector('[data-popup-confirm-preview]').hidden = p.preset !== 'CONFIRM';
@@ -1126,6 +1237,9 @@
     }
     const activeLabel = COLOR_LABELS.find(([k]) => k === activeColorKey)?.[1] || activeColorKey;
     colorEditor?.set?.(p.colors[activeColorKey] ?? 0xFFFF, activeLabel);
+    if (tabs.main === 'design' && tabs.sub === 'appearance') {
+      renderAppearancePreview(p);
+    }
 
     const sym = popupEnumSymbol(p);
     const snippetLines = [
