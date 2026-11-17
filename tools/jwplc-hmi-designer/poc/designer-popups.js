@@ -678,6 +678,24 @@
     return created;
   }
 
+  function duplicatePopup(id) {
+    if (state.length >= MAX_POPUPS) {
+      window.JWPLCDialog?.alert?.(`Máximo ${MAX_POPUPS} ventanas emergentes en el proyecto.`);
+      return null;
+    }
+    const src = state.find((p) => Number(p.id) === Number(id)) || findSelected();
+    if (!src) return null;
+    const nextId = nextFreeId();
+    const copy = normalizePopup({ ...src, colors: { ...src.colors }, id: nextId, name: `${src.name}_cp` }, nextId);
+    state.push(copy);
+    selectedId = copy.id;
+    syncAllUI();
+    editor()?.render?.();
+    window.dispatchEvent(new CustomEvent('jwplc:editor-refresh'));
+    window.JWPLCHMISaveFlow?.refresh?.();
+    return copy;
+  }
+
   function removePopup(id) {
     const idx = state.findIndex((p) => Number(p.id) === Number(id));
     if (idx === -1) return;
@@ -745,23 +763,29 @@
     if (!anchor) return;
     rightSection = document.createElement('section');
     rightSection.id = 'popupInspectorSection';
-    rightSection.className = 'inspector-section inspector-rich';
+    rightSection.className = 'inspector-section';
     rightSection.hidden = true;
+    rightSection.style.display = 'none';
     rightSection.innerHTML = `
-      <div class="insp-shell">
-        <div class="insp-header">
-          <div class="insp-header-top">
-            <span class="insp-type-badge" data-popup-badge>POPUP</span>
-            <button type="button" class="icon-button" data-popups-close-insp title="Volver al lienzo">✕</button>
+      <div class="inspector-title">
+        <h2 data-popup-badge>Inspector — POPUP</h2>
+        <span>
+          <button type="button" class="icon-button" data-popups-dup-insp title="Duplicar ventana">⧉</button>
+          <button type="button" class="icon-button" data-popups-del-insp title="Eliminar ventana">🗑</button>
+          <button type="button" class="icon-button" data-popups-close-insp title="Volver al lienzo">✕</button>
+        </span>
+      </div>
+      <div class="insp-wrap">
+        <div class="bar-nav-header insp-nav-header">
+          <div class="bar-main-tabs" role="tablist">
+            <button type="button" class="bar-main-tab active" data-popup-main="design" role="tab">Diseño</button>
+            <button type="button" class="bar-main-tab" data-popup-main="data" role="tab">Datos</button>
+            <button type="button" class="bar-main-tab" data-popup-main="tech" role="tab">Técnico</button>
           </div>
-          <div class="insp-tabs-main" role="tablist">
-            <button type="button" class="bar-sub-tab insp-tab" data-popup-main="design" role="tab">Diseño</button>
-            <button type="button" class="bar-sub-tab insp-tab" data-popup-main="data" role="tab">Datos</button>
-            <button type="button" class="bar-sub-tab insp-tab" data-popup-main="tech" role="tab">Técnico</button>
-          </div>
-          <div class="insp-tabs-sub" data-popup-subtabs role="tablist">
-            <button type="button" class="bar-sub-tab insp-sub-tab" data-popup-sub="content" role="tab">Contenido</button>
-            <button type="button" class="bar-sub-tab insp-sub-tab" data-popup-sub="appearance" role="tab">Colores y forma</button>
+          <div class="bar-sub-tabs" data-popup-subtabs role="tablist">
+            <button type="button" class="bar-sub-tab active" data-popup-sub="content" role="tab">Contenido</button>
+            <button type="button" class="bar-sub-tab" data-popup-sub="appearance" role="tab">Apariencia</button>
+            <button type="button" class="bar-sub-tab" data-popup-sub="placement" role="tab">Ubicación</button>
           </div>
         </div>
 
@@ -806,24 +830,31 @@
           <div class="insp-panel" data-popup-panel="design:appearance" hidden>
             <div class="bar-card">
               <div class="bar-card-header">
-                <span class="bar-card-section-title">Colores del modal</span>
+                <span class="bar-card-section-title" style="margin:0;">Colores del modal</span>
                 <button type="button" class="insp-chip" data-popup-reset-colors>Restaurar preset</button>
               </div>
-              <div class="insp-chip-row" data-popup-swatch-list></div>
-              <div class="insp-gap" data-popup-color-editor></div>
+              <div class="menu-legend insp-gap" data-popup-swatch-list></div>
+              <div class="menu-palette">
+                <div class="insp-note">Clic en un cuadro de color para editarlo en RGB565.</div>
+                <div data-popup-color-editor></div>
+              </div>
             </div>
+          </div>
+
+          <div class="insp-panel" data-popup-panel="design:placement" hidden>
             <div class="bar-card">
               <div class="bar-card-header">
-                <span class="bar-card-section-title">Geometría (320×170)</span>
+                <span class="bar-card-section-title" style="margin:0;">Geometría (320×170)</span>
                 <button type="button" class="insp-chip" data-popup-center>Centrar</button>
               </div>
-              <div class="insp-two">
+              <div class="insp-two insp-gap">
                 <label class="field-label">X (px)<input class="field-input" data-popup-prop="x" type="number" min="0" max="200" /></label>
                 <label class="field-label">Y (px)<input class="field-input" data-popup-prop="y" type="number" min="0" max="98" /></label>
                 <label class="field-label">Ancho (px)<input class="field-input" data-popup-prop="width" type="number" min="120" max="312" /></label>
                 <label class="field-label">Alto (px)<input class="field-input" data-popup-prop="height" type="number" min="72" max="162" /></label>
                 <label class="field-label">Radio esquinas<input class="field-input" data-popup-prop="cornerRadius" type="number" min="0" max="12" /></label>
               </div>
+              <div class="insp-note">La ventana se dibuja centrada por defecto y superpuesta sobre IDLE o USER.</div>
             </div>
           </div>
 
@@ -884,12 +915,14 @@
         onInput: (v) => mutateSelected((p) => { p.colors[activeColorKey] = v & 0xFFFF; }, false),
         onCommit: (v) => mutateSelected((p) => { p.colors[activeColorKey] = v & 0xFFFF; }, true)
       });
-      if (colorEditor?.element) colorHost.appendChild(colorEditor.element);
+      if (colorEditor?.el) colorHost.appendChild(colorEditor.el);
     }
 
     rightSection.addEventListener('click', (e) => {
       const t = e.target;
       if (t.closest('[data-popups-close-insp]')) { closeMode(); return; }
+      if (t.closest('[data-popups-dup-insp]')) { const cur = findSelected(); if (cur) duplicatePopup(cur.id); return; }
+      if (t.closest('[data-popups-del-insp]')) { const cur = findSelected(); if (cur) removePopup(cur.id); return; }
       const main = t.closest('[data-popup-main]');
       if (main) { tabs.main = main.dataset.popupMain; syncRightInspector(); return; }
       const sub = t.closest('[data-popup-sub]');
@@ -919,6 +952,15 @@
       if (sw) {
         activeColorKey = sw.dataset.popupSwatch;
         syncRightInspector();
+        return;
+      }
+      const legendRow = t.closest('[data-popup-legend-row]');
+      if (legendRow) {
+        const firstSw = legendRow.querySelector('[data-popup-swatch]');
+        if (firstSw) {
+          activeColorKey = firstSw.dataset.popupSwatch;
+          syncRightInspector();
+        }
         return;
       }
       if (t.closest('[data-popup-reset-colors]')) {
@@ -1017,13 +1059,13 @@
     if (!p) {
       if (emptyEl) emptyEl.hidden = false;
       if (formEl) formEl.hidden = true;
-      if (badgeEl) badgeEl.textContent = 'POPUPS';
+      if (badgeEl) badgeEl.textContent = 'Inspector — POPUPS';
       return;
     }
 
     if (emptyEl) emptyEl.hidden = true;
     if (formEl) formEl.hidden = false;
-    if (badgeEl) badgeEl.textContent = `POPUP #${p.id} · ${p.preset}`;
+    if (badgeEl) badgeEl.textContent = `Inspector — POPUP #${p.id} · ${p.preset}`;
 
     rightSection.querySelectorAll('[data-popup-preset]').forEach((b) => b.classList.toggle('active', b.dataset.popupPreset === p.preset));
     rightSection.querySelector('[data-popup-code-wrap]').hidden = p.preset === 'CONFIRM';
@@ -1061,14 +1103,29 @@
 
     const swHost = rightSection.querySelector('[data-popup-swatch-list]');
     if (swHost) {
-      swHost.innerHTML = COLOR_LABELS
-        .filter(([k]) => p.preset === 'CONFIRM' || (k !== 'cancelBg' && k !== 'cancelText'))
-        .map(([key, label]) => {
-          const val = p.colors[key];
-          return `<button type="button" class="insp-chip${activeColorKey === key ? ' active' : ''}" data-popup-swatch="${key}" style="border-left: 8px solid ${rgb565ToCss(val)}">${escapeHtml(label)}</button>`;
+      if (p.preset !== 'CONFIRM' && (activeColorKey === 'cancelBg' || activeColorKey === 'cancelText')) {
+        activeColorKey = 'headerBg';
+      }
+      const rows = [
+        { label: 'Cabecera', pairs: [['headerBg', 'F', 'Cabecera · fondo'], ['headerText', 'T', 'Cabecera · texto']] },
+        { label: 'Cuerpo y borde', pairs: [['background', 'F', 'Fondo del cuadro'], ['text', 'T', 'Cuerpo · texto'], ['border', 'B', 'Borde exterior']] },
+        { label: p.preset === 'CONFIRM' ? 'Botón Aceptar' : 'Botón OK', pairs: [['acceptBg', 'F', 'Botón Aceptar / OK'], ['acceptText', 'T', 'Texto Aceptar / OK']] },
+        ...(p.preset === 'CONFIRM'
+          ? [{ label: 'Botón Cancelar', pairs: [['cancelBg', 'F', 'Botón Cancelar'], ['cancelText', 'T', 'Texto Cancelar']] }]
+          : [])
+      ];
+      swHost.innerHTML = rows.map((row) => {
+        const isRowActive = row.pairs.some(([k]) => k === activeColorKey);
+        const swatches = row.pairs.map(([key, letter, tip]) => {
+          const v = (Number(p.colors[key] ?? 0) || 0) & 0xFFFF;
+          const fg = isLight565(v) ? '#000' : '#fff';
+          return `<button type="button" class="menu-swatch${activeColorKey === key ? ' active' : ''}" data-popup-swatch="${key}" title="${escapeHtml(tip)}" style="background:${rgb565ToCss(v)};color:${fg}"><span>${letter}</span></button>`;
         }).join('');
+        return `<div class="menu-legend-row${isRowActive ? ' is-active' : ''}" data-popup-legend-row><span class="menu-legend-label">${escapeHtml(row.label)}</span>${swatches}</div>`;
+      }).join('');
     }
-    if (colorEditor?.setColor) colorEditor.setColor(p.colors[activeColorKey] ?? 0xFFFF);
+    const activeLabel = COLOR_LABELS.find(([k]) => k === activeColorKey)?.[1] || activeColorKey;
+    colorEditor?.set?.(p.colors[activeColorKey] ?? 0xFFFF, activeLabel);
 
     const sym = popupEnumSymbol(p);
     const snippetLines = [

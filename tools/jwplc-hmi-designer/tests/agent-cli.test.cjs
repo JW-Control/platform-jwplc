@@ -260,12 +260,16 @@ async function main() {
       const popupsOpen = Boolean(window.JWPLCHMIPopups?.isOpen?.());
       const inspShown = !document.getElementById('popupInspectorSection')?.hidden;
       const leftShown = !document.getElementById('popupsLeftSection')?.hidden;
+      document.querySelector('#popupInspectorSection [data-popup-sub="appearance"]')?.click();
+      await new Promise((r) => setTimeout(r, 60));
+      const colorRect = document.querySelector('#popupInspectorSection .color-editor')?.getBoundingClientRect();
+      const colorEditorVisible = Boolean(colorRect && colorRect.width > 100 && colorRect.height > 100);
       document.getElementById('popupsModeToggleBtn')?.click();
       await new Promise((r) => setTimeout(r, 60));
       const popupsClosed = !window.JWPLCHMIPopups?.isOpen?.();
-      return { barVisible: Boolean(bar && !bar.hidden), activeViewAfterClick, popupsOpen, inspShown, leftShown, popupsClosed };
+      return { barVisible: Boolean(bar && !bar.hidden), activeViewAfterClick, popupsOpen, inspShown, leftShown, colorEditorVisible, popupsClosed };
     });
-    check(uiInteract.barVisible && uiInteract.activeViewAfterClick === 1 && uiInteract.popupsOpen && uiInteract.inspShown && uiInteract.leftShown && uiInteract.popupsClosed,
+    check(uiInteract.barVisible && uiInteract.activeViewAfterClick === 1 && uiInteract.popupsOpen && uiInteract.inspShown && uiInteract.leftShown && uiInteract.colorEditorVisible && uiInteract.popupsClosed,
       `UI Designer alterna subvistas y modo Popups correctamente (${JSON.stringify(uiInteract)})`);
     const subPopHeader = await session.header();
     const pumpDecls = subPopHeader.match(/\bbool\s+bombaActiva\s*=/g) || [];

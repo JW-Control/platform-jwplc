@@ -66,16 +66,16 @@ body {
 }
 body.bottom-collapsed { grid-template-rows: 50px minmax(0, 1fr) 38px 28px !important; }
 
-button, select, input { font: inherit; }
-button, select, input {
+button, select, input, textarea { font: inherit; }
+button, select, input, textarea {
   color: #dfe8f0;
   background: #152430;
   border: 1px solid #2a4050;
   border-radius: 6px;
 }
 button { padding: 6px 10px; cursor: pointer; }
-button:hover:not(:disabled), select:hover, input:hover { border-color: #486477; }
-button:focus-visible, select:focus-visible, input:focus-visible { outline: 1px solid var(--orange); outline-offset: 1px; }
+button:hover:not(:disabled), select:hover, input:hover, textarea:hover { border-color: #486477; }
+button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible { outline: 1px solid var(--orange); outline-offset: 1px; }
 button:disabled { opacity: 0.42; cursor: default; }
 
 .topbar {
@@ -3269,7 +3269,7 @@ label.insp-needs-fw { opacity: 0.45; cursor: not-allowed; }
 .menu-legend-row[data-legend-key], .menu-legend-row[data-menu-legend-row],
 .menu-legend-row[data-menu-frame-row], .menu-legend-row[data-bar-legend],
 .menu-legend-row[data-shape-legend], .menu-legend-row[data-evt-legend-row],
-.menu-legend-row[data-evt-frame-row] {
+.menu-legend-row[data-evt-frame-row], .menu-legend-row[data-popup-legend-row] {
   cursor: pointer; padding: 0 4px; border-radius: 3px;
 }
 .menu-legend-row[data-legend-key], .menu-legend-row[data-bar-legend],
@@ -3278,7 +3278,7 @@ label.insp-needs-fw { opacity: 0.45; cursor: not-allowed; }
 .menu-legend-row[data-legend-key]:hover, .menu-legend-row[data-menu-legend-row]:hover,
 .menu-legend-row[data-menu-frame-row]:hover, .menu-legend-row[data-bar-legend]:hover,
 .menu-legend-row[data-shape-legend]:hover, .menu-legend-row[data-evt-legend-row]:hover,
-.menu-legend-row[data-evt-frame-row]:hover { background: rgba(184, 205, 220, 0.08); }
+.menu-legend-row[data-evt-frame-row]:hover, .menu-legend-row[data-popup-legend-row]:hover { background: rgba(184, 205, 220, 0.08); }
 .menu-legend-row .menu-legend-label { flex: 1; }
 .menu-swatch { padding: 0; color: inherit; }
 .menu-swatch:focus-visible { outline: 2px solid #e8edf2; outline-offset: 1px; }
