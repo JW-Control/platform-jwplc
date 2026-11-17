@@ -80,6 +80,7 @@
 
   // Una línea de ejemplo por variable de pantalla (las de MENU las cambia el operador).
   function exampleLine(v) {
+    if (v.type === 'char' && v.array && /^QR:/.test(v.comment)) return `strncpy(${v.name}, "http://192.168.1.50", sizeof(${v.name}) - 1); // ${v.comment}`;
     if (v.type === 'char' && v.array) return `strncpy(${v.name}, "Listo", sizeof(${v.name}) - 1); // TEXT: ${v.comment || `${v.array - 1} bytes`}`;
     if (/^ICON:/.test(v.comment)) return `${v.name} = ${v.type === 'bool' ? 'false' : '0'}; // ${v.comment}`;
     if (v.type === 'bool') return `${v.name} = false; // p. ej. digitalRead(I0_0) o el estado de tu lógica`;
@@ -90,7 +91,11 @@
   function baseSketch(header) {
     const vars = parseVariables(header);
     const menus = parseMenus(header);
-    const out = ['#include "JWPLC_HMI_Generated.h"', '', 'void setup()', '{', '    jwplcHMISetup(); // páginas, campos, MENU e IDLE del Designer', '}', '', 'void loop()', '{'];
+    const usesWidgets = /#include <JWPLC_UI_Widgets\.h>/.test(String(header || ''));
+    const includes = usesWidgets
+      ? ['#include <JWPLC_UI_Widgets.h>', '#include "JWPLC_HMI_Generated.h"']
+      : ['#include "JWPLC_HMI_Generated.h"'];
+    const out = [...includes, '', 'void setup()', '{', '    jwplcHMISetup(); // páginas, campos, MENU e IDLE del Designer', '}', '', 'void loop()', '{'];
     const byOperator = operatorVariables(menus);
     const screen = vars.filter((v) => !byOperator.has(v.name));
     if (screen.length) {
@@ -101,17 +106,15 @@
         out.push(`    ${exampleLine(v)}`);
       });
     }
-    let nodoDeclared = false; // una sola declaración aunque haya varios MENU
     menus.forEach((menu) => {
       const editable = menu.nodes.filter((n) => n.editable);
       if (!editable.length) return;
       if (out[out.length - 1] !== '{') out.push('');
       out.push(`    // ${menu.id}: el operador cambió un valor (OK en la botonera).`);
-      if (!nodoDeclared) { out.push('    uint8_t nodo;'); nodoDeclared = true; }
       out.push(
-        `    if (JWPLC_Display.menuChanged(${menu.id}, &nodo))`,
+        `    if (JWPLC_Display.menuChanged(${menu.id}))`,
         '    {',
-        '        switch (nodo)',
+        '        switch (JWPLC_Display.menuNode())',
         '        {');
       editable.forEach((n) => {
         out.push(`        case ${n.name}:`, `            // «${n.label}» -> ${n.variable || 'variable'} ya tiene el valor nuevo`, '            break;');
@@ -179,7 +182,7 @@
       menus.forEach((menu) => {
         const editable = menu.nodes.filter((n) => n.editable);
         lines.push(`\`${menu.id}\`: ${editable.length
-          ? `\`JWPLC_Display.menuChanged(${menu.id}, &nodo)\` devuelve \`true\` una vez cuando el operador confirma un valor; \`nodo\` es uno de: ${editable.map((n) => `\`${n.name}\``).join(', ')}.`
+          ? `\`JWPLC_Display.menuChanged(${menu.id})\` devuelve \`true\` una vez cuando el operador confirma un valor; \`JWPLC_Display.menuNode()\` dice cuál: ${editable.map((n) => `\`${n.name}\``).join(', ')}.`
           : 'sólo muestra valores (no tiene ítems editables).'}`, '');
       });
     }

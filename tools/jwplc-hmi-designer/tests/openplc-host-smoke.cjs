@@ -262,6 +262,138 @@ async function main() {
     await b.page.click('#updateHmiButton');
     await b.page.waitForTimeout(1500);
     check(dialogs.length === 0, `el HMI abierto del proyecto se reescribe sin preguntar (${JSON.stringify(dialogs)})`);
+
+    console.log('MENU, TREND Y BALIZA');
+    // 1. Variable incompatible tras onVariablesChanged: select vuelve a vacío y la nota explica el motivo.
+    await b.page.evaluate(() => {
+      const E = window.JWPLCHMIEditor;
+      E.setSelectedFieldKeys([E.getAllFields().find((f) => f.type === 'VALUE').key]);
+    });
+    await b.page.click('#fieldInspectorV2 [data-insp-main="data"]');
+    await b.page.waitForTimeout(250);
+    await b.page.evaluate(() => {
+      window.__openplc.variables = window.__openplc.variables.map((v) =>
+        v.name === 'CONTADOR' ? { ...v, iecType: 'BOOL', hmiTypes: ['bool'], access: 'R' } : v
+      );
+      window.__openplc.variablesChanged();
+    });
+    await b.page.waitForTimeout(400);
+    const incompat = await b.page.evaluate(() => ({
+      selectVal: document.querySelector('.insp-panel[data-insp-panel="data"] .jwplc-plc-select')?.value,
+      note: document.querySelector('.insp-panel[data-insp-panel="data"] .jwplc-plc-note')?.textContent || ''
+    }));
+    check(incompat.selectVal === '' && /ya no es compatible/.test(incompat.note),
+      `variable incompatible explica el motivo sin falso «Enlazada» (${JSON.stringify(incompat)})`);
+
+    // 2. MENU: conservar nombre C++, BYTE->int32 y deshacer plcBinding con Ctrl+Z.
+    await b.page.evaluate(async () => {
+      window.__openplc.variables.push({ name: 'ESTADO_BYTE', scope: 'program', pou: 'main', iecType: 'BYTE', address: null, hmiTypes: ['float', 'int32_t'], access: 'RW' });
+      window.__openplc.variablesChanged();
+      const P = window.JWPLCHMIProject;
+      const s = P.serialize();
+      s.fields.push({
+        key: 'menu-reg', type: 'MENU', name: 'MENÚ REG', id: 'MENU_REG', title: 'Ajustes',
+        x: 10, y: 20, width: 300, height: 124, page: 0, textSize: 1, font: 'GLCD', frame: true,
+        nodes: [
+          { key: 'n1', parent: null, type: 'VIEW', label: 'Byte', variable: 'estado_byte', valueType: 'float', initial: 0, decimals: 1, unit: '' }
+        ]
+      });
+      await P.apply(s);
+      const E = window.JWPLCHMIEditor;
+      E.setSelectedFieldKeys([E.getAllFields().find((f) => f.type === 'MENU').key]);
+    });
+    await b.page.waitForTimeout(400);
+    await b.page.click('#menuInspectorSection [data-menu-main="tree"]');
+    await b.page.click('[data-menu-node="n1"]');
+    await b.page.waitForTimeout(300);
+    await b.page.selectOption('[data-menu-node-editor] .jwplc-plc-select', 'ESTADO_BYTE');
+    await b.page.waitForTimeout(300);
+    const menuBound = await b.page.evaluate(() => window.JWPLCHMIEditor.getAllFields().find((f) => f.type === 'MENU').nodes[0]);
+    check(menuBound.variable === 'estado_byte' && menuBound.valueType === 'int32' && menuBound.plcBinding?.var === 'ESTADO_BYTE',
+      `MENU enlaza BYTE a int32 sin duplicar nombre (${JSON.stringify({ variable: menuBound.variable, valueType: menuBound.valueType, plcBinding: menuBound.plcBinding })})`);
+    await b.page.keyboard.press('Control+z');
+    await b.page.waitForTimeout(300);
+    const menuUndone = await b.page.evaluate(() => window.JWPLCHMIEditor.getAllFields().find((f) => f.type === 'MENU').nodes[0]);
+    check(!menuUndone.plcBinding && menuUndone.valueType === 'float',
+      `MENU deshace plcBinding y valueType con Ctrl+Z (${JSON.stringify({ plcBinding: menuUndone.plcBinding, valueType: menuUndone.valueType })})`);
+
+    // 3. TREND: selectores PLC por canal (ch2 deshabilitado si no está activo).
+    await b.page.evaluate(() => document.querySelector('[data-tool="trendField"]')?.click());
+    await b.page.waitForTimeout(300);
+    await b.page.click('#trendInspectorSection [data-trend-main="data"]');
+    await b.page.waitForTimeout(300);
+    await b.page.selectOption('#trendInspectorSection .trend-chan-list .jwplc-plc-select >> nth=0', 'CUENTA');
+    await b.page.waitForTimeout(300);
+    const trendBound = await b.page.evaluate(() => {
+      const f = window.JWPLCHMIEditor.getSelectedField();
+      const ch2Select = document.querySelector('#trendInspectorSection [data-trend-chan-row="ch2Enabled"]')?.previousElementSibling?.querySelector('.jwplc-plc-select');
+      return { plc: f.plcBinding?.var, varName: f.variable, ch2Disabled: Boolean(ch2Select?.disabled) };
+    });
+    check(trendBound.plc === 'CUENTA' && trendBound.varName === 'cuenta' && trendBound.ch2Disabled,
+      `TREND enlaza canal 1 y bloquea canal 2 inactivo (${JSON.stringify(trendBound)})`);
+
+    // 4. Baliza independiente: seleccionarla no ensucia el proyecto ni crea tierBindings vacíos.
+    await b.page.evaluate(async () => {
+      const P = window.JWPLCHMIProject;
+      const s = P.serialize();
+      s.fields.push({
+        key: 'icon-bal', type: 'ICON', name: 'Baliza', id: 'ICON_BAL', variable: 'baliza1',
+        iconId: 'pilotos/baliza', iconSize: 48, iconState: 0, balizaMode: 'independent', tierCount: 2,
+        tierColors: [0x07E0, 0xFDE0, 0xF800, 0x041F],
+        tierVariables: ['baliza1_p1', 'baliza1_p2'],
+        page: 0, x: 10, y: 10
+      });
+      await P.apply(s);
+    });
+    await b.page.waitForTimeout(800);
+    await b.page.evaluate(() => {
+      const E = window.JWPLCHMIEditor;
+      E.setSelectedFieldKeys([E.getAllFields().find((f) => f.type === 'ICON').key]);
+    });
+    await b.page.waitForTimeout(400);
+    const balizaClean = await b.page.evaluate(() => ({
+      dirty: window.JWPLCHMISaveFlow.isDirty(),
+      tierBindings: window.JWPLCHMIEditor.getAllFields().find((f) => f.type === 'ICON').tierBindings
+    }));
+    check(!balizaClean.dirty && balizaClean.tierBindings === undefined,
+      `Baliza independiente no ensucia al seleccionarse (${JSON.stringify(balizaClean)})`);
+    await b.page.click('#iconInspectorSection [data-icon-main="data"]');
+    await b.page.waitForTimeout(250);
+    await b.page.selectOption('#iconInspectorSection [data-baliza-tier-vars-list] .jwplc-plc-select >> nth=0', 'RELE');
+    await b.page.waitForTimeout(250);
+    const tierBound = await b.page.evaluate(() => {
+      const f = window.JWPLCHMIEditor.getAllFields().find((x) => x.type === 'ICON');
+      return { plc: f.tierBindings?.[0]?.plcBinding?.var, varName: f.tierVariables?.[0] };
+    });
+    check(tierBound.plc === 'RELE' && tierBound.varName === 'rele',
+      `Baliza enlaza piso 1 en tierBindings (${JSON.stringify(tierBound)})`);
+    await b.page.selectOption('#iconInspectorSection [data-baliza-tier-vars-list] .jwplc-plc-select >> nth=0', '');
+    await b.page.waitForTimeout(250);
+    const tierUnbound = await b.page.evaluate(() => window.JWPLCHMIEditor.getAllFields().find((x) => x.type === 'ICON').tierBindings);
+    check(tierUnbound === undefined, `Baliza limpia tierBindings al desenlazar (${JSON.stringify(tierUnbound)})`);
+    await b.page.evaluate(() => window.JWPLCHMIEditor.undo());
+    await b.page.waitForTimeout(250);
+    const tierRestored = await b.page.evaluate(() => {
+      const f = window.JWPLCHMIEditor.getAllFields().find((x) => x.type === 'ICON');
+      return { plc: f.tierBindings?.[0]?.plcBinding?.var, varName: f.tierVariables?.[0] };
+    });
+    check(tierRestored.plc === 'RELE' && tierRestored.varName === 'rele',
+      `Ctrl+Z restaura tierBindings y tierVariables de Baliza (${JSON.stringify(tierRestored)})`);
+
+    // 5. Duplicar un objeto enlazado no comparte referencias de bindings con el original.
+    await b.page.evaluate(() => {
+      const E = window.JWPLCHMIEditor;
+      const trend = E.getAllFields().find((f) => f.type === 'TREND');
+      E.setSelectedFieldKeys([trend.key]);
+      E.duplicateSelectedField();
+    });
+    await b.page.waitForTimeout(250);
+    const dupIsolated = await b.page.evaluate(() => {
+      const trends = window.JWPLCHMIEditor.getAllFields().filter((f) => f.type === 'TREND');
+      return trends.length === 2 && trends[0].plcBinding && trends[1].plcBinding && trends[0].plcBinding !== trends[1].plcBinding;
+    });
+    check(dupIsolated, 'duplicar TREND clona plcBinding sin compartir referencia con el original');
+
     check(b.errors.length === 0, `sin errores JS (${b.errors.join(' | ') || 'ninguno'})`);
   } finally {
     await browser.close();

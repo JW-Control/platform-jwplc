@@ -21,7 +21,8 @@ function has(cmd, args) {
 function gpp(dir, file) {
   try {
     execFileSync('g++', ['-std=gnu++17', '-fsyntax-only', '-Wall', `-I${dir}`, `-I${STUB}`,
-      `-I${path.join(LIBS, 'JWPLC_Display', 'src')}`, `-I${path.join(LIBS, 'JWPLC_TFT', 'src')}`, file], { stdio: 'pipe' });
+      `-I${path.join(LIBS, 'JWPLC_Display', 'src')}`, `-I${path.join(LIBS, 'JWPLC_TFT', 'src')}`,
+      `-I${path.join(LIBS, 'JWPLC_UI_Widgets', 'src')}`, file], { stdio: 'pipe' });
     return { ok: true, log: '' };
   } catch (error) {
     return { ok: false, log: String(error.stderr || error.message).split('\n').slice(0, 12).join('\n') };

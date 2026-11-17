@@ -46,10 +46,9 @@ void loop()
     partidas = 0; // p. ej. un contador de tu lógica
 
     // MENU_AJUSTES: el operador cambió un valor (OK en la botonera).
-    uint8_t nodo;
-    if (JWPLC_Display.menuChanged(MENU_AJUSTES, &nodo))
+    if (JWPLC_Display.menuChanged(MENU_AJUSTES))
     {
-        switch (nodo)
+        switch (JWPLC_Display.menuNode())
         {
         case MENU_AJUSTES_RAMPA_MOTOR:
             // «Rampa motor» -> rampa ya tiene el valor nuevo
@@ -102,6 +101,6 @@ otra vez da error de redefinición). Si cambias un nombre en el Designer, cámbi
 
 ## MENU
 
-`MENU_AJUSTES`: `JWPLC_Display.menuChanged(MENU_AJUSTES, &nodo)` devuelve `true` una vez cuando el operador confirma un valor; `nodo` es uno de: `MENU_AJUSTES_RAMPA_MOTOR`, `MENU_AJUSTES_ESPERA_MAX_JUEGO`, `MENU_AJUSTES_BORRAR_RECORD`.
+`MENU_AJUSTES`: `JWPLC_Display.menuChanged(MENU_AJUSTES)` devuelve `true` una vez cuando el operador confirma un valor; `JWPLC_Display.menuNode()` dice cuál: `MENU_AJUSTES_RAMPA_MOTOR`, `MENU_AJUSTES_ESPERA_MAX_JUEGO`, `MENU_AJUSTES_BORRAR_RECORD`.
 
 Generado el 2026-10-23 por el JWPLC HMI Designer.

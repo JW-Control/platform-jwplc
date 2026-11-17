@@ -60,12 +60,9 @@ cmd_build() {
     sed -i -e '/^precompiled=/d' -e 's/^version=.*/&-source/' "$out/src-lib/$L/library.properties"
     libargs+=(--library "$out/src-lib/$L")
   done
-  cat > "$out/sketch/probe/probe.ino" <<'INO'
-#include <JWPLC_Display.h>
-#include <JW_MatrixButtons.h>
-void setup() {}
-void loop() {}
-INO
+  # Sonda: incluye la cabecera principal de cada librería pedida (alpha.17 añade JW_FRAM).
+  { for L in "${libs[@]}"; do echo "#include <$L.h>"; done
+    echo 'void setup() {}'; echo 'void loop() {}'; } > "$out/sketch/probe/probe.ino"
 
   arduino-cli compile --fqbn "$FQBN" -j 0 -v --clean --build-path "$out/build" \
     "${libargs[@]}" --libraries "$LIBS_DIR" "${EXTRA[@]}" \
@@ -110,7 +107,7 @@ INO
     while read -r sym; do
       grep -qxF "$sym" "$out/defined.txt" && continue
       echo "  ! $base importa $(echo "$sym" | c++filt) y no existe"; missing=$((missing + 1))
-    done < <("$NM" -u "$a" 2>/dev/null | awk '{print $2}' | grep -E 'JWPLC_(TFT|Display|UI|Idle)|JW_MatrixButtons|JWPLC_FONT_' | sort -u)
+    done < <("$NM" -u "$a" 2>/dev/null | awk '{print $2}' | grep -E 'JWPLC_(TFT|Display|UI|Idle)|JW_MatrixButtons|JW_FRAM|JWPLC_FONT_' | sort -u)
   done
   echo "IMPORTS_FROM_OTHER_LIBS_MISSING=$missing"
   [[ "$missing" == "0" && "$fail" == "0" ]] || { echo "ABI_COMPAT=FAIL"; exit 1; }

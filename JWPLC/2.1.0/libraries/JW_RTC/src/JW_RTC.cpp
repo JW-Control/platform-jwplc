@@ -447,6 +447,17 @@ bool JW_RTC::fromBuildTime(const char* buildDate, const char* buildTime, DateTim
     return dt.valid;
 }
 
+bool JW_RTC::setFromBuildTime(const char* buildDate, const char* buildTime)
+{
+    DateTime dt;
+    if (!fromBuildTime(buildDate, buildTime, dt))
+    {
+        setError(Error::InvalidArgument);
+        return false;
+    }
+    return write(dt);
+}
+
 // =====================================================
 // Temperature / aging
 // =====================================================

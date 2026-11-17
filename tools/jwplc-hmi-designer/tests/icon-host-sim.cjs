@@ -32,7 +32,7 @@ function buildSim(mainCpp, exe, includeDirs = []) {
     ...includeDirs.flatMap((dir) => ['-I', dir]),
     mainCpp,
     path.join(SRC, 'JWPLC_UI.cpp'), path.join(SRC, 'JWPLC_UI_API.cpp'), path.join(SRC, 'JWPLC_UI_Format.cpp'),
-    path.join(SRC, 'JWPLC_UI_PixelMap.cpp'),
+    path.join(SRC, 'JWPLC_UI_PixelMap.cpp'), path.join(SRC, 'JWPLC_Icons.cpp'),
     '-o', exe
   ], { stdio: 'inherit' });
 }

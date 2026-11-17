@@ -25,7 +25,7 @@ function loadMenuModule() {
   const context = { window: {}, console };
   context.self = context.window; // designer-cp437.js (UMD) se registra en self
   vm.createContext(context);
-  for (const file of ['designer-cp437.js', 'gfx-classic-font.js', 'designer-menu.js']) {
+  for (const file of ['designer-cp437.js', 'designer-fonts.js', 'gfx-classic-font.js', 'designer-menu.js']) {
     vm.runInContext(fs.readFileSync(path.join(POC, file), 'utf8'), context, { filename: file });
   }
   return context.window.JWPLCHMIMenu;
@@ -35,10 +35,20 @@ function loadEventLogModule() {
   const context = { window: {}, console };
   context.self = context.window;
   vm.createContext(context);
-  for (const file of ['designer-cp437.js', 'designer-event-log.js']) {
+  for (const file of ['designer-cp437.js', 'designer-fonts.js', 'designer-event-log.js']) {
     vm.runInContext(fs.readFileSync(path.join(POC, file), 'utf8'), context, { filename: file });
   }
   return context.window.JWPLCHMIEventLog;
+}
+
+function loadPopupsModule() {
+  const context = { window: {}, console };
+  context.self = context.window;
+  vm.createContext(context);
+  for (const file of ['designer-cp437.js', 'designer-fonts.js', 'designer-popups.js']) {
+    vm.runInContext(fs.readFileSync(path.join(POC, file), 'utf8'), context, { filename: file });
+  }
+  return context.window.JWPLCHMIPopups;
 }
 
 const failures = [];
@@ -80,6 +90,86 @@ check(core.variableDeclaration({ type: 'TEXT', capacity: 12 }, 'msg') === 'char 
 check(core.setterCall({ type: 'BAR' }, 'F', 'v') === 'JWPLC_Display.setBar(F, v);', 'setter de BAR');
 const bar = core.barFieldBlock({ ...COLORS, type: 'BAR', x: 1, y: 2, barWidth: 500, barMin: 0, barMax: 10, labelSize: 1, frame: true, layout: 'INLINE', page: 3, showLabel: false, barUnit: '', trackColor: 0x18C3 }, 'B');
 check(/JWPLC_UIRect\(1, 2, 320, JWPLC_UI_AUTO\)/.test(bar) && /JWPLC_UIText\(nullptr, nullptr\)/.test(bar) && /0x18C3/.test(bar), 'BAR: ancho acotado a 320, sin etiqueta, pista como fondo');
+const vertBar = core.barFieldBlock({
+  ...COLORS,
+  type: 'BAR',
+  barOrientation: 'VERTICAL',
+  barStyle: 'BLOCKS',
+  x: 10,
+  y: 20,
+  barWidth: 16,
+  barHeight: 80,
+  barMin: 0,
+  barMax: 100,
+  page: 0
+}, 'B_VERT');
+check(/JWPLC_UIRect\(10, 20\)/.test(vertBar) &&
+  /JWPLC_UIBarConfig\(\s*JWPLC_UI_BAR_VERTICAL,\s*JWPLC_UI_BAR_STYLE_BLOCKS,\s*0,\s*0,\s*false,\s*0xFFFF,\s*1,\s*16,\s*80\)/.test(vertBar),
+  'BAR VERTICAL: grosor y largo en JWPLC_UIBarConfig, caja calculada por el firmware');
+const vertBarWithText = core.barFieldBlock({
+  ...COLORS,
+  type: 'BAR',
+  barOrientation: 'VERTICAL',
+  barStyle: 'SOLID',
+  showLabel: true,
+  barLabel: 'Tanque 1',
+  barUnit: 'm3',
+  x: 15,
+  y: 10,
+  barWidth: 20,
+  barHeight: 70,
+  barMin: 0,
+  barMax: 50,
+  page: 0
+}, 'B_TANK');
+check(/JWPLC_UIRect\(15, 10\)/.test(vertBarWithText) &&
+  /JWPLC_UIText\("Tanque 1", "m3"\)/.test(vertBarWithText) &&
+  /JWPLC_UIBarConfig\(\s*JWPLC_UI_BAR_VERTICAL,\s*JWPLC_UI_BAR_STYLE_SOLID,\s*0,\s*0,\s*false,\s*0xFFFF,\s*1,\s*20,\s*70\)/.test(vertBarWithText),
+  'BAR VERTICAL con etiqueta y unidad: emite texto y dimensiones en config');
+const thickBar = core.barFieldBlock({ ...COLORS, type: 'BAR', x: 1, y: 2, barWidth: 110, barHeight: 30, barMin: 0, barMax: 100, page: 0 }, 'B_THICK');
+check(/JWPLC_UIRect\(1, 2, 110, JWPLC_UI_AUTO\)/.test(thickBar) &&
+  /JWPLC_UIBarConfig\(\s*JWPLC_UI_BAR_HORIZONTAL,\s*JWPLC_UI_BAR_STYLE_SOLID,\s*0,\s*0,\s*false,\s*0xFFFF,\s*1,\s*30,\s*0\)/.test(thickBar),
+  'BAR horizontal: el grosor distinto de 12 px llega a JWPLC_UIBarConfig');
+check(!/JWPLC_UIBarConfig/.test(core.barFieldBlock({ ...COLORS, type: 'BAR', x: 1, y: 2, barWidth: 110, barHeight: 12, barMin: 0, barMax: 100, page: 0 }, 'B_STD')),
+  'BAR horizontal de 12 px: sin JWPLC_UIBarConfig');
+const blackEndBar = core.barFieldBlock({ ...COLORS, type: 'BAR', x: 1, y: 2, barWidth: 110, barFillMode: 'GRADIENT', valueColor: 0x07FF, valueColorEnd: 0, barMin: 0, barMax: 100, page: 0 }, 'B_BLACK');
+check(/JWPLC_UI_BAR_STYLE_SOLID,\s*0x0001\)/.test(blackEndBar), 'BAR GRADIENT: el negro final sale como 0x0001 (0 significa sólido)');
+const blackBorderBar = core.barFieldBlock({ ...COLORS, type: 'BAR', x: 1, y: 2, barWidth: 110, barBorderEnabled: true, barBorderColor: 0, barBorderWidth: 2, barMin: 0, barMax: 100, page: 0 }, 'B_BORDER');
+check(/true,\s*0x0000,\s*2\)/.test(blackBorderBar), 'BAR: el borde negro se respeta');
+const gradBar = core.barFieldBlock({
+  ...COLORS,
+  type: 'BAR',
+  barOrientation: 'HORIZONTAL',
+  barFillMode: 'GRADIENT',
+  valueColor: 0x07FF,
+  valueColorEnd: 0xF800,
+  x: 5,
+  y: 15,
+  barWidth: 100,
+  barMin: 0,
+  barMax: 50,
+  page: 0
+}, 'B_GRAD');
+check(/JWPLC_UIBarConfig\(\s*JWPLC_UI_BAR_HORIZONTAL,\s*JWPLC_UI_BAR_STYLE_SOLID,\s*0xF800\)/.test(gradBar),
+  'BAR GRADIENT: emite JWPLC_UIBarConfig con colorEnd 0xF800');
+const roundedBar = core.barFieldBlock({
+  ...COLORS,
+  type: 'BAR',
+  barOrientation: 'HORIZONTAL',
+  barStyle: 'SOLID',
+  barCornerRadius: 3,
+  barBorderEnabled: true,
+  barBorderColor: 0x001F,
+  barBorderWidth: 2,
+  x: 0,
+  y: 0,
+  barWidth: 100,
+  barMin: 0,
+  barMax: 100,
+  page: 0
+}, 'B_ROUND');
+check(/JWPLC_UIBarConfig\(\s*JWPLC_UI_BAR_HORIZONTAL,\s*JWPLC_UI_BAR_STYLE_SOLID,\s*0,\s*3,\s*true,\s*0x001F,\s*2\)/.test(roundedBar),
+  'BAR ROUNDED: emite cornerRadius y border en JWPLC_UIBarConfig');
 const circular = core.barFieldBlock({
   ...COLORS,
   type: 'BAR',
@@ -108,6 +198,80 @@ check(/JWPLC_UICircularField\(/.test(circular) &&
   /JWPLC_UIRect\(10, 20, 60, 60\)/.test(circular) &&
   /JWPLC_UICircularStyle\(\s*270,\s*6,\s*1/.test(circular),
   'CIRCULAR: genera JWPLC_UICircularField con JWPLC_UICircularStyle');
+
+const circularBlackText = core.barFieldBlock({
+  ...COLORS,
+  type: 'BAR',
+  barPreset: 'CIRCULAR',
+  x: 10,
+  y: 20,
+  circleRadius: 30,
+  circleCenterMode: 'PERCENT',
+  circleTextColor: 0x0000,
+  barMin: 0,
+  barMax: 100
+}, 'CB');
+check(/0x0001/.test(circularBlackText), 'CIRCULAR: circleTextColor negro explícito (0x0000) sale como 0x0001');
+
+const barJsSrc = fs.readFileSync(path.join(POC, 'designer-bar.js'), 'utf8');
+check(barJsSrc.includes("circleText: 'circleTextColor'") && barJsSrc.includes("'Texto central'"),
+  'CIRCULAR inspector: ranura de color Texto central conectada a circleTextColor');
+
+const valCustomFont = core.valueFieldBlock({
+  ...value,
+  labelFont: 'FONT_16',
+  valueFont: 'FONT_7SEG_48'
+}, 'FIELD_CUSTOM_VAL');
+check(/JWPLC_UIValueStyle\(\s*2,\s*1,\s*false,\s*JWPLC_UI_LAYOUT_INLINE,\s*JWPLC_UI_ALIGN_RIGHT,\s*&JWPLC_FONT_16,\s*&JWPLC_FONT_7SEG_48\)/.test(valCustomFont),
+  'VALUE: emite &JWPLC_FONT_16 y &JWPLC_FONT_7SEG_48 en JWPLC_UIValueStyle');
+
+const valOnlyValueFont = core.valueFieldBlock({
+  ...value,
+  valueFont: 'FONT_7SEG_48'
+}, 'FIELD_ONLY_VAL_FONT');
+check(/JWPLC_UIValueStyle\(\s*2,\s*1,\s*false,\s*JWPLC_UI_LAYOUT_INLINE,\s*JWPLC_UI_ALIGN_RIGHT,\s*nullptr,\s*&JWPLC_FONT_7SEG_48\)/.test(valOnlyValueFont),
+  'VALUE: con solo valueFont emite nullptr para labelFont');
+
+const txtCustomFont = core.textFieldBlock({
+  ...COLORS, type: 'TEXT', x: 0, y: 0, label: 'Msg', unit: '', capacity: 8,
+  valueSize: 1, labelSize: 1, frame: false, layout: 'INLINE', align: 'LEFT', page: 0,
+  labelFont: 'FONT_26', valueFont: 'FONT_16'
+}, 'FIELD_CUSTOM_TXT');
+check(/JWPLC_UITextFieldStyle\(\s*1,\s*1,\s*false,\s*JWPLC_UI_LAYOUT_INLINE,\s*JWPLC_UI_ALIGN_LEFT,\s*&JWPLC_FONT_26,\s*&JWPLC_FONT_16\)/.test(txtCustomFont),
+  'TEXT: emite &JWPLC_FONT_26 y &JWPLC_FONT_16 en JWPLC_UITextFieldStyle');
+
+const boolCustomFont = core.boolFieldBlock({
+  ...COLORS, type: 'BOOL', x: 0, y: 0, label: 'Estado', unit: '', falseText: 'OFF', trueText: 'ON',
+  valueSize: 2, labelSize: 1, frame: false, layout: 'INLINE', align: 'CENTER', page: 0,
+  labelFont: 'FONT_16', valueFont: 'FONT_26'
+}, 'FIELD_CUSTOM_BOOL');
+check(/JWPLC_UIBoolStyle\(\s*2,\s*1,\s*false,\s*JWPLC_UI_LAYOUT_INLINE,\s*JWPLC_UI_ALIGN_CENTER,\s*&JWPLC_FONT_16,\s*&JWPLC_FONT_26\)/.test(boolCustomFont),
+  'BOOL: emite &JWPLC_FONT_16 y &JWPLC_FONT_26 en JWPLC_UIBoolStyle');
+
+const multiVal = core.valueFieldBlock({
+  ...value,
+  pages: [0, 2, 6]
+}, 'FIELD_MULTI_VAL');
+check(core.fieldPageMaskHex({ type: 'VALUE', pages: [0, 2, 6] }) === '0x0045U' &&
+  /^\s*JWPLC_UIFieldPages\([\s\S]*,\s*0x0045U\)\s*$/.test(multiVal),
+  'VALUE multipágina: envuelve en JWPLC_UIFieldPages(..., 0x0045U)');
+
+const multiBool = core.boolFieldBlock({
+  ...COLORS, type: 'BOOL', x: 176, y: 5, label: '', unit: '', falseText: '[MID]', trueText: '[REP]',
+  valueSize: 1, labelSize: 1, frame: false, layout: 'INLINE', align: 'CENTER', pages: [2, 3, 4, 5, 6]
+}, 'FIELD_MULTI_BOOL');
+check(/^\s*JWPLC_UIFieldPages\([\s\S]*,\s*0x007CU\)\s*$/.test(multiBool),
+  'BOOL multipágina: envuelve en JWPLC_UIFieldPages(..., 0x007CU)');
+
+const iconsCore = require(path.join(POC, 'designer-icons-core.js'));
+const iconField = {
+  ...COLORS, type: 'ICON', x: 10, y: 15, label: 'Bomba 1', labelSize: 1, frame: true,
+  layout: 'STACKED', page: 0
+};
+const iconBlockNative = iconsCore.iconFieldBlock(iconField, 'FIELD_ICON_BOMBA', iconsCore.iconCallFor('bombas/bomba', 32), (s) => s);
+check(iconBlockNative.includes('JWPLC_Icons.bomba(32)') && !iconBlockNative.includes('&JWPLC_Icons'), 'ICON: genera llamada de biblioteca JWPLC_Icons.bomba(32) sin ampersand');
+const iconBlockFallback = iconsCore.iconFieldBlock(iconField, 'FIELD_ICON_CUSTOM', 'CUSTOM_ICON_SYMBOL', (s) => s);
+check(iconBlockFallback.includes('&CUSTOM_ICON_SYMBOL'), 'ICON: símbolo custom mantiene & como fallback');
 
 console.log('MENU (sin DOM)');
 const menuApi = loadMenuModule();
@@ -149,6 +313,79 @@ check(/#error "MENU: /.test(menuApi.generate(twoOnPage, { fields: others }).decl
 
 const L = menuApi.layout({ textSize: 2, frame: true, title: 'X', height: 100 });
 check(L.rowH === 20 && L.headerH === 20 && L.rows === 3, 'layout: 2× -> filas de 20 px, 3 visibles en 100 px');
+const menuWithFont = { ...menus[0], id: 'MENU_FONT', font: 'FONT_16' };
+const genMenuFont = menuApi.generate([menuWithFont]);
+check(/&JWPLC_FONT_16\)/.test(genMenuFont.declarations), 'MENU: emite &JWPLC_FONT_16 en JWPLC_UIMenuField');
+
+const cardMenu = {
+  ...JSON.parse(JSON.stringify(menus[0])),
+  key: 'menu-card',
+  id: 'MENU_CARD',
+  type: 'MENU',
+  page: 0,
+  x: 12,
+  y: 22,
+  width: 296,
+  height: 118,
+  textSize: 2,
+  rowStyle: 'CARDS',
+  rowGap: 4,
+  cornerRadius: 4,
+  rowPadY: 5,
+  rowPadX: 8,
+  inlineValue: true,
+  selectOutlineOnly: true,
+  cardBackground: 0x18E3,
+  cardBorder: 0x07E0,
+  frame: false,
+  nodes: [
+    {
+      key: 'run', parent: null, type: 'EDIT_BOOL', label: '', variable: 'measRun', valueType: 'bool',
+      initial: 0, falseText: 'INICIAR MEDICION', trueText: 'DETENER MEDICION', directToggle: true,
+      hasPillColors: true, pillFalseBg: 0x05C0, pillTrueBg: 0xF800, pillTextColor: 0xFFFF
+    },
+    {
+      key: 'tag', parent: null, type: 'EDIT_NUM', label: 'ETIQUETA', variable: 'measTag', valueType: 'int32',
+      initial: 1, min: 1, max: 99, step: 1, lrStep: 1, valuePrefix: 'P', zeroPad: 2
+    }
+  ]
+};
+const genCardMenu = menuApi.generate([cardMenu]);
+check(/JWPLC_UIMenuCardStyle\(/.test(genCardMenu.declarations) &&
+  /JWPLC_UIMenuNodePill\(/.test(genCardMenu.declarations) &&
+  /JWPLC_UIMenuNodeFormat\(/.test(genCardMenu.declarations) &&
+  /JWPLC_UIMenuNodeLRStep\(/.test(genCardMenu.declarations) &&
+  /JWPLC_UIMenuNodeDirectToggle\(/.test(genCardMenu.declarations),
+  'MENU CARDS: emite JWPLC_UIMenuCardStyle, Pill, Format, LRStep y DirectToggle');
+
+const trendForMenu = {
+  type: 'TREND',
+  id: 'FIELD_TREND_H',
+  variable: 'tempHorno',
+  ch2Enabled: true,
+  ch2Variable: 'consignaHorno',
+  ch3Enabled: true,
+  ch3Variable: 'potenciaSalida'
+};
+const menuSharedTrend = {
+  ...JSON.parse(JSON.stringify(menus[0])),
+  key: 'menu-trend',
+  id: 'MENU_TREND',
+  nodes: [
+    { key: 'sp', parent: null, type: 'EDIT_NUM', label: 'Consigna', variable: 'consignaHorno', valueType: 'float', initial: 50, min: 0, max: 100, step: 1, decimals: 1, unit: 'C' },
+    { key: 'out', parent: null, type: 'VIEW', label: 'Salida', variable: 'potenciaSalida', valueType: 'float', initial: 0, decimals: 1, unit: '%' }
+  ]
+};
+const valSharedTrend = menuApi.validate([menuSharedTrend], [trendForMenu]);
+const genSharedTrend = menuApi.generate([menuSharedTrend], { fields: [trendForMenu] });
+check(valSharedTrend.errors.length === 0 && genSharedTrend.variables === '',
+  'MENU + TREND ch2/ch3: no redeclara variables compartidas en float');
+const menuWrongTypeTrend = {
+  ...menuSharedTrend,
+  nodes: [{ key: 'sp', parent: null, type: 'EDIT_BOOL', label: 'Consigna', variable: 'consignaHorno', valueType: 'bool', initial: 0, falseText: 'NO', trueText: 'SI' }]
+};
+check(menuApi.validate([menuWrongTypeTrend], [trendForMenu]).errors.length > 0,
+  'MENU + TREND ch2: detecta conflicto de tipo cuando MENU usa bool sobre float de TREND');
 
 console.log('EVENT_LOG (sin DOM)');
 const evtApi = loadEventLogModule();
@@ -165,6 +402,98 @@ check(/JWPLC_UIEventLog HMI_EVENT_LOG/.test(genEvt.declarations), 'genera estruc
 check(/JWPLC_Display\.setEventLog\(HMI_EVENT_LOG\);/.test(genEvt.setup), 'genera setup JWPLC_Display.setEventLog');
 const patched = evtApi.patchHeader('void jwplcHMISetup()\n{\n    JWPLCUI::begin();\n}\n', [sampleEvt]);
 check(/HMI_EVENT_LOG/.test(patched) && /JWPLC_Display\.setEventLog/.test(patched), 'patchHeader inyecta declaraciones y setup de EVENT_LOG');
+const evtWithFont = { ...sampleEvt, headerFont: 'FONT_16', rowFont: 'FONT_26' };
+const genEvtFont = evtApi.generate([evtWithFont]);
+check(/\/\* headerFont \*\/ &JWPLC_FONT_16/.test(genEvtFont.declarations) &&
+  /\/\* rowFont \*\/ &JWPLC_FONT_26/.test(genEvtFont.declarations),
+  'EVENT_LOG: emite &JWPLC_FONT_16 y &JWPLC_FONT_26');
+
+console.log('SUBVISTAS (viewMask / wrapFieldBlockPages)');
+const vList = core.fieldViews({ views: [2, 0, 2, 9, -1] });
+check(Array.isArray(vList) && vList.length === 2 && vList[0] === 0 && vList[1] === 2,
+  'fieldViews normaliza, ordena y filtra 0..7');
+check(core.fieldOnPageView({ page: 1, views: [2] }, 1, 2) &&
+  !core.fieldOnPageView({ page: 1, views: [2] }, 1, 0) &&
+  core.fieldOnPageView({ page: 1 }, 1, 5),
+  'fieldOnPageView filtra por página y subvista');
+check(core.fieldViewMaskHex({ views: [0, 2] }) === '0x05U' &&
+  core.fieldViewMaskHex({ views: [0, 1, 2, 3, 4, 5, 6, 7] }) === '',
+  'fieldViewMaskHex emite 0x05U o vacío cuando cubre las 8 subvistas');
+const wrappedView = core.wrapFieldBlockPages({ type: 'TEXT', page: 0, views: [0, 2] }, '    JWPLC_UITextField(F)');
+const wrappedBoth = core.wrapFieldBlockPages({ type: 'TEXT', pages: [0, 2], views: [1] }, '    JWPLC_UITextField(F)');
+const wrappedNone = core.wrapFieldBlockPages({ type: 'TEXT', page: 0 }, '    JWPLC_UITextField(F)');
+check(/JWPLC_UIFieldViews\(/.test(wrappedView) && /0x05U\)/.test(wrappedView) && !/JWPLC_UIFieldPages/.test(wrappedView),
+  'wrapFieldBlockPages envuelve solo con JWPLC_UIFieldViews cuando hay subvistas');
+check(/JWPLC_UIFieldViews\(/.test(wrappedBoth) && /JWPLC_UIFieldPages\(/.test(wrappedBoth) && /0x02U\)/.test(wrappedBoth),
+  'wrapFieldBlockPages combina JWPLC_UIFieldPages + JWPLC_UIFieldViews');
+check(wrappedNone === '    JWPLC_UITextField(F)', 'wrapFieldBlockPages no envuelve si no hay restricciones');
+
+console.log('MENU (subvistas disjuntas, GO_VIEW, targetView, confirmPopupId)');
+const menuView0 = {
+  ...JSON.parse(JSON.stringify(menus[0])),
+  key: 'menu-v0', id: 'MENU_V0', page: 0, views: [0],
+  nodes: [
+    { key: 'go', parent: null, type: 'GO_VIEW', label: 'Iniciar medicion', targetView: 1, confirmPopupId: 3 },
+    { key: 'act', parent: null, type: 'EDIT_BOOL', label: 'Bomba', variable: 'bombaActiva', valueType: 'bool', initial: 0, falseText: 'OFF', trueText: 'ON', targetView: 1, confirmPopupId: 3 }
+  ]
+};
+const menuView1 = {
+  ...JSON.parse(JSON.stringify(menus[0])),
+  key: 'menu-v1', id: 'MENU_V1', page: 0, views: [1],
+  nodes: [
+    { key: 'back', parent: null, type: 'GO_VIEW', label: 'Configuracion', targetView: 0 }
+  ]
+};
+check(menuApi.validate([menuView0, menuView1], []).errors.length === 0,
+  'MENU en la misma página pero en subvistas disjuntas ([0] y [1]) valida sin errores');
+check(menuApi.validate([{ ...menuView0, views: [0, 1] }, menuView1], []).errors.some((e) => /MENU/.test(e)),
+  'MENU en subvistas solapadas de la misma página produce error');
+const genViewMenu = menuApi.generate([menuView0, menuView1]);
+check(/JWPLC_UIMenuViews\(/.test(genViewMenu.declarations) &&
+  /JWPLC_UIMenuGoView\(/.test(genViewMenu.declarations) &&
+  /JWPLC_UIMenuNodeTargetView\(/.test(genViewMenu.declarations) &&
+  /JWPLC_UIMenuNodeConfirm\(/.test(genViewMenu.declarations),
+  'MENU: emite JWPLC_UIMenuViews, GO_VIEW, TargetView y Confirm');
+
+console.log('POPUPS I5-I6 (sin DOM)');
+const popupsApi = loadPopupsModule();
+check(Boolean(popupsApi?.generate), 'designer-popups.js carga sin DOM');
+const popupsSample = [
+  { ...popupsApi.presetDefaults('INFO', 0), name: 'LISTO', code: 'I01', acceptText: 'LISTO', autoCloseMs: 2500, targetPage: 0, targetView: 0 },
+  { ...popupsApi.presetDefaults('WARN', 1), name: 'TEMP_ALTA', code: 'W02', colors: { ...popupsApi.PRESET_COLORS.WARN, headerBg: 0xFFE0 } },
+  { ...popupsApi.presetDefaults('CRIT', 2), name: 'SOBRE_TEMP', code: 'E104', errCode: 'E104', triggerVar: 'alarmaCrit' },
+  { ...popupsApi.presetDefaults('CONFIRM', 3), name: 'CONFIRMAR_INICIO', confirmOutVar: 'confirmarAccion', targetPage: 0, targetView: 1, x: 20, width: 260, messageTextSize: 2 }
+];
+const fieldsForPopupCheck = [
+  { type: 'BOOL', id: 'F_ALARMA', variable: 'alarmaCrit' },
+  { type: 'VALUE', id: 'F_TEMP', variable: 'sensorTemp' }
+];
+check(popupsApi.validate(popupsSample, fieldsForPopupCheck).errors.length === 0,
+  'POPUPS: 4 presets validan sin errores');
+check(popupsApi.validate([popupsSample[0], { ...popupsSample[1], id: 0 }], []).errors.some((e) => /duplicado/.test(e)),
+  'POPUPS: rechaza IDs numéricos duplicados');
+check(popupsApi.validate([{ ...popupsSample[0], triggerVar: 'sensorTemp' }], fieldsForPopupCheck).errors.some((e) => /no booleano/.test(e)),
+  'POPUPS: rechaza variable no booleana en triggerVar');
+const genPopups = popupsApi.generate(popupsSample, { fields: fieldsForPopupCheck, pageSymbol: (id) => `PAGE_${id}` });
+check(/#ifndef JWPLC_UI_HAS_POPUP/.test(genPopups.declarations) &&
+  /enum HMIPopupId : uint8_t/.test(genPopups.declarations) &&
+  /JWPLC_UIPopupInfo\(/.test(genPopups.declarations) &&
+  /JWPLC_UIPopupWarn\(/.test(genPopups.declarations) &&
+  /JWPLC_UIPopupCrit\(/.test(genPopups.declarations) &&
+  /JWPLC_UIPopupConfirm\(/.test(genPopups.declarations) &&
+  /JWPLC_UIPopupTrigger\(/.test(genPopups.declarations) &&
+  /JWPLC_UIPopupOptions\(/.test(genPopups.declarations) &&
+  /JWPLC_UIPopupButtons\(/.test(genPopups.declarations) &&
+  /JWPLC_UIPopupNavTarget\(\s*[\s\S]*PAGE_0,\s*1/.test(genPopups.declarations) &&
+  /JWPLC_UIPopupRect\(/.test(genPopups.declarations) &&
+  /JWPLC_UIPopupTextSize\(\s*[\s\S]*2\)/.test(genPopups.declarations) &&
+  /JWPLC_UIPopupColorsOverride\(/.test(genPopups.declarations) &&
+  /JWPLC_Display\.setPopups\(/.test(genPopups.setup),
+  'POPUPS: emite todos los presets y modificadores C++ I5-I6');
+check(/JWPLC_UIPopupNavTarget\(\s*[\s\S]*JWPLC_UIPopupInfo\([\s\S]*PAGE_0,\s*0/.test(genPopups.declarations),
+  'POPUPS: emite JWPLC_UIPopupNavTarget también para INFO/WARN no CONFIRM');
+check(/bool confirmarAccion = false;/.test(genPopups.variables) && !/alarmaCrit/.test(genPopups.variables),
+  'POPUPS: deduplica bool ya declaradas en fields');
 
 if (hasGpp()) {
   console.log('COMPILACIÓN HOST (g++)');

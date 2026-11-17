@@ -43,7 +43,11 @@
   const HEIGHT = 170;
   const FIELD_PADDING = 3;
   const FIELD_GAP = 4;
-  const MAX_FIELDS = 32;
+  const MAX_FIELDS = 64;
+  const MAX_TOTAL_OBJECTS = 256;
+  const DYNAMIC_FIELD_TYPES = new Set(['TEXT', 'VALUE', 'BOOL', 'BAR', 'ICON', 'TREND']);
+  const isDynamicField = (field) => DYNAMIC_FIELD_TYPES.has(field?.type);
+  const dynamicFieldCount = (fields = hmiFields) => fields.filter(isDynamicField).length;
   const MAX_PAGES = 16;
   const MAX_HISTORY = 50;
 
@@ -352,6 +356,8 @@
   const fieldName = document.getElementById('fieldName');
   const fieldId = document.getElementById('fieldId');
   const fieldVariable = document.getElementById('fieldVariable');
+  const fieldLinkTrendWrap = document.getElementById('fieldLinkTrendWrap');
+  const fieldLinkTrendSelect = document.getElementById('fieldLinkTrendSelect');
   const fieldCapacity = document.getElementById('fieldCapacity');
   const fieldX = document.getElementById('fieldX');
   const fieldY = document.getElementById('fieldY');
@@ -509,10 +515,12 @@
         const cRect = miniCanvas.getBoundingClientRect();
         const fRect = frame.getBoundingClientRect();
         if (cRect.width > 0 && cRect.height > 0) {
-          const scaleX = cRect.width / WIDTH;
-          const scaleY = cRect.height / HEIGHT;
-          const leftOffset = cRect.left - fRect.left;
-          const topOffset = cRect.top - fRect.top;
+          const contentW = miniCanvas.clientWidth || cRect.width;
+          const contentH = miniCanvas.clientHeight || cRect.height;
+          const scaleX = contentW / WIDTH;
+          const scaleY = contentH / HEIGHT;
+          const leftOffset = (cRect.left + miniCanvas.clientLeft) - (fRect.left + frame.clientLeft);
+          const topOffset = (cRect.top + miniCanvas.clientTop) - (fRect.top + frame.clientTop);
           vpBox.style.display = 'block';
           vpBox.style.left = `${leftOffset + visX1 * scaleX}px`;
           vpBox.style.top = `${topOffset + visY1 * scaleY}px`;
@@ -664,7 +672,9 @@
   let codeMode = 'status';
   let gestureChanged = false;
   let keyboardNudgeChanged = false;
+  const MAX_VIEWS_PER_PAGE = 8;
   let activePage = 0;
+  let activePageViews = {};
   let hmiPages = [{ id: 0, name: 'Principal' }];
   let navBarConfig = {
     enabled: true,
@@ -679,9 +689,9 @@
   const RAW_BG_PAD = 2;
 
   const rawState = {
-    x: 20,
-    y: 20,
-    size: 1,
+    x: 107,
+    y: 78,
+    size: 2,
     font: 'GLCD',
     value: 'Texto RAW',
     foreground: 0xF800,
@@ -741,6 +751,57 @@
       valueColor: 0x07FF,
       backgroundColor: 0x0000,
       frameColor: 0xFFFF
+    };
+  }
+
+  function defaultTrendField(key = 'trend-1') {
+    return {
+      type: 'TREND',
+      key,
+      name: 'Tendencia',
+      id: 'FIELD_TREND',
+      variable: 'temperatura',
+      x: 10,
+      y: 15,
+      width: 200,
+      height: 80,
+      title: 'TEND',
+      unit: '',
+      preview: 24.5,
+      sampleIntervalMs: 1000,
+      visibleSamples: 150,
+      scaleMode: 'AUTO',
+      minValue: 0,
+      maxValue: 100,
+      decimals: 1,
+      lineWidth: 1,
+      showAxes: true,
+      showGuides: true,
+      showTimeAxis: true,
+      showLiveValue: true,
+      enableSD: false,
+      sdIntervalMs: 1000,
+      ch2Enabled: false,
+      ch2Variable: 'setpoint',
+      ch2Label: 'SP',
+      ch2Color: 0x07FF,
+      ch3Enabled: false,
+      ch3Variable: 'canal3',
+      ch3Label: 'CH3',
+      ch3Color: 0x07E0,
+      thr1Enabled: false,
+      thr1Value: 85,
+      thr1Color: 0xF800,
+      thr2Enabled: false,
+      thr2Value: 20,
+      thr2Color: 0xFFE0,
+      curveColor: 0xFD20,
+      axesColor: 0xFFFF,
+      gridColor: 0x4208,
+      textColor: 0xFFFF,
+      backgroundColor: 0x0000,
+      frame: true,
+      page: 0
     };
   }
 
@@ -1275,8 +1336,195 @@
     return hmiPages.some((item) => item.id === Number(page));
   }
 
-  function fieldsForPage(page = activePage) {
-    return hmiFields.filter((field) => (field.type === 'NAV_BAR' || field.global) || Number(field.page || 0) === Number(page));
+  function fieldPages(field) {
+    return window.JWPLCHMICodegenCore?.fieldPages
+      ? window.JWPLCHMICodegenCore.fieldPages(field)
+      : [Math.max(0, Math.trunc(Number(field?.page) || 0))];
+  }
+
+  function fieldOnPage(field, page = activePage) {
+    if (!field) return false;
+    if (field.type === 'NAV_BAR' || field.global) return true;
+    return fieldPages(field).includes(Math.trunc(Number(page) || 0));
+  }
+
+  function getPageViews(pageId = activePage) {
+    const pid = Math.trunc(Number(pageId) || 0);
+    const page = hmiPages.find((item) => Number(item.id) === pid);
+    if (Array.isArray(page?.views) && page.views.length) {
+      return page.views.slice(0, MAX_VIEWS_PER_PAGE).map((v, idx) => ({
+        id: idx,
+        name: String(typeof v === 'string' ? v : (v?.name || `Vista ${idx + 1}`)).slice(0, 24) || `Vista ${idx + 1}`
+      }));
+    }
+    return [{ id: 0, name: 'Principal' }];
+  }
+
+  function getActivePageView(pageId = activePage) {
+    const pid = Math.trunc(Number(pageId) || 0);
+    const count = getPageViews(pid).length;
+    const raw = Math.trunc(Number(activePageViews[pid] || 0));
+    return (raw >= 0 && raw < count) ? raw : 0;
+  }
+
+  function fieldOnPageView(field, page = activePage, view = getActivePageView(page)) {
+    if (!fieldOnPage(field, page)) return false;
+    if (field.type === 'NAV_BAR' || field.global || field.type === 'EVENT_LOG') return true;
+    const views = window.JWPLCHMICodegenCore?.fieldViews?.(field)
+      || (Array.isArray(field.views) && field.views.length ? field.views.map(Number) : null);
+    if (!views || !views.length) return true;
+    return views.includes(Math.trunc(Number(view) || 0));
+  }
+
+  function applyDefaultViewScope(field) {
+    if (!field || field.type === 'NAV_BAR' || field.type === 'EVENT_LOG') return;
+    if (Array.isArray(field.views) && field.views.length) return;
+    const pageId = Number(field.page ?? activePage);
+    if (getPageViews(pageId).length > 1) {
+      field.views = [getActivePageView(pageId)];
+    }
+  }
+
+  function setPageViews(pageId = activePage, viewsList = []) {
+    const pid = Math.trunc(Number(pageId) || 0);
+    const page = hmiPages.find((item) => Number(item.id) === pid);
+    if (!page) return false;
+    const clean = Array.isArray(viewsList) && viewsList.length
+      ? viewsList.slice(0, MAX_VIEWS_PER_PAGE).map((v, idx) => ({
+          id: idx,
+          name: String(typeof v === 'string' ? v : (v?.name || `Vista ${idx + 1}`)).trim().slice(0, 24) || `Vista ${idx + 1}`
+        }))
+      : [{ id: 0, name: 'Principal' }];
+    if (clean.length === 1 && clean[0].name === 'Principal') delete page.views;
+    else page.views = clean;
+    if (Number(activePageViews[pid] || 0) >= clean.length) {
+      activePageViews[pid] = clean.length - 1;
+    }
+    return true;
+  }
+
+  function setActivePageView(viewId, pageId = activePage) {
+    const pid = Math.trunc(Number(pageId) || 0);
+    const views = getPageViews(pid);
+    const next = Math.trunc(Number(viewId) || 0);
+    if (next < 0 || next >= views.length) return false;
+    const changed = Number(activePageViews[pid] || 0) !== next;
+    activePageViews[pid] = next;
+    if (pid === activePage && changed) {
+      const selected = selectedField();
+      if (!selected || !fieldOnPageView(selected, activePage, next)) selectFirstOnPage();
+      syncInputsFromState();
+      syncToolUI();
+      render();
+    }
+    return true;
+  }
+
+  function addPageView(pageId = activePage, name) {
+    const pid = Math.trunc(Number(pageId) || 0);
+    const page = hmiPages.find((item) => Number(item.id) === pid);
+    if (!page) return null;
+    const cur = getPageViews(pid);
+    if (cur.length >= MAX_VIEWS_PER_PAGE) return null;
+    if (cur.length === 1) {
+      // Al pasar de 1 a 2 subvistas, fija los objetos actuales a V1 para que V2 inicie limpia.
+      hmiFields.forEach((f) => {
+        if (fieldOnPage(f, pid) && f.type !== 'NAV_BAR' && f.type !== 'EVENT_LOG' && !f.global && (!Array.isArray(f.views) || !f.views.length)) {
+          f.views = [0];
+        }
+      });
+    }
+    const nextId = cur.length;
+    const created = { id: nextId, name: String(name || `Vista ${nextId + 1}`).trim().slice(0, 24) || `Vista ${nextId + 1}` };
+    page.views = [...cur, created];
+    activePageViews[pid] = nextId;
+    if (pid === activePage) {
+      setSelectedKeys([]);
+      selectedTool = 'none';
+      syncInputsFromState();
+      syncToolUI();
+      render();
+    }
+    commitHistory();
+    window.dispatchEvent(new CustomEvent('jwplc:editor-refresh'));
+    return { ...created };
+  }
+
+  function renamePageView(pageId, viewId, name) {
+    const pid = Math.trunc(Number(pageId) || 0);
+    const vid = Math.trunc(Number(viewId) || 0);
+    const page = hmiPages.find((item) => Number(item.id) === pid);
+    if (!page) return false;
+    const cur = getPageViews(pid);
+    if (vid < 0 || vid >= cur.length) return false;
+    const next = String(name || '').trim().slice(0, 24);
+    if (!next || next === cur[vid].name) return false;
+    cur[vid].name = next;
+    setPageViews(pid, cur);
+    render();
+    commitHistory();
+    window.dispatchEvent(new CustomEvent('jwplc:editor-refresh'));
+    return true;
+  }
+
+  function deletePageView(pageId, viewId) {
+    const pid = Math.trunc(Number(pageId) || 0);
+    const vid = Math.trunc(Number(viewId) || 0);
+    const page = hmiPages.find((item) => Number(item.id) === pid);
+    if (!page) return false;
+    const cur = getPageViews(pid);
+    if (cur.length <= 1 || vid < 0 || vid >= cur.length) return false;
+
+    const nextViews = cur.filter((_, idx) => idx !== vid).map((v, idx) => ({ id: idx, name: v.name }));
+    hmiFields = hmiFields.filter((f) => {
+      if (!fieldOnPage(f, pid) || f.type === 'NAV_BAR' || f.global || f.type === 'EVENT_LOG') return true;
+      if (!Array.isArray(f.views) || !f.views.length) return true;
+      const mapped = [...new Set(
+        f.views
+          .map(Number)
+          .filter((v) => v !== vid)
+          .map((v) => (v > vid ? v - 1 : v))
+      )].sort((a, b) => a - b);
+      if (!mapped.length) return false;
+      if (nextViews.length <= 1) delete f.views;
+      else f.views = mapped;
+      return true;
+    });
+
+    // Ajustar destinos de nodos MENU que apuntasen a subvistas iguales/superiores.
+    hmiFields.forEach((f) => {
+      if (f.type !== 'MENU' || Number(f.page || 0) !== pid || !Array.isArray(f.nodes)) return;
+      f.nodes.forEach((n) => {
+        if (n && Number.isInteger(Number(n.targetView)) && Number(n.targetView) >= 0) {
+          const tv = Number(n.targetView);
+          if (tv === vid) n.targetView = 0;
+          else if (tv > vid) n.targetView = tv - 1;
+        }
+      });
+    });
+
+    setPageViews(pid, nextViews);
+    const curActive = Number(activePageViews[pid] || 0);
+    activePageViews[pid] = curActive === vid ? Math.max(0, vid - 1) : (curActive > vid ? curActive - 1 : curActive);
+
+    if (pid === activePage) {
+      setSelectedKeys([]);
+      selectedTool = 'none';
+      syncInputsFromState();
+      syncToolUI();
+      render();
+    }
+    commitHistory();
+    window.dispatchEvent(new CustomEvent('jwplc:editor-refresh'));
+    return true;
+  }
+
+  function fieldsForPage(page = activePage, options = {}) {
+    if (options && options.allViews) {
+      return hmiFields.filter((field) => fieldOnPage(field, page));
+    }
+    const view = getActivePageView(page);
+    return hmiFields.filter((field) => fieldOnPageView(field, page, view));
   }
 
   function setSelectedKeys(keys) {
@@ -1285,7 +1533,8 @@
   }
 
   function selectedFields() {
-    return hmiFields.filter((field) => selectedFieldKeys.includes(field.key) && (field.type === 'NAV_BAR' || field.global || Number(field.page || 0) === activePage));
+    const view = getActivePageView(activePage);
+    return hmiFields.filter((field) => selectedFieldKeys.includes(field.key) && fieldOnPageView(field, activePage, view));
   }
 
   function selectedField() {
@@ -1298,10 +1547,12 @@
     if (field.type === 'VALUE') return 'valueField';
     if (field.type === 'BOOL') return 'boolField';
     if (field.type === 'BAR') return 'barField';
+    if (field.type === 'TREND') return 'trendField';
     if (field.type === 'TEXT') return 'textField';
     if (field.type === 'NAV_BAR') return 'navBarField';
     if (field.type === 'MENU') return 'menuField';
     if (field.type === 'EVENT_LOG') return 'eventLogField';
+    if (field.type === 'QR') return 'qrField';
     if (field.type === 'ICON') return 'iconField';
     return 'pointer';
   }
@@ -1364,7 +1615,7 @@
     if (colorToolPrefs.fillShapes) {
       for (let index = hmiFields.length - 1; index >= 0; index--) {
         const f = hmiFields[index];
-        if (Number(f.page || 0) !== activePage || f.hidden) continue;
+        if (!fieldOnPage(f, activePage) || f.hidden) continue;
         if (['RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(f.type) && isPointInsideShapeArea(point.x, point.y, f)) {
           if (f.fill && (Number(f.fillColor) & 0xFFFF) === value) return false;
           f.fill = true;
@@ -2275,6 +2526,30 @@
     }
   }
 
+  function drawTextWithFont(buffer, text, x, y, foreground, background, size, fontId) {
+    if (!text) return;
+    const fonts = window.JWPLCDesignerFonts;
+    const font = fonts ? fonts.get(fonts.effectiveId(fontId)) : null;
+    if (!font || font.kind === 'glcd') {
+      drawClassicTextAt(buffer, text, x, y, foreground, background, size);
+      return;
+    }
+    if (background !== null && background !== undefined && background !== -1 && background !== 'TRANSPARENT') {
+      const tb = rawTextBounds(text, size, fontId);
+      if (tb.width > 0 && tb.height > 0) {
+        fillBufferRect(buffer, x, y, tb.width, tb.height, background);
+      }
+    }
+    const mask = fonts.rasterize(font, text, size);
+    for (let row = 0; row < mask.height; row += 1) {
+      for (let column = 0; column < mask.width; column += 1) {
+        if (mask.data[row * mask.width + column]) {
+          setBufferPixel(buffer, x + column, y + row, foreground);
+        }
+      }
+    }
+  }
+
   function rawTextBounds(text, size, fontId) {
     const fonts = window.JWPLCDesignerFonts;
     const font = fonts ? fonts.get(fonts.effectiveId(fontId)) : null;
@@ -2366,6 +2641,16 @@
       const y = Number(field.y) || 0;
       const w = Math.max(1, Number(field.width) || (field.type === 'EVENT_LOG' ? 320 : 1));
       const h = Math.max(1, Number(field.height) || (field.type === 'EVENT_LOG' ? 170 : 1));
+      return { x, y, minX: x, maxX: x + w - 1, minY: y, maxY: y + h - 1, width: w, height: h };
+    }
+
+    if (field.type === 'QR') {
+      if (window.JWPLCHMIQR?.computeBounds) return window.JWPLCHMIQR.computeBounds(field);
+      const m = window.JWPLCQRCore?.computeMetrics?.(field);
+      const x = Math.trunc(Number(field.x) || 0);
+      const y = Math.trunc(Number(field.y) || 0);
+      const w = m?.width || 66;
+      const h = m?.height || 66;
       return { x, y, minX: x, maxX: x + w - 1, minY: y, maxY: y + h - 1, width: w, height: h };
     }
 
@@ -2510,6 +2795,23 @@
         unitBounds: { width: 0, height: 0 }
       };
     }
+    if (field.type === 'TREND') {
+      const w = Math.max(40, Number(field.width || field.w) || 200);
+      const h = Math.max(30, Number(field.height || field.h) || 80);
+      return {
+        pad: 0,
+        fieldX: field.x,
+        fieldY: field.y,
+        fieldW: w,
+        fieldH: h,
+        valueX: field.x,
+        valueY: field.y,
+        valueW: w,
+        valueH: h,
+        labelBounds: { width: 0, height: 0 },
+        unitBounds: { width: 0, height: 0 }
+      };
+    }
     if (field.type === 'BAR') {
       if (window.JWPLCHMIBar?.computeGeometry) {
         return window.JWPLCHMIBar.computeGeometry(field);
@@ -2531,7 +2833,7 @@
         unitBounds: { width: 0, height: 0 }
       };
     }
-    if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON', 'RAW_TEXT'].includes(field.type)) {
+    if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON', 'RAW_TEXT', 'QR'].includes(field.type)) {
       const b = getFieldBounds(field);
       return {
         pad: 0,
@@ -2552,21 +2854,59 @@
     // valor no se muevan al pasar a 4×.
     const lead = FIELD_PADDING;
     const pad = effectiveFieldPadding(field);
-    const labelBounds = nominalTextBounds(field.label, field.labelSize);
-    const unitBounds = nominalTextBounds(field.unit, field.labelSize);
+    const labelBounds = rawTextBounds(field.label, field.labelSize, field.labelFont);
+    const unitBounds = rawTextBounds(field.unit, field.labelSize, field.labelFont);
     const pilotSide = 7 * Math.max(1, Math.trunc(Number(field.valueSize) || 1));
     const icon = field.type === 'ICON' ? iconEntry(field) : null;
     const valueBounds = field.type === 'ICON'
       ? (icon ? { width: icon.width, height: icon.height } : { width: 0, height: 7 })
       : isBoolPilot(field)
         ? { width: pilotSide, height: pilotSide }
-        : nominalTextBounds(valueSampleForField(field), field.valueSize);
+        : rawTextBounds(valueSampleForField(field), field.valueSize, field.valueFont);
     let fieldW;
     let fieldH;
     let valueX;
     let valueY;
+    let labelX = field.x + lead;
+    let labelY = field.y + lead;
 
-    if (field.layout === 'STACKED') {
+    if (field.type === 'ICON' && (field.alignV || field.alignH)) {
+      const availW = Math.max(labelBounds.width, valueBounds.width);
+      if (field.layout === 'STACKED') {
+        fieldW = lead + pad + availW;
+        fieldH = lead + pad + (labelBounds.height > 0 ? labelBounds.height + FIELD_GAP : 0) + valueBounds.height;
+        if (field.alignH === 'RIGHT') {
+          labelX = field.x + lead + (availW - labelBounds.width);
+          valueX = field.x + lead + (availW - valueBounds.width);
+        } else if (field.alignH === 'CENTER') {
+          labelX = field.x + lead + Math.floor((availW - labelBounds.width) / 2);
+          valueX = field.x + lead + Math.floor((availW - valueBounds.width) / 2);
+        } else {
+          labelX = field.x + lead;
+          valueX = field.x + lead;
+        }
+        if (field.alignV === 'BOTTOM') {
+          valueY = field.y + lead;
+          labelY = valueY + valueBounds.height + (labelBounds.height > 0 ? FIELD_GAP : 0);
+        } else {
+          labelY = field.y + lead;
+          valueY = labelY + (labelBounds.height > 0 ? labelBounds.height + FIELD_GAP : 0);
+        }
+      } else {
+        const maxH = Math.max(labelBounds.height, valueBounds.height);
+        fieldW = lead + pad + (labelBounds.width > 0 ? labelBounds.width + FIELD_GAP : 0) + valueBounds.width;
+        fieldH = lead + pad + maxH;
+        labelY = field.y + lead + Math.floor((maxH - labelBounds.height) / 2);
+        valueY = field.y + lead + Math.floor((maxH - valueBounds.height) / 2);
+        if (field.alignH === 'RIGHT') {
+          valueX = field.x + lead;
+          labelX = valueX + valueBounds.width + (labelBounds.width > 0 ? FIELD_GAP : 0);
+        } else {
+          labelX = field.x + lead;
+          valueX = labelX + (labelBounds.width > 0 ? labelBounds.width + FIELD_GAP : 0);
+        }
+      }
+    } else if (field.layout === 'STACKED') {
       const valueAndUnitW = valueBounds.width + (unitBounds.width > 0 ? FIELD_GAP + unitBounds.width : 0);
       fieldW = lead + pad + Math.max(labelBounds.width, valueAndUnitW);
       fieldH = lead + pad + labelBounds.height + (labelBounds.height > 0 ? FIELD_GAP : 0) + Math.max(valueBounds.height, unitBounds.height);
@@ -2587,6 +2927,8 @@
       fieldH,
       valueX,
       valueY,
+      labelX,
+      labelY,
       valueW: valueBounds.width,
       valueH: valueBounds.height,
       labelBounds,
@@ -2595,7 +2937,7 @@
   }
 
   function alignedValueX(field, geometry) {
-    const current = nominalTextBounds(previewTextForField(field), field.valueSize).width;
+    const current = rawTextBounds(previewTextForField(field), field.valueSize, field.valueFont).width;
     if (current >= geometry.valueW) return geometry.valueX;
     const free = geometry.valueW - current;
     if (field.align === 'CENTER') return geometry.valueX + Math.floor(free / 2);
@@ -2619,10 +2961,12 @@
     }
     const textBg = (isTrans && stateBg === null) ? null : background;
     if (field.label) {
-      drawClassicTextAt(buffer, field.label, field.x + FIELD_PADDING, field.y + FIELD_PADDING, field.labelColor, textBg, field.labelSize);
+      const lx = (g.labelX !== undefined) ? g.labelX : field.x + FIELD_PADDING;
+      const ly = (g.labelY !== undefined) ? g.labelY : field.y + FIELD_PADDING;
+      drawTextWithFont(buffer, field.label, lx, ly, field.labelColor, textBg, field.labelSize, field.labelFont);
     }
     if (field.unit) {
-      drawClassicTextAt(buffer, field.unit, g.valueX + g.valueW + FIELD_GAP, g.valueY, field.labelColor, textBg, field.labelSize);
+      drawTextWithFont(buffer, field.unit, g.valueX + g.valueW + FIELD_GAP, g.valueY, field.labelColor, textBg, field.labelSize, field.labelFont);
     }
     if (field.type === 'ICON') {
       // JWPLC_UI.cpp:drawIcon: el índice transparente toma el fondo del campo.
@@ -2655,7 +2999,7 @@
     }
     const preview = previewTextForField(field);
     if (preview) {
-      drawClassicTextAt(buffer, preview, alignedValueX(field, g), g.valueY, fieldValueColor565(field), textBg, field.valueSize);
+      drawTextWithFont(buffer, preview, alignedValueX(field, g), g.valueY, fieldValueColor565(field), textBg, field.valueSize, field.valueFont);
     }
     return g;
   }
@@ -2667,9 +3011,28 @@
     let g = null;
     if (['TEXT', 'VALUE', 'BOOL', 'ICON'].includes(field.type)) {
       g = drawField(buffer, field);
+    } else if (field.type === 'TREND') {
+      drawTrendToFramebuffer(buffer, field);
+      g = computeFieldGeometry(field);
     } else if (field.type === 'RAW_TEXT') {
       const bg = field.transparentBackground ? null : (field.backgroundColor ?? 0x0000);
       drawRawTextAt(buffer, field.text || '', field.x, field.y, field.textColor ?? 0xFFFF, bg, field.size || 1, field.font);
+      const b = getFieldBounds(field);
+      g = { fieldX: b.x, fieldY: b.y, fieldW: b.width, fieldH: b.height };
+    } else if (field.type === 'EVENT_LOG') {
+      window.JWPLCHMIEventLog?.paint?.(field, {
+        fillRect: (x, y, w, h, c) => fillBufferRect(buffer, x, y, w, h, c),
+        drawRect: (x, y, w, h, c) => drawBufferRect(buffer, x, y, w, h, c),
+        drawText: (text, x, y, fg, bg, sz, fontId) => drawRawTextAt(buffer, text, x, y, fg, bg, sz || 1, fontId),
+        pixel: (x, y, c) => setBufferPixel(buffer, x, y, c)
+      });
+      const b = getFieldBounds(field);
+      g = { fieldX: b.x, fieldY: b.y, fieldW: b.width, fieldH: b.height };
+    } else if (field.type === 'QR') {
+      window.JWPLCHMIQR?.paint?.(field, {
+        fillRect: (x, y, w, h, c) => fillBufferRect(buffer, x, y, w, h, c),
+        drawRect: (x, y, w, h, c) => drawBufferRect(buffer, x, y, w, h, c)
+      });
       const b = getFieldBounds(field);
       g = { fieldX: b.x, fieldY: b.y, fieldW: b.width, fieldH: b.height };
     }
@@ -2733,6 +3096,176 @@
     }
   }
 
+  function drawTrendToFramebuffer(buffer, field) {
+    const trendCore = window.JWPLCTrendCore;
+    const w = Math.max(40, Number(field.width || field.w) || 200);
+    const h = Math.max(30, Number(field.height || field.h) || 80);
+    const geo = trendCore?.computeTrendGeometry
+      ? trendCore.computeTrendGeometry(field)
+      : {
+          plotX: field.x + 35,
+          plotY: field.y + 4,
+          plotW: w - 40,
+          plotH: h - 20,
+          baseAxisY: field.y + h - 16,
+          topGuideY: field.y + 8,
+          activeH: Math.max(10, h - 24),
+          guide75Y: Math.round(field.y + 8 + (h - 24) * 0.25),
+          guide50Y: Math.round(field.y + 8 + (h - 24) * 0.50),
+          guide25Y: Math.round(field.y + 8 + (h - 24) * 0.75),
+          timeH: 14
+        };
+
+    const bg565 = (field.backgroundColor !== undefined && field.backgroundColor !== null && field.backgroundColor !== 'TRANSPARENT' && field.backgroundColor !== -1) ? (Number(field.backgroundColor) & 0xFFFF) : 0x0000;
+    const curve565 = (field.curveColor !== undefined && field.curveColor !== null) ? (Number(field.curveColor) & 0xFFFF) : 0xFD20;
+    const ch2Color565 = (field.ch2Color !== undefined && field.ch2Color !== null) ? (Number(field.ch2Color) & 0xFFFF) : 0x07FF;
+    const ch3Color565 = (field.ch3Color !== undefined && field.ch3Color !== null) ? (Number(field.ch3Color) & 0xFFFF) : 0x07E0;
+    const thr1Color565 = (field.thr1Color !== undefined && field.thr1Color !== null) ? (Number(field.thr1Color) & 0xFFFF) : 0xF800;
+    const thr2Color565 = (field.thr2Color !== undefined && field.thr2Color !== null) ? (Number(field.thr2Color) & 0xFFFF) : 0xFFE0;
+    const axes565 = (field.axesColor !== undefined && field.axesColor !== null) ? (Number(field.axesColor) & 0xFFFF) : 0xFFFF;
+    const grid565 = (field.gridColor !== undefined && field.gridColor !== null) ? (Number(field.gridColor) & 0xFFFF) : 0x4208;
+    const text565 = (field.textColor !== undefined && field.textColor !== null) ? (Number(field.textColor) & 0xFFFF) : 0xFFFF;
+
+    fillBufferRect(buffer, field.x, field.y, w, h, bg565);
+    if (field.frame !== false) {
+      drawBufferRect(buffer, field.x, field.y, w, h, grid565);
+    }
+
+    // Líneas guía referenciales (25% y 75% de la altura, puramente de apoyo visual tenue)
+    if (field.showGuides !== false) {
+      fillBufferRect(buffer, geo.plotX, geo.guide75Y, geo.plotW, 1, grid565);
+      fillBufferRect(buffer, geo.plotX, geo.guide25Y, geo.plotW, 1, grid565);
+    }
+
+    const activeH = geo.activeH || Math.max(10, geo.baseAxisY - geo.topGuideY);
+    const minVal = Number(field.minValue) || 0;
+    const maxVal = Number(field.maxValue) || 100;
+    const scale = trendCore?.calculateGraphScale ? trendCore.calculateGraphScale(minVal, maxVal) : { low: minVal, mid: (minVal + maxVal) / 2, high: maxVal };
+    const dec = Math.max(0, Math.min(3, Number(field.decimals) || 1));
+
+    const labelYs = [];
+    if (field.showAxes !== false) {
+      // Ejes de coordenadas (L-frame sólido con color entero; el eje X es el piso / cero)
+      fillBufferRect(buffer, geo.plotX - 1, geo.topGuideY, 1, geo.baseAxisY - geo.topGuideY + 1, axes565);
+      fillBufferRect(buffer, geo.plotX - 1, geo.baseAxisY, geo.plotW + 1, 1, axes565);
+
+      // Marcas (ticks) en eje Y (2 px a la izquierda)
+      fillBufferRect(buffer, geo.plotX - 3, geo.topGuideY, 2, 1, axes565);
+      fillBufferRect(buffer, geo.plotX - 3, geo.guide75Y, 2, 1, axes565);
+      fillBufferRect(buffer, geo.plotX - 3, geo.guide25Y, 2, 1, axes565);
+      fillBufferRect(buffer, geo.plotX - 3, geo.baseAxisY, 2, 1, axes565);
+
+      // Marcas (ticks) en eje X (2 px hacia abajo)
+      fillBufferRect(buffer, geo.plotX - 1, geo.baseAxisY, 1, 3, axes565);
+      fillBufferRect(buffer, geo.plotX + geo.plotW - 1, geo.baseAxisY, 1, 3, axes565);
+
+      const lblHigh = scale.high.toFixed(dec);
+      const lblMid = scale.mid.toFixed(dec);
+      const lblLow = scale.low.toFixed(dec);
+
+      drawTextWithFont(buffer, lblHigh, field.x + 2, geo.topGuideY - 3, text565, bg565, 1, 'GLCD');
+      drawTextWithFont(buffer, lblMid, field.x + 2, geo.guide50Y - 3, text565, bg565, 1, 'GLCD');
+      drawTextWithFont(buffer, lblLow, field.x + 2, geo.baseAxisY - 5, text565, bg565, 1, 'GLCD');
+      labelYs.push(geo.topGuideY, geo.guide50Y, geo.baseAxisY);
+    }
+
+    // Umbrales horizontales punteados (MAX_THRESHOLDS = 2)
+    const valueToYObj = (v, lo, hi) => (trendCore?.trendValueToY
+      ? trendCore.trendValueToY(v, lo, hi, geo.topGuideY, activeH)
+      : {
+          y: Math.round(geo.topGuideY + (1 - Math.max(0, Math.min(1, (v - lo) / ((hi - lo) || 1)))) * activeH),
+          inRange: v >= lo && v <= hi
+        });
+
+    [
+      { enabled: Boolean(field.thr1Enabled), value: Number(field.thr1Value ?? 85), color: thr1Color565 },
+      { enabled: Boolean(field.thr2Enabled), value: Number(field.thr2Value ?? 20), color: thr2Color565 }
+    ].forEach((thr) => {
+      if (!thr.enabled || !Number.isFinite(thr.value)) return;
+      const { y: ty, inRange } = valueToYObj(thr.value, scale.low, scale.high);
+      if (!inRange || ty < geo.topGuideY || ty > geo.baseAxisY) return;
+      for (let col = 0; col < geo.plotW; col += 1) {
+        if ((col % 6) < 3) {
+          fillBufferRect(buffer, geo.plotX + col, ty, 1, 1, thr.color);
+        }
+      }
+      if (field.showAxes !== false) {
+        fillBufferRect(buffer, geo.plotX - 3, ty, 2, 1, thr.color);
+        const collides = labelYs.some((existingY) => Math.abs(ty - existingY) < 9);
+        if (!collides) {
+          drawTextWithFont(buffer, thr.value.toFixed(dec), field.x + 2, ty - 3, thr.color, bg565, 1, 'GLCD');
+          labelYs.push(ty);
+        }
+      }
+    });
+
+    if (field.showTimeAxis !== false && geo.timeH > 0) {
+      const sampleMs = Number(field.sampleIntervalMs) || 1000;
+      const visiblePts = Number(field.visibleSamples) || 150;
+      const totalSec = Math.round((sampleMs * visiblePts) / 1000);
+      const rText = totalSec >= 60 ? `${Math.round(totalSec / 60)}m` : `${totalSec}s`;
+
+      drawTextWithFont(buffer, '0s', geo.plotX, geo.baseAxisY + 3, text565, bg565, 1, 'GLCD');
+      const rW = rText.length * 6;
+      drawTextWithFont(buffer, rText, Math.max(geo.plotX + 15, geo.plotX + geo.plotW - rW), geo.baseAxisY + 3, text565, bg565, 1, 'GLCD');
+    }
+
+    const showLiveHeader = field.showLiveValue !== false;
+    const headerTitle = showLiveHeader ? (field.title || field.label) : '';
+    let curX = geo.plotX + 2;
+    if (headerTitle) {
+      const titleStr = String(headerTitle).slice(0, 8);
+      drawTextWithFont(buffer, titleStr, curX, field.y + 2, curve565, bg565, 1, 'GLCD');
+      curX += titleStr.length * 6 + 4;
+      if (field.preview !== undefined && field.preview !== null && String(field.preview) !== '') {
+        const pStr = String(field.preview);
+        drawTextWithFont(buffer, pStr, curX, field.y + 2, curve565, bg565, 1, 'GLCD');
+        curX += pStr.length * 6 + 4;
+      }
+      if (field.unit) {
+        drawTextWithFont(buffer, String(field.unit).slice(0, 6), curX, field.y + 2, curve565, bg565, 1, 'GLCD');
+        curX += String(field.unit).slice(0, 6).length * 6 + 6;
+      }
+    }
+
+    // Leyenda compacta de canales extra en el encabezado
+    if (headerTitle || field.ch2Enabled || field.ch3Enabled) {
+      const extraLegend = [];
+      if (field.ch2Enabled) extraLegend.push({ label: String(field.ch2Label || 'SP').slice(0, 4), color: ch2Color565 });
+      if (field.ch3Enabled) extraLegend.push({ label: String(field.ch3Label || 'CH3').slice(0, 4), color: ch3Color565 });
+      extraLegend.forEach((ch) => {
+        if (curX + 7 + ch.label.length * 6 > field.x + w - 2) return;
+        fillBufferRect(buffer, curX, field.y + 3, 5, 5, ch.color);
+        curX += 7;
+        drawTextWithFont(buffer, ch.label, curX, field.y + 2, ch.color, bg565, 1, 'GLCD');
+        curX += ch.label.length * 6 + 5;
+      });
+    }
+
+    const lineW = Number(field.lineWidth) === 2 ? 2 : 1; // Grosor 1px por defecto
+    const drawCurve = (pts, color565) => {
+      if (!pts || pts.length < 2) return;
+      for (let i = 0; i < pts.length - 1; i += 1) {
+        const x1 = geo.plotX + i;
+        const x2 = geo.plotX + i + 1;
+        const y1 = valueToYObj(pts[i], 0, 100).y;
+        const y2 = valueToYObj(pts[i + 1], 0, 100).y;
+        rasterLineThick(buffer, x1, y1, x2, y2, color565, lineW);
+      }
+    };
+
+    // Dibujar en orden inverso (Canal 3 -> Canal 2 -> Canal 1) para que el Canal 1 quede al frente
+    if (field.ch3Enabled && trendCore?.generateTertiaryPreviewData) {
+      drawCurve(trendCore.generateTertiaryPreviewData(geo.plotW, 15, 70), ch3Color565);
+    }
+    if (field.ch2Enabled && trendCore?.generateSetpointPreviewData) {
+      drawCurve(trendCore.generateSetpointPreviewData(geo.plotW, 55, 72), ch2Color565);
+    }
+    if (trendCore?.generatePreviewData) {
+      drawCurve(trendCore.generatePreviewData(geo.plotW, 20, 80), curve565);
+    }
+  }
+
   function composeFramebuffer() {
     framebuffer.set(pixelLayer);
     topFieldOrder.fill(Infinity);
@@ -2753,6 +3286,8 @@
         drawField(framebuffer, field);
       } else if (field.type === 'BAR') {
         drawBarToFramebuffer(framebuffer, field, true);
+      } else if (field.type === 'TREND') {
+        drawTrendToFramebuffer(framebuffer, field);
       } else if (field.type === 'MENU') {
         window.JWPLCHMIMenu?.paint?.(field, {
           fillRect: (x, y, w, h, c) => fillBufferRect(framebuffer, x, y, w, h, c),
@@ -2763,8 +3298,13 @@
         window.JWPLCHMIEventLog?.paint?.(field, {
           fillRect: (x, y, w, h, c) => fillBufferRect(framebuffer, x, y, w, h, c),
           drawRect: (x, y, w, h, c) => drawBufferRect(framebuffer, x, y, w, h, c),
-          drawText: (text, x, y, fg, bg, sz) => drawRawTextAt(framebuffer, text, x, y, fg, bg, sz || 1),
+          drawText: (text, x, y, fg, bg, sz, fontId) => drawRawTextAt(framebuffer, text, x, y, fg, bg, sz || 1, fontId),
           pixel: (x, y, c) => setBufferPixel(framebuffer, x, y, c)
+        });
+      } else if (field.type === 'QR') {
+        window.JWPLCHMIQR?.paint?.(field, {
+          fillRect: (x, y, w, h, c) => fillBufferRect(framebuffer, x, y, w, h, c),
+          drawRect: (x, y, w, h, c) => drawBufferRect(framebuffer, x, y, w, h, c)
         });
       } else if (['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(field.type)) {
         drawShape(framebuffer, field);
@@ -2774,7 +3314,7 @@
       }
     }
     activeDrawingOrder = Infinity;
-    if (selectedTool === 'rawText' && !hmiFields.some((f) => f.type === 'RAW_TEXT' && Number(f.page || 0) === activePage)) {
+    if (selectedTool === 'rawText' && !hmiFields.some((f) => f.type === 'RAW_TEXT' && fieldOnPage(f, activePage))) {
       const bg = rawState.transparent ? null : rawState.background;
       drawRawTextAt(framebuffer, rawState.value, rawState.x, rawState.y, rawState.foreground, bg, rawState.size, rawState.font);
     }
@@ -2797,6 +3337,10 @@
     // Dibuja la barra de navegación HMI directamente en el lienzo lógico
     if (window.JWPLCHMIPages?.drawHMINavigationBar) {
       window.JWPLCHMIPages.drawHMINavigationBar(logicalCtx, 1);
+    }
+
+    if (window.JWPLCHMIPopups?.paintOnLogical) {
+      window.JWPLCHMIPopups.paintOnLogical(logicalCtx);
     }
   }
 
@@ -2847,6 +3391,7 @@
     if (field.type === 'VALUE') return `FIELD_VALUE_${index + 1}`;
     if (field.type === 'BOOL') return `FIELD_BOOL_${index + 1}`;
     if (field.type === 'BAR') return `FIELD_BAR_${index + 1}`;
+    if (field.type === 'TREND') return `FIELD_TREND_${index + 1}`;
     return `FIELD_TEXT_${index + 1}`;
   }
 
@@ -2855,6 +3400,7 @@
     if (field.type === 'VALUE') return `valor${index + 1}`;
     if (field.type === 'BOOL') return `estado${index + 1}`;
     if (field.type === 'BAR') return `nivel${index + 1}`;
+    if (field.type === 'TREND') return `tendencia${index + 1}`;
     return `texto${index + 1}`;
   }
 
@@ -2862,6 +3408,11 @@
     const variable = sanitizeSymbol(field.variable, variableFallback(field, index));
     if (field.type === 'VALUE') return window.JWPLCHMICodegenCore.valueDeclaration(field, variable);
     if (field.type === 'BAR') return `float ${variable} = 0.0f;`;
+    if (field.type === 'TREND') {
+      return window.JWPLCHMICodegenCore?.trendVariableDeclarations
+        ? window.JWPLCHMICodegenCore.trendVariableDeclarations(field, variable)
+        : `float ${variable} = 0.0f;`;
+    }
     if (field.type === 'BOOL') return `bool ${variable} = false;`;
     if (field.type === 'ICON') return window.JWPLCIconsCore.iconDeclaration(field, variable, window.JWPLCHMIIcons?.iconInfo?.(field.iconId)?.stateNames || window.JWPLCIconsCore.stateNamesFor(window.JWPLCIconCatalog, field.iconId));
     return window.JWPLCHMICodegenCore.textDeclaration(field, variable);
@@ -2873,12 +3424,29 @@
   function fieldContract(field, index) {
     const id = sanitizeSymbol(field.id, fieldFallbackId(field, index));
     const core = window.JWPLCHMICodegenCore;
+    if (field.type === 'TREND' && core?.trendFieldBlock) {
+      return core.trendFieldBlock(field, id);
+    }
     if (field.type === 'ICON') {
       const entry = iconEntry(field);
-      const symbol = window.JWPLCHMIIcons?.symbolForField?.(field) || window.JWPLCIconsCore.symbolFor(field.iconId, entry ? entry.width : field.iconSize);
-      return window.JWPLCIconsCore.iconFieldBlock(field, id, symbol, core.cppString);
+      const symbol = nativeIconCall(field, entry) ||
+        window.JWPLCHMIIcons?.symbolForField?.(field) || window.JWPLCIconsCore.symbolFor(field.iconId, entry ? entry.width : field.iconSize);
+      const iconBlock = window.JWPLCIconsCore.iconFieldBlock(field, id, symbol, core.cppString);
+      return core?.wrapFieldBlockPages ? core.wrapFieldBlockPages(field, iconBlock) : iconBlock;
     }
+    if (core?.fieldBlock) return core.fieldBlock(field, id);
     return field.type === 'VALUE' ? core.valueFieldBlock(field, id) : core.textFieldBlock(field, id);
+  }
+
+  // Icono del catálogo sin colores propios: el header llama a la biblioteca nativa
+  // (JWPLC_Icons.motor(48), precompilada en JWPLC_Display) en vez de copiar su mapa de
+  // bits. Con colores propios (o un icono fuera del catálogo) devuelve null.
+  function nativeIconCall(field, entry) {
+    const core = window.JWPLCIconsCore;
+    if (!core?.iconCallFor || !entry || !core.isCatalogIcon(field.iconId)) return null;
+    const base = core.symbolFor(field.iconId, entry.width);
+    const symbol = window.JWPLCHMIIcons?.symbolForField?.(field) || base;
+    return symbol === base ? core.iconCallFor(field.iconId, entry.width) : null;
   }
 
   // Alpha16: un bloque por (icono, tamaño) usado, en orden de aparición.
@@ -2889,7 +3457,7 @@
     const assets = [];
     fields.filter((field) => field.type === 'ICON').forEach((field) => {
       const entry = iconEntry(field);
-      if (!entry) return;
+      if (!entry || nativeIconCall(field, entry)) return;
       const customSymbol = window.JWPLCHMIIcons?.symbolForField?.(field);
       const symbol = customSymbol || core.symbolFor(field.iconId, entry.width);
       const key = `${field.iconId}@${entry.width}:${symbol}`;
@@ -2910,12 +3478,19 @@
     if (field.type === 'BOOL') return `// JWPLC_Display.setBool(${id}, ${variable});`;
     if (field.type === 'ICON') return `// ${window.JWPLCIconsCore.iconSetter(id, variable, field)}`;
     if (field.type === 'BAR') return `// JWPLC_Display.setBar(${id}, ${variable});`;
+    if (field.type === 'TREND') {
+      const vars = window.JWPLCHMICodegenCore?.trendChannelVariables
+        ? window.JWPLCHMICodegenCore.trendChannelVariables(field, variable)
+        : [variable];
+      return `// JWPLC_Display.setTrend(${id}, ${vars.join(', ')});`;
+    }
     return `// JWPLC_Display.setText(${id}, ${variable});`;
   }
 
   function buildContractText() {
-    const validFields = hmiFields.filter(f => !['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON', 'RAW_TEXT', 'NAV_BAR', 'MENU', 'EVENT_LOG'].includes(f.type));
-    const hasStaticObjects = hmiFields.some(f => ['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON', 'RAW_TEXT', 'NAV_BAR', 'MENU', 'EVENT_LOG'].includes(f.type));
+    const validFields = hmiFields.filter(f => !['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON', 'RAW_TEXT', 'QR', 'NAV_BAR', 'MENU', 'EVENT_LOG'].includes(f.type));
+    const hasPopups = (window.JWPLCHMIPopups?.all?.()?.length || 0) > 0;
+    const hasStaticObjects = hasPopups || hmiFields.some(f => ['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON', 'RAW_TEXT', 'QR', 'NAV_BAR', 'MENU', 'EVENT_LOG'].includes(f.type));
     if (validFields.length === 0 && !hasStaticObjects) return '// Sin campos HMI. Agrega TEXT, VALUE, BOOL o BAR para comenzar.';
     if (validFields.length === 0) {
       // Sólo gráfica estática: sin HMI_FIELDS (un arreglo vacío no es C++ válido).
@@ -2924,7 +3499,21 @@
     const enumLines = validFields
       .map((field, index) => `    ${sanitizeSymbol(field.id, fieldFallbackId(field, index))} = ${index + 1}`)
       .join(',\n');
-    const variables = validFields.map(variableDeclaration).join('\n');
+    const declaredVars = new Set();
+    const variables = validFields
+      .map(variableDeclaration)
+      .filter(Boolean)
+      .map((decl) => decl.split('\n').filter((line) => {
+        const trimmed = line.trim();
+        if (!trimmed) return false;
+        const m = trimmed.match(/^(?:float|bool|uint8_t|int32_t|uint32_t|char)\s+([A-Za-z_][A-Za-z0-9_]*)/);
+        const key = m ? m[1] : trimmed;
+        if (declaredVars.has(key)) return false;
+        declaredVars.add(key);
+        return true;
+      }).join('\n'))
+      .filter(Boolean)
+      .join('\n');
     const fields = validFields.map(fieldContract).join(',\n');
     const setters = validFields.map(setterHint).join('\n');
     const icons = iconAssetsText(validFields);
@@ -2938,7 +3527,8 @@
     const textCount = hmiFields.filter((item) => item.type === 'TEXT').length;
     const valueCount = hmiFields.filter((item) => item.type === 'VALUE').length;
     const current = hmiPages.find((item) => item.id === activePage);
-    return `JWPLC HMI Designer 2.1.0-alpha.15\n\n- Página activa: ${activePage} · ${current?.name || 'Página'}\n- Páginas: ${hmiPages.length}/${MAX_PAGES}\n- Campos globales: ${hmiFields.length}/${MAX_FIELDS}\n- Campos página: ${fieldsForPage().length}\n- TEXT: ${textCount}\n- VALUE: ${valueCount}\n- Selección: ${field ? `${field.type} ${field.name} · ${field.id}` : 'ninguna'}\n- Movimiento: flechas 1 px / Shift+flechas 10 px\n- Duplicar: Ctrl+D\n- Eliminar: Delete\n${g ? `- AUTO field: ${g.fieldW} × ${g.fieldH} px\n- X/Y: ${field.x}, ${field.y}\n- effectivePadding: ${g.pad} px` : ''}${field?.type === 'VALUE' ? `\n- sample reservado: ${makeNumericSample(field)}\n- preview formateado: ${formatNumericPreview(field) || '(vacío)'}` : ''}`;
+    const dynCount = dynamicFieldCount();
+    return `JWPLC HMI Designer 2.1.0-alpha.17\n\n- Página activa: ${activePage} · ${current?.name || 'Página'}\n- Páginas: ${hmiPages.length}/${MAX_PAGES}\n- Campos dinámicos: ${dynCount}/${MAX_FIELDS}\n- Objetos totales: ${hmiFields.length}/${MAX_TOTAL_OBJECTS}\n- Campos página: ${fieldsForPage().length}\n- TEXT: ${textCount}\n- VALUE: ${valueCount}\n- Selección: ${field ? `${field.type} ${field.name} · ${field.id}` : 'ninguna'}\n- Movimiento: flechas 1 px / Shift+flechas 10 px\n- Duplicar: Ctrl+D\n- Eliminar: Delete\n${g ? `- AUTO field: ${g.fieldW} × ${g.fieldH} px\n- X/Y: ${field.x}, ${field.y}\n- effectivePadding: ${g.pad} px` : ''}${field?.type === 'VALUE' ? `\n- sample reservado: ${makeNumericSample(field)}\n- preview formateado: ${formatNumericPreview(field) || '(vacío)'}` : ''}`;
   }
 
   function updateMetrics() {
@@ -3052,7 +3642,7 @@
     if (items.length > layerSeq) layerSeq = items.length;
 
     const pageFieldsOrdered = items.filter((item) => item.type !== 'PIXELMAP');
-    const nonPageFields = hmiFields.filter((f) => !(f.type === 'NAV_BAR' || f.global) && Number(f.page || 0) !== activePage);
+    const nonPageFields = hmiFields.filter((f) => !fieldOnPage(f, activePage));
     hmiFields = [...pageFieldsOrdered, ...nonPageFields];
 
     const pmAll = window.JWPLCHMIPixelMaps?.getAll?.();
@@ -3093,7 +3683,7 @@
   const SVG_LOCK_CLOSED = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`;
   const SVG_LOCK_OPEN = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>`;
 
-  function formatLopakaFieldName(field, index) {
+  function formatLopakaFieldName(field, index, list = null) {
     if (!field) return `Objeto ${index + 1}`;
     if (field.name && field.name.trim()) {
       let n = field.name.trim().replace(/^FIELD[_\s-]*/i, '').trim();
@@ -3112,10 +3702,16 @@
       ELLIPSE: 'Elipse',
       TRIANGLE: 'Triángulo',
       POLYGON: 'Polígono',
-      NAV_BAR: 'Barra de Navegación'
+      NAV_BAR: 'Barra de Navegación',
+      EVENT_LOG: 'Historial',
+      MENU: 'Menú',
+      ICON: 'Icono',
+      TREND: 'Tendencia',
+      QR: 'Código QR'
     };
     const tName = typeNames[field.type] || field.type || 'Objeto';
-    return `${tName} ${index + 1}`;
+    const typeCount = list ? list.slice(0, index + 1).filter((f) => f.type === field.type).length : (index + 1);
+    return `${tName} ${typeCount}`;
   }
 
   function renderObjectList() {
@@ -3128,13 +3724,14 @@
       button.className = `object-item${active ? ' active' : ''}${field.hidden ? ' is-hidden' : ''}${field.locked ? ' is-locked' : ''}`;
       button.dataset.fieldKey = field.key;
       button.dataset.layerOrder = String(field.layerOrder);
-      const displayName = formatLopakaFieldName(field, index);
+      const displayName = formatLopakaFieldName(field, index, visibleFields);
       button.title = `${displayName} (Doble clic: zoom in · Clic: editar)`;
 
       let icon = 'Aa';
       if (['TEXT', 'VALUE', 'RAW_TEXT'].includes(field.type)) icon = 'Aa';
       else if (field.type === 'BOOL') icon = '○';
       else if (field.type === 'BAR') icon = '▰';
+      else if (field.type === 'TREND') icon = '📈';
       else if (field.type === 'LINE') icon = '╱';
       else if (field.type === 'RECT') icon = '□';
       else if (field.type === 'ELLIPSE') icon = '○';
@@ -3144,6 +3741,7 @@
       else if (field.type === 'MENU') icon = '▤';
       else if (field.type === 'EVENT_LOG') icon = '📋';
       else if (field.type === 'ICON') icon = '◈';
+      else if (field.type === 'QR') icon = '▦';
 
       button.innerHTML = `
         <span class="object-icon">${icon}</span>
@@ -3255,14 +3853,16 @@
     sortObjectListDOM();
     const pmCount = (window.JWPLCHMIPixelMaps?.getAll?.() || []).filter((pm) => Number(pm.page || 0) === activePage).length;
     countBadge.textContent = String(visibleFields.length + pmCount);
-    if (fieldsStatus) fieldsStatus.textContent = `Campos: ${hmiFields.length}/${MAX_FIELDS}`;
+    if (fieldsStatus) fieldsStatus.textContent = `Campos: ${dynamicFieldCount()}/${MAX_FIELDS}`;
   }
 
   function updateHistoryButtons() {
     if (undoButton) undoButton.disabled = historyIndex <= 0;
     if (redoButton) redoButton.disabled = historyIndex < 0 || historyIndex >= history.length - 1;
-    duplicateButton.disabled = !selectedField() || hmiFields.length >= MAX_FIELDS;
-    deleteButton.disabled = !selectedField();
+    const sel = selectedField();
+    const canDuplicate = sel && (isDynamicField(sel) ? dynamicFieldCount() < MAX_FIELDS : hmiFields.length < MAX_TOTAL_OBJECTS);
+    duplicateButton.disabled = !canDuplicate;
+    deleteButton.disabled = !sel;
   }
 
   function render() {
@@ -3478,55 +4078,15 @@
 
     if (fields && fields.length === 1 && selPms.length === 0) {
       const f = fields[0];
-      // RAW_TEXT: sin handles de resize (el texto no se deforma geometricamente)
-      if (f.type === 'RAW_TEXT') return [];
+      // RAW_TEXT y QR: sin handles de resize (el tamaño depende de fuente/escala)
+      if (f.type === 'RAW_TEXT' || f.type === 'QR') return [];
       if (f.type === 'LINE') {
-        const b = getFieldBounds(f);
-        const sx1 = b.minX * zoom;
-        const sy1 = b.minY * zoom;
-        const sx2 = (b.maxX + 1) * zoom - 1;
-        const sy2 = (b.maxY + 1) * zoom - 1;
-        const x1 = f.x ?? 0; const y1 = f.y ?? 0;
-        const x2 = f.x2 ?? x1; const y2 = f.y2 ?? y1;
-
-        const midX = (sx1 + sx2) / 2;
-        const midY = (sy1 + sy2) / 2;
-
-        let p1Pos, p2Pos;
-        if (Math.abs(x1 - x2) < 0.001) {
-          if (y1 <= y2) {
-            p1Pos = { x: midX, y: sy1 };
-            p2Pos = { x: midX, y: sy2 };
-          } else {
-            p1Pos = { x: midX, y: sy2 };
-            p2Pos = { x: midX, y: sy1 };
-          }
-        } else if (Math.abs(y1 - y2) < 0.001) {
-          if (x1 <= x2) {
-            p1Pos = { x: sx1, y: midY };
-            p2Pos = { x: sx2, y: midY };
-          } else {
-            p1Pos = { x: sx2, y: midY };
-            p2Pos = { x: sx1, y: midY };
-          }
-        } else {
-          if (x1 <= x2 && y1 <= y2) {
-            p1Pos = { x: sx1, y: sy1 };
-            p2Pos = { x: sx2, y: sy2 };
-          } else if (x1 <= x2 && y1 > y2) {
-            p1Pos = { x: sx1, y: sy2 };
-            p2Pos = { x: sx2, y: sy1 };
-          } else if (x1 > x2 && y1 <= y2) {
-            p1Pos = { x: sx2, y: sy1 };
-            p2Pos = { x: sx1, y: sy2 };
-          } else {
-            p1Pos = { x: sx2, y: sy2 };
-            p2Pos = { x: sx1, y: sy1 };
-          }
-        }
+        const pts = getShapeTransformedVertices(f);
+        const p1 = pts[0] || { x: f.x ?? 0, y: f.y ?? 0 };
+        const p2 = pts[1] || { x: f.x2 ?? p1.x, y: f.y2 ?? p1.y };
         return [
-          { id: 'p1', x: p1Pos.x, y: p1Pos.y, cursor: 'crosshair' },
-          { id: 'p2', x: p2Pos.x, y: p2Pos.y, cursor: 'crosshair' }
+          { id: 'p1', x: p1.x * zoom, y: p1.y * zoom, cursor: 'crosshair' },
+          { id: 'p2', x: p2.x * zoom, y: p2.y * zoom, cursor: 'crosshair' }
         ];
       }
       if (['RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON'].includes(f.type)) {
@@ -3743,6 +4303,7 @@
   }
 
   function drawSelectionAndGuides() {
+    if (window.JWPLCHMIPopups?.isOpen?.()) return;
     const fields = selectedFields();
     const selPms = (window.JWPLCHMIPixelMaps?.getSelectedMaps?.() || []).filter(
       (pm) => Number(pm.page || 0) === activePage && pm.editorVisible !== false && pm.pixels?.length
@@ -4184,7 +4745,7 @@
       button.classList.toggle('active', button.dataset.tool === selectedTool);
     });
 
-    const isVarTool = ['valueField', 'boolField', 'barField', 'navBarField', 'menuField', 'eventLogField'].includes(selectedTool);
+    const isVarTool = ['valueField', 'boolField', 'barField', 'trendField', 'navBarField', 'menuField', 'eventLogField'].includes(selectedTool);
     const varToolBtn = document.getElementById('variableToolBtn');
     if (varToolBtn) {
       varToolBtn.classList.toggle('active', isVarTool);
@@ -4193,7 +4754,7 @@
       }
     }
 
-    const isTextTool = ['textField', 'rawText'].includes(selectedTool);
+    const isTextTool = ['textField', 'rawText', 'qrField'].includes(selectedTool);
     const textToolBtn = document.getElementById('textToolBtn');
     if (textToolBtn) {
       textToolBtn.classList.toggle('active', isTextTool);
@@ -4213,10 +4774,28 @@
     const isMenu = field?.type === 'MENU';
     const isEventLog = field?.type === 'EVENT_LOG';
     const isIcon = field?.type === 'ICON';
+    const isTrend = field?.type === 'TREND';
+    const isQr = field?.type === 'QR';
     const iconSection = document.getElementById('iconInspectorSection');
     if (iconSection) {
       iconSection.hidden = !isIcon;
       iconSection.style.display = isIcon ? '' : 'none';
+    }
+    const trendSection = document.getElementById('trendInspectorSection');
+    if (trendSection) {
+      trendSection.hidden = !isTrend;
+      trendSection.style.display = isTrend ? '' : 'none';
+      if (isTrend && window.JWPLCHMITrend?.syncInspector) {
+        window.JWPLCHMITrend.syncInspector(field);
+      }
+    }
+    const qrSection = document.getElementById('qrInspectorSection');
+    if (qrSection) {
+      qrSection.hidden = !isQr;
+      qrSection.style.display = isQr ? '' : 'none';
+      if (isQr && window.JWPLCHMIQR?.syncInspector) {
+        window.JWPLCHMIQR.syncInspector();
+      }
     }
     const menuSection = document.getElementById('menuInspectorSection');
     if (menuSection) {
@@ -4255,7 +4834,7 @@
         syncRawTextInspector();
       }
     }
-    const showField = Boolean(field && fieldTools.includes(selectedTool) && field.type !== 'RAW_TEXT' && !isShape && field.type !== 'NAV_BAR' && !isMenu && !isEventLog && !isIcon);
+    const showField = Boolean(field && fieldTools.includes(selectedTool) && field.type !== 'RAW_TEXT' && !isShape && field.type !== 'NAV_BAR' && !isMenu && !isEventLog && !isIcon && !isTrend && !isQr);
     if (fieldSection) {
       fieldSection.hidden = !showField;
       fieldSection.style.display = showField ? '' : 'none';
@@ -4490,10 +5069,15 @@
       const cy = Math.round((field.y + field.y2) / 2);
       const rx = Math.round(Math.abs(field.x2 - field.x) / 2);
       const ry = Math.round(Math.abs(field.y2 - field.y) / 2);
-      const rad = Math.max(rx, ry);
       const cmds = [];
-      if (hasFill) cmds.push(`${tft}fillCircle(${cx}, ${cy}, ${rad}, ${fc});`);
-      if (hasBorder) cmds.push(`${tft}drawCircle(${cx}, ${cy}, ${rad}, ${c});`);
+      if (rx === ry) {
+        if (hasFill) cmds.push(`${tft}fillCircle(${cx}, ${cy}, ${rx}, ${fc});`);
+        if (hasBorder) cmds.push(`${tft}drawCircle(${cx}, ${cy}, ${rx}, ${c});`);
+      } else {
+        const rawTft = tft.endsWith('.') ? tft.slice(0, -1) : tft;
+        if (hasFill) cmds.push(`jwplcHMIFillEllipse(${rawTft}, ${cx}, ${cy}, ${rx}, ${ry}, ${fc});`);
+        if (hasBorder) cmds.push(`jwplcHMIDrawEllipse(${rawTft}, ${cx}, ${cy}, ${rx}, ${ry}, ${c});`);
+      }
       return cmds.join('\n') || '// Sin trazo ni relleno activo';
     }
     if (field.type === 'TRIANGLE' && rot === 0 && r <= 0 && !field.flipH && !field.flipV) {
@@ -4683,15 +5267,7 @@
   function syncRawPages(currentField) {
     const host = document.getElementById('rawPageChipRow');
     if (!host) return;
-    const current = Number(currentField?.page ?? activePage);
-    const signature = hmiPages.map((p) => `${p.id}:${p.name}`).join('|') + `#${current}`;
-    if (host.dataset.signature === signature) return;
-    host.dataset.signature = signature;
-    host.innerHTML = hmiPages.map((p) => {
-      const active = Number(p.id) === current;
-      const title = p.name ? `Página ${p.id}: ${p.name}` : `Página ${p.id}`;
-      return `<button type="button" class="insp-chip${active ? ' active' : ''}" data-raw-page-id="${p.id}" title="${title}">${String(Number(p.id) + 1).padStart(2, '0')} · ${p.name || ('Página ' + (Number(p.id) + 1))}</button>`;
-    }).join('');
+    renderPageChipsHost(host, currentField, 'data-raw-page-id');
   }
 
   function syncRawAppearance() {
@@ -4801,6 +5377,65 @@
     }
   }
 
+  function renderRawTypographyControl(fontId, scale) {
+    const host = document.getElementById('rawFontCtrl');
+    const fonts = window.JWPLCDesignerFonts;
+    if (!host || !fonts) return;
+    const normFont = fonts.normalizeId(fontId || 'GLCD');
+    const fam = fonts.fontFamilyOf(normFont);
+    const sc = Math.max(1, Math.trunc(Number(scale) || 1));
+    const variant = String(fonts.fontSizeVariantOf(normFont, sc));
+    const bold = fonts.isBold(normFont);
+    const hPx = fonts.fontHeightPx(normFont, sc);
+
+    let summary = `GLCD ${sc}×`;
+    if (fam === 'BITMAP') summary = `Bitmap ${variant}px`;
+    else if (fam === 'SANS') summary = `Sans ${variant}pt${bold ? ' B' : ''}`;
+    else if (fam === 'MONO') summary = `Mono ${variant}pt${bold ? ' B' : ''}`;
+    else if (fam === 'SERIF') summary = `Serif ${variant}pt${bold ? ' B' : ''}`;
+
+    const fams = [
+      { id: 'GLCD', label: 'Clásica 5×7' },
+      { id: 'BITMAP', label: 'Bitmap' },
+      { id: 'SANS', label: 'Sans' },
+      { id: 'MONO', label: 'Mono' }
+    ];
+    if (fam === 'SERIF') fams.push({ id: 'SERIF', label: 'Serif' });
+
+    let sizeHtml = '';
+    if (fam === 'GLCD') {
+      sizeHtml = [1, 2, 3, 4].map((v) => `
+        <button type="button" class="insp-chip ${sc === v ? 'active' : ''}" data-raw-font-size="${v}">${v}×</button>
+      `).join('');
+    } else if (fam === 'BITMAP') {
+      sizeHtml = ['16', '26'].map((pxVal) => `
+        <button type="button" class="insp-chip ${variant === pxVal ? 'active' : ''}" data-raw-font-size="${pxVal}">${pxVal} px</button>
+      `).join('');
+    } else if (fam === 'SANS' || fam === 'MONO' || fam === 'SERIF') {
+      sizeHtml = ['9', '12', '18', '24'].map((pt) => `
+        <button type="button" class="insp-chip ${variant === pt ? 'active' : ''}" data-raw-font-size="${pt}">${pt} pt</button>
+      `).join('') + `
+        <button type="button" class="insp-bold-btn ${bold ? 'active' : ''}" data-raw-font-bold title="Negrita (Bold)">B</button>
+      `;
+    }
+
+    host.innerHTML = `
+      <div class="insp-font-head">
+        <span class="insp-font-title">Texto</span>
+        <span class="insp-hint">${hPx} px (${summary})</span>
+      </div>
+      <div class="insp-font-family-row">
+        ${fams.map((f) => `
+          <button type="button" class="insp-font-chip ${fam === f.id ? 'active' : ''}" data-raw-font-family="${f.id}">${f.label}</button>
+        `).join('')}
+      </div>
+      <div class="insp-font-size-row">
+        <span style="font-size:9.5px;color:var(--muted);font-weight:600;margin-right:2px;">Tamaño:</span>
+        ${sizeHtml}
+      </div>
+    `;
+  }
+
   function syncRawTextInspector() {
     const field = selectedField();
     const isRawField = field && field.type === 'RAW_TEXT';
@@ -4826,10 +5461,8 @@
     if (rawTextFont && window.JWPLCDesignerFonts && document.activeElement !== rawTextFont) {
       rawTextFont.value = window.JWPLCDesignerFonts.normalizeId(fFont);
     }
-    document.querySelectorAll('#rawScaleChipRow [data-raw-scale]').forEach((chip) => {
-      chip.classList.toggle('active', Number(chip.dataset.rawScale) === s);
-    });
     if (rawTextSize) rawTextSize.value = String(s);
+    renderRawTypographyControl(fFont, s);
     if (typeof updateScalePxHint === 'function') updateScalePxHint();
 
     document.querySelectorAll('#rawBgModeGrid [data-raw-bgmode]').forEach((btn) => {
@@ -5000,6 +5633,22 @@
       return;
     }
 
+    if (field.type === 'TREND') {
+      if (fieldSection) { fieldSection.hidden = true; fieldSection.style.display = 'none'; }
+      if (fieldMetricsSection) fieldMetricsSection.hidden = true;
+      window.JWPLCHMITrend?.syncInspector?.(field);
+      inspectorContract.textContent = `float ${sanitizeSymbol(field.variable, 'tendencia')} = 0.0f;`;
+      return;
+    }
+
+    if (field.type === 'QR') {
+      if (fieldSection) { fieldSection.hidden = true; fieldSection.style.display = 'none'; }
+      if (fieldMetricsSection) fieldMetricsSection.hidden = true;
+      window.JWPLCHMIQR?.syncInspector?.();
+      inspectorContract.textContent = window.JWPLCHMIQR?.contractText?.(field) || '// Código QR';
+      return;
+    }
+
     fieldName.value = field.name || '';
     fieldId.value = field.id || '';
     fieldVariable.value = field.variable || '';
@@ -5012,6 +5661,29 @@
     if (fieldFill) fieldFill.value = field.fill ? '1' : '0';
     if (fieldFillColor) ensureSelectOption(fieldFillColor, field.fillColor ?? field.frameColor ?? 0xFFFF);
     if (fieldFillColorWrap) fieldFillColorWrap.hidden = !field.fill;
+    if (fieldLinkTrendWrap && fieldLinkTrendSelect) {
+      const varType = window.JWPLCHMICodegenCore?.fieldVariableCppType?.(field);
+      const trends = hmiFields.filter((f) => f.type === 'TREND');
+      const canLink = (varType === 'float') && trends.length > 0 && field.type !== 'TREND';
+      fieldLinkTrendWrap.hidden = !canLink;
+      if (canLink) {
+        const opts = ['<option value="">— Variable independiente —</option>'];
+        trends.forEach((t, ti) => {
+          const tName = t.title || t.name || t.id || `TREND_${ti + 1}`;
+          const pgLabel = `P${Number(t.page || 0) + 1}`;
+          const chs = [{ lbl: 'CH1', v: sanitizeSymbol(t.variable, 'tendencia') }];
+          if (t.ch2Enabled) chs.push({ lbl: t.ch2Label || 'CH2', v: sanitizeSymbol(t.ch2Variable, 'setpoint') });
+          if (t.ch3Enabled) chs.push({ lbl: t.ch3Label || 'CH3', v: sanitizeSymbol(t.ch3Variable, 'salida') });
+          chs.forEach((ch) => {
+            opts.push(`<option value="${ch.v}">${tName} · ${ch.lbl} (${ch.v}) [${pgLabel}]</option>`);
+          });
+        });
+        fieldLinkTrendSelect.innerHTML = opts.join('');
+        const curVar = String(field.variable || '');
+        const hasMatch = Array.from(fieldLinkTrendSelect.options).some((o) => o.value === curVar);
+        fieldLinkTrendSelect.value = hasMatch ? curVar : '';
+      }
+    }
     fieldPreview.value = String(field.preview ?? '');
     fieldLabel.value = field.label || '';
     fieldUnit.value = field.unit || '';
@@ -5046,12 +5718,45 @@
     }
   }
 
+  function cloneField(field) {
+    const copy = { ...field };
+    if (Array.isArray(field.pages)) copy.pages = [...field.pages];
+    if (Array.isArray(field.views)) copy.views = [...field.views];
+    if (field.plcBinding && typeof field.plcBinding === 'object') copy.plcBinding = { ...field.plcBinding };
+    if (field.ch2PlcBinding && typeof field.ch2PlcBinding === 'object') copy.ch2PlcBinding = { ...field.ch2PlcBinding };
+    if (field.ch3PlcBinding && typeof field.ch3PlcBinding === 'object') copy.ch3PlcBinding = { ...field.ch3PlcBinding };
+    if (Array.isArray(field.tierVariables)) copy.tierVariables = [...field.tierVariables];
+    if (Array.isArray(field.tierBindings)) {
+      copy.tierBindings = field.tierBindings.map((b) => (
+        b && typeof b === 'object'
+          ? { ...b, ...(b.plcBinding && typeof b.plcBinding === 'object' ? { plcBinding: { ...b.plcBinding } } : {}) }
+          : b
+      ));
+    }
+    if (Array.isArray(field.nodes)) {
+      copy.nodes = field.nodes.map((n) => (
+        n && typeof n === 'object'
+          ? { ...n, ...(n.plcBinding && typeof n.plcBinding === 'object' ? { plcBinding: { ...n.plcBinding } } : {}) }
+          : n
+      ));
+    }
+    if (Array.isArray(field.events)) copy.events = field.events.map((e) => (e && typeof e === 'object' ? { ...e } : e));
+    if (Array.isArray(field.stateColors)) copy.stateColors = [...field.stateColors];
+    if (Array.isArray(field.stateNames)) copy.stateNames = [...field.stateNames];
+    if (Array.isArray(field.tierColors)) copy.tierColors = [...field.tierColors];
+    return copy;
+  }
+
   function captureSnapshot() {
     return {
-      fields: hmiFields.map((field) => ({ ...field })),
-      pages: hmiPages.map((page) => ({ ...page })),
+      fields: hmiFields.map(cloneField),
+      pages: hmiPages.map((page) => ({
+        ...page,
+        ...(Array.isArray(page.views) ? { views: page.views.map((v) => ({ ...v })) } : {})
+      })),
       navBar: { ...navBarConfig },
       activePage,
+      activePageViews: { ...activePageViews },
       selectedFieldKeys: [...selectedFieldKeys],
       selectedFieldKey,
       selectedTool,
@@ -5070,6 +5775,7 @@
   function sameSnapshot(a, b) {
     if (!a || !b) return false;
     if (a.activePage !== b.activePage || a.selectedFieldKey !== b.selectedFieldKey || a.selectedTool !== b.selectedTool || a.serial !== b.serial) return false;
+    if (JSON.stringify(a.activePageViews || {}) !== JSON.stringify(b.activePageViews || {})) return false;
     if (JSON.stringify(a.selectedFieldKeys || []) !== JSON.stringify(b.selectedFieldKeys || [])) return false;
     if (JSON.stringify(a.fields) !== JSON.stringify(b.fields)) return false;
     if (JSON.stringify(a.pages) !== JSON.stringify(b.pages)) return false;
@@ -5089,17 +5795,21 @@
   }
 
   function restoreSnapshot(snapshot) {
-    hmiFields = snapshot.fields.map((field) => ({ ...field }));
-    hmiPages = (snapshot.pages || [{ id: 0, name: 'Principal' }]).map((page) => ({ ...page }));
+    hmiFields = snapshot.fields.map(cloneField);
+    hmiPages = (snapshot.pages || [{ id: 0, name: 'Principal' }]).map((page) => ({
+      ...page,
+      ...(Array.isArray(page.views) ? { views: page.views.map((v) => ({ ...v })) } : {})
+    }));
     if (snapshot.navBar) navBarConfig = { ...snapshot.navBar };
     activePage = pageExists(snapshot.activePage) ? snapshot.activePage : 0;
+    activePageViews = { ...(snapshot.activePageViews || {}) };
     setSelectedKeys(snapshot.selectedFieldKeys || (snapshot.selectedFieldKey ? [snapshot.selectedFieldKey] : []));
     selectedTool = snapshot.selectedTool;
     Object.assign(rawState, snapshot.raw);
     pixelLayer.set(snapshot.pixels);
     fieldSerial = snapshot.serial;
     const selected = selectedField();
-    if (!selected || Number(selected.page || 0) !== activePage) {
+    if (!selected || !fieldOnPageView(selected, activePage, getActivePageView(activePage))) {
       const replacement = fieldsForPage(activePage)[0] || null;
       setSelectedKeys(replacement ? [replacement.key] : []);
       selectedTool = replacement ? toolForField(replacement) : 'none';
@@ -5152,13 +5862,60 @@
   // ID C++ y variable de la copia: consecutivos. Figuras y RAW_TEXT sólo
   // tienen ID (y variable si la traían).
   function assignSequentialSymbols(copy, source) {
-    const isStatic = ['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON', 'RAW_TEXT'].includes(source.type);
+    const isStatic = ['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON', 'RAW_TEXT'].includes(source.type) ||
+      (source.type === 'QR' && source.sourceMode !== 'VARIABLE');
     if (source.id || !isStatic) copy.id = nextSequential(sanitizeSymbol(source.id, fieldFallbackId(source, 0)), 'id');
     if (source.variable || !isStatic) copy.variable = nextSequential(sanitizeSymbol(source.variable, variableFallback(source, 0)), 'variable');
   }
 
   function uniqueName(value) {
     return usedValues('name').has(value) ? nextSequential(value, 'name') : value;
+  }
+
+  const SHAPE_TYPE_LABELS = {
+    RECT: 'Rect',
+    ELLIPSE: 'Elipse',
+    LINE: 'Línea',
+    TRIANGLE: 'Triángulo',
+    POLYGON: 'Polígono'
+  };
+
+  function nextTypeSerial(type) {
+    const used = new Set();
+    let unnumberedCount = 0;
+    (hmiFields || []).forEach((f) => {
+      const matchType = (type === 'CIRCULAR')
+        ? (f.type === 'BAR' && f.barPreset === 'CIRCULAR')
+        : (type === 'BAR')
+          ? (f.type === 'BAR' && f.barPreset !== 'CIRCULAR')
+          : (f.type === type);
+
+      if (matchType) {
+        const candidates = [
+          f.name && String(f.name).match(/(\d+)\s*$/),
+          f.id && String(f.id).match(/_(\d+)$/),
+          f.label && String(f.label).match(/(\d+)\s*$/),
+          f.variable && String(f.variable).match(/(\d+)$/)
+        ];
+        let found = false;
+        for (const m of candidates) {
+          if (m) {
+            const num = parseInt(m[1], 10);
+            if (num > 0) {
+              used.add(num);
+              found = true;
+            }
+          }
+        }
+        if (!found) unnumberedCount++;
+      }
+    });
+    for (let i = 1; i <= unnumberedCount; i++) {
+      used.add(i);
+    }
+    let n = 1;
+    while (used.has(n)) n += 1;
+    return n;
   }
 
   function uniqueFieldSymbol(base) {
@@ -5200,7 +5957,7 @@
     if (!pageExists(target) || target === activePage) return false;
     activePage = target;
     const selected = selectedField();
-    if (!selected || Number(selected.page || 0) !== activePage) selectFirstOnPage();
+    if (!selected || !fieldOnPageView(selected, activePage, getActivePageView(activePage))) selectFirstOnPage();
     syncInputsFromState();
     syncToolUI();
     render();
@@ -5216,6 +5973,7 @@
     hmiPages.push(page);
     hmiPages.sort((a, b) => a.id - b.id);
     activePage = id;
+    activePageViews[id] = 0;
     setSelectedKeys([]);
     selectedTool = 'none';
     syncInputsFromState();
@@ -5277,8 +6035,23 @@
     // Remove page from array
     hmiPages.splice(idx, 1);
 
-    // Remove fields on that page
-    hmiFields = hmiFields.filter((field) => field.type === 'NAV_BAR' || field.global || Number(field.page || 0) !== target);
+    // Remove single-page fields on that page; multi-page fields lose that page
+    hmiFields = hmiFields.filter((field) => {
+      if (field.type === 'NAV_BAR' || field.global) return true;
+      if (Array.isArray(field.pages) && field.pages.length) {
+        const remaining = fieldPages(field).filter((p) => p !== target);
+        if (!remaining.length) return false;
+        if (remaining.length > 1) {
+          field.pages = remaining;
+          field.page = remaining[0];
+        } else {
+          delete field.pages;
+          field.page = remaining[0];
+        }
+        return true;
+      }
+      return Number(field.page || 0) !== target;
+    });
 
     // Remove pixel maps on that page (getAll() devuelve el arreglo vivo).
     const pixelMaps = window.JWPLCHMIPixelMaps?.getAll?.();
@@ -5296,9 +6069,27 @@
     // A15-2: el runtime y el formato .jwhmi exigen ids contiguos 0..N-1.
     // Se renumeran páginas, campos y PixelMaps conservando el orden.
     const remap = new Map(hmiPages.map((item, index) => [item.id, index]));
-    hmiPages.forEach((item) => { item.id = remap.get(item.id); });
+    const nextViewsMap = {};
+    hmiPages.forEach((item) => {
+      const oldId = item.id;
+      const newId = remap.get(oldId);
+      item.id = newId;
+      nextViewsMap[newId] = Number(activePageViews[oldId] || 0);
+    });
+    activePageViews = nextViewsMap;
     hmiFields.forEach((field) => {
       if (field.type === 'NAV_BAR' || field.global) return;
+      if (Array.isArray(field.pages) && field.pages.length) {
+        const remapped = [...new Set(fieldPages(field).map((p) => remap.get(p)).filter((p) => p !== undefined))].sort((a, b) => a - b);
+        if (remapped.length > 1) {
+          field.pages = remapped;
+          field.page = remapped[0];
+        } else {
+          delete field.pages;
+          field.page = remapped[0] ?? 0;
+        }
+        return;
+      }
       const next = remap.get(Number(field.page || 0));
       if (next !== undefined) field.page = next;
     });
@@ -5320,11 +6111,63 @@
     return true;
   }
 
+  function setSelectedFieldPages(pagesList, { navigateTo = null } = {}) {
+    const field = selectedField();
+    if (!field) return false;
+    const valid = [...new Set((pagesList || [])
+      .map((p) => Math.trunc(Number(p)))
+      .filter((p) => Number.isInteger(p) && pageExists(p)))]
+      .sort((a, b) => a - b);
+    if (!valid.length) return false;
+    const supportsMulti = Boolean(window.JWPLCHMICodegenCore?.supportsMultiPage?.(field));
+    if (supportsMulti && valid.length > 1) {
+      field.pages = valid;
+      field.page = valid[0];
+    } else {
+      delete field.pages;
+      field.page = valid[0];
+    }
+    if (navigateTo !== null && pageExists(navigateTo)) {
+      activePage = navigateTo;
+    } else if (!fieldOnPage(field, activePage)) {
+      activePage = field.page;
+    }
+    setSelectedKeys([field.key]);
+    selectedTool = toolForField(field);
+    syncInputsFromState();
+    syncToolUI();
+    render();
+    commitHistory();
+    window.dispatchEvent(new CustomEvent('jwplc:editor-refresh'));
+    return true;
+  }
+
+  function toggleSelectedFieldPage(page) {
+    const target = Math.trunc(Number(page));
+    const field = selectedField();
+    if (!field || !pageExists(target)) return false;
+    if (!window.JWPLCHMICodegenCore?.supportsMultiPage?.(field)) {
+      return moveSelectedFieldToPage(target);
+    }
+    const current = fieldPages(field);
+    const exists = current.includes(target);
+    if (exists && current.length <= 1) return true;
+    const next = exists ? current.filter((p) => p !== target) : [...current, target];
+    return setSelectedFieldPages(next);
+  }
+
+  function setSelectedFieldAllPages() {
+    const field = selectedField();
+    if (!field || !window.JWPLCHMICodegenCore?.supportsMultiPage?.(field)) return false;
+    return setSelectedFieldPages(hmiPages.map((p) => Number(p.id)));
+  }
+
   function moveSelectedFieldToPage(page) {
     const target = Number(page);
     const field = selectedField();
     if (!field || !pageExists(target)) return false;
-    if (Number(field.page || 0) === target) return true;
+    if (!Array.isArray(field.pages) && Number(field.page || 0) === target) return true;
+    delete field.pages;
     field.page = target;
     activePage = target;
     setSelectedKeys([field.key]);
@@ -5333,18 +6176,189 @@
     syncToolUI();
     render();
     commitHistory();
+    window.dispatchEvent(new CustomEvent('jwplc:editor-refresh'));
+    return true;
+  }
+
+  function setSelectedFieldViews(viewsList) {
+    const field = selectedField();
+    if (!field || field.type === 'NAV_BAR' || field.type === 'EVENT_LOG') return false;
+    const pViews = getPageViews(fieldPages(field)[0]);
+    if (!viewsList || !viewsList.length) {
+      if (field.type === 'MENU') {
+        const clash = hmiFields.some((f) => f.type === 'MENU' && f !== field && Number(f.page || 0) === Number(field.page || 0));
+        if (clash) {
+          showToastMessage('Otro MENU de esta página ya ocupa otra subvista.', 'warning');
+          return false;
+        }
+      }
+      delete field.views;
+    } else {
+      const clean = [...new Set(
+        viewsList
+          .map((v) => Math.trunc(Number(v)))
+          .filter((v) => Number.isInteger(v) && v >= 0 && v < MAX_VIEWS_PER_PAGE)
+      )].sort((a, b) => a - b);
+      if (!clean.length) return false;
+      if (field.type === 'MENU') {
+        const nextMask = clean.reduce((acc, v) => acc | (1 << v), 0);
+        const clash = hmiFields.some((f) => {
+          if (f.type !== 'MENU' || f === field || Number(f.page || 0) !== Number(field.page || 0)) return false;
+          const om = (Array.isArray(f.views) && f.views.length) ? f.views.reduce((a, v) => a | (1 << Number(v)), 0) : 0xFF;
+          return (om & nextMask) !== 0;
+        });
+        if (clash) {
+          showToastMessage('Otro MENU de esta página ya ocupa esa subvista.', 'warning');
+          return false;
+        }
+      }
+      const allCovered = pViews.length > 0 && pViews.every((v) => clean.includes(Number(v.id)));
+      const hasOtherMenuOnPage = field.type === 'MENU' && hmiFields.some((f) => f.type === 'MENU' && f !== field && Number(f.page || 0) === Number(field.page || 0));
+      if (allCovered && !hasOtherMenuOnPage) delete field.views;
+      else field.views = clean;
+    }
+    if (!fieldOnPageView(field, activePage, getActivePageView(activePage))) {
+      const firstView = Array.isArray(field.views) && field.views.length ? field.views[0] : 0;
+      activePageViews[activePage] = firstView;
+    }
+    setSelectedKeys([field.key]);
+    selectedTool = toolForField(field);
+    syncInputsFromState();
+    syncToolUI();
+    render();
+    commitHistory();
+    window.dispatchEvent(new CustomEvent('jwplc:editor-refresh'));
+    return true;
+  }
+
+  function toggleSelectedFieldView(viewId) {
+    const target = Math.trunc(Number(viewId));
+    const field = selectedField();
+    if (!field || !Number.isInteger(target) || target < 0 || target >= MAX_VIEWS_PER_PAGE) return false;
+    const pViews = getPageViews(fieldPages(field)[0]);
+    const current = Array.isArray(field.views) && field.views.length
+      ? field.views.map(Number)
+      : pViews.map((v) => Number(v.id));
+    const exists = current.includes(target);
+    if (exists && current.length <= 1) return true;
+    const next = exists ? current.filter((v) => v !== target) : [...current, target];
+    return setSelectedFieldViews(next);
+  }
+
+  function buildPageChipHtml(pages, field, attrName = 'data-page-id') {
+    const activePages = fieldPages(field);
+    const supportsMulti = Boolean(field && window.JWPLCHMICodegenCore?.supportsMultiPage?.(field));
+    const isMulti = activePages.length > 1;
+    const allActive = pages.length > 1 && pages.every((p) => activePages.includes(Number(p.id)));
+    const esc = (s) => String(s || '').replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+    const multiControls = (supportsMulti && pages.length > 1)
+      ? `<button type="button" class="insp-chip${isMulti ? ' active' : ''}" data-page-action="multi" title="Mostrar este objeto en varias páginas a la vez (o Shift+clic en una página)">Multi${isMulti ? ` (${activePages.length})` : ''}</button>` +
+        `<button type="button" class="insp-chip${allActive ? ' active' : ''}" data-page-action="all" title="Mostrar en todas las páginas">Todas</button>`
+      : '';
+    const chips = pages.map((p) => {
+      const id = Number(p.id);
+      const active = field ? activePages.includes(id) : id === Number(activePage);
+      const name = p.name || `Página ${id + 1}`;
+      return `<button type="button" class="insp-chip${active ? ' active' : ''}" ${attrName}="${id}" title="Página ${id}: ${esc(name)}">${String(id + 1).padStart(2, '0')} · ${esc(name)}</button>`;
+    }).join('');
+    let viewHtml = '';
+    if (field && field.type !== 'NAV_BAR' && field.type !== 'EVENT_LOG') {
+      const pViews = getPageViews(activePages[0]);
+      if (pViews.length > 1) {
+        const restricted = Array.isArray(field.views) && field.views.length;
+        const activeViews = restricted ? field.views.map(Number) : pViews.map((v) => Number(v.id));
+        const allViewsActive = !restricted || pViews.every((v) => activeViews.includes(Number(v.id)));
+        viewHtml =
+          `<div class="insp-subview-group">` +
+          `<div class="insp-subview-title">Subvistas</div>` +
+          `<div class="insp-chip-row">` +
+          `<button type="button" class="insp-chip${allViewsActive ? ' active' : ''}" data-view-action="all" title="Visible en todas las subvistas de esta página">Todas</button>` +
+          pViews.map((v) => `<button type="button" class="insp-chip${activeViews.includes(Number(v.id)) ? ' active' : ''}" data-view-id="${v.id}" title="Subvista ${Number(v.id) + 1}: ${esc(v.name)}">V${Number(v.id) + 1} · ${esc(v.name)}</button>`).join('') +
+          `</div></div>`;
+      }
+    }
+    return multiControls + chips + viewHtml;
+  }
+
+  function renderPageChipsHost(host, field, attrName = 'data-page-id') {
+    if (!host) return;
+    const pages = hmiPages;
+    const activePages = field ? fieldPages(field) : [activePage];
+    if (activePages.length > 1) host.dataset.multiMode = '1';
+    else if (!field || !window.JWPLCHMICodegenCore?.supportsMultiPage?.(field)) delete host.dataset.multiMode;
+    const multiFlag = host.dataset.multiMode === '1' ? 'M1' : 'M0';
+    const keyPart = field?.key || (field?.type || 'NONE');
+    const pViews = getPageViews(activePages[0]);
+    const viewsMeta = pViews.map((v) => `${v.id}:${v.name}`).join(',');
+    const fViews = Array.isArray(field?.views) ? field.views.join(',') : 'all';
+    const signature = pages.map((p) => `${p.id}:${p.name}`).join('|') + `#${keyPart}#${activePages.join(',')}#${multiFlag}#${viewsMeta}#${fViews}`;
+    if (host.dataset.signature === signature) return;
+    host.dataset.signature = signature;
+    host.innerHTML = buildPageChipHtml(pages, field, attrName);
+    if (host.dataset.multiMode === '1') {
+      host.querySelector('[data-page-action="multi"]')?.classList.add('active');
+    }
+  }
+
+  function handlePageChipHostClick(host, event, field, attrName = 'data-page-id') {
+    const viewAllBtn = event.target.closest('[data-view-action="all"]');
+    if (viewAllBtn && field) {
+      setSelectedFieldViews(null);
+      return true;
+    }
+    const viewChip = event.target.closest('[data-view-id]');
+    if (viewChip && field) {
+      toggleSelectedFieldView(Number(viewChip.dataset.viewId));
+      return true;
+    }
+    const actionBtn = event.target.closest('[data-page-action]');
+    if (actionBtn) {
+      const action = actionBtn.dataset.pageAction;
+      if (action === 'all') {
+        if (host) host.dataset.multiMode = '1';
+        setSelectedFieldAllPages();
+        return true;
+      }
+      if (action === 'multi') {
+        const current = fieldPages(field);
+        if (current.length > 1) {
+          if (host) delete host.dataset.multiMode;
+          const keep = current.includes(activePage) ? activePage : current[0];
+          moveSelectedFieldToPage(keep);
+        } else if (host) {
+          host.dataset.multiMode = host.dataset.multiMode === '1' ? '0' : '1';
+          if (host.dataset.multiMode === '0') delete host.dataset.multiMode;
+          delete host.dataset.signature;
+          renderPageChipsHost(host, field, attrName);
+        }
+        return true;
+      }
+    }
+    const chip = event.target.closest(`[${attrName}]`);
+    if (!chip) return false;
+    const rawAttr = attrName.replace(/^data-/, '').replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+    const target = Number(chip.dataset[rawAttr]);
+    const useMulti = event.shiftKey || event.ctrlKey || host?.dataset.multiMode === '1' || fieldPages(field).length > 1;
+    if (useMulti && field && window.JWPLCHMICodegenCore?.supportsMultiPage?.(field)) {
+      if (host) host.dataset.multiMode = '1';
+      toggleSelectedFieldPage(target);
+    } else {
+      if (host) delete host.dataset.multiMode;
+      moveSelectedFieldToPage(target);
+    }
     return true;
   }
 
   function addShapeField(type, startPoint, endPoint) {
-    if (hmiFields.length >= MAX_FIELDS) return;
+    if (hmiFields.length >= MAX_TOTAL_OBJECTS) return;
     fieldSerial += 1;
-    const typeLabel = type.charAt(0) + type.slice(1).toLowerCase();
+    const serial = nextTypeSerial(type);
+    const typeLabel = SHAPE_TYPE_LABELS[type] || (type.charAt(0) + type.slice(1).toLowerCase());
     const field = {
       type: type,
       key: `shape-${fieldSerial}`,
-      name: uniqueName(`${typeLabel} ${fieldSerial}`),
-      id: uniqueFieldSymbol(`FIELD_${type}_${fieldSerial}`),
+      name: uniqueName(`${typeLabel} ${serial}`),
+      id: uniqueFieldSymbol(`FIELD_${type}_${serial}`),
       variable: '',
       x: startPoint.x,
       y: startPoint.y,
@@ -5360,6 +6374,7 @@
       sides: Number(document.getElementById('mainPolySidesInput')?.value || 5)
     };
     assignNewLayerOrder(field);
+    applyDefaultViewScope(field);
     hmiFields.push(field);
     setSelectedKeys([field.key]);
     syncInputsFromState();
@@ -5369,26 +6384,36 @@
   }
 
   function addRawTextField(point) {
-    if (hmiFields.length >= MAX_FIELDS) return null;
+    if (hmiFields.length >= MAX_TOTAL_OBJECTS) return null;
     fieldSerial += 1;
-    const px = point ? point.x : 20 + ((fieldSerial - 1) * 8) % 80;
-    const py = point ? point.y : 20 + ((fieldSerial - 1) * 8) % 60;
+    const serial = nextTypeSerial('RAW_TEXT');
+    const textVal = rawState.value || 'Texto RAW';
+    const fontId = rawState.font || 'GLCD';
+    const sizeVal = Number(rawState.size) || 2;
+    const tb = rawTextBounds(textVal, sizeVal, fontId);
+    const step = ((serial - 1) % 5) * 8;
+    const centerX = Math.max(0, Math.round((WIDTH - tb.width) / 2));
+    const centerY = Math.max(0, Math.round((HEIGHT - tb.height) / 2));
+    const px = point ? point.x : centerX + step;
+    const py = point ? point.y : centerY + step;
     const field = {
       type: 'RAW_TEXT',
       key: `rawText-${fieldSerial}`,
-      name: `RAW TEXT ${fieldSerial}`,
-      id: uniqueFieldSymbol(`FIELD_RAW_${fieldSerial}`),
-      text: rawState.value || 'Texto RAW',
+      name: `RAW TEXT ${serial}`,
+      id: uniqueFieldSymbol(`FIELD_RAW_${serial}`),
+      text: textVal,
       x: px,
       y: py,
-      size: rawState.size || 1,
-      font: rawState.font || 'GLCD',
+      size: sizeVal,
+      font: fontId,
       transparentBackground: true,
       textColor: selectedColor ? selectedColor.value : (rawState.foreground ?? 0xFFFF),
       backgroundColor: rawState.background ?? 0x0000,
       page: activePage
     };
+    placeNewField(field);
     assignNewLayerOrder(field);
+    applyDefaultViewScope(field);
     hmiFields.push(field);
     setSelectedKeys([field.key]);
     selectedTool = 'pointer';
@@ -5397,23 +6422,24 @@
     window.dispatchEvent(new CustomEvent('jwplc:tool-changed', { detail: { tool: 'pointer' } }));
     render();
     commitHistory();
-    return field;
   }
 
   function addTextField() {
-    if (hmiFields.length >= MAX_FIELDS) return;
+    if (dynamicFieldCount() >= MAX_FIELDS) return false;
     fieldSerial += 1;
+    const serial = nextTypeSerial('TEXT');
     const field = defaultTextField(`text-${fieldSerial}`);
-    field.name = uniqueName(`TEXT ${fieldSerial}`);
-    field.id = uniqueFieldSymbol(`FIELD_TEXT_${fieldSerial}`);
-    field.variable = uniqueVariable(`texto${fieldSerial}`);
-    field.label = `Texto ${fieldSerial}`;
+    field.name = uniqueName(`Texto ${serial}`);
+    field.id = uniqueFieldSymbol(`FIELD_TEXT_${serial}`);
+    field.variable = uniqueVariable(`texto${serial}`);
+    field.label = `Texto ${serial}`;
     field.preview = 'READY';
     field.page = activePage;
-    field.x = 20 + ((fieldSerial - 1) * 8) % 80;
-    field.y = 20 + ((fieldSerial - 1) * 8) % 60;
+    field.x = 20 + ((serial - 1) * 8) % 80;
+    field.y = 20 + ((serial - 1) * 8) % 60;
     placeNewField(field);
     assignNewLayerOrder(field);
+    applyDefaultViewScope(field);
     hmiFields.push(field);
     setSelectedKeys([field.key]);
     selectedTool = 'textField';
@@ -5421,6 +6447,7 @@
     syncToolUI();
     render();
     commitHistory();
+    return true;
   }
 
   // A15-8: MENU (árbol de configuración). Uno por página; el modelo y el
@@ -5428,13 +6455,14 @@
   
   function addEventLogField() {
     const api = window.JWPLCHMIEventLog;
-    if (!api || hmiFields.length >= MAX_FIELDS) return;
+    if (!api || hmiFields.length >= MAX_TOTAL_OBJECTS) return;
     if (hmiFields.some((f) => f.type === 'EVENT_LOG' && Number(f.page || 0) === activePage)) {
       window.JWPLCDialog.alert('Esta página ya tiene un EVENT_LOG: sólo se permite uno por página.');
       return;
     }
     fieldSerial += 1;
-    const field = api.createDefault(`eventlog-${fieldSerial}`, fieldSerial);
+    const serial = nextTypeSerial('EVENT_LOG');
+    const field = api.createDefault(`eventlog-${fieldSerial}`, serial);
     field.id = uniqueFieldSymbol(field.id);
     field.page = activePage;
     placeNewField(field);
@@ -5450,17 +6478,20 @@
 
   function addMenuField() {
     const api = window.JWPLCHMIMenu;
-    if (!api || hmiFields.length >= MAX_FIELDS) return;
-    if (hmiFields.some((f) => f.type === 'MENU' && Number(f.page || 0) === activePage)) {
-      window.JWPLCDialog.alert('Esta página ya tiene un MENU: el firmware atiende un solo MENU por página.');
+    if (!api || hmiFields.length >= MAX_TOTAL_OBJECTS) return;
+    const curView = getActivePageView(activePage);
+    if (hmiFields.some((f) => f.type === 'MENU' && fieldOnPageView(f, activePage, curView))) {
+      window.JWPLCDialog.alert('Esta subvista ya tiene un MENU: el firmware atiende un solo MENU activo por página y subvista.');
       return;
     }
     fieldSerial += 1;
-    const field = api.createDefault(`menu-${fieldSerial}`, fieldSerial, hmiFields);
+    const serial = nextTypeSerial('MENU');
+    const field = api.createDefault(`menu-${fieldSerial}`, serial, hmiFields);
     field.id = uniqueFieldSymbol(field.id);
     field.page = activePage;
     placeNewField(field);
     assignNewLayerOrder(field);
+    applyDefaultViewScope(field);
     hmiFields.push(field);
     setSelectedKeys([field.key]);
     selectedTool = 'menuField';
@@ -5495,17 +6526,18 @@
     const core = window.JWPLCIconsCore;
     const icon = window.JWPLCHMIIcons?.iconInfo?.(iconId) || core?.findIcon?.(window.JWPLCIconCatalog, iconId);
     if (!icon) return null;
-    if (hmiFields.length >= MAX_FIELDS) {
-      showToastMessage(`Límite de ${MAX_FIELDS} campos: el ICON cuenta como campo.`, 'warning');
+    if (dynamicFieldCount() >= MAX_FIELDS) {
+      showToastMessage(`Límite de ${MAX_FIELDS} campos dinámicos: el ICON cuenta como campo.`, 'warning');
       return null;
     }
     fieldSerial += 1;
+    const serial = nextTypeSerial('ICON');
     const field = defaultTextField(`icon-${fieldSerial}`);
     const base = String(iconId).split('/').pop().replace(/[^A-Za-z0-9]+/g, '_');
     field.type = 'ICON';
-    field.name = uniqueName(`${icon.name} ${fieldSerial}`);
-    field.id = uniqueFieldSymbol(`FIELD_ICON_${fieldSerial}`);
-    field.variable = uniqueVariable(`${base}${fieldSerial}`);
+    field.name = uniqueName(`${icon.name} ${serial}`);
+    field.id = uniqueFieldSymbol(`FIELD_ICON_${serial}`);
+    field.variable = uniqueVariable(`${base}${serial}`);
     field.iconId = iconId;
     field.iconSize = core.resolveSize(icon, size || 32);
     field.iconVarType = icon.stateNames.length > 2 ? 'uint8' : 'bool';
@@ -5530,6 +6562,7 @@
     }
     placeNewField(field);
     assignNewLayerOrder(field);
+    applyDefaultViewScope(field);
     hmiFields.push(field);
     setSelectedKeys([field.key]);
     selectedTool = 'iconField';
@@ -5537,22 +6570,23 @@
     syncToolUI();
     render();
     commitHistory();
-    return field;
   }
 
   function addValueField() {
-    if (hmiFields.length >= MAX_FIELDS) return;
+    if (dynamicFieldCount() >= MAX_FIELDS) return;
     fieldSerial += 1;
+    const serial = nextTypeSerial('VALUE');
     const field = defaultValueField(`value-${fieldSerial}`);
-    field.name = uniqueName(`VALUE ${fieldSerial}`);
-    field.id = uniqueFieldSymbol(`FIELD_VALUE_${fieldSerial}`);
-    field.variable = uniqueVariable(`valor${fieldSerial}`);
-    field.label = `Valor ${fieldSerial}`;
+    field.name = uniqueName(`Valor ${serial}`);
+    field.id = uniqueFieldSymbol(`FIELD_VALUE_${serial}`);
+    field.variable = uniqueVariable(`valor${serial}`);
+    field.label = `Valor ${serial}`;
     field.page = activePage;
-    field.x = 28 + ((fieldSerial - 1) * 8) % 90;
-    field.y = 44 + ((fieldSerial - 1) * 8) % 70;
+    field.x = 28 + ((serial - 1) * 8) % 90;
+    field.y = 44 + ((serial - 1) * 8) % 70;
     placeNewField(field);
     assignNewLayerOrder(field);
+    applyDefaultViewScope(field);
     hmiFields.push(field);
     setSelectedKeys([field.key]);
     selectedTool = 'valueField';
@@ -5560,17 +6594,64 @@
     syncToolUI();
     render();
     commitHistory();
+    return field;
+  }
+
+  function addTrendField() {
+    if (dynamicFieldCount() >= MAX_FIELDS) return;
+    fieldSerial += 1;
+    const serial = nextTypeSerial('TREND');
+    const field = defaultTrendField(`trend-${fieldSerial}`);
+    field.name = uniqueName(`TREND ${serial}`);
+    field.id = uniqueFieldSymbol(`FIELD_TREND_${serial}`);
+    field.variable = uniqueVariable(`tendencia${serial}`);
+    field.title = `TEND${serial}`;
+    field.page = activePage;
+    placeNewField(field);
+    assignNewLayerOrder(field);
+    applyDefaultViewScope(field);
+    hmiFields.push(field);
+    setSelectedKeys([field.key]);
+    selectedTool = 'trendField';
+    syncInputsFromState();
+    syncToolUI();
+    render();
+    commitHistory();
+  }
+
+  function addQrField() {
+    const api = window.JWPLCHMIQR;
+    if (!api || hmiFields.length >= MAX_TOTAL_OBJECTS) return null;
+    fieldSerial += 1;
+    const serial = nextTypeSerial('QR');
+    const field = api.createDefault(`qr-${fieldSerial}`, serial, activePage);
+    field.name = uniqueName(`QR ${serial}`);
+    field.id = uniqueFieldSymbol(`FIELD_QR_${serial}`);
+    field.variable = uniqueVariable(`qrTexto${serial}`);
+    field.page = activePage;
+    placeNewField(field);
+    assignNewLayerOrder(field);
+    applyDefaultViewScope(field);
+    hmiFields.push(field);
+    setSelectedKeys([field.key]);
+    selectedTool = 'qrField';
+    syncInputsFromState();
+    syncToolUI();
+    window.dispatchEvent(new CustomEvent('jwplc:tool-changed', { detail: { tool: 'qrField' } }));
+    render();
+    commitHistory();
+    return field;
   }
 
   function duplicateSelectedField() {
     const sources = selectedFields();
     const selPms = window.JWPLCHMIPixelMaps?.getSelectedMaps?.() || [];
     if (sources.length === 0 && selPms.length === 0) return;
-    if (sources.length > 0 && hmiFields.length + sources.length <= MAX_FIELDS) {
+    if (sources.length > 0 && hmiFields.length + sources.length <= MAX_TOTAL_OBJECTS && dynamicFieldCount() + dynamicFieldCount(sources) <= MAX_FIELDS) {
       const newKeys = [];
       sources.forEach((source) => {
         fieldSerial += 1;
-        const copy = { ...source };
+        const copy = cloneField(source);
         delete copy.layerOrder;
         const prefix = source.type.toLowerCase();
         copy.key = `${prefix}-${fieldSerial}`;
@@ -5794,6 +6875,8 @@
             y,
             preset: cfg.preset || 'industrial-color',
             position: cfg.position || 'bottom',
+            font: cfg.font || 'GLCD',
+            textScale: cfg.textScale || 1,
             height: h,
             global: true,
             hidden: false,
@@ -5825,8 +6908,16 @@
         addEventLogField();
         return;
       }
+      if (tool === 'trendField') {
+        addTrendField();
+        return;
+      }
+      if (tool === 'qrField') {
+        addQrField();
+        return;
+      }
       selectedTool = tool;
-      if (!['pointer', 'textField', 'valueField', 'boolField', 'barField', 'navBarField', 'menuField'].includes(tool)) {
+      if (!['pointer', 'textField', 'valueField', 'boolField', 'barField', 'trendField', 'navBarField', 'menuField'].includes(tool)) {
         setSelectedKeys([]);
       }
       window.dispatchEvent(new CustomEvent('jwplc:tool-changed', { detail: { tool } }));
@@ -5850,6 +6941,7 @@
     valueField: '<svg width="18" height="16" viewBox="0 0 24 24"><text x="12" y="16.5" text-anchor="middle" font-size="11.5" font-weight="800" font-family="\'Segoe UI\', -apple-system, sans-serif" fill="currentColor" letter-spacing="-0.5px">123</text></svg>',
     boolField: '<svg width="18" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="6"/><circle cx="16" cy="12" r="3" fill="currentColor"/></svg>',
     barField: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="10" rx="2.5"/><rect x="5" y="10" width="7" height="4" rx="1" fill="currentColor"/></svg>',
+    trendField: '<svg width="18" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M19 9l-5 5-4-4-4 4"/></svg>',
     navBarField: '<svg width="18" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="10" rx="2"></rect><path d="M7 7v10M12 7v10M17 7v10"></path></svg>',
     menuField: '<svg width="18" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 8h18M7 12h6M7 16h10"/></svg>'
   };
@@ -5858,18 +6950,21 @@
     valueField: 'Variables del PLC · Valor Numérico (VALUE)',
     boolField: 'Variables del PLC · Booleano (BOOL)',
     barField: 'Variables del PLC · Indicadores de Nivel (BAR)',
+    trendField: 'Variables del PLC · Gráfica de Tendencia (TREND)',
     navBarField: 'Variables del PLC · Barra de Navegación (NAV)',
     menuField: 'Variables del PLC · Menú de configuración (MENU)'
   };
 
   const TEXT_ICONS = {
     textField: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V4h16v3"/><path d="M12 4v16"/><path d="M8 20h8"/></svg>',
-    rawText: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5L12 3.5l8 16"/><line x1="7" y1="14.5" x2="17" y2="14.5"/></svg>'
+    rawText: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5L12 3.5l8 16"/><line x1="7" y1="14.5" x2="17" y2="14.5"/></svg>',
+    qrField: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3zM18 14h3v3h-3zM14 18h3v3h-3zM18 18h3v3h-3z"/></svg>'
   };
 
   const TEXT_TITLES = {
     textField: 'Herramientas de Texto · Texto Dinámico (TEXT)',
-    rawText: 'Herramientas de Texto · Texto RAW (A)'
+    rawText: 'Herramientas de Texto · Texto RAW (A)',
+    qrField: 'Herramientas de Texto · Código QR (QR)'
   };
 
   function updateVariableButtonDisplay(tool) {
@@ -5895,6 +6990,9 @@
     varDropdownContainer?.classList.remove('open');
     if (textDropdownMenu) textDropdownMenu.style.display = 'none';
     textDropdownContainer?.classList.remove('open');
+    const iconMenu = document.getElementById('iconDropdownMenu');
+    if (iconMenu) iconMenu.style.display = 'none';
+    document.getElementById('iconDropdownContainer')?.classList.remove('open');
   }
 
   if (varToolBtn && varDropdownMenu) {
@@ -5938,9 +7036,15 @@
   }
 
   document.addEventListener('click', (e) => {
+    const iconContainer = document.getElementById('iconDropdownContainer');
+    // composedPath() y no contains(e.target): un clic en una categoría del menú
+    // Iconos vuelve a dibujar sus botones y e.target ya no está en el documento;
+    // con contains() ese clic cerraba el menú.
+    const path = e.composedPath();
     if (
-      (varDropdownContainer && !varDropdownContainer.contains(e.target)) &&
-      (textDropdownContainer && !textDropdownContainer.contains(e.target))
+      (varDropdownContainer && !path.includes(varDropdownContainer)) &&
+      (textDropdownContainer && !path.includes(textDropdownContainer)) &&
+      (!iconContainer || !path.includes(iconContainer))
     ) {
       closeAllDropdowns();
     }
@@ -6033,7 +7137,69 @@
     rawState.size = Number(rawTextSize.value) || 1;
     const field = selectedField();
     if (field && field.type === 'RAW_TEXT') field.size = rawState.size;
+    syncRawTextInspector();
     updateScalePxHint();
+  });
+
+  function applyRawTypography(nextFont, nextSize) {
+    const fonts = window.JWPLCDesignerFonts;
+    const norm = fonts ? fonts.normalizeId(nextFont) : (nextFont || 'GLCD');
+    const sc = Math.max(1, Math.trunc(Number(nextSize) || 1));
+    rawState.font = norm;
+    rawState.size = sc;
+    if (rawTextFont) rawTextFont.value = norm;
+    if (rawTextSize) rawTextSize.value = String(sc);
+    const field = selectedField();
+    if (field && field.type === 'RAW_TEXT') {
+      field.font = norm;
+      field.size = sc;
+    }
+    syncInputsFromState();
+    syncRawTextInspector();
+    render();
+    commitHistory();
+  }
+
+  document.getElementById('rawFontCtrl')?.addEventListener('click', (e) => {
+    const fonts = window.JWPLCDesignerFonts;
+    if (!fonts) return;
+    const field = selectedField();
+    const isRawField = field && field.type === 'RAW_TEXT';
+    const currFont = (isRawField ? field.font : rawState.font) || 'GLCD';
+    const currSize = Math.max(1, Math.trunc(Number(isRawField ? field.size : rawState.size) || 1));
+    const currFam = fonts.fontFamilyOf(currFont);
+
+    const famBtn = e.target.closest('[data-raw-font-family]');
+    if (famBtn) {
+      const newFam = famBtn.dataset.rawFontFamily;
+      if (newFam === 'GLCD') applyRawTypography('GLCD', currFam === 'GLCD' ? currSize : 2);
+      else if (newFam === 'BITMAP') applyRawTypography('FONT_16', 1);
+      else if (newFam === 'SANS') applyRawTypography('SANS_9', 1);
+      else if (newFam === 'MONO') applyRawTypography('MONO_9', 1);
+      else if (newFam === 'SERIF') applyRawTypography('SERIF_9', 1);
+      return;
+    }
+
+    const sizeBtn = e.target.closest('[data-raw-font-size]');
+    if (sizeBtn) {
+      const sizeVal = sizeBtn.dataset.rawFontSize;
+      if (currFam === 'GLCD') {
+        applyRawTypography('GLCD', Math.max(1, Math.trunc(Number(sizeVal) || 1)));
+      } else if (currFam === 'BITMAP') {
+        applyRawTypography(sizeVal === '26' ? 'FONT_26' : 'FONT_16', 1);
+      } else if (currFam === 'SANS' || currFam === 'MONO' || currFam === 'SERIF') {
+        const bold = fonts.isBold(currFont);
+        applyRawTypography(fonts.fontIdFrom(currFam, sizeVal, bold), 1);
+      }
+      return;
+    }
+
+    const boldBtn = e.target.closest('[data-raw-font-bold]');
+    if (boldBtn && (currFam === 'SANS' || currFam === 'MONO' || currFam === 'SERIF')) {
+      const variant = fonts.fontSizeVariantOf(currFont, 1) || '9';
+      const newBold = !fonts.isBold(currFont);
+      applyRawTypography(fonts.fontIdFrom(currFam, variant, newBold), 1);
+    }
   });
 
   // Controles de Texto RAW (estilo Lopaka)
@@ -6076,20 +7242,6 @@
       syncRawTabPanes();
       syncRawTextInspector();
     });
-  });
-
-  // Selector de escala por chips 1×..4×
-  document.getElementById('rawScaleChipRow')?.addEventListener('click', (e) => {
-    const chip = e.target.closest('[data-raw-scale]');
-    if (!chip) return;
-    const s = Number(chip.dataset.rawScale) || 1;
-    const field = selectedField();
-    if (field && field.type === 'RAW_TEXT') field.size = s;
-    rawState.size = s;
-    if (rawTextSize) rawTextSize.value = String(s);
-    syncRawTextInspector();
-    render();
-    commitHistory();
   });
 
   // Selector de fondo (Transparente vs Opaco)
@@ -6140,15 +7292,15 @@
 
   // Chips de páginas
   document.getElementById('rawPageChipRow')?.addEventListener('click', (e) => {
-    const chip = e.target.closest('[data-raw-page-id]');
-    if (!chip) return;
-    const target = Number(chip.dataset.rawPageId);
+    const host = document.getElementById('rawPageChipRow');
     const field = selectedField();
     if (field && field.type === 'RAW_TEXT') {
-      moveSelectedFieldToPage(target);
-    } else {
-      selectPage(target);
+      if (handlePageChipHostClick(host, e, field, 'data-raw-page-id')) syncRawTextInspector();
+      return;
     }
+    const chip = e.target.closest('[data-raw-page-id]');
+    if (!chip) return;
+    selectPage(Number(chip.dataset.rawPageId));
     syncRawTextInspector();
   });
 
@@ -6230,6 +7382,19 @@
   bindFieldInput(fieldName, (field) => { field.name = fieldName.value; });
   bindFieldInput(fieldId, (field) => { field.id = fieldId.value; });
   bindFieldInput(fieldVariable, (field) => { field.variable = fieldVariable.value; });
+  if (fieldLinkTrendSelect) {
+    fieldLinkTrendSelect.addEventListener('change', () => {
+      const field = selectedField();
+      if (!field) return;
+      const chosen = fieldLinkTrendSelect.value;
+      if (!chosen) return;
+      field.variable = chosen;
+      fieldVariable.value = chosen;
+      syncInputsFromState();
+      render();
+      commitHistory();
+    });
+  }
   bindFieldInput(fieldCapacity, (field) => {
     if (field.type !== 'TEXT') return;
     field.capacity = clamp(Number(fieldCapacity.value) || 1, 1, 39);
@@ -6780,6 +7945,11 @@
           f.y = Math.round(newMinY + (orig.y - initMinY) * scaleY);
           f.width = clamp(Math.round((Number(orig.width) || 1) * scaleX), 40, WIDTH);
           f.height = clamp(Math.round((Number(orig.height) || 1) * scaleY), 28, HEIGHT);
+        } else if (f.type === 'TREND') {
+          f.x = Math.round(newMinX + (orig.x - initMinX) * scaleX);
+          f.y = Math.round(newMinY + (orig.y - initMinY) * scaleY);
+          f.width = clamp(Math.round((Number(orig.width) || 200) * scaleX), 40, WIDTH);
+          f.height = clamp(Math.round((Number(orig.height) || 80) * scaleY), 30, HEIGHT);
         } else if (f.type === 'BAR') {
           f.barAutoWidth = false;
           const origW = Number(orig.barWidth) || 110;
@@ -7103,7 +8273,7 @@
           const matchedList = [];
           for (let i = 0; i < hmiFields.length; i++) {
             const f = hmiFields[i];
-            if (Number(f.page || 0) !== activePage) continue;
+            if (!fieldOnPage(f, activePage)) continue;
 
             if (isLeftToRight) {
               const fb = getFieldBounds(f);
@@ -7448,7 +8618,7 @@
       }
       if (ctrl && event.key.toLowerCase() === 'v') {
         event.preventDefault();
-        if (clipboard.length === 0 || hmiFields.length + clipboard.length > MAX_FIELDS) return;
+        if (clipboard.length === 0 || hmiFields.length + clipboard.length > MAX_TOTAL_OBJECTS || dynamicFieldCount() + dynamicFieldCount(clipboard) > MAX_FIELDS) return;
         const newKeys = [];
         clipboard.forEach((source) => {
           fieldSerial += 1;
@@ -7499,6 +8669,7 @@
         return;
       }
       if (event.key === 'Escape') {
+        closeAllDropdowns();
         setSelectedKeys([]);
         selectedTool = 'none';
         syncToolUI();
@@ -7964,6 +9135,70 @@
     fitCanvas();
   });
 
+  function syncToolbarCenterAxis() {
+    const topbar = document.querySelector('.topbar');
+    const toolbar = document.querySelector('.toolbar');
+    const newBtn = document.getElementById('newProjectButton');
+    const openBtn = document.getElementById('openProjectButton');
+    const themeBtn = document.getElementById('themeToggleButton');
+    if (!topbar || !toolbar || !newBtn || !openBtn) return;
+    if (
+      document.body.classList.contains('layout-medium') ||
+      document.body.classList.contains('layout-compact') ||
+      openBtn.offsetParent === null ||
+      newBtn.offsetParent === null
+    ) {
+      toolbar.style.removeProperty('--tb-center-gap');
+      return;
+    }
+    toolbar.style.setProperty('--tb-center-gap', '0px');
+    const tbRect = topbar.getBoundingClientRect();
+    const tlRect = toolbar.getBoundingClientRect();
+    const newRect = newBtn.getBoundingClientRect();
+    const openRect = openBtn.getBoundingClientRect();
+    const openCenterOffset = (openRect.left + openRect.width / 2) - newRect.left;
+    const desiredNewLeft = (tbRect.left + tbRect.width / 2) - openCenterOffset;
+    const rawGap = desiredNewLeft - tlRect.left;
+
+    let clusterRight = openRect.right;
+    for (const el of toolbar.children) {
+      if (el === themeBtn) break;
+      if (el.offsetParent === null) continue;
+      const r = el.getBoundingClientRect();
+      if (r.right > clusterRight) clusterRight = r.right;
+    }
+    const clusterWidth = clusterRight - newRect.left;
+    const themeReserve = themeBtn && themeBtn.offsetParent !== null
+      ? themeBtn.getBoundingClientRect().width + 12
+      : 0;
+    const maxGap = Math.max(0, tlRect.width - clusterWidth - themeReserve);
+    const gap = Math.max(0, Math.min(maxGap, Math.round(rawGap)));
+    toolbar.style.setProperty('--tb-center-gap', `${gap}px`);
+  }
+
+  window.addEventListener('resize', () => {
+    updateMiniPreviewViewport();
+    syncToolbarCenterAxis();
+  });
+  window.addEventListener('load', syncToolbarCenterAxis);
+  if (typeof ResizeObserver === 'function') {
+    const tbObserver = new ResizeObserver(syncToolbarCenterAxis);
+    const topbarEl = document.querySelector('.topbar');
+    const toolbarEl = document.querySelector('.toolbar');
+    const linkBtnEl = document.getElementById('linkSketchButton');
+    if (topbarEl) tbObserver.observe(topbarEl);
+    if (toolbarEl) tbObserver.observe(toolbarEl);
+    if (linkBtnEl) tbObserver.observe(linkBtnEl);
+  }
+  if (typeof MutationObserver === 'function') {
+    const toolbarEl = document.querySelector('.toolbar');
+    if (toolbarEl) {
+      new MutationObserver(() => requestAnimationFrame(syncToolbarCenterAxis))
+        .observe(toolbarEl, { childList: true, subtree: true, characterData: true });
+    }
+  }
+  requestAnimationFrame(syncToolbarCenterAxis);
+
   buildPalette();
   updateActiveColorUI();
   renderRecentColors();
@@ -8013,10 +9248,24 @@
     getSelectedTool: () => selectedTool,
     getSelectedFieldType: () => selectedField()?.type || null,
     getAllFields: () => hmiFields,
-    getFieldsForPage: (page = activePage) => fieldsForPage(page),
-    getPages: () => hmiPages.map((page) => ({ ...page })),
+    getDynamicFieldCount: () => dynamicFieldCount(),
+    getFieldsForPage: (page = activePage, opts = {}) => fieldsForPage(page, opts),
+    getPages: () => hmiPages.map((page) => ({
+      ...page,
+      ...(Array.isArray(page.views) && page.views.length ? { views: page.views.map((v) => ({ ...v })) } : {})
+    })),
     getActivePage: () => activePage,
     getMaxPages: () => MAX_PAGES,
+    getPageViews,
+    setPageViews,
+    getActivePageView,
+    setActivePageView,
+    addPageView,
+    renamePageView,
+    deletePageView,
+    getMaxViewsPerPage: () => MAX_VIEWS_PER_PAGE,
+    isFieldOnPageView: fieldOnPageView,
+    applyDefaultViewScope,
     computeSelectedGeometry: () => computeFieldGeometry(selectedField()),
     selectAll: selectAllOnPage,
     selectAllOnPage,
@@ -8032,8 +9281,16 @@
     addPage,
     renamePage,
     deletePage,
+    getFieldPages: fieldPages,
+    isFieldOnPage: fieldOnPage,
+    setSelectedFieldPages,
+    toggleSelectedFieldPage,
+    setSelectedFieldAllPages,
+    renderPageChipsHost,
+    handlePageChipHostClick,
     moveSelectedFieldToPage,
     commitHistory,
+    syncInputsFromState,
     render,
     redrawCanvasOnly,
     renderCanvasOnly: redrawCanvasOnly,
@@ -8052,8 +9309,12 @@
     deleteSelectedField,
     addTextField,
     addValueField,
+    addTrendField,
+    addQrField,
+    defaultTrendField,
     addRawTextField,
     addIconField,
+    nextTypeSerial: (type) => nextTypeSerial(type),
     iconEntry,
     fillAt,
     fillRegion,
@@ -8212,16 +9473,6 @@
   });
 
   document.getElementById('fitSelectionBtn')?.addEventListener('click', () => {
-    window.JWPLCHMIEditor?.fitSelection?.();
-  });
-
-  document.getElementById('fitButton')?.addEventListener('click', (e) => {
-    e.preventDefault();
-    window.JWPLCHMIEditor?.fitCanvas?.();
-  });
-
-  document.getElementById('fitSelectionButton')?.addEventListener('click', (e) => {
-    e.preventDefault();
     window.JWPLCHMIEditor?.fitSelection?.();
   });
 

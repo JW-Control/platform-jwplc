@@ -74,6 +74,7 @@ struct Core
 
     volatile uint8_t mode = MODE_STOP;
     volatile bool framOk = false;
+    uint8_t demo = DEMO_FERIA; // ejemplo de Programa > Cargar ejemplo (loadDemoIfEmpty)
     volatile bool sdOk = false;
     volatile bool testMode = false;
     volatile uint8_t testQ = 0;

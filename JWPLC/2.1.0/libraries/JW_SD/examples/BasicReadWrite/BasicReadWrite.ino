@@ -1,3 +1,17 @@
+/*
+  BasicReadWrite
+
+  Añade la línea «Hola desde JW_SD» al archivo /jw_sd_test.txt de la
+  microSD y luego lee el archivo completo.
+
+  Conexión: una microSD formateada en FAT32 en la ranura del JWPLC Basic.
+  En el JWPLC Basic el package ya publica el objeto global JWPLC_SD
+  (ver JWPLC_GlobalPeripherals/05.microSD_Basic).
+
+  Qué mirar: el Monitor serie (115200) imprime «SD ready» y el contenido
+  del archivo, con una línea más en cada reinicio.
+*/
+
 #include <JW_SD.h>
 
 #ifndef SD_CS

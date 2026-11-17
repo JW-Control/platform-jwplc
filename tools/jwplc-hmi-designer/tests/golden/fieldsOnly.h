@@ -87,7 +87,7 @@ static const JWPLC_UIField HMI_FIELDS[] =
             0x07FF,
             0x0000,
             0xFFFF)),
-    // Barra Sólida (HORIZONTAL) - Estilo: SOLID, Radio: 0
+    // Barra sólida (HORIZONTAL) - Radio: 0
     JWPLC_UIBarField(
         FIELD_TANQUE,
         JWPLC_UIRect(160, 4, 150, JWPLC_UI_AUTO),

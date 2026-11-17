@@ -43,6 +43,7 @@
   }
 
   function currentMode() {
+    if (window.JWPLCHMIPopups?.isOpen?.()) return 'POPUP';
     const tool = editor()?.getSelectedTool?.();
     if (tool === 'fill' || tool === 'pick') return 'COLOR';
     const field = editor()?.getSelectedField?.();
@@ -55,6 +56,8 @@
       if (field.type === 'MENU') return 'MENU';
       if (field.type === 'EVENT_LOG') return 'EVENT_LOG';
       if (field.type === 'ICON') return 'ICON';
+      if (field.type === 'TREND') return 'TREND';
+      if (field.type === 'QR') return 'QR';
       if (SHAPE_TYPES.includes(field.type)) return 'SHAPE';
       return 'FIELD';
     }
@@ -71,10 +74,13 @@
   function syncInspectorState() {
     const mode = currentMode();
 
+    setSectionVisible(document.getElementById('popupInspectorSection'), mode === 'POPUP');
     setSectionVisible(navBarSection, mode === 'NAV_BAR');
     setSectionVisible(document.getElementById('menuInspectorSection'), mode === 'MENU');
     setSectionVisible(document.getElementById('eventLogInspectorSection'), mode === 'EVENT_LOG');
     setSectionVisible(document.getElementById('iconInspectorSection'), mode === 'ICON');
+    setSectionVisible(document.getElementById('trendInspectorSection'), mode === 'TREND');
+    setSectionVisible(document.getElementById('qrInspectorSection'), mode === 'QR');
     setSectionVisible(fieldSection, mode === 'FIELD');
     setSectionVisible(shapeSection, mode === 'SHAPE');
     setSectionVisible(rawSection, mode === 'RAW');
@@ -84,6 +90,12 @@
 
     if (mode === 'NAV_BAR' && window.JWPLCHMIPages?.syncNavBarInspector) {
       window.JWPLCHMIPages.syncNavBarInspector();
+    }
+    if (mode === 'TREND' && window.JWPLCHMITrend?.syncInspector) {
+      window.JWPLCHMITrend.syncInspector();
+    }
+    if (mode === 'QR' && window.JWPLCHMIQR?.syncInspector) {
+      window.JWPLCHMIQR.syncInspector();
     }
 
     // A11-7 ya dispone de color contextual en PIXEL y en Apariencia.

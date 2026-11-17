@@ -4,53 +4,7 @@
 #include <cstdio>
 #include <cstring>
 
-JWPLC_UIValueFormat::JWPLC_UIValueFormat(
-    uint8_t integerDigitsValue,
-    uint8_t decimalDigitsValue,
-    bool signedValueValue,
-    bool leadingZerosValue)
-    : JWPLC_UIValueFormat(integerDigitsValue, decimalDigitsValue, signedValueValue, leadingZerosValue, 0)
-{
-}
-
-JWPLC_UIValueFormat::JWPLC_UIValueFormat(
-    uint8_t integerDigitsValue,
-    uint8_t decimalDigitsValue,
-    bool signedValueValue,
-    bool leadingZerosValue,
-    char thousandsSeparatorValue)
-    : integerDigits(integerDigitsValue),
-      decimalDigits(decimalDigitsValue),
-      signedValue(signedValueValue),
-      leadingZeros(leadingZerosValue),
-      thousandsSeparator(thousandsSeparatorValue),
-      kind(JWPLC_UI_VALUE_NUMBER),
-      durationPattern(JWPLC_UI_DURATION_MM_SS),
-      durationUnit(JWPLC_UI_DURATION_SECONDS),
-      dateTimePattern(JWPLC_UI_DATETIME_HH_MM)
-{
-}
-
-JWPLC_UIValueFormat JWPLC_UIDurationFormat(
-    JWPLC_UIDurationPattern pattern,
-    JWPLC_UIDurationUnit unit,
-    uint8_t leadDigits,
-    bool signedValue)
-{
-    JWPLC_UIValueFormat format(leadDigits, 0, signedValue, false, 0);
-    format.kind = JWPLC_UI_VALUE_DURATION;
-    format.durationPattern = pattern;
-    format.durationUnit = unit;
-    return format;
-}
-
-JWPLC_UIValueFormat JWPLC_UIDateTimeFormat(JWPLC_UIDateTimePattern pattern)
-{
-    JWPLC_UIValueFormat format(2, 0, false, false, 0);
-    format.kind = JWPLC_UI_VALUE_DATETIME;
-    format.dateTimePattern = pattern;
-    return format;
-}
+// JWPLC_UIValueFormat / JWPLC_UIDurationFormat / JWPLC_UIDateTimeFormat: constexpr inline en JWPLC_UI.h.
 
 namespace
 {

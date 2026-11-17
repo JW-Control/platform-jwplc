@@ -123,7 +123,7 @@ static const JWPLC_UIField HMI_FIELDS[] =
             0x07FF,
             0x0000,
             0xFFFF)),
-    // Barra Sólida (HORIZONTAL) - Estilo: SOLID, Radio: 0
+    // Barra con degradado (HORIZONTAL) - Radio: 0
     JWPLC_UIBarField(
         FIELD_GRAD,
         JWPLC_UIRect(160, 90, 110, JWPLC_UI_AUTO),
@@ -138,7 +138,11 @@ static const JWPLC_UIField HMI_FIELDS[] =
             0xFFFF,
             0x07FF,
             0x0000,
-            0xFFFF))
+            0xFFFF),
+        JWPLC_UIBarConfig(
+            JWPLC_UI_BAR_HORIZONTAL,
+            JWPLC_UI_BAR_STYLE_SOLID,
+            0x07E0))
 };
 
 void jwplcHMISetup()

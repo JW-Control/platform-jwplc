@@ -1,3 +1,19 @@
+/*
+  Basic_RW
+
+  Guarda y lee variables sueltas (int32_t, float, bool) en la FRAM con
+  put(), update() y get(). La FRAM no pierde los datos al apagar y aguanta
+  billones de escrituras.
+
+  En el JWPLC Basic el package ya inicia la FRAM y la publica en el objeto
+  global JWPLC_FRAM (mismos métodos). Este ejemplo crea su propio objeto
+  JW_FRAM para mostrar la librería sola
+  (ver JWPLC_GlobalPeripherals/04.FRAM_Basic).
+
+  Qué mirar: el Monitor serie (115200) imprime «Contador: 101», la ganancia
+  y el habilitado leídos de vuelta.
+*/
+
 #include <JW_FRAM.h>
 
 JW_FRAM fram(JWPLC_FRAM_CS);  // CS de la FRAM del JWPLC Basic (GPIO13)

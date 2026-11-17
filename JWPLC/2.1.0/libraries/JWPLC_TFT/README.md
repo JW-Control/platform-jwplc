@@ -37,12 +37,9 @@ que empiece tu `setup()`.
 
 Por eso, en un sketch normal **no debes llamar `JWPLC_TFT.begin()`**.
 
-Si usas `JWPLC_Display`, puedes obtener el mismo objeto gráfico con:
-
-```cpp
-auto &tft =
-    JWPLC_Display.tft();
-```
+Con `JWPLC_Display` se dibuja con este mismo objeto, `JWPLC_TFT`, dentro de los
+callbacks `jwplcUIEnter()`/`jwplcUIUpdate()`. (`JWPLC_Display.tft()` devuelve
+el mismo objeto; no hace falta usarlo.)
 
 ## Inicio rápido
 
@@ -720,13 +717,9 @@ antes de calcular layouts dinámicos.
 
 ### Acceso desde JWPLC_Display
 
-```cpp
-auto &tft =
-    JWPLC_Display.tft();
-```
-
-Es el camino recomendado cuando tu aplicación ya usa `JWPLC_Display` y sólo
-necesita algunas primitivas gráficas adicionales.
+Con `JWPLC_Display` se usa el mismo objeto global `JWPLC_TFT` dentro de sus
+callbacks; `JWPLC_Display.tft()` devuelve ese objeto y queda solo por
+compatibilidad.
 
 ### Colores personalizados
 
@@ -750,7 +743,7 @@ FreeRTOS tiene el control del SPI. Esto evita que dos tareas crean
 simultáneamente que poseen una operación gráfica pendiente.
 
 Los ejemplos y las funciones de dibujo continúan igual. Para una pantalla
-de aplicación usa normalmente `JWPLC_Display.tft()` y evita dibujar
+de aplicación usa normalmente `JWPLC_TFT` y evita dibujar
 desde varios tasks sin coordinar sus accesos. El backend y los pines
 físicos siguen administrados por el package.
 
@@ -770,19 +763,13 @@ auto &tft =
     JWPLC_Display.display();
 ```
 
-Para código nuevo se recomienda:
+Para código nuevo se recomienda dibujar con el objeto global `JWPLC_TFT`
+(`JWPLC_TFT.fillRect(...)`, `JWPLC_TFT.print(...)`), sin `::`, `*` ni `&` en el
+sketch. Código antiguo con `auto &tft = JWPLC_Display.tft();` sigue compilando.
 
-```cpp
-JWPLC_Display.tft();
-```
+## Novedades de 0.5.0 (2.1.0-alpha.17)
 
-Código antiguo que esperaba explícitamente otro tipo gráfico debe migrar a
-`JWPLC_TFTClass&` o, preferiblemente:
-
-```cpp
-auto &tft =
-    JWPLC_Display.tft();
-```
+- **`beginBatch()` / `endBatch()` anidados por profundidad**: la misma tarea FreeRTOS puede anidar llamadas de batch sin liberar prematuramente el lock SPI ni el recorte hasta el último `endBatch()` correspondiente.
 
 ## Novedades de 0.4.0 y 0.5.0 (2.1.0-alpha.16)
 
@@ -791,8 +778,8 @@ auto &tft =
 - **Líneas gruesas:** `drawWideLine(x0, y0, x1, y1, ancho, color, fondo)` y `drawPolyline(xy, puntos, ancho,
   color, fondo)` con un solo lock del bus.
 - **Sprites:** `JWPLC_TFTSprite` de 16/8/4/1 bits para redibujar zonas sin parpadeo; `push()` respeta el batch y el
-  recorte, y `scroll()` desplaza una región (ejemplo `JWPLC_Display › Display_Graficos_Sprite`).
-- **Fuentes grandes:** `JWPLC_FONT_26` y `JWPLC_FONT_7SEG_48` (ejemplo `JWPLC_Display › Display_Fuentes_Grandes`).
+  recorte, y `scroll()` desplaza una región (ejemplo `JWPLC_Display › 11.Display_Graficos_Sprite`).
+- **Fuentes grandes:** `JWPLC_FONT_26` y `JWPLC_FONT_7SEG_48` (ejemplo `JWPLC_Display › 10.Display_Fuentes_Grandes`).
 - TFT_eSPI 2.5.43 va **dentro** de la librería (`src/`): no hay que instalarla ni configurarla.
 - Defines para detectar la API: `JWPLC_TFT_HAS_CLIP`, `JWPLC_TFT_HAS_WIDE_LINE` y `JWPLC_TFT_HAS_SPRITE`.
 
@@ -801,7 +788,7 @@ auto &tft =
 Documentado para:
 
 ```text
-JWPLC ESP32 v2.1.0-alpha.16
+JWPLC ESP32 v2.1.0-alpha.17
 JWPLC_TFT 0.5.0 (precompilada: src/esp32/libJWPLC_TFT.a)
 ```
 

@@ -1,56 +1,62 @@
 /*
   01.DigitalIO_Basic
 
-  Ejemplo compacto para el taller JWPLC Basic.
+  Las 8 entradas se copian a las 8 salidas: I0_0 -> Q0_0, ... I0_7 -> Q0_7.
 
-  Demuestra dos niveles de acceso a las E/S:
-  - JWPLC_readInputs() / JWPLC_writeOutputs(): trabajan con los 8 bits del bloque.
-  - JWPLC_IO: consulta el estado cacheado por el runtime sin hacer una lectura extra.
+  Usa las mismas funciones que un Arduino:
+  - digitalRead(I0_0)                 lee una entrada (HIGH o LOW).
+  - digitalWrite(Q0_0, HIGH)          escribe una salida.
+  - digitalReadBlock(I0_X)            las 8 entradas en un byte (bit 0 = I0_0).
+  - digitalWriteBlock(Q0_X, bits)     escribe las 8 salidas de una vez (bit 0 = Q0_0).
+  - digitalReadBlock(Q0_X)            estado de las 8 salidas.
+  I0_X y Q0_X son las listas de las 8 entradas y las 8 salidas que trae el
+  package. Leer no hace accesos extra al bus: se usa lo que el package ya escaneó.
 
-  En este ejemplo las 8 entradas se reflejan en las 8 salidas:
-  I0_0 -> Q0_0, I0_1 -> Q0_1, ... I0_7 -> Q0_7.
+  Qué conectar: pulsadores o interruptores en I0_0..I0_7 (o «Simular
+  entradas I» en JWPLC Sim).
+  Qué mirar: los LED de Q0_0..Q0_7 siguen a las entradas; el Monitor serie
+  (115200) imprime cada 500 ms «IN=0xA5 OUT=0xA5 I0_0=1 Q0_0=1».
 */
 
+const uint32_t PERIODO_MONITOR_MS = 500;
+uint32_t ultimoMonitorMs = 0;
+
+// Imprime un byte como 0x05, 0xA5...
+void imprimirHex(uint8_t valor)
+{
+    Serial.print("0x");
+    if (valor < 0x10)
+        Serial.print('0');
+    Serial.print(valor, HEX);
+}
 
 void setup()
 {
     Serial.begin(115200);
-    delay(300);
 
     // Arrancar con todas las salidas apagadas.
-    JWPLC_writeOutputs(0x00);
+    digitalWriteBlock(Q0_X, 0x00);
 
     Serial.println("JWPLC Basic - Digital I/O");
 }
 
 void loop()
 {
-    // Lee I0_0..I0_7 en un solo byte. Bit 0 = I0_0.
-    const uint8_t inputs = JWPLC_readInputs();
+    // Espejo: cada entrada en su salida.
+    const uint8_t entradas = digitalReadBlock(I0_X);
+    digitalWriteBlock(Q0_X, entradas);
 
-    // Escribe Q0_0..Q0_7 en bloque. Bit 0 = Q0_0.
-    JWPLC_writeOutputs(inputs);
-
-    static uint32_t lastPrintMs = 0;
-    if (millis() - lastPrintMs >= 500)
+    if (millis() - ultimoMonitorMs >= PERIODO_MONITOR_MS)
     {
-        lastPrintMs = millis();
+        ultimoMonitorMs = millis();
 
-        Serial.print("IN=0x");
-        if (inputs < 0x10) Serial.print('0');
-        Serial.print(inputs, HEX);
-
-        Serial.print(" OUT=0x");
-        const uint8_t outputs = JWPLC_readOutputs();
-        if (outputs < 0x10) Serial.print('0');
-        Serial.print(outputs, HEX);
-
-        // JWPLC_IO lee el snapshot ya actualizado por el runtime.
+        Serial.print("IN=");
+        imprimirHex(entradas);
+        Serial.print(" OUT=");
+        imprimirHex(digitalReadBlock(Q0_X));
         Serial.print(" I0_0=");
-        Serial.print(JWPLC_IO.input(0));
+        Serial.print(digitalRead(I0_0));
         Serial.print(" Q0_0=");
-        Serial.println(JWPLC_IO.output(0));
+        Serial.println(digitalRead(Q0_0));
     }
-
-    delay(20);
 }

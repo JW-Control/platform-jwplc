@@ -2391,7 +2391,7 @@ bool JW_ModbusRTU::handleReadBits(
 
     if (map == nullptr || count == 0)
     {
-        sendException(functionCode, JW_MODBUS_EX_SLAVE_DEVICE_FAILURE);
+        sendException(functionCode, JW_MODBUS_EX_ILLEGAL_DATA_ADDRESS);
         setError(JW_MODBUS_EXCEPTION);
         return false;
     }
@@ -2454,7 +2454,7 @@ bool JW_ModbusRTU::handleReadRegisters(
 
     if (map == nullptr || count == 0)
     {
-        sendException(functionCode, JW_MODBUS_EX_SLAVE_DEVICE_FAILURE);
+        sendException(functionCode, JW_MODBUS_EX_ILLEGAL_DATA_ADDRESS);
         setError(JW_MODBUS_EXCEPTION);
         return false;
     }
@@ -2511,7 +2511,7 @@ bool JW_ModbusRTU::handleWriteSingleCoil(
     {
         if (!broadcast)
         {
-            sendException(0x05, JW_MODBUS_EX_SLAVE_DEVICE_FAILURE);
+            sendException(0x05, JW_MODBUS_EX_ILLEGAL_DATA_ADDRESS);
         }
         setError(JW_MODBUS_EXCEPTION);
         return false;
@@ -2576,7 +2576,7 @@ bool JW_ModbusRTU::handleWriteSingleRegister(
     {
         if (!broadcast)
         {
-            sendException(0x06, JW_MODBUS_EX_SLAVE_DEVICE_FAILURE);
+            sendException(0x06, JW_MODBUS_EX_ILLEGAL_DATA_ADDRESS);
         }
         setError(JW_MODBUS_EXCEPTION);
         return false;
@@ -2629,7 +2629,7 @@ bool JW_ModbusRTU::handleWriteMultipleCoils(
     {
         if (!broadcast)
         {
-            sendException(0x0F, JW_MODBUS_EX_SLAVE_DEVICE_FAILURE);
+            sendException(0x0F, JW_MODBUS_EX_ILLEGAL_DATA_ADDRESS);
         }
         setError(JW_MODBUS_EXCEPTION);
         return false;
@@ -2710,7 +2710,7 @@ bool JW_ModbusRTU::handleWriteMultipleRegisters(
     {
         if (!broadcast)
         {
-            sendException(0x10, JW_MODBUS_EX_SLAVE_DEVICE_FAILURE);
+            sendException(0x10, JW_MODBUS_EX_ILLEGAL_DATA_ADDRESS);
         }
         setError(JW_MODBUS_EXCEPTION);
         return false;

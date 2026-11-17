@@ -17,8 +17,8 @@ namespace JWPLCUIPages
 
     // Se ejecuta antes de consultar dirty/refresh. Lee estados físicos sin
     // consumir pressed()/released() salvo las teclas que pertenecen al sistema
-    // de navegación de páginas.
-    void serviceNavigation();
+    // de navegación de páginas. Devuelve true si consumió la entrada.
+    bool serviceNavigation();
 
     // Restablece PAGE_SELECT al entrar nuevamente en USER.
     void prepareEnter();

@@ -17,7 +17,7 @@
 static const uint8_t BUTTON_IDS[] = {
     BTN_LEFT, BTN_UP, BTN_RIGHT, BTN_ESC, BTN_OK, BTN_DOWN};
 
-static const char *BUTTON_NAMES[] = {
+static const char BUTTON_NAMES[][6] = {
     "LEFT", "UP", "RIGHT", "ESC", "OK", "DOWN"};
 
 void setup()

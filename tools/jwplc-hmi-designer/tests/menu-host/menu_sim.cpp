@@ -13,6 +13,10 @@
 #include <cstdio>
 #include <string>
 
+// Desde #239 el menú llama a jwplcUIRuntimeEnsureLinked() (definida en
+// JWPLC_UI_API.cpp, que este simulador no compila): basta un cuerpo vacío.
+extern "C" void jwplcUIRuntimeEnsureLinked(void) {}
+
 // ---------------------------------------------------------------------------
 // Stubs de las dependencias del motor
 // ---------------------------------------------------------------------------
@@ -41,6 +45,16 @@ namespace JWPLCUI
     void requestRefresh() { g_refreshRequests++; }
     void invalidateAll(bool) { g_invalidations++; }
 }
+
+// Alpha17 (subvistas y popups I5-I6): el MENU consulta la subvista de la página
+// y puede pedir una confirmación modal. En host no hay subvistas ni popups.
+namespace JWPLCUI
+{
+    void setPageView(uint8_t, uint8_t) {}
+    uint8_t pageView(uint8_t) { return 0; }
+}
+extern "C" bool jwplcUIOverlayRequestConfirm(uint8_t, void (*)(void *), void *) { return false; }
+extern "C" bool jwplcUIOverlayOverlapsRect(int16_t, int16_t, int16_t, int16_t) { return false; }
 
 namespace JWPLCUIPages
 {
@@ -241,6 +255,7 @@ int main(int argc, char **argv)
     uint8_t changedNode = 0xFF;
     check(JWPLCUI::menuChanged(0, &changedNode) && changedNode == N_CONSIGNA, "menuChanged informa el nodo editado");
     check(!JWPLCUI::menuChanged(0, &changedNode), "menuChanged se consume");
+    check(JWPLCUI::menuNode() == N_CONSIGNA, "menuNode() recuerda el último nodo editado (alpha.17)");
     key(BTN_OK);
     key(BTN_DOWN, 200);
     key(BTN_OK);

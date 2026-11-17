@@ -256,3 +256,17 @@ private:
   void repQPush_(uint8_t id, int16_t mult) const;
   bool repQPop_(uint8_t id, int16_t &mult) const;
 };
+
+// -----------------------------------------------------------------------------
+// Nombres globales (regla del «.»: el sketch no escribe «JW_MatrixButtons::»).
+//
+//   JW_ButtonEvent e;
+//   if (JWPLC_Buttons.getEvent(i, e) && e.type == BTN_EV_PRESS) { ... }
+//
+//   const JW_ButtonMapItem MAPA[] = { {0, 0, 0}, {1, 0, 1} };  // id, fila, columna
+// -----------------------------------------------------------------------------
+constexpr JW_MatrixButtons::EvType BTN_EV_PRESS = JW_MatrixButtons::EV_PRESS;
+constexpr JW_MatrixButtons::EvType BTN_EV_RELEASE = JW_MatrixButtons::EV_RELEASE;
+constexpr JW_MatrixButtons::EvType BTN_EV_REPEAT = JW_MatrixButtons::EV_REPEAT;
+typedef JW_MatrixButtons::BtnEvent JW_ButtonEvent;
+typedef JW_MatrixButtons::BtnMapItem JW_ButtonMapItem;

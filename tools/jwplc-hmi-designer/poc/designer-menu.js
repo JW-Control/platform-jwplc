@@ -26,22 +26,24 @@
     EDIT_NUM: { label: 'Editar número', icon: '±', kinds: ['float', 'int32'] },
     EDIT_BOOL: { label: 'Editar ON/OFF', icon: '⏻', kinds: ['bool'] },
     // Acción: OK vuelve a la pantalla IDLE (JWPLC_UIMenuGoIdle). Sin variable.
-    GO_IDLE: { label: 'Ir al inicio', icon: '⏎', kinds: [] }
+    GO_IDLE: { label: 'Ir al inicio', icon: '⏎', kinds: [] },
+    // Acción: OK cambia a otra subvista dentro de la misma página (JWPLC_UIMenuGoView).
+    GO_VIEW: { label: 'Ir a subvista', icon: '↳', kinds: [] }
   };
 
   // Ítems sin variable vinculada.
-  const hasVariable = (n) => n.type !== 'SUBMENU' && n.type !== 'GO_IDLE';
+  const hasVariable = (n) => n.type !== 'SUBMENU' && n.type !== 'GO_IDLE' && n.type !== 'GO_VIEW';
 
   const DEFAULT_COLORS = Object.freeze({
-    text: 0xFFFF,
+    text: 0xC618,
     background: 0x0000,
     value: 0x07FF,
-    selectText: 0x0000,
-    selectBackground: 0x07FF,
+    selectText: 0xFFFF,
+    selectBackground: 0x03FF,
     editText: 0x0000,
     editBackground: 0xFD20,
-    title: 0x0000,
-    titleBackground: 0xFFFF,
+    title: 0xFFFF,
+    titleBackground: 0x2124,
     frame: 0xFFFF
   });
 
@@ -141,6 +143,7 @@
     if (type === 'VIEW') Object.assign(base, { label: 'Medición', variable: `medicion${serial}`, initial: 21.5, unit: 'C' });
     if (type === 'EDIT_NUM') Object.assign(base, { label: 'Consigna', variable: `consigna${serial}`, initial: 50, min: 0, max: 100, step: 0.5, unit: '%' });
     if (type === 'EDIT_BOOL') Object.assign(base, { label: 'Habilitar', variable: `habilitar${serial}`, initial: 0 });
+    if (type === 'GO_VIEW') Object.assign(base, { label: 'Abrir vista', targetView: 1 });
     return base;
   }
 
@@ -179,6 +182,7 @@
       width: 300,
       height: 124,
       textSize: 1,
+      font: 'GLCD',
       frame: true,
       colors: { ...DEFAULT_COLORS },
       nodes
@@ -196,6 +200,7 @@
     if (!Number.isFinite(Number(field.width))) field.width = 300;
     if (!Number.isFinite(Number(field.height))) field.height = 124;
     if (![1, 2].includes(Number(field.textSize))) field.textSize = 1;
+    if (typeof field.font !== 'string') field.font = 'GLCD';
     if (typeof field.frame !== 'boolean') field.frame = true;
     return field;
   }
@@ -251,15 +256,108 @@
   // Geometría y dibujo (espejo de JWPLC_UI_Menu.cpp)
   // ---------------------------------------------------------------------------
 
+  function isCardsStyle(field) {
+    return field?.rowStyle === 'CARDS';
+  }
+
+  function effectiveRowPadY(field) {
+    if (Number(field?.rowPadY) > 0) return Math.trunc(Number(field.rowPadY));
+    return isCardsStyle(field) ? 5 : ROW_PAD_Y;
+  }
+
+  function effectiveRowPadX(field) {
+    if (Number(field?.rowPadX) > 0) return Math.trunc(Number(field.rowPadX));
+    return isCardsStyle(field) ? 8 : ROW_PAD_X;
+  }
+
+  function effectiveRowGap(field) {
+    return isCardsStyle(field) ? Math.max(0, Math.trunc(num(field?.rowGap, 4))) : 0;
+  }
+
   function layout(field) {
     const ts = Number(field.textSize) >= 2 ? 2 : 1;
     const border = field.frame ? 1 : 0;
-    const rowH = 8 * ts + 2 * ROW_PAD_Y;
+    const cards = isCardsStyle(field);
+    const padY = effectiveRowPadY(field);
+    const padX = effectiveRowPadX(field);
+    const rowGap = effectiveRowGap(field);
+    const fontId = field.font || 'GLCD';
+    const fonts = window.JWPLCDesignerFonts;
+    const font = fonts ? fonts.get(fonts.effectiveId(fontId)) : null;
+    const fontH = (font && font.kind !== 'glcd' && fonts)
+      ? fonts.lineHeight(font, ts)
+      : (8 * ts);
+    const rowH = fontH + 2 * padY;
     const hasTitle = String(field.title || '').length > 0;
     const headerH = hasTitle ? rowH : 0;
     const avail = num(field.height) - 2 * border - headerH;
-    const rows = Math.min(MAX_VISIBLE_ROWS, avail > 0 ? Math.trunc(avail / rowH) : 0);
-    return { ts, cw: 6 * ts, border, rowH, hasTitle, headerH, rows };
+    const step = rowH + rowGap;
+    const rows = Math.min(MAX_VISIBLE_ROWS, (avail > 0 && step > 0) ? Math.trunc((avail + rowGap) / step) : 0);
+    const cw = (font && font.kind !== 'glcd' && fonts)
+      ? Math.max(6 * ts, fonts.measureWidth(font, 'M', ts))
+      : (6 * ts);
+    return { ts, cw, font, fontId, fontH, border, rowH, rowGap, padY, padX, cards, hasTitle, headerH, rows };
+  }
+
+  function fillCircleHelper(painter, cx, cy, r, cornermask, delta, color) {
+    let f = 1 - r;
+    let ddF_x = 1;
+    let ddF_y = -2 * r;
+    let x = 0;
+    let y = r;
+    while (x < y) {
+      if (f >= 0) { y -= 1; ddF_y += 2; f += ddF_y; }
+      x += 1;
+      ddF_x += 2;
+      f += ddF_x;
+      if (cornermask & 0x1) {
+        painter.fillRect(cx + x, cy - y, 1, 2 * y + 1 + delta, color);
+        painter.fillRect(cx + y, cy - x, 1, 2 * x + 1 + delta, color);
+      }
+      if (cornermask & 0x2) {
+        painter.fillRect(cx - x, cy - y, 1, 2 * y + 1 + delta, color);
+        painter.fillRect(cx - y, cy - x, 1, 2 * x + 1 + delta, color);
+      }
+    }
+  }
+
+  function fillRoundRect(painter, x, y, w, h, radius, color) {
+    const r = Math.min(Math.max(0, Math.trunc(radius)), Math.trunc(Math.min(w, h) / 2));
+    if (r <= 0) { painter.fillRect(x, y, w, h, color); return; }
+    painter.fillRect(x + r, y, w - 2 * r, h, color);
+    fillCircleHelper(painter, x + w - r - 1, y + r, r, 1, h - 2 * r - 1, color);
+    fillCircleHelper(painter, x + r, y + r, r, 2, h - 2 * r - 1, color);
+  }
+
+  function drawCircleHelper(painter, cx, cy, r, corner, color) {
+    let f = 1 - r;
+    let ddF_x = 1;
+    let ddF_y = -2 * r;
+    let x = 0;
+    let y = r;
+    while (x < y) {
+      if (f >= 0) { y -= 1; ddF_y += 2; f += ddF_y; }
+      x += 1;
+      ddF_x += 2;
+      f += ddF_x;
+      if (corner & 0x1) { painter.pixel(cx + x, cy - y, color); painter.pixel(cx + y, cy - x, color); }
+      if (corner & 0x2) { painter.pixel(cx + x, cy + y, color); painter.pixel(cx + y, cy + x, color); }
+      if (corner & 0x4) { painter.pixel(cx - x, cy + y, color); painter.pixel(cx - y, cy + x, color); }
+      if (corner & 0x8) { painter.pixel(cx - y, cy - x, color); painter.pixel(cx - x, cy - y, color); }
+    }
+  }
+
+  function drawRoundRect(painter, x, y, w, h, radius, color) {
+    const r = Math.min(Math.max(0, Math.trunc(radius)), Math.trunc(Math.min(w, h) / 2));
+    if (r <= 0) { painter.drawRect(x, y, w, h, color); return; }
+    painter.fillRect(x + r, y, w - 2 * r, 1, color);
+    painter.fillRect(x + r, y + h - 1, w - 2 * r, 1, color);
+    painter.fillRect(x, y + r, 1, h - 2 * r, color);
+    painter.fillRect(x + w - 1, y + r, 1, h - 2 * r, color);
+    drawCircleHelper(painter, x + r, y + r, r, 8, color);
+    drawCircleHelper(painter, x + w - r - 1, y + r, r, 1, color);
+    drawCircleHelper(painter, x + w - r - 1, y + h - r - 1, r, 2, color);
+    drawCircleHelper(painter, x + r, y + h - r - 1, r, 4, color);
   }
 
   function glcdText(painter, text, x, y, ts, fg, bg) {
@@ -281,17 +379,42 @@
     }
   }
 
+  function drawMenuText(painter, text, x, y, ts, fg, bg, fontId) {
+    const fonts = window.JWPLCDesignerFonts;
+    const font = fonts ? fonts.get(fonts.effectiveId(fontId)) : null;
+    if (!font || font.kind === 'glcd') {
+      glcdText(painter, text, x, y, ts, fg, bg);
+      return;
+    }
+    const mask = fonts.rasterize(font, String(text), ts);
+    for (let row = 0; row < mask.height; row += 1) {
+      for (let column = 0; column < mask.width; column += 1) {
+        if (mask.data[row * mask.width + column]) {
+          painter.fillRect(x + column, y + row, 1, 1, fg);
+        }
+      }
+    }
+  }
+
   function formatValue(node, value) {
     if (node.type === 'SUBMENU') return '>';
     if (node.type === 'GO_IDLE') return '<';
+    if (node.type === 'GO_VIEW') return '>';
     if (node.valueType === 'bool') {
       const state = Boolean(num(value));
       const text = state ? node.trueText : node.falseText;
       return text ?? (state ? 'ON' : 'OFF');
     }
-    let out = node.valueType === 'int32'
-      ? String(Math.trunc(num(value)))
-      : num(value).toFixed(clamp(Math.trunc(num(node.decimals, 1)), 0, 6));
+    const pfx = node.valuePrefix ? String(node.valuePrefix) : '';
+    const pad = Math.max(0, Math.min(6, Math.trunc(num(node.zeroPad, 0))));
+    let out;
+    if (node.valueType === 'int32') {
+      const iv = Math.trunc(num(value));
+      const str = pad > 1 && iv >= 0 ? String(iv).padStart(pad, '0') : String(iv);
+      out = `${pfx}${str}`;
+    } else {
+      out = `${pfx}${num(value).toFixed(clamp(Math.trunc(num(node.decimals, 1)), 0, 6))}`;
+    }
     if (node.unit) out += ` ${node.unit}`;
     return out;
   }
@@ -352,10 +475,10 @@
       const arrowsW = (up || down) ? 2 * L.cw : 0;
       const maxChars = Math.max(0, Math.trunc((w - 2 * ROW_PAD_X - arrowsW) / L.cw));
       text = text.slice(0, maxChars);
-      glcdText(painter, text, x + ROW_PAD_X, y + ROW_PAD_Y, L.ts, c.title, c.titleBackground);
+      drawMenuText(painter, text, x + ROW_PAD_X, y + ROW_PAD_Y, L.ts, c.title, c.titleBackground, L.fontId);
       if (arrowsW > 0) {
         const arrows = `${up ? '\x1E' : ' '}${down ? '\x1F' : ' '}`;
-        glcdText(painter, arrows, x + w - ROW_PAD_X - arrowsW, y + ROW_PAD_Y, L.ts, c.title, c.titleBackground);
+        drawMenuText(painter, arrows, x + w - ROW_PAD_X - arrowsW, y + ROW_PAD_Y, L.ts, c.title, c.titleBackground, L.fontId);
       }
     }
 
@@ -363,31 +486,83 @@
     for (let row = 0; row < L.rows; row++) {
       const pos = scroll + row;
       const node = siblings[pos] || null;
-      const y = y0 + L.border + L.headerH + row * L.rowH;
+      const y = y0 + L.border + L.headerH + row * (L.rowH + L.rowGap);
       const selected = node && pos === st.selected;
       const editingRow = selected && st.editing;
-      let bg = c.background;
+      if (!node) {
+        painter.fillRect(x, y, w, L.rowH, c.background);
+        continue;
+      }
+
+      const cardBg = Number.isFinite(Number(field.cardBackground)) ? (Number(field.cardBackground) & 0xFFFF) : 0x18E3;
+      const cardBorder = Number.isFinite(Number(field.cardBorder)) ? (Number(field.cardBorder) & 0xFFFF) : 0x39E7;
+      let bg = L.cards ? cardBg : c.background;
       let fg = c.text;
       let vfg = c.value;
-      if (editingRow) {
-        bg = c.editBackground; fg = c.editText; vfg = c.editText;
+      let hasCardBorder = L.cards;
+      let cardBorderCol = cardBorder;
+
+      if (node.hasPillColors) {
+        const bval = Boolean(num(values.get(node.variable)));
+        bg = (bval ? Number(node.pillTrueBg ?? 0xC800) : Number(node.pillFalseBg ?? 0x05E0)) & 0xFFFF;
+        const pTxt = Number(node.pillTextColor ?? 0xFFFF) & 0xFFFF;
+        fg = pTxt;
+        vfg = pTxt;
+        hasCardBorder = Boolean(selected);
+        cardBorderCol = (selected && st.focused) ? 0xFFFF : c.selectBackground;
+      } else if (editingRow) {
+        bg = c.editBackground;
+        fg = c.editText;
+        vfg = c.editText;
+        cardBorderCol = c.editBackground;
       } else if (selected && st.focused) {
-        bg = c.selectBackground; fg = c.selectText; vfg = c.selectText;
+        if (L.cards && field.selectOutlineOnly) {
+          bg = cardBg;
+          fg = c.selectText;
+          vfg = c.selectText;
+          hasCardBorder = true;
+          cardBorderCol = c.selectBackground;
+        } else {
+          bg = c.selectBackground;
+          fg = c.selectText;
+          vfg = c.selectText;
+          cardBorderCol = c.selectBackground;
+        }
+      } else if (selected && !st.focused) {
+        hasCardBorder = true;
+        cardBorderCol = c.selectBackground;
       }
-      painter.fillRect(x, y, w, L.rowH, bg);
-      if (selected && !st.focused && !editingRow) painter.drawRect(x, y, w, L.rowH, c.selectBackground);
-      if (!node) continue;
+
+      if (L.cards) {
+        painter.fillRect(x, y, w, L.rowH, c.background);
+        const r = Math.max(0, Math.trunc(num(field.cornerRadius, 4)));
+        fillRoundRect(painter, x, y, w, L.rowH, r, bg);
+        if (hasCardBorder) drawRoundRect(painter, x, y, w, L.rowH, r, cardBorderCol);
+      } else {
+        painter.fillRect(x, y, w, L.rowH, bg);
+        if (selected && !st.focused && !editingRow) painter.drawRect(x, y, w, L.rowH, c.selectBackground);
+      }
 
       let value = formatValue(node, values.get(node.variable)).slice(0, 31);
       if (editingRow && node.valueType !== 'bool') value = `<${value}>`.slice(0, 31);
-      const maxValueChars = Math.trunc((w - 2 * ROW_PAD_X) / L.cw);
+      const maxValueChars = Math.trunc((w - 2 * L.padX) / L.cw);
       if (value.length > maxValueChars) value = value.slice(0, Math.max(0, maxValueChars));
       const valueW = value.length * L.cw;
       let label = String(node.label || '').slice(0, 39);
-      const labelChars = Math.max(0, Math.trunc((w - 2 * ROW_PAD_X - valueW - (valueW > 0 ? L.cw : 0)) / L.cw));
+      const labelChars = Math.max(0, Math.trunc((w - 2 * L.padX - valueW - (valueW > 0 ? L.cw : 0)) / L.cw));
       label = label.slice(0, labelChars);
-      glcdText(painter, label, x + ROW_PAD_X, y + ROW_PAD_Y, L.ts, fg, bg);
-      if (valueW > 0) glcdText(painter, value, x + w - ROW_PAD_X - valueW, y + ROW_PAD_Y, L.ts, vfg, bg);
+      const labelW = label.length * L.cw;
+
+      if (L.cards && labelW === 0 && valueW > 0) {
+        const vx = x + Math.trunc((w - valueW) / 2);
+        drawMenuText(painter, value, vx, y + L.padY, L.ts, vfg, bg, L.fontId);
+      } else if (L.cards && field.inlineValue) {
+        if (labelW > 0) drawMenuText(painter, label, x + L.padX, y + L.padY, L.ts, fg, bg, L.fontId);
+        if (valueW > 0) drawMenuText(painter, value, x + L.padX + labelW + (labelW > 0 ? L.cw : 0), y + L.padY, L.ts, vfg, bg, L.fontId);
+      } else {
+        if (labelW > 0) drawMenuText(painter, label, x + L.padX, y + L.padY, L.ts, fg, bg, L.fontId);
+        if (valueW > 0) drawMenuText(painter, value, x + w - L.padX - valueW, y + L.padY, L.ts, vfg, bg, L.fontId);
+      }
     }
   }
 
@@ -412,33 +587,68 @@
 
   const CPP_TYPE = { float: 'float', int32: 'int32_t', bool: 'bool' };
 
-  function fieldVariableTypes(fields) {
+  function fieldVariableTypes(fields, popups = []) {
     const map = new Map();
     fields.forEach((f) => {
-      if (!f.variable) return;
-      if (f.type === 'VALUE' || f.type === 'BAR') map.set(f.variable, 'float');
-      else if (f.type === 'BOOL') map.set(f.variable, 'bool');
-      else if (f.type === 'ICON') map.set(f.variable, f.iconVarType === 'uint8' ? 'uint8' : 'bool');
-      else if (f.type === 'TEXT') map.set(f.variable, 'char[]');
+      if (!f) return;
+      const v = f.variable ? sanitizeSymbol(f.variable, '') : '';
+      if (f.type === 'VALUE') {
+        if (f.valueKind === 'DATETIME') return;
+        if (!v) return;
+        const isInt = f.valueKind === 'DURATION' ||
+          ([',', '.', ' '].includes(f.thousandsSep) && !(Number(f.decimalDigits) > 0));
+        map.set(v, isInt ? (f.signedValue ? 'int32' : 'uint32') : 'float');
+      } else if (f.type === 'BAR') {
+        if (v) map.set(v, 'float');
+      } else if (f.type === 'TREND') {
+        if (v) map.set(v, 'float');
+        if (f.ch2Enabled) map.set(sanitizeSymbol(f.ch2Variable, 'consigna'), 'float');
+        if (f.ch3Enabled) map.set(sanitizeSymbol(f.ch3Variable, 'salida'), 'float');
+      } else if (f.type === 'BOOL') {
+        if (v) map.set(v, 'bool');
+      } else if (f.type === 'ICON') {
+        if (v) map.set(v, f.iconVarType === 'uint8' ? 'uint8' : 'bool');
+      } else if (f.type === 'TEXT') {
+        if (v) map.set(v, 'char[]');
+      }
+    });
+    (Array.isArray(popups) ? popups : []).forEach((p) => {
+      if (!p) return;
+      if (p.triggerVar) map.set(sanitizeSymbol(p.triggerVar, ''), 'bool');
+      if (p.confirmOutVar) map.set(sanitizeSymbol(p.confirmOutVar, ''), 'bool');
     });
     return map;
   }
 
-  function validate(menus, fields = []) {
+  function menuViewMask(menu) {
+    if (!menu || !Array.isArray(menu.views) || !menu.views.length) return 0xFF;
+    const mask = menu.views.reduce((acc, v) => {
+      const n = Math.trunc(Number(v));
+      return Number.isInteger(n) && n >= 0 && n < 8 ? (acc | (1 << n)) : acc;
+    }, 0) & 0xFF;
+    return mask || 0xFF;
+  }
+
+  function validate(menus, fields = [], popups = []) {
     const errors = [];
     const warnings = [];
     if (menus.length > MAX_MENUS) errors.push(`Hay ${menus.length} MENU; el firmware admite ${MAX_MENUS}.`);
     const pagesSeen = new Map();
-    const fieldVars = fieldVariableTypes(fields);
+    const fieldVars = fieldVariableTypes(fields, popups);
     const menuVars = new Map();
     const ids = new Set(fields.map((f) => f.id));
+    const popupIds = new Set((Array.isArray(popups) ? popups : []).map((p) => Number(p?.id)).filter((id) => Number.isInteger(id)));
 
     menus.forEach((m) => {
       ensureState(m);
       const name = m.name || m.id;
       const page = Number(m.page || 0);
-      if (pagesSeen.has(page)) errors.push(`${name}: la página ya tiene el MENU ${pagesSeen.get(page)} (uno por página).`);
-      pagesSeen.set(page, name);
+      const myMask = menuViewMask(m);
+      const prevOnPage = pagesSeen.get(page) || [];
+      const clash = prevOnPage.find((entry) => (entry.mask & myMask) !== 0);
+      if (clash) errors.push(`${name}: la página ya tiene el MENU ${clash.name} (uno por página o subvista).`);
+      prevOnPage.push({ name, mask: myMask });
+      pagesSeen.set(page, prevOnPage);
       if (ids.has(m.id) && fields.find((f) => f.id === m.id && f !== m)) errors.push(`${name}: el ID ${m.id} ya lo usa otro objeto.`);
       if (m.nodes.length === 0) errors.push(`${name}: el árbol está vacío.`);
       if (m.nodes.length > MAX_NODES) errors.push(`${name}: ${m.nodes.length} nodos; máximo ${MAX_NODES}.`);
@@ -459,12 +669,28 @@
         const where = `${name} › ${n.label || n.type}`;
         if (n.parent && !nodeByKey(m.nodes, n.parent)) errors.push(`${where}: padre inexistente.`);
         if (levelOf(m.nodes, n) > MAX_DEPTH) errors.push(`${where}: supera la profundidad ${MAX_DEPTH}.`);
+        if (n.confirmPopupId !== undefined && n.confirmPopupId !== null && n.confirmPopupId !== '') {
+          const pid = Number(n.confirmPopupId);
+          if (!Number.isInteger(pid) || pid < 0 || pid > 254 || (popups.length > 0 && !popupIds.has(pid))) {
+            errors.push(`${where}: la ventana CONFIRM #${n.confirmPopupId} no existe.`);
+          }
+        }
+        if (n.targetView !== undefined && n.targetView !== null && n.targetView !== '' && Number(n.targetView) >= 0) {
+          const tv = Number(n.targetView);
+          if (!Number.isInteger(tv) || tv < 0 || tv >= 8) errors.push(`${where}: subvista destino ${n.targetView} fuera de rango (0..7).`);
+        }
         if (n.type === 'SUBMENU') {
           if (childrenOf(m.nodes, n.key).length === 0) warnings.push(`${where}: submenú vacío (no se puede abrir).`);
           noGlyphWarning(where, n.label);
           return;
         }
         if (n.type === 'GO_IDLE') {
+          noGlyphWarning(where, n.label);
+          return;
+        }
+        if (n.type === 'GO_VIEW') {
+          const tv = Number(n.targetView);
+          if (!Number.isInteger(tv) || tv < 0 || tv >= 8) errors.push(`${where}: GO_VIEW requiere subvista destino (0..7).`);
           noGlyphWarning(where, n.label);
           return;
         }
@@ -496,7 +722,7 @@
     const used = new Set();
     const map = new Map();
     dfsOrder(menu.nodes).forEach((n) => {
-      const base = `${menu.id}_${sanitizeSymbol(n.label, 'NODO').toUpperCase()}`;
+      const base = `${menu.id}_${sanitizeSymbol(n.label || n.falseText, 'NODO').toUpperCase()}`;
       let sym = base;
       let k = 2;
       while (used.has(sym)) sym = `${base}_${k++}`;
@@ -506,24 +732,56 @@
     return map;
   }
 
+  function wrapNodeModifiers(nodeCppStr, n) {
+    let out = nodeCppStr;
+    if ((n.valuePrefix || Number(n.zeroPad) > 1) && n.type !== 'SUBMENU' && n.type !== 'GO_IDLE' && n.type !== 'GO_VIEW' && n.valueType !== 'bool') {
+      const pfx = n.valuePrefix ? cppString(n.valuePrefix) : 'nullptr';
+      const pad = Math.max(0, Math.min(6, Math.trunc(num(n.zeroPad, 0))));
+      out = `JWPLC_UIMenuNodeFormat(${out}, ${pfx}, ${pad})`;
+    }
+    if (n.type === 'EDIT_NUM' && Math.trunc(num(n.lrStep, 0)) > 0) {
+      out = `JWPLC_UIMenuNodeLRStep(${out}, ${Math.trunc(num(n.lrStep, 0))})`;
+    }
+    if (n.type === 'EDIT_BOOL' && n.directToggle) {
+      out = `JWPLC_UIMenuNodeDirectToggle(${out}, true)`;
+    }
+    if (n.hasPillColors) {
+      out = `JWPLC_UIMenuNodePill(${out}, ${hex565(n.pillFalseBg ?? 0x05E0)}, ${hex565(n.pillTrueBg ?? 0xC800)}, ${hex565(n.pillTextColor ?? 0xFFFF)})`;
+    }
+    if (n.type !== 'GO_VIEW' && n.targetView !== undefined && n.targetView !== null && n.targetView !== '') {
+      const tv = Math.trunc(Number(n.targetView));
+      if (Number.isInteger(tv) && tv >= 0 && tv < 8) {
+        out = `JWPLC_UIMenuNodeTargetView(${out}, ${tv})`;
+      }
+    }
+    if (n.confirmPopupId !== undefined && n.confirmPopupId !== null && n.confirmPopupId !== '') {
+      const pid = Math.trunc(Number(n.confirmPopupId));
+      if (Number.isInteger(pid) && pid >= 0 && pid <= 254) {
+        out = `JWPLC_UIMenuNodeConfirm(${out}, ${pid})`;
+      }
+    }
+    return out;
+  }
+
   function nodeCpp(menu, n, symbols) {
     const parent = n.parent ? symbols.get(n.parent) : 'JWPLC_UI_MENU_ROOT';
     const label = cppString(n.label);
     const variable = `&${sanitizeSymbol(n.variable, 'menuVar')}`;
     const unit = n.unit ? cppString(n.unit) : 'nullptr';
     const decimals = clamp(Math.trunc(num(n.decimals, 1)), 0, 6);
-    if (n.type === 'SUBMENU') return `JWPLC_UIMenuSubmenu(${parent}, ${label})`;
-    if (n.type === 'GO_IDLE') return `JWPLC_UIMenuGoIdle(${parent}, ${label})`;
+    if (n.type === 'SUBMENU') return wrapNodeModifiers(`JWPLC_UIMenuSubmenu(${parent}, ${label})`, n);
+    if (n.type === 'GO_IDLE') return wrapNodeModifiers(`JWPLC_UIMenuGoIdle(${parent}, ${label})`, n);
+    if (n.type === 'GO_VIEW') return wrapNodeModifiers(`JWPLC_UIMenuGoView(${parent}, ${label}, ${clamp(Math.trunc(num(n.targetView, 0)), 0, 7)})`, n);
     if (n.type === 'VIEW') {
-      if (n.valueType === 'bool') return `JWPLC_UIMenuView(${parent}, ${label}, ${variable}, ${cppString(n.falseText)}, ${cppString(n.trueText)})`;
-      if (n.valueType === 'int32') return `JWPLC_UIMenuView(${parent}, ${label}, ${variable}, ${unit})`;
-      return `JWPLC_UIMenuView(${parent}, ${label}, ${variable}, ${decimals}, ${unit})`;
+      if (n.valueType === 'bool') return wrapNodeModifiers(`JWPLC_UIMenuView(${parent}, ${label}, ${variable}, ${cppString(n.falseText)}, ${cppString(n.trueText)})`, n);
+      if (n.valueType === 'int32') return wrapNodeModifiers(`JWPLC_UIMenuView(${parent}, ${label}, ${variable}, ${unit})`, n);
+      return wrapNodeModifiers(`JWPLC_UIMenuView(${parent}, ${label}, ${variable}, ${decimals}, ${unit})`, n);
     }
-    if (n.type === 'EDIT_BOOL') return `JWPLC_UIMenuEditBool(${parent}, ${label}, ${variable}, ${cppString(n.falseText)}, ${cppString(n.trueText)})`;
+    if (n.type === 'EDIT_BOOL') return wrapNodeModifiers(`JWPLC_UIMenuEditBool(${parent}, ${label}, ${variable}, ${cppString(n.falseText)}, ${cppString(n.trueText)})`, n);
     if (n.valueType === 'int32') {
-      return `JWPLC_UIMenuEditNum(${parent}, ${label}, ${variable}, ${Math.trunc(num(n.min))}, ${Math.trunc(num(n.max))}, ${Math.max(1, Math.trunc(num(n.step, 1)))}, ${unit})`;
+      return wrapNodeModifiers(`JWPLC_UIMenuEditNum(${parent}, ${label}, ${variable}, ${Math.trunc(num(n.min))}, ${Math.trunc(num(n.max))}, ${Math.max(1, Math.trunc(num(n.step, 1)))}, ${unit})`, n);
     }
-    return `JWPLC_UIMenuEditNum(${parent}, ${label}, ${variable}, ${cppFloat(n.min)}, ${cppFloat(n.max)}, ${cppFloat(n.step)}, ${decimals}, ${unit})`;
+    return wrapNodeModifiers(`JWPLC_UIMenuEditNum(${parent}, ${label}, ${variable}, ${cppFloat(n.min)}, ${cppFloat(n.max)}, ${cppFloat(n.step)}, ${decimals}, ${unit})`, n);
   }
 
   function initialCpp(type, value) {
@@ -532,12 +790,13 @@
     return cppFloat(value);
   }
 
-  // generate(menus, { fields, pageSymbol(pageId) }) ->
+  // generate(menus, { fields, popups, pageSymbol(pageId) }) ->
   //   { errors, warnings, variables, declarations, setup }
   function generate(menus, context = {}) {
     const fields = context.fields || [];
+    const popups = context.popups || [];
     const pageSymbol = context.pageSymbol || ((id) => String(id));
-    const { errors, warnings } = validate(menus, fields);
+    const { errors, warnings } = validate(menus, fields, popups);
     if (!menus.length) return { errors, warnings, variables: '', declarations: '', setup: '' };
 
     const fieldVars = fieldVariableTypes(fields);
@@ -572,12 +831,19 @@
 
       const nodesName = `HMI_${m.id}_NODES`;
       declChunks.push(
-        `// Nodos de ${m.id}: el índice es el que informa JWPLC_Display.menuChanged().\n` +
+        `// Nodos de ${m.id}: el índice es el que informa JWPLC_Display.menuNode().\n` +
         `enum : uint8_t\n{\n${ordered.map((n, i) => `    ${symbols.get(n.key)} = ${i},`).join('\n')}\n};\n\n` +
         `static const JWPLC_UIMenuNode ${nodesName}[] =\n{\n${ordered.map((n) => `    ${nodeCpp(m, n, symbols)}`).join(',\n')}\n};`);
 
       const c = { ...DEFAULT_COLORS, ...m.colors };
-      menuEntries.push(
+      const menuFonts = (typeof module === 'object' && module.exports)
+        ? require('./designer-fonts.js')
+        : (typeof window !== 'undefined' ? window.JWPLCDesignerFonts : null);
+      const fontSym = (m.font && m.font !== 'GLCD')
+        ? (menuFonts?.cppSymbol?.(m.font) || (String(m.font).startsWith('JWPLC_FONT_') ? m.font : (m.font === 'FONT_16' || m.font === 'FONT2' ? 'JWPLC_FONT_16' : (m.font === 'FONT_26' || m.font === 'FONT4' ? 'JWPLC_FONT_26' : (m.font === '7SEG_48' || m.font === 'FONT_7SEG_48' ? 'JWPLC_FONT_7SEG_48' : `JWPLC_FONT_${m.font}`)))))
+        : null;
+      const fontArg = fontSym ? `,\n        &${fontSym}` : '';
+      const baseField =
         `    JWPLC_UIMenuField(\n` +
         `        ${m.id},\n` +
         `        ${Math.trunc(num(m.x))}, ${Math.trunc(num(m.y))}, ${Math.trunc(num(m.width))}, ${Math.trunc(num(m.height))},\n` +
@@ -588,7 +854,19 @@
         `        ${Number(m.textSize) >= 2 ? 2 : 1},\n` +
         `        ${m.frame ? 'true' : 'false'},\n` +
         `        JWPLC_UIMenuColors(\n` +
-        `            ${[c.text, c.background, c.value, c.selectText, c.selectBackground, c.editText, c.editBackground, c.title, c.titleBackground, c.frame].map(hex565).join(',\n            ')}))`);
+        `            ${[c.text, c.background, c.value, c.selectText, c.selectBackground, c.editText, c.editBackground, c.title, c.titleBackground, c.frame].map(hex565).join(',\n            ')})${fontArg})`;
+      let wrapped = isCardsStyle(m)
+        ? `    JWPLC_UIMenuCardStyle(\n${baseField.replace(/^    /gm, '        ')},\n` +
+          `        ${effectiveRowGap(m)}, ${Math.max(0, Math.trunc(num(m.cornerRadius, 4)))}, ${effectiveRowPadY(m)}, ${effectiveRowPadX(m)}, ` +
+          `${m.inlineValue ? 'true' : 'false'}, ${m.selectOutlineOnly ? 'true' : 'false'}, ` +
+          `${hex565(m.cardBackground ?? 0x18E3)}, ${hex565(m.cardBorder ?? 0x39E7)})`
+        : baseField;
+      const mask = menuViewMask(m);
+      if (mask !== 0xFF) {
+        const maskHex = `0x${mask.toString(16).toUpperCase().padStart(2, '0')}U`;
+        wrapped = `    JWPLC_UIMenuViews(\n${wrapped.replace(/^    /gm, '        ')},\n        ${maskHex})`;
+      }
+      menuEntries.push(wrapped);
     });
 
     declChunks.push(`static const JWPLC_UIMenu HMI_MENUS[] =\n{\n${menuEntries.join(',\n')}\n};`);
@@ -617,6 +895,7 @@
     const symbols = new Map((window.JWPLCHMICodegen?.getPageSymbols?.() || []).map((p) => [p.id, p.symbol]));
     const out = generate(menus, {
       fields: (editor()?.getAllFields?.() || []).filter((f) => f.type !== 'MENU'),
+      popups: window.JWPLCHMIPopups?.all?.() || [],
       pageSymbol: (id) => symbols.get(id) || String(id)
     });
 
@@ -678,8 +957,8 @@
           <div class="bar-card">
             <div class="bar-card-section-title">Tamaño de texto</div>
             <div class="bar-visual-grid-2">
-              <button type="button" class="bar-visual-btn" data-menu-set="textSize" data-value="1"><strong>Aa</strong><span>1× · filas de 12 px</span></button>
-              <button type="button" class="bar-visual-btn" data-menu-set="textSize" data-value="2"><strong style="font-size:15px">Aa</strong><span>2× · filas de 20 px</span></button>
+              <button type="button" class="bar-visual-btn" data-menu-set="textSize" data-value="1"><strong>1×</strong><span>Normal (12 px)</span></button>
+              <button type="button" class="bar-visual-btn" data-menu-set="textSize" data-value="2"><strong>2×</strong><span>Grande (20 px)</span></button>
             </div>
           </div>
           <div class="bar-card">
@@ -687,6 +966,25 @@
             <div class="bar-visual-grid-2">
               <button type="button" class="bar-visual-btn" data-menu-set="frame" data-value="0"><span>Sin marco</span></button>
               <button type="button" class="bar-visual-btn" data-menu-set="frame" data-value="1"><span>Con marco</span></button>
+            </div>
+          </div>
+          <div class="bar-card">
+            <div class="bar-card-section-title">Estilo de filas</div>
+            <div class="bar-visual-grid-2">
+              <button type="button" class="bar-visual-btn" data-menu-set="rowStyle" data-value="FLAT"><span>Clásico (FLAT)</span></button>
+              <button type="button" class="bar-visual-btn" data-menu-set="rowStyle" data-value="CARDS"><span>Tarjetas / Píldoras</span></button>
+            </div>
+            <div data-menu-cards-opts hidden style="margin-top:8px;">
+              <div class="insp-two">
+                <label class="field-label">Separación (px)<input class="field-input" data-menu-prop="rowGap" type="number" min="0" max="16" /></label>
+                <label class="field-label">Radio (px)<input class="field-input" data-menu-prop="cornerRadius" type="number" min="0" max="20" /></label>
+                <label class="field-label">Pad Y (px)<input class="field-input" data-menu-prop="rowPadY" type="number" min="1" max="16" /></label>
+                <label class="field-label">Pad X (px)<input class="field-input" data-menu-prop="rowPadX" type="number" min="1" max="24" /></label>
+              </div>
+              <div class="bar-visual-grid-2" style="margin-top:6px;">
+                <button type="button" class="insp-chip" data-menu-toggle="inlineValue">Valor junto a etiqueta</button>
+                <button type="button" class="insp-chip" data-menu-toggle="selectOutlineOnly">Selección solo borde</button>
+              </div>
             </div>
           </div>
           <div class="bar-card">
@@ -719,6 +1017,10 @@
             <div class="bar-card-section-title">Página</div>
             <div class="insp-chip-row" data-menu-pages></div>
           </div>
+          <div class="bar-card" data-menu-views-card hidden>
+            <div class="bar-card-section-title">Subvistas</div>
+            <div class="insp-chip-row" data-menu-views></div>
+          </div>
           <div class="bar-card">
             <div class="insp-two">
               <label class="field-label">X (px)<input class="field-input" data-menu-prop="x" type="number" min="0" max="319" /></label>
@@ -738,6 +1040,7 @@
               <button type="button" class="insp-chip" data-menu-add="VIEW">◉ Ver</button>
               <button type="button" class="insp-chip" data-menu-add="EDIT_NUM">± Editar nº</button>
               <button type="button" class="insp-chip" data-menu-add="EDIT_BOOL">⏻ Editar ON/OFF</button>
+              <button type="button" class="insp-chip" data-menu-add="GO_VIEW" title="Con OK cambia a otra subvista de esta misma página sin añadir pestañas">↳ Ir a subvista</button>
               <button type="button" class="insp-chip" data-menu-add="GO_IDLE" title="Con OK vuelve a la pantalla IDLE (útil con «Volver a la IDLE: Nunca»)">⏎ Ir al inicio</button>
             </div>
           </div>
@@ -982,18 +1285,25 @@
   function renderTree(field) {
     const host = section.querySelector('[data-menu-tree]');
     const selectedKey = ui(field).nodeKey;
-    const signature = JSON.stringify([field.nodes.map((n) => [n.key, n.parent, n.type, n.label, n.variable]), selectedKey]);
+    const signature = JSON.stringify([field.nodes.map((n) => [n.key, n.parent, n.type, n.label, n.falseText, n.variable, n.targetView, n.confirmPopupId]), selectedKey]);
     if (host.dataset.signature === signature) return;
     host.dataset.signature = signature;
     const rows = [];
     const walk = (parentKey, depth) => {
       const siblings = childrenOf(field.nodes, parentKey);
       siblings.forEach((n, i) => {
+        const treeSub = n.type === 'SUBMENU'
+          ? `${childrenOf(field.nodes, n.key).length} ítems`
+          : n.type === 'GO_IDLE'
+            ? '→ IDLE'
+            : n.type === 'GO_VIEW'
+              ? `→ V${Number(n.targetView || 0) + 1}`
+              : escapeHtml(n.variable);
         rows.push(`
           <div class="menu-tree-row${n.key === selectedKey ? ' active' : ''}" data-menu-node="${n.key}" style="padding-left:${6 + (depth - 1) * 14}px">
             <span class="menu-tree-icon">${NODE_TYPES[n.type].icon}</span>
-            <span class="menu-tree-label">${escapeHtml(n.label)}</span>
-            <span class="menu-tree-var">${n.type === 'SUBMENU' ? `${childrenOf(field.nodes, n.key).length} ítems` : n.type === 'GO_IDLE' ? '→ IDLE' : escapeHtml(n.variable)}</span>
+            <span class="menu-tree-label">${escapeHtml(n.label || n.falseText || '(sin texto)')}</span>
+            <span class="menu-tree-var">${treeSub}</span>
             <span class="menu-tree-btns">
               <button type="button" data-menu-move="-1" ${i === 0 ? 'disabled' : ''} title="Subir">▲</button>
               <button type="button" data-menu-move="1" ${i === siblings.length - 1 ? 'disabled' : ''} title="Bajar">▼</button>
@@ -1015,7 +1325,13 @@
   function renderNodeEditor(field) {
     const host = section.querySelector('[data-menu-node-editor]');
     const node = ui(field).nodeKey ? nodeByKey(field.nodes, ui(field).nodeKey) : null;
-    const signature = node ? `${node.key}|${node.type}|${node.valueType}|${ui(field).editing}` : 'none';
+    const pageViews = editor()?.getPageViews?.(field.page || 0) || [{ id: 0, name: 'Principal' }];
+    const popups = window.JWPLCHMIPopups?.all?.() || [];
+    const viewsSig = pageViews.map((v) => `${v.id}:${v.name}`).join(',');
+    const popupsSig = popups.map((p) => `${p.id}:${p.preset}:${p.title || p.name || ''}`).join(',');
+    const signature = node
+      ? `${node.key}|${node.type}|${node.valueType}|${Boolean(node.directToggle)}|${ui(field).editing}|${viewsSig}|${popupsSig}`
+      : 'none';
     if (host.dataset.signature !== signature) {
       host.dataset.signature = signature;
       if (!node) {
@@ -1025,27 +1341,40 @@
       const t = node.type;
       const kinds = NODE_TYPES[t].kinds;
       const isBool = node.valueType === 'bool';
+      const maxViews = Math.max(pageViews.length, Number.isInteger(Number(node.targetView)) ? Number(node.targetView) + 1 : 0, t === 'GO_VIEW' ? 2 : 0);
+      const viewOptions = Array.from({ length: Math.min(8, maxViews) }, (_, idx) => {
+        const found = pageViews.find((v) => Number(v.id) === idx);
+        const label = found ? found.name : `Vista ${idx + 1}`;
+        return `<option value="${idx}">Vista ${idx + 1} · ${escapeHtml(label)}</option>`;
+      }).join('');
+      const popupOptions = popups.map((p) =>
+        `<option value="${Number(p.id)}">#${Number(p.id)} · [${escapeHtml(p.preset)}] ${escapeHtml(p.title || p.name || 'Popup')}</option>`).join('');
       host.innerHTML = `
         <div class="bar-card-section-title">${NODE_TYPES[t].icon} ${NODE_TYPES[t].label} · nivel ${levelOf(field.nodes, node)}</div>
         <label class="field-label">Texto del ítem<input class="field-input" data-node-prop="label" type="text" maxlength="39" /></label>
         ${t === 'GO_IDLE' ? '<div class="insp-note">Con OK vuelve a la pantalla IDLE (<code>JWPLC_UIMenuGoIdle</code>). Úsalo con «Volver a la IDLE: Nunca» para que la salida la decida el menú.</div>' : ''}
+        ${t === 'GO_VIEW' ? '<div class="insp-note">Con OK cambia a otra subvista de esta misma página sin añadir pestañas a la NAV_BAR (<code>JWPLC_UIMenuGoView</code>).</div>' : ''}
         ${!hasVariable(node) ? '' : `
           <label class="field-label">Variable C++<input class="field-input code-input" data-node-prop="variable" type="text" maxlength="32" /></label>
           ${kinds.length > 1 ? `<span class="bar-visual-group-title insp-gap">Tipo</span><div class="insp-chip-row">${chips('data-node-kind', kinds.map((k) => [k, k === 'int32' ? 'int32_t' : k]), node.valueType)}</div>` : `<div class="insp-readouts"><span>Tipo <code class="insp-type-chip">${CPP_TYPE[node.valueType]}</code></span></div>`}
           ${isBool ? `
             <div class="insp-bool-states insp-gap">
-              <label class="insp-state-card"><span>FALSE</span><input class="field-input" data-node-prop="falseText" type="text" maxlength="12" /></label>
+              <label class="insp-state-card"><span>FALSE</span><input class="field-input" data-node-prop="falseText" type="text" maxlength="28" /></label>
               <span class="insp-arrow">→</span>
-              <label class="insp-state-card is-on"><span>TRUE</span><input class="field-input" data-node-prop="trueText" type="text" maxlength="12" /></label>
+              <label class="insp-state-card is-on"><span>TRUE</span><input class="field-input" data-node-prop="trueText" type="text" maxlength="28" /></label>
             </div>
             <div class="insp-chip-row insp-gap">${chips('data-node-bool-preset', [['OFF|ON', 'OFF/ON'], ['NO|SI', 'NO/SI'], ['PARADA|MARCHA', 'PARADA/MARCHA'], ['CERRADO|ABIERTO', 'CERRADO/ABIERTO']], `${node.falseText}|${node.trueText}`)}</div>
             <span class="bar-visual-group-title insp-gap">Valor inicial / de prueba</span>
             <div class="bar-visual-grid-2">${[[0, node.falseText || 'OFF'], [1, node.trueText || 'ON']].map(([v, text]) =>
               `<button type="button" class="bar-visual-btn${Number(Boolean(num(node.initial))) === v ? ' active' : ''}" data-node-initial-bool="${v}"><strong>${escapeHtml(text)}</strong></button>`).join('')}</div>
+            ${t === 'EDIT_BOOL' ? `
+              <button type="button" class="bar-visual-btn insp-toggle insp-wide insp-gap${node.directToggle ? ' active' : ''}" data-node-toggle="directToggle"><span>Cambiar al pulsar OK (sin flecha)</span><strong>${node.directToggle ? 'Sí' : 'No'}</strong></button>` : ''}
           ` : `
             <div class="insp-two insp-gap">
               <label class="field-label">Unidad<input class="field-input" data-node-prop="unit" type="text" maxlength="8" /></label>
               <label class="field-label">Valor inicial / de prueba<input class="field-input" data-node-prop="initial" type="number" step="any" /></label>
+              <label class="field-label">Prefijo<input class="field-input" data-node-prop="valuePrefix" type="text" maxlength="6" placeholder="ej. P" /></label>
+              ${node.valueType === 'int32' ? `<label class="field-label">Ceros (ej. 2 → 01)<input class="field-input" data-node-prop="zeroPad" type="number" min="0" max="6" /></label>` : ''}
             </div>
             ${node.valueType === 'float' ? `<span class="bar-visual-group-title insp-gap">Decimales</span><div class="insp-chip-row">${chips('data-node-decimals', [[0, '0'], [1, '1'], [2, '2'], [3, '3']], node.decimals)}</div>` : ''}
             ${t === 'EDIT_NUM' ? `
@@ -1053,21 +1382,39 @@
                 <label class="field-label">Mínimo<input class="field-input" data-node-prop="min" type="number" step="any" /></label>
                 <label class="field-label">Máximo<input class="field-input" data-node-prop="max" type="number" step="any" /></label>
                 <label class="field-label">Paso (UP/DOWN)<input class="field-input" data-node-prop="step" type="number" step="any" min="0" /></label>
-                <div class="insp-readouts"><span>LEFT/RIGHT <strong data-menu-readout="bigStep"></strong></span></div>
+                <label class="field-label">Paso (LEFT/RIGHT)<input class="field-input" data-node-prop="lrStep" type="number" step="1" min="0" max="1000" placeholder="10" /></label>
               </div>` : ''}
           `}
-          ${(t === 'EDIT_NUM' || t === 'EDIT_BOOL') ? `
-            <label class="field-label-checkbox insp-gap"><input type="checkbox" data-node-preview-edit ${ui(field).editing ? 'checked' : ''} /><span>Ver en el lienzo como "editando"</span></label>` : ''}
-        `}`;
+          ${(t === 'EDIT_NUM' || (t === 'EDIT_BOOL' && !node.directToggle)) ? `
+            <button type="button" class="bar-visual-btn insp-toggle insp-wide insp-gap${ui(field).editing ? ' active' : ''}" data-node-preview-edit><span>Ver en el lienzo como "editando"</span><strong>${ui(field).editing ? 'Sí' : 'No'}</strong></button>` : ''}
+        `}
+        ${t === 'GO_VIEW' || (t !== 'GO_IDLE' && t !== 'SUBMENU') ? `
+          <label class="field-label insp-gap">Subvista destino al pulsar OK
+            <select class="field-input" data-node-prop="targetView">
+              ${t === 'GO_VIEW' ? '' : '<option value="-1">Sin cambio de subvista</option>'}
+              ${viewOptions}
+            </select>
+          </label>` : ''}
+        ${t !== 'SUBMENU' ? `
+          <label class="field-label insp-gap">Confirmación previa (ventana CONFIRM)
+            <select class="field-input" data-node-prop="confirmPopupId">
+              <option value="-1">Ejecución directa (sin popup)</option>
+              ${popupOptions}
+            </select>
+          </label>` : ''}`;
     }
     if (!node) return;
     host.querySelectorAll('[data-node-prop]').forEach((input) => {
       if (document.activeElement === input) return;
       const v = node[input.dataset.nodeProp];
-      input.value = v ?? '';
+      if (input.dataset.nodeProp === 'lrStep') input.value = (v && Number(v) > 0) ? String(v) : '';
+      else if (input.dataset.nodeProp === 'targetView') {
+        const fallback = node.type === 'GO_VIEW' ? '0' : '-1';
+        input.value = (v !== undefined && v !== null && Number(v) >= 0) ? String(Number(v)) : fallback;
+      } else if (input.dataset.nodeProp === 'confirmPopupId') {
+        input.value = (v !== undefined && v !== null && Number(v) >= 0) ? String(Number(v)) : '-1';
+      } else input.value = v ?? '';
     });
-    const big = host.querySelector('[data-menu-readout="bigStep"]');
-    if (big) big.textContent = `±${formatValue({ ...node, unit: node.unit, type: 'EDIT_NUM' }, num(node.step) * 10)}`;
   }
 
   function contractText(field) {
@@ -1078,14 +1425,17 @@
     return `// Las variables del menú están declaradas en JWPLC_HMI_Generated.h.\n` +
       `// El menú escribe la variable al confirmar con OK.\n` +
       `void loop()\n{\n` +
-      `    uint8_t nodo;\n` +
-      `    if (JWPLC_Display.menuChanged(${field.id}, &nodo))\n    {\n` +
-      `        switch (nodo)\n        {\n${cases || '        // (sin ítems editables)'}\n        default:\n            break;\n        }\n    }\n}`;
+      `    if (JWPLC_Display.menuChanged(${field.id}))\n    {\n` +
+      `        switch (JWPLC_Display.menuNode())\n        {\n${cases || '        // (sin ítems editables)'}\n        default:\n            break;\n        }\n    }\n}`;
   }
 
   function sync() {
     const field = selectedMenu();
     if (!field) return;
+    if (field.font && field.font !== 'GLCD') {
+      field.font = 'GLCD';
+      editor()?.render?.();
+    }
     applyTabs();
 
     section.querySelectorAll('[data-menu-prop]').forEach((input) => {
@@ -1093,6 +1443,10 @@
     });
     section.querySelectorAll('[data-menu-set="textSize"]').forEach((b) => b.classList.toggle('active', Number(b.dataset.value) === Number(field.textSize)));
     section.querySelectorAll('[data-menu-set="frame"]').forEach((b) => b.classList.toggle('active', (b.dataset.value === '1') === Boolean(field.frame)));
+    section.querySelectorAll('[data-menu-set="rowStyle"]').forEach((b) => b.classList.toggle('active', b.dataset.value === (isCardsStyle(field) ? 'CARDS' : 'FLAT')));
+    section.querySelectorAll('[data-menu-toggle]').forEach((b) => b.classList.toggle('active', Boolean(field[b.dataset.menuToggle])));
+    const cardsOpts = section.querySelector('[data-menu-cards-opts]');
+    if (cardsOpts) cardsOpts.hidden = !isCardsStyle(field);
 
     const L = layout(field);
     const set = (name, text) => section.querySelectorAll(`[data-menu-readout="${name}"]`).forEach((el) => { el.textContent = text; });
@@ -1123,12 +1477,23 @@
     pagesHost.innerHTML = pages.map((p) =>
       `<button type="button" class="insp-chip${Number(p.id) === Number(field.page || 0) ? ' active' : ''}" data-menu-page="${p.id}">${String(Number(p.id) + 1).padStart(2, '0')} · ${escapeHtml(p.name)}</button>`).join('');
 
+    const viewsHost = section.querySelector('[data-menu-views]');
+    const viewsCard = section.querySelector('[data-menu-views-card]');
+    if (viewsHost && viewsCard) {
+      const pageViews = editor()?.getPageViews?.(field.page || 0) || [{ id: 0, name: 'Principal' }];
+      viewsCard.hidden = pageViews.length <= 1;
+      const activeSet = new Set(Array.isArray(field.views) && field.views.length ? field.views.map(Number) : pageViews.map((v) => Number(v.id)));
+      viewsHost.innerHTML = pageViews.map((v) =>
+        `<button type="button" class="insp-chip${activeSet.has(Number(v.id)) ? ' active' : ''}" data-menu-view="${v.id}">${Number(v.id) + 1} · ${escapeHtml(v.name)}</button>`).join('');
+    }
+
     renderTree(field);
     renderNodeEditor(field);
 
     section.querySelector('[data-menu-contract]').textContent = contractText(field);
     const fields = editor()?.getAllFields?.() || [];
-    const { errors, warnings } = validate(fields.filter((f) => f.type === 'MENU'), fields.filter((f) => f.type !== 'MENU'));
+    const popups = window.JWPLCHMIPopups?.all?.() || [];
+    const { errors, warnings } = validate(fields.filter((f) => f.type === 'MENU'), fields.filter((f) => f.type !== 'MENU'), popups);
     section.querySelector('[data-menu-issues]').innerHTML =
       errors.map((e) => `<div class="menu-issue is-error">✕ ${escapeHtml(e)}</div>`).join('') +
       warnings.map((w) => `<div class="menu-issue">! ${escapeHtml(w)}</div>`).join('') ||
@@ -1158,11 +1523,30 @@
     const set = t.closest('[data-menu-set]');
     if (set) {
       mutate((f) => {
-        if (set.dataset.menuSet === 'textSize') f.textSize = Number(set.dataset.value);
-        else f.frame = set.dataset.value === '1';
+        if (set.dataset.menuSet === 'textSize') {
+          f.font = 'GLCD';
+          f.textSize = Number(set.dataset.value);
+        } else if (set.dataset.menuSet === 'rowStyle') {
+          f.rowStyle = set.dataset.value;
+          if (f.rowStyle === 'CARDS') {
+            if (!Number.isFinite(Number(f.rowGap))) f.rowGap = 4;
+            if (!Number.isFinite(Number(f.cornerRadius)) || Number(f.cornerRadius) === 0) f.cornerRadius = 4;
+            if (!Number.isFinite(Number(f.rowPadY))) f.rowPadY = 5;
+            if (!Number.isFinite(Number(f.rowPadX))) f.rowPadX = 8;
+          }
+        } else {
+          f.frame = set.dataset.value === '1';
+        }
       });
       return;
     }
+
+    const menuToggle = t.closest('[data-menu-toggle]');
+    if (menuToggle) {
+      mutate((f) => { f[menuToggle.dataset.menuToggle] = !f[menuToggle.dataset.menuToggle]; });
+      return;
+    }
+
     // Clic en el cuadro o en el texto de la fila: el texto elige el primer
     // color de la fila (o el que ya está activo si es de esa fila).
     const swatch = t.closest('[data-menu-swatch]');
@@ -1179,9 +1563,43 @@
     const page = t.closest('[data-menu-page]');
     if (page) {
       const target = Number(page.dataset.menuPage);
-      const busy = (editor()?.getAllFields?.() || []).some((f) => f.type === 'MENU' && f !== field && Number(f.page || 0) === target);
-      if (busy) { window.JWPLCDialog.alert('Esa página ya tiene un MENU.'); return; }
+      const maskFor = (m) => {
+        const core = window.JWPLCHMICodegenCore;
+        const vs = core?.fieldViews?.(m);
+        if (!vs || !vs.length) return 0xFF;
+        return vs.reduce((acc, v) => acc | (1 << v), 0) & 0xFF;
+      };
+      const myMask = maskFor(field);
+      const busy = (editor()?.getAllFields?.() || []).some((f) => f.type === 'MENU' && f !== field && Number(f.page || 0) === target && (maskFor(f) & myMask) !== 0);
+      if (busy) { window.JWPLCDialog.alert('Esa página ya tiene otro MENU en la misma subvista.'); return; }
       editor()?.moveSelectedFieldToPage?.(target);
+      return;
+    }
+
+    const menuViewChip = t.closest('[data-menu-view]');
+    if (menuViewChip) {
+      const viewId = Number(menuViewChip.dataset.menuView);
+      const others = (editor()?.getAllFields?.() || []).filter((f) => f.type === 'MENU' && f !== field && Number(f.page || 0) === Number(field.page || 0));
+      const nextSet = new Set(Array.isArray(field.views) && field.views.length ? field.views.map(Number) : (editor()?.getPageViews?.(field.page) || [{ id: 0 }]).map((v) => Number(v.id)));
+      if (nextSet.has(viewId)) {
+        if (nextSet.size <= 1) { window.JWPLCDialog.alert('El MENU debe pertenecer al menos a una subvista.'); return; }
+        nextSet.delete(viewId);
+      } else {
+        nextSet.add(viewId);
+      }
+      const nextViews = [...nextSet].sort((a, b) => a - b);
+      const allViews = (editor()?.getPageViews?.(field.page) || [{ id: 0 }]).map((v) => Number(v.id));
+      const allSelected = nextViews.length >= allViews.length && allViews.every((v) => nextViews.includes(v));
+      const nextMask = nextViews.reduce((acc, v) => acc | (1 << v), 0);
+      const conflict = others.some((o) => {
+        const om = (Array.isArray(o.views) && o.views.length) ? o.views.reduce((acc, v) => acc | (1 << Number(v)), 0) : 0xFF;
+        return (om & nextMask) !== 0;
+      });
+      if (conflict) { window.JWPLCDialog.alert('Otro MENU de esta página ya ocupa esa subvista.'); return; }
+      mutate((f) => {
+        if (allSelected && !others.length) delete f.views;
+        else f.views = nextViews;
+      });
       return;
     }
 
@@ -1251,19 +1669,29 @@
     if (initBool) {
       mutate((f) => { nodeByKey(f.nodes, ui(f).nodeKey).initial = Number(initBool.dataset.nodeInitialBool); });
       section.querySelector('[data-menu-node-editor]').dataset.signature = '';
-    }
-  });
-
-  section.addEventListener('change', (e) => {
-    const t = e.target;
-    if (t.matches('[data-node-preview-edit]')) {
-      const field = selectedMenu();
-      if (field) { ui(field).editing = t.checked; editor()?.render?.(); }
       return;
     }
+    const nodeToggle = t.closest('[data-node-toggle]');
+    if (nodeToggle) {
+      const prop = nodeToggle.dataset.nodeToggle;
+      mutate((f) => {
+        const node = nodeByKey(f.nodes, ui(f).nodeKey);
+        if (!node) return;
+        node[prop] = !node[prop];
+        if (prop === 'directToggle' && node.directToggle) ui(f).editing = false;
+      });
+      section.querySelector('[data-menu-node-editor]').dataset.signature = '';
+      return;
+    }
+    const previewEdit = t.closest('[data-node-preview-edit]');
+    if (previewEdit) {
+      ui(field).editing = !ui(field).editing;
+      section.querySelector('[data-menu-node-editor]').dataset.signature = '';
+      editor()?.render?.();
+    }
   });
 
-  const NUMERIC_PROPS = new Set(['x', 'y', 'width', 'height', 'initial', 'min', 'max', 'step']);
+  const NUMERIC_PROPS = new Set(['x', 'y', 'width', 'height', 'rowGap', 'cornerRadius', 'rowPadY', 'rowPadX', 'initial', 'min', 'max', 'step', 'lrStep', 'zeroPad']);
 
   function applyInput(t, commit) {
     if (t.matches('[data-menu-prop]')) {
@@ -1273,6 +1701,10 @@
         else if (prop === 'y') f.y = clamp(Math.trunc(num(t.value)), 0, SCREEN_H - 1);
         else if (prop === 'width') f.width = clamp(Math.trunc(num(t.value, 40)), 20, SCREEN_W);
         else if (prop === 'height') f.height = clamp(Math.trunc(num(t.value, 14)), 8, SCREEN_H);
+        else if (prop === 'rowGap') f.rowGap = clamp(Math.trunc(num(t.value, 4)), 0, 16);
+        else if (prop === 'cornerRadius') f.cornerRadius = clamp(Math.trunc(num(t.value, 4)), 0, 20);
+        else if (prop === 'rowPadY') f.rowPadY = clamp(Math.trunc(num(t.value, 5)), 1, 16);
+        else if (prop === 'rowPadX') f.rowPadX = clamp(Math.trunc(num(t.value, 8)), 1, 24);
         else if (prop === 'id') f.id = sanitizeSymbol(t.value, f.id).toUpperCase();
         else f[prop] = t.value;
       }, commit);
@@ -1283,9 +1715,25 @@
       mutate((f) => {
         const node = nodeByKey(f.nodes, ui(f).nodeKey);
         if (!node) return;
-        if (NUMERIC_PROPS.has(prop)) { if (t.value !== '' && Number.isFinite(Number(t.value))) node[prop] = Number(t.value); }
-        else if (prop === 'variable') node.variable = sanitizeSymbol(t.value, '');
-        else node[prop] = t.value;
+        if (prop === 'zeroPad') {
+          node.zeroPad = clamp(Math.trunc(num(t.value, 0)), 0, 6);
+        } else if (prop === 'lrStep') {
+          node.lrStep = t.value === '' ? 0 : clamp(Math.trunc(num(t.value, 0)), 0, 1000);
+        } else if (prop === 'targetView') {
+          const tv = Math.trunc(Number(t.value));
+          if (Number.isInteger(tv) && tv >= 0 && tv < 8) node.targetView = tv;
+          else delete node.targetView;
+        } else if (prop === 'confirmPopupId') {
+          const pid = Math.trunc(Number(t.value));
+          if (Number.isInteger(pid) && pid >= 0 && pid <= 254) node.confirmPopupId = pid;
+          else delete node.confirmPopupId;
+        } else if (NUMERIC_PROPS.has(prop)) {
+          if (t.value !== '' && Number.isFinite(Number(t.value))) node[prop] = Number(t.value);
+        } else if (prop === 'variable') {
+          node.variable = sanitizeSymbol(t.value, '');
+        } else {
+          node[prop] = t.value;
+        }
       }, commit);
     }
   }
@@ -1313,6 +1761,13 @@
     },
     // Nodo seleccionado en el inspector (objeto vivo). Lo usa el modo OpenPLC
     // (designer-openplc-host.js) para guardar plcBinding en el nodo.
-    selectedNode: (field) => (field && ui(field).nodeKey ? nodeByKey(field.nodes || [], ui(field).nodeKey) : null)
+    selectedNode: (field) => (field && ui(field).nodeKey ? nodeByKey(field.nodes || [], ui(field).nodeKey) : null),
+    // Mutación copy-on-write sobre el nodo seleccionado (preserva Undo/Redo).
+    mutateSelectedNode: (fn, commit = true) => {
+      mutate((f) => {
+        const node = ui(f).nodeKey ? nodeByKey(f.nodes || [], ui(f).nodeKey) : null;
+        if (node) fn(node, f);
+      }, commit);
+    }
   };
 })();

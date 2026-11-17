@@ -45,9 +45,8 @@ docs/JWPLC_V2_1_CLOSURE_ROADMAP.md  roadmap de cierre 2.1.x
 openplc-editor-installers/   instaladores del fork OpenPLC Editor
 ```
 
-Fuera de alcance: `JWPLC_LogicRuntime` y `JWPLC_LogicRuntime_UI` son un
-proyecto aparte y pausado (runtime programable estilo LOGO!). No analizarlos
-ni tomarlos como referencia para el HMI Designer.
+`JWPLC_LogicRuntime` y `JWPLC_LogicRuntime_UI` (runtime v1/v2 anterior) se borraron en alpha.17 por
+decisión del propietario (02/11/2026); el runtime vigente es `JWPLC_Runtime`. Último SHA con ellas: `d007b44`.
 
 ---
 

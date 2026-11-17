@@ -32,10 +32,9 @@ void loop()
     combustible = 0.0f; // p. ej. la lectura de tu sensor
 
     // MENU_AJUSTES: el operador cambió un valor (OK en la botonera).
-    uint8_t nodo;
-    if (JWPLC_Display.menuChanged(MENU_AJUSTES, &nodo))
+    if (JWPLC_Display.menuChanged(MENU_AJUSTES))
     {
-        switch (nodo)
+        switch (JWPLC_Display.menuNode())
         {
         case MENU_AJUSTES_CONSIGNA_PRESION:
             // «Consigna presi\242n» -> consignaPresion ya tiene el valor nuevo

@@ -122,6 +122,16 @@ Unit ID = 1
 
 El Client y Server deben usar el valor esperado por la instalación.
 
+El Server responde a su Unit ID y también a `0` y `255`, los valores que usan
+muchos SCADA para un equipo conectado directamente por TCP. Para que responda
+solo a su Unit ID:
+
+```cpp
+JWPLC_ModbusTCP.setStrictUnitId(true);
+```
+
+Con otro Unit ID la petición se ignora y el Client ve un timeout.
+
 ### Tipos de datos
 
 - **Coil**: bit de lectura/escritura.
@@ -144,6 +154,15 @@ requestReadHoldingRegisters(
 ```
 
 lee dos Holding Registers empezando en la dirección interna 0.
+
+## Ejemplos del package
+
+En Arduino IDE: *Archivo → Ejemplos → JWPLC_ModbusTCP*. Los dos corren también en JWPLC Sim.
+
+- `01.ModbusTCP_Server`: server con Coils, Discrete Inputs, Holding e Input Registers (mapa en el encabezado del sketch).
+- `02.ModbusTCP_Client`: client cooperativo que lee dos Holding Registers (FC03) de otro equipo.
+
+Los fragmentos de abajo explican la API paso a paso.
 
 ## Ejemplo 1 — Básico: Server de Holding Registers
 
@@ -482,6 +501,24 @@ uint32_t timeout =
 ```
 
 No lo cambies salvo que tengas una necesidad concreta.
+
+### Server: varios Clients — Intermedio
+
+El Server atiende a varios Clients a la vez (un SCADA y Node-RED, por ejemplo):
+responde una petición completa de cada uno por turno. Una conexión queda abierta
+entre peticiones y se cierra sola si pasa 60 s sin enviar nada (Client colgado,
+cable cortado del lado del SCADA); así su socket del W5500 queda libre.
+
+```cpp
+JWPLC_ModbusTCP.setClientIdleTimeoutMs(
+    60000); // 0 = no cerrar nunca por inactividad
+
+uint32_t idle =
+    JWPLC_ModbusTCP.clientIdleTimeoutMs();
+```
+
+Si el SCADA consulta con menos frecuencia que este plazo, súbelo o desactívalo.
+El W5500 tiene 8 sockets, compartidos con DHCP, DNS y otros servicios.
 
 ### Server: diagnóstico — Intermedio
 
