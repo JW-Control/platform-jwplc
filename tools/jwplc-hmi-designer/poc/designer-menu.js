@@ -1761,6 +1761,13 @@
     },
     // Nodo seleccionado en el inspector (objeto vivo). Lo usa el modo OpenPLC
     // (designer-openplc-host.js) para guardar plcBinding en el nodo.
-    selectedNode: (field) => (field && ui(field).nodeKey ? nodeByKey(field.nodes || [], ui(field).nodeKey) : null)
+    selectedNode: (field) => (field && ui(field).nodeKey ? nodeByKey(field.nodes || [], ui(field).nodeKey) : null),
+    // Mutación copy-on-write sobre el nodo seleccionado (preserva Undo/Redo).
+    mutateSelectedNode: (fn, commit = true) => {
+      mutate((f) => {
+        const node = ui(f).nodeKey ? nodeByKey(f.nodes || [], ui(f).nodeKey) : null;
+        if (node) fn(node, f);
+      }, commit);
+    }
   };
 })();

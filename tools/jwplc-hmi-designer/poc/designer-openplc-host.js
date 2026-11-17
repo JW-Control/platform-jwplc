@@ -2,12 +2,12 @@
  * Modo OpenPLC del Designer (contrato jwplc-hmi-host/1, Alpha14 F3).
  *
  * Sólo se activa cuando OpenPLC abre el Designer: existe window.JWPLCHMIHost
- * con mode "openplc". En la pestaña "Datos" (campos BOOL/VALUE, BAR y nodos
- * del MENU) agrega el selector "Variable PLC" con las variables que entrega
- * OpenPLC (listVariables). Al elegir una:
+ * con mode "openplc". En la pestaña "Datos" (campos BOOL/VALUE, BAR, ICON,
+ * TREND y nodos del MENU) agrega el selector "Variable PLC" con las variables
+ * que entrega OpenPLC (listVariables). Al elegir una:
  *   - el nombre C++ se deriva solo (ya no se escribe a mano);
  *   - se guarda plcBinding { var, access } en el objeto (se guarda en el .jwhmi);
- *   - en los nodos del MENU se ajusta el tipo (int32 / float / bool).
+ *   - en los nodos del MENU se ajusta el tipo (int32 / float / bool) con copy-on-write.
  * Si OpenPLC avisa que cambiaron las variables del proyecto
  * (onVariablesChanged), se vuelven a pedir. Dentro de la pestaña de OpenPLC
  * (embedded) se informa si el diseño tiene cambios sin guardar (setDirty),
@@ -23,11 +23,17 @@
   if (!host || host.mode !== 'openplc') return;
 
   const DIRTY_POLL_MS = 600;
-  const INTEGER_TYPES = new Set(['INT', 'UINT', 'WORD', 'DINT', 'UDINT', 'DWORD']);
+  const INTEGER_TYPES = new Set(['SINT', 'USINT', 'BYTE', 'INT', 'UINT', 'WORD', 'DINT', 'UDINT', 'DWORD']);
+  const TREND_CHANNELS = {
+    variable: { varProp: 'variable', bindingProp: 'plcBinding', enabledProp: null },
+    ch2Variable: { varProp: 'ch2Variable', bindingProp: 'ch2PlcBinding', enabledProp: 'ch2Enabled' },
+    ch3Variable: { varProp: 'ch3Variable', bindingProp: 'ch3PlcBinding', enabledProp: 'ch3Enabled' }
+  };
   let variables = [];
   const bindingBoxes = new WeakMap();
   let variablesVersion = 0;
   let scheduled = false;
+  let lastDirtyReported = null;
 
   const editor = () => window.JWPLCHMIEditor || null;
   const menuApi = () => window.JWPLCHMIMenu || null;
@@ -39,20 +45,38 @@
     return /^[a-z_]/.test(cleaned) ? cleaned : `_${cleaned}`;
   }
 
-  /** Nombres C++ en uso por todos los objetos, salvo `except`. */
-  function usedNames(except) {
+  /** Nombres C++ en uso por todos los objetos, salvo `(exceptObj, exceptProp)`. */
+  function usedNames(exceptObj, exceptProp = 'variable') {
     const names = new Set();
     for (const field of editor()?.getAllFields?.() || []) {
-      if (field !== except && field.variable) names.add(String(field.variable));
+      if ((field !== exceptObj || exceptProp !== 'variable') && field.variable) {
+        names.add(String(field.variable));
+      }
+      if (field.type === 'TREND') {
+        if (field.ch2Enabled && (field !== exceptObj || exceptProp !== 'ch2Variable') && field.ch2Variable) {
+          names.add(String(field.ch2Variable));
+        }
+        if (field.ch3Enabled && (field !== exceptObj || exceptProp !== 'ch3Variable') && field.ch3Variable) {
+          names.add(String(field.ch3Variable));
+        }
+      }
       for (const node of field.nodes || []) {
-        if (node !== except && node.variable) names.add(String(node.variable));
+        if (node !== exceptObj && node.variable) names.add(String(node.variable));
+      }
+      if (Array.isArray(field.tierVariables)) {
+        field.tierVariables.forEach((tv, idx) => {
+          const tierObj = field.tierBindings?.[idx];
+          if (tv && tierObj !== exceptObj && (field !== exceptObj || exceptProp !== `tier:${idx}`)) {
+            names.add(String(tv));
+          }
+        });
       }
     }
     return names;
   }
 
-  function uniqueName(base, except) {
-    const used = usedNames(except);
+  function uniqueName(base, exceptObj, exceptProp = 'variable') {
+    const used = usedNames(exceptObj, exceptProp);
     if (!used.has(base)) return base;
     for (let i = 2; ; i += 1) if (!used.has(`${base}_${i}`)) return `${base}_${i}`;
   }
@@ -67,23 +91,56 @@
       const wants = node.type === 'EDIT_NUM' ? { hmi: 'number', rw: true }
         : node.type === 'EDIT_BOOL' ? { hmi: 'bool', rw: true }
           : { hmi: 'any', rw: false };
-      return { kind: 'node', field, object: node, wants };
+      return { kind: 'node', field, object: node, binding: node.plcBinding || null, wants };
     }
-    if (input.id === 'barPlcVariable') return { kind: 'bar', field, object: field, wants: { hmi: 'number', rw: false } };
-    if (field.type === 'BOOL') return { kind: 'field', field, object: field, wants: { hmi: 'bool', rw: false } };
-    if (field.type === 'VALUE' || field.type === 'BAR') return { kind: 'field', field, object: field, wants: { hmi: 'number', rw: false } };
+    if (input.matches('[data-trend-prop]')) {
+      const channel = TREND_CHANNELS[input.dataset.trendProp];
+      if (!channel || field.type !== 'TREND') return null;
+      const enabled = channel.enabledProp ? Boolean(field[channel.enabledProp]) : true;
+      return {
+        kind: 'trend',
+        field,
+        object: field,
+        varProp: channel.varProp,
+        bindingProp: channel.bindingProp,
+        binding: field[channel.bindingProp] || null,
+        enabled,
+        wants: { hmi: 'number', rw: false }
+      };
+    }
+    if (input.id === 'barPlcVariable') {
+      return { kind: 'bar', field, object: field, binding: field.plcBinding || null, wants: { hmi: 'number', rw: false } };
+    }
+    if (field.type === 'BOOL') {
+      return { kind: 'field', field, object: field, binding: field.plcBinding || null, wants: { hmi: 'bool', rw: false } };
+    }
+    if (field.type === 'VALUE') {
+      if (window.JWPLCHMICodegenCore?.isClockField?.(field)) {
+        return { kind: 'field', field, object: field, binding: null, wants: null, note: 'Este VALUE muestra la fecha/hora del RTC y no lleva variable PLC.' };
+      }
+      return { kind: 'field', field, object: field, binding: field.plcBinding || null, wants: { hmi: 'number', rw: false } };
+    }
+    if (field.type === 'BAR') {
+      return { kind: 'field', field, object: field, binding: field.plcBinding || null, wants: { hmi: 'number', rw: false } };
+    }
     if (input.matches('[data-tier-prop="variable"]')) {
       const tierIndex = Number(input.dataset.tierIndex) || 0;
-      if (!Array.isArray(field.tierBindings)) field.tierBindings = [];
-      if (!field.tierBindings[tierIndex]) field.tierBindings[tierIndex] = {};
-      return { kind: 'tier', field, object: field.tierBindings[tierIndex], tierIndex, wants: { hmi: 'bool', rw: false } };
+      const existing = Array.isArray(field.tierBindings) ? (field.tierBindings[tierIndex] || null) : null;
+      return {
+        kind: 'tier',
+        field,
+        object: existing,
+        tierIndex,
+        binding: existing?.plcBinding || null,
+        wants: { hmi: 'bool', rw: false }
+      };
     }
     if (field.type === 'ICON') {
       const isUint = field.iconVarType === 'uint8';
-      return { kind: 'field', field, object: field, wants: { hmi: isUint ? 'number' : 'bool', rw: false } };
+      return { kind: 'field', field, object: field, binding: field.plcBinding || null, wants: { hmi: isUint ? 'number' : 'bool', rw: false } };
     }
     return {
-      kind: 'field', field, object: field, wants: null,
+      kind: 'field', field, object: field, binding: null, wants: null,
       note: field.type === 'TEXT'
         ? 'TEXT todavía no se enlaza a variables PLC: para mostrar una variable usa VALUE (números), BOOL (estados) o BAR.'
         : 'Este objeto todavía no se enlaza a variables PLC.'
@@ -105,13 +162,16 @@
     return parts.join(' · ');
   }
 
+  function incompatibleReason(variable, wants) {
+    return variable.reason || (wants?.rw && variable.access === 'R' ? 'sólo lectura' : 'tipo no compatible');
+  }
+
   function renderOptions(select, target) {
     const signature = `${target.kind}|${JSON.stringify(target.wants)}|${variablesVersion}`;
     if (select.dataset.signature === signature) return;
     select.dataset.signature = signature;
     const ok = variables.filter((v) => compatible(v, target.wants));
     const rest = variables.filter((v) => !compatible(v, target.wants));
-    const why = (v) => v.reason || (target.wants?.rw && v.access === 'R' ? 'sólo lectura' : 'tipo no compatible');
     if (!variables.length) {
       select.innerHTML =
         '<option value="">— Sin enlazar —</option>' +
@@ -123,7 +183,7 @@
       ok.map((v) => `<option value="${escapeHtml(v.name)}">${escapeHtml(optionLabel(v))}</option>`).join('') +
       (rest.length
         ? `<optgroup label="No disponibles">${rest.map((v) =>
-          `<option disabled>${escapeHtml(`${v.name} · ${v.iecType} — ${why(v)}`)}</option>`).join('')}</optgroup>`
+          `<option disabled>${escapeHtml(`${v.name} · ${v.iecType} — ${incompatibleReason(v, target.wants)}`)}</option>`).join('')}</optgroup>`
         : '');
   }
 
@@ -133,26 +193,95 @@
     input.dispatchEvent(new Event('change', { bubbles: true }));
   }
 
+  function syncDirty() {
+    if (typeof host.setDirty !== 'function') return;
+    const dirty = Boolean(window.JWPLCHMISaveFlow?.isDirty?.());
+    if (dirty === lastDirtyReported) return;
+    lastDirtyReported = dirty;
+    host.setDirty(dirty);
+  }
+
   function bind(input, target, variableName) {
     if (!variableName) {
-      delete target.object.plcBinding;
+      if (target.kind === 'node') {
+        menuApi()?.mutateSelectedNode?.((node) => { delete node.plcBinding; }, true);
+        syncDirty();
+        schedule();
+        return;
+      }
       if (target.kind === 'tier') {
-        if (target.field.tierVariables) target.field.tierVariables[target.tierIndex] = '';
+        if (Array.isArray(target.field.tierBindings)) {
+          target.field.tierBindings = target.field.tierBindings.map((b) => (b ? { ...b } : b));
+          delete target.field.tierBindings[target.tierIndex];
+          if (target.field.tierBindings.every((b) => !b || !b.plcBinding)) {
+            delete target.field.tierBindings;
+          }
+        }
+        if (Array.isArray(target.field.tierVariables)) {
+          target.field.tierVariables = [...target.field.tierVariables];
+          target.field.tierVariables[target.tierIndex] = '';
+        }
+      } else if (target.kind === 'trend') {
+        delete target.field[target.bindingProp];
+      } else {
+        delete target.object.plcBinding;
       }
       editor()?.commitHistory?.();
+      syncDirty();
       schedule();
       return;
     }
+
     const variable = variables.find((v) => v.name === variableName);
     if (!variable) return;
 
-    if (target.kind === 'tier') {
+    if (target.kind === 'node') {
+      const kind = variable.hmiTypes.includes('bool') ? 'bool' : INTEGER_TYPES.has(variable.iecType) ? 'int32' : 'float';
       const name = uniqueName(sanitize(variable.name), target.object);
-      fire(input, name);
-      target.object.plcBinding = { var: variable.name, access: target.wants?.rw ? 'RW' : 'R' };
-      if (!Array.isArray(target.field.tierVariables)) target.field.tierVariables = [];
-      target.field.tierVariables[target.tierIndex] = name;
-      editor()?.commitHistory?.();
+      const binding = { var: variable.name, access: target.wants?.rw ? 'RW' : 'R' };
+      const allowed = target.object.type === 'EDIT_NUM'
+        ? ['float', 'int32']
+        : target.object.type === 'EDIT_BOOL'
+          ? ['bool']
+          : ['float', 'int32', 'bool'];
+      menuApi()?.mutateSelectedNode?.((node) => {
+        if (variable.hmiTypes.length && allowed.includes(kind) && node.valueType !== kind) {
+          node.valueType = kind;
+        }
+        node.variable = name;
+        node.plcBinding = binding;
+      }, true);
+      syncDirty();
+      schedule();
+      return;
+    }
+
+    if (target.kind === 'tier') {
+      const name = uniqueName(sanitize(variable.name), target.field, `tier:${target.tierIndex}`);
+      target.field.tierBindings = Array.isArray(target.field.tierBindings)
+        ? target.field.tierBindings.map((b) => (b ? { ...b } : b))
+        : [];
+      target.field.tierBindings[target.tierIndex] = {
+        plcBinding: { var: variable.name, access: target.wants?.rw ? 'RW' : 'R' }
+      };
+      if (input.value !== name) {
+        fire(input, name);
+      } else {
+        target.field.tierVariables = Array.isArray(target.field.tierVariables) ? [...target.field.tierVariables] : [];
+        target.field.tierVariables[target.tierIndex] = name;
+        editor()?.commitHistory?.();
+      }
+      syncDirty();
+      schedule();
+      return;
+    }
+
+    if (target.kind === 'trend') {
+      const name = uniqueName(sanitize(variable.name), target.field, target.varProp);
+      target.field[target.bindingProp] = { var: variable.name, access: 'R' };
+      if (input.value !== name) fire(input, name);
+      else editor()?.commitHistory?.();
+      syncDirty();
       schedule();
       return;
     }
@@ -167,28 +296,15 @@
       window.JWPLCHMIIcons?.sync?.();
     }
 
-    // MENU: tipo del nodo según la variable PLC (puede redibujar el inspector).
-    if (target.kind === 'node' && variable.hmiTypes.length) {
-      const kind = variable.hmiTypes.includes('bool') ? 'bool' : INTEGER_TYPES.has(variable.iecType) ? 'int32' : 'float';
-      if (target.object.valueType !== kind) {
-        document.querySelector(`[data-menu-node-editor] [data-node-kind="${kind}"]`)?.click();
-      }
-    }
-
-    const fresh = describeTarget(input.isConnected ? input : findVariableInputs()[0] || input);
-    const object = fresh?.object || target.object;
-    const name = uniqueName(sanitize(variable.name), object);
+    const name = uniqueName(sanitize(variable.name), target.object);
+    target.object.plcBinding = { var: variable.name, access: target.wants?.rw ? 'RW' : 'R' };
     const liveInput = target.kind === 'field'
       ? (target.field.type === 'ICON' ? document.querySelector('#iconInspectorSection input[data-icon-prop="variable"]') : document.getElementById('fieldVariable'))
-      : target.kind === 'bar'
-        ? document.getElementById('barPlcVariable')
-        : document.querySelector('[data-menu-node-editor] input[data-node-prop="variable"]');
+      : document.getElementById('barPlcVariable');
     if (liveInput && liveInput.value !== name) fire(liveInput, name);
+    else editor()?.commitHistory?.();
 
-    // El MENU clona sus nodos al editar: se toma el nodo vigente.
-    const finalObject = target.kind === 'node' ? (menuApi()?.selectedNode?.(target.field) || object) : object;
-    finalObject.plcBinding = { var: variable.name, access: target.wants?.rw ? 'RW' : 'R' };
-    editor()?.commitHistory?.();
+    syncDirty();
     schedule();
   }
 
@@ -199,6 +315,7 @@
       ...document.querySelectorAll('[data-menu-node-editor] input[data-node-prop="variable"]'),
       ...document.querySelectorAll('#iconInspectorSection input[data-icon-prop="variable"]'),
       ...document.querySelectorAll('#iconInspectorSection input[data-tier-prop="variable"]'),
+      ...document.querySelectorAll('#trendInspectorSection [data-trend-prop="variable"], #trendInspectorSection [data-trend-prop="ch2Variable"], #trendInspectorSection [data-trend-prop="ch3Variable"]'),
     ];
   }
 
@@ -210,6 +327,10 @@
     document.querySelectorAll('.insp-note').forEach((note) => {
       if (note.textContent.includes('A15-6')) note.hidden = true;
     });
+    // En OpenPLC los enlaces salen de Variable PLC, no de copiar variables C++ de TREND.
+    document.querySelectorAll('[data-fi-link-trend-wrap], #fieldLinkTrendWrap').forEach((el) => {
+      el.hidden = true;
+    });
 
     for (const input of findVariableInputs()) {
       const target = describeTarget(input);
@@ -217,16 +338,19 @@
       input.readOnly = true;
       input.title = 'En un proyecto OpenPLC el nombre C++ se genera a partir de la variable PLC.';
 
-      // El selector de cada input se recuerda (el de BAR no está dentro de un <label>).
+      // El selector de cada input se recuerda (el de BAR y TREND no están dentro de un <label>).
       let box = bindingBoxes.get(input);
       if (!box?.isConnected) {
         box = document.createElement('div');
         bindingBoxes.set(input, box);
         box.className = 'jwplc-plc-binding';
+        const channelLabel = target.kind === 'trend'
+          ? (target.varProp === 'ch2Variable' ? 'Variable PLC · Canal 2' : target.varProp === 'ch3Variable' ? 'Variable PLC · Canal 3' : 'Variable PLC · Canal 1')
+          : 'Variable PLC';
         box.innerHTML =
-          '<label class="field-label">Variable PLC <select class="field-input jwplc-plc-select"></select></label>' +
+          `<label class="field-label">${channelLabel} <select class="field-input jwplc-plc-select"></select></label>` +
           '<div class="insp-note jwplc-plc-note"></div>';
-        // Antes del <label> del input; si no tiene (BAR), antes de su fila (input + copiar).
+        // Antes del <label> del input; si no tiene (BAR/TREND), antes de su fila.
         const row = input.parentElement && input.parentElement.children.length > 1 ? input.parentElement : input;
         (input.closest('label') || row).before(box);
         box.querySelector('select').addEventListener('change', (event) => {
@@ -245,17 +369,24 @@
         continue;
       }
       // Con la ventana del editor abierta, la vista de enlaces es de sólo lectura.
-      select.disabled = document.documentElement.classList.contains('jwplc-editor-open');
+      const editorLocked = document.documentElement.classList.contains('jwplc-editor-open');
+      const channelDisabled = target.kind === 'trend' && !target.enabled;
+      select.disabled = editorLocked || channelDisabled;
       renderOptions(select, target);
-      const bound = target.object.plcBinding?.var || '';
-      const match = variables.find((v) => v.name.toLowerCase() === bound.toLowerCase());
-      const value = match ? match.name : '';
+      const bound = target.binding?.var || '';
+      const match = bound ? variables.find((v) => v.name.toLowerCase() === bound.toLowerCase()) : null;
+      const isCompatible = Boolean(match && compatible(match, target.wants));
+      const value = isCompatible ? match.name : '';
       if (select.value !== value) select.value = value;
-      const text = !bound
-        ? 'Sin enlazar: elige una variable del PLC.'
-        : match
-          ? `Enlazada a ${match.name}${target.object.plcBinding.access === 'RW' ? ' (lectura y escritura)' : ''}.`
-          : `La variable "${bound}" ya no existe en el PLC.`;
+      const text = channelDisabled
+        ? 'Canal desactivado.'
+        : !bound
+          ? 'Sin enlazar: elige una variable del PLC.'
+          : !match
+            ? `La variable "${bound}" ya no existe en el PLC.`
+            : !isCompatible
+              ? `La variable "${match.name}" (${match.iecType}) ya no es compatible (${incompatibleReason(match, target.wants)}).`
+              : `Enlazada a ${match.name}${target.binding.access === 'RW' ? ' (lectura y escritura)' : ''}.`;
       if (note.textContent !== text) note.textContent = text;
     }
   }
@@ -280,13 +411,10 @@
 
   // Cambios sin guardar del diseño -> pestaña de OpenPLC.
   function watchDirty() {
-    let last = null;
-    setInterval(() => {
-      const dirty = Boolean(window.JWPLCHMISaveFlow?.isDirty?.());
-      if (dirty === last) return;
-      last = dirty;
-      host.setDirty(dirty);
-    }, DIRTY_POLL_MS);
+    setInterval(syncDirty, DIRTY_POLL_MS);
+    window.addEventListener('jwplc:editor-refresh', syncDirty);
+    window.addEventListener('jwplc:project-loaded', () => setTimeout(syncDirty, 0));
+    window.addEventListener('jwplc:project-written', syncDirty);
   }
 
   async function init() {
