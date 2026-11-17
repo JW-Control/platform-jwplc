@@ -57,7 +57,10 @@ void loop()
     popupFallaSensor = false; // p. ej. digitalRead(I0_0) o el estado de tu lógica
     // Ventanas emergentes (I5-I6)
     measRun = false; // p. ej. digitalRead(I0_0) o el estado de tu lógica
+    popupConfirmDetener = false; // p. ej. digitalRead(I0_0) o el estado de tu lógica
+    stopConfirmed = false; // p. ej. digitalRead(I0_0) o el estado de tu lógica
     popupFinMedicion = false; // p. ej. digitalRead(I0_0) o el estado de tu lógica
+    popupMedicionDetenida = false; // p. ej. digitalRead(I0_0) o el estado de tu lógica
 }
 ```
 
@@ -98,7 +101,10 @@ otra vez da error de redefinición). Si cambias un nombre en el Designer, cámbi
 | `popupAvisoReactivo` | `bool` | MENU MENU_MEDICION | El MENU la muestra («Ver»); escríbela en tu lógica |
 | `popupFallaSensor` | `bool` | MENU MENU_MEDICION | El MENU la muestra («Ver»); escríbela en tu lógica |
 | `measRun` | `bool` | Ventanas emergentes (I5-I6) | Valor inicial false |
+| `popupConfirmDetener` | `bool` | Ventanas emergentes (I5-I6) | Valor inicial false |
+| `stopConfirmed` | `bool` | Ventanas emergentes (I5-I6) | Valor inicial false |
 | `popupFinMedicion` | `bool` | Ventanas emergentes (I5-I6) | Valor inicial false |
+| `popupMedicionDetenida` | `bool` | Ventanas emergentes (I5-I6) | Valor inicial false |
 
 ## MENU
 

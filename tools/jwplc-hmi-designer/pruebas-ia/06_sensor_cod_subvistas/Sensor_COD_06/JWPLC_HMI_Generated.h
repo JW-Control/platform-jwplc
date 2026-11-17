@@ -100,7 +100,10 @@ bool popupFallaSensor = false;
 
 // Ventanas emergentes (I5-I6)
 bool measRun = false;
+bool popupConfirmDetener = false;
+bool stopConfirmed = false;
 bool popupFinMedicion = false;
+bool popupMedicionDetenida = false;
 
 // Definición declarativa
 static const JWPLC_UIField HMI_FIELDS[] =
@@ -607,7 +610,7 @@ static const JWPLC_UIField HMI_FIELDS[] =
                 0x07FF,
                 0x0000,
                 0xFFFF)),
-        0x02U),
+        0x06U),
     JWPLC_UIFieldViews(
         JWPLC_UIValueField(
             FIELD_V2_VAL_TIME,
@@ -630,7 +633,7 @@ static const JWPLC_UIField HMI_FIELDS[] =
                 0xFFE0,
                 0x0000,
                 0xFFFF)),
-        0x02U),
+        0x06U),
     JWPLC_UIFieldViews(
         JWPLC_UITextField(
             FIELD_V2_STATUS_TEXT,
@@ -648,7 +651,7 @@ static const JWPLC_UIField HMI_FIELDS[] =
                 0xFFFF,
                 0xFD00,
                 0xFFFF)),
-        0x02U),
+        0x04U),
     // Barra sólida (HORIZONTAL) - Radio: 0, Borde: 0xFFFF (1px)
     JWPLC_UIFieldViews(
         JWPLC_UIBarField(
@@ -676,7 +679,7 @@ static const JWPLC_UIField HMI_FIELDS[] =
                 1,
                 10,
                 0)),
-        0x02U),
+        0x06U),
     JWPLC_UIFieldViews(
         JWPLC_UITextField(
             FIELD_V2_SUBTEXT,
@@ -694,7 +697,7 @@ static const JWPLC_UIField HMI_FIELDS[] =
                 0xFFFF,
                 0x0000,
                 0xFFFF)),
-        0x02U),
+        0x06U),
     JWPLC_UIFieldViews(
         JWPLC_UIBoolField(
             FIELD_V3_WIFI_STATE,
@@ -725,7 +728,7 @@ static const JWPLC_UIField HMI_FIELDS[] =
                 0x07E0,
                 0x18E3,
                 0x39E7)),
-        0x04U)
+        0x08U)
 };
 
 // MENU (A15-8): requiere JWPLC_Display con soporte de MENU.
@@ -754,7 +757,7 @@ static const JWPLC_UIMenuNode HMI_MENU_MEDICION_NODES[] =
     JWPLC_UIMenuNodeConfirm(JWPLC_UIMenuNodePill(JWPLC_UIMenuGoView(JWPLC_UI_MENU_ROOT, "INICIAR MEDICION", 1), 0x05E0, 0xD800, 0xFFFF), 0),
     JWPLC_UIMenuNodeLRStep(JWPLC_UIMenuNodeFormat(JWPLC_UIMenuEditNum(JWPLC_UI_MENU_ROOT, "ETIQUETA:", &measTag, 1, 99, 1, nullptr), "P", 2), 1),
     JWPLC_UIMenuNodeLRStep(JWPLC_UIMenuEditNum(JWPLC_UI_MENU_ROOT, "TIEMPO:", &measMins, 1, 60, 1, "min"), 1),
-    JWPLC_UIMenuNodeTargetView(JWPLC_UIMenuNodeDirectToggle(JWPLC_UIMenuEditBool(JWPLC_UI_MENU_ROOT, "DESCARGA WIFI", &wifiDownload, "", "ACTIVA"), true), 2),
+    JWPLC_UIMenuNodeTargetView(JWPLC_UIMenuNodeDirectToggle(JWPLC_UIMenuEditBool(JWPLC_UI_MENU_ROOT, "DESCARGA WIFI", &wifiDownload, "", "ACTIVA"), true), 3),
     JWPLC_UIMenuNodeDirectToggle(JWPLC_UIMenuEditBool(JWPLC_UI_MENU_ROOT, "AVISO REACTIVO", &popupAvisoReactivo, "OFF", "ON"), true),
     JWPLC_UIMenuNodeDirectToggle(JWPLC_UIMenuEditBool(JWPLC_UI_MENU_ROOT, "FALLA SENSOR", &popupFallaSensor, "OFF", "ON"), true)
 };
@@ -795,9 +798,11 @@ static const JWPLC_UIMenu HMI_MENUS[] =
 enum HMIPopupId : uint8_t
 {
     POPUP_CONFIRM_MEDICION = 0,
-    POPUP_FIN_MEDICION = 1,
-    POPUP_AVISO_REACTIVO = 2,
-    POPUP_ERROR_SENSOR = 3
+    POPUP_CONFIRM_DETENER = 1,
+    POPUP_FIN_MEDICION = 2,
+    POPUP_MEDICION_DETENIDA = 3,
+    POPUP_AVISO_REACTIVO = 4,
+    POPUP_ERROR_SENSOR = 5
 };
 
 static const JWPLC_UIPopup HMI_POPUPS[] =
@@ -809,11 +814,23 @@ static const JWPLC_UIPopup HMI_POPUPS[] =
             nullptr, true, false),
             PAGE_MEDICION, 1),
             2),
+    JWPLC_UIPopupColorsOverride(
+            JWPLC_UIPopupTextSize(
+            JWPLC_UIPopupTrigger(
+            JWPLC_UIPopupConfirm(POPUP_CONFIRM_DETENER, "DETENER MEDICION", "Desea detener la medicion actual?", &stopConfirmed, "SEGUIR", "DETENER"),
+            &popupConfirmDetener, true, false),
+            2),
+            JWPLC_UIPopupColors(0x1082, 0xFD20, 0xE8E4, 0xFFFF, 0xFFFF, 0xE8E4, 0xFFFF, 0x3186, 0xFFFF)),
     JWPLC_UIPopupOptions(
             JWPLC_UIPopupTrigger(
-            JWPLC_UIPopupInfo(POPUP_FIN_MEDICION, "CICLO COMPLETO", "Medicion finalizada con exito. Muestra guardada.", nullptr),
+            JWPLC_UIPopupInfo(POPUP_FIN_MEDICION, "CICLO COMPLETADO", "Medicion completada con exito. Muestra guardada.", nullptr),
             &popupFinMedicion, false, false),
             3500, false, false),
+    JWPLC_UIPopupColorsOverride(
+            JWPLC_UIPopupTrigger(
+            JWPLC_UIPopupWarn(POPUP_MEDICION_DETENIDA, "CICLO DETENIDO", "Medicion detenida manualmente por el operador.", nullptr),
+            &popupMedicionDetenida, false, false),
+            JWPLC_UIPopupColors(0x1082, 0xFFE0, 0xFFE0, 0x0000, 0xFFFF, 0xFFE0, 0x0000, 0x3186, 0xFFFF)),
     JWPLC_UIPopupButtons(JWPLC_UIPopupTrigger(
             JWPLC_UIPopupWarn(POPUP_AVISO_REACTIVO, "NIVEL REACTIVO", "Nivel de reactivo bajo. Se recomienda recarga pronto.", nullptr),
             &popupAvisoReactivo, false, true), "ENTENDIDO"),
@@ -1325,23 +1342,40 @@ void jwplcUIPageEnter(uint8_t page)
     switch (page)
     {
     case PAGE_MEDICION:
-        if (JWPLC_Display.pageView(PAGE_MEDICION) == 1)
+        if (((1U << JWPLC_Display.pageView(PAGE_MEDICION)) & 0x06U) != 0U)
         {
             // Etiqueta Label
             tft.setCursor(20, 28);
             tft.setTextSize(2);
             tft.setTextColor(0xFFFF);
             tft.print("ETIQUETA:");
-            // Rectangulo Estado
+        }
+        if (JWPLC_Display.pageView(PAGE_MEDICION) == 1)
+        {
+            // Boton Detener
+            tft.fillRoundRect(160, 62, 138, 34, 6, 0xF800);
+            tft.drawRoundRect(160, 62, 138, 34, 6, 0xFFFF);
+        }
+        if (JWPLC_Display.pageView(PAGE_MEDICION) == 2)
+        {
+            // Rectangulo Espera 5s
             tft.fillRoundRect(160, 62, 138, 34, 6, 0xFD00);
             tft.drawRoundRect(160, 62, 138, 34, 6, 0xFFFF);
+        }
+        if (JWPLC_Display.pageView(PAGE_MEDICION) == 1)
+        {
+            // Texto Detener
+            tft.setCursor(187, 71);
+            tft.setTextSize(2);
+            tft.setTextColor(0xFFFF);
+            tft.print("DETENER");
         }
         // CONFIGURACION DE MEDICION
         tft.setCursor(10, 5);
         tft.setTextSize(1);
         tft.setTextColor(0xFFFF);
         tft.print("CONFIGURACION DE MEDICION");
-        if (JWPLC_Display.pageView(PAGE_MEDICION) == 2)
+        if (JWPLC_Display.pageView(PAGE_MEDICION) == 3)
         {
             // Titulo WiFi QR
             tft.setCursor(12, 20);
