@@ -1,17 +1,18 @@
 # v2.1.0-alpha.17 — JWPLC Sim: estado vivo
 
-Actualizado: `2026-11-17` (cierre final con subvistas por página, popups I4–I6, `QR`, enlaces OpenPLC completos, `beginBatch()` anidado y `.a` regenerados de `JWPLC_Display` + `JWPLC_TFT`)
+Actualizado: `2026-11-17` (cierre oficial: entran el trabajo de André del 17/11 y Ledcito #240; `.a` verificados, benchmark en la PC del propietario)
 
 ## 1. Ramas y sincronización
 
 | Repo | Rol | Rama | SHA / estado |
 |---|---|---|---|
-| platform-jwplc | Base de la línea (`…/main`) | `v2.1.0-alpha.17/JWPLC-Sim/main` | `168c574` (#239) |
+| platform-jwplc | Base de la línea (`…/main`) | `v2.1.0-alpha.17/JWPLC-Sim/main` | `3f29398` (#240) |
 | platform-jwplc | Línea del editor | `v2.1.0-alpha.17/Editor-Upstream/main` | `0647a84` (VPP 4.3, #227); fusionada en `…/JWPLC-Sim/main` con #234; rama borrada el 14/11 |
 | platform-jwplc | Feature de cierre | `v2.1.0-alpha.17/JWPLC-Sim/feature/cierre-alpha17` | PR hacia `…/main`, luego `…/main` → `release/v2.1.x` |
 | openplc-editor | Línea cerrada | `v2.1.0-alpha.17/Editor-Upstream/main` | `2bf0b0c`, tag `jwplc-editor-v4.3.3-jwplc.1`; en `release/v2.1.x` @ `6886eed` (#16) |
-| openplc-editor | Designer / VPP empaquetados | `PLATFORM_DESIGNER_SHA` / `PLATFORM_VPP_SHA` | platform `4cb23c5` / `0647a84` |
-| jwplc-sim | Simulador | `main` | `5021377` (#32: prueba `Simular_USB` corregida; incluye #30 y #33); fijado en `sim-regression` de los dos workflows |
+| openplc-editor | Línea JWPLC-Sim (jwplc.2) | `v2.1.0-alpha.17/JWPLC-Sim/main` | #17: 4.3.3-jwplc.2 con el Designer final; luego → `release/v2.1.x` y tag `jwplc-editor-v4.3.3-jwplc.2` |
+| openplc-editor | Designer / VPP empaquetados | `PLATFORM_DESIGNER_SHA` / `PLATFORM_VPP_SHA` | platform `3f29398` / `0647a84` (jwplc.1 usaba `4cb23c5`) |
+| jwplc-sim | Simulador | `main` | `c807af1` (#35: ejemplo 09 con el árbitro de teclas; incluye #34 Ledcito y #32/#33); fijado en `sim-regression` de los dos workflows |
 
 Ramas borradas el 04/11 (todas fusionadas): features de alpha.16 y alpha.17 en los tres repos. Sin PR y con su
 contenido ya dentro: `v2.1.0-alpha.16/OpenPLC-HMI/feature/modo-claro-designer` @ `1817838`,
@@ -24,6 +25,10 @@ Para borrar el 16/11 (platform, todas contenidas en `…/main`): `ccr-4e8cc1e7-l
 `v2.1.0-alpha.17/JWPLC-Sim/feature/hmi-designer` @ `65128335` (#239) y `…/feature/arranque-io-enable` @ `cd238fdb`
 (#237, squash; su árbol es igual al de `f0e5edc`). jwplc-sim: `feature/alpha17-editor-componentes` @ `25d14800` (#33) y
 `fix/alpha17-prueba-simular-usb` @ `ea11be89` (#32).
+
+Para borrar el 17/11 (contenidas en `…/main`): platform `…/feature/hmi-designer-review` @ `e4843faf` (sin PR),
+`…/feature/ledcito-animacion` @ `1692f214` (#240) y `…/feature/cierre-alpha17` (al fusionar este cierre); jwplc-sim
+`feature/alpha17-ledcito` @ `4222dd39` (#34) y `feature/alpha17-ejemplo09-ok-entra` @ `fc168401` (#35).
 
 ## 2. Qué entró en `…/main`
 
@@ -45,6 +50,9 @@ Para borrar el 16/11 (platform, todas contenidas en `…/main`): `ccr-4e8cc1e7-l
 | #236 | `…/feature/mblock` | `c756170` | prueba de concepto de mBlock en `tools/mblock-poc/` |
 | #238 | `ccr-4e8cc1e7-lygr9t` | `005677a` | Modbus TCP: varios clientes, cierre por inactividad, Unit ID 0/255; `JW_ModbusRTU` excepción 02 |
 | #239 | `…/feature/hmi-designer` | `168c574` | HMI Designer (André): TREND, multipágina, menú CARDS, 64 campos en Flash, inspectores nuevos |
+| #235 | `…/feature/cierre-alpha17` | `aa1d788` | primer cierre: `.a` de Display y ModbusTCP, `JWPLC_Icons` inline, pin del Sim |
+| sin PR | `…/feature/hmi-designer-review` | `84715c0` | André, fusión directa en `…/main` el 17/11: subvistas, popups I4–I6, `QR`, `beginBatch()` anidado, `.a` de TFT y Display |
+| #240 | `…/feature/ledcito-animacion` | `3f29398` | ejemplo `JWPLC_Display/17.Display_Ledcito` (validado en placa) |
 
 ## 3. Librerías precompiladas y evidencia del cierre
 
@@ -80,7 +88,17 @@ Evidencia del 04/11, sobre el árbol de la feature de cierre de entonces:
 - `[ejecutado]` jwplc-sim `9622dca` contra `56950b3`: paridad 0 diferencias; los ejemplos tocados en el
   cierre de la línea (Runtime ×4, 00.Plantilla, 01.DigitalIO_Basic, 03.Display_HMI_Pages) 7/7.
 - `SIM_REGRESSION` (matriz completa del Sim) con jwplc-sim `5021377`: la corre el CI del PR de cierre (#235).
-- `[pendiente]` benchmark de compilación en la PC del propietario.
+- `[ejecutado]` 17/11, verificación del cierre oficial sobre `3f29398`: los `.a` de André (TFT y Display) se
+  regeneraron en la nube desde las fuentes y tienen **el mismo conjunto de símbolos** (0 diferencias en `nm`), así que
+  se quedan; ESP32 real de los 32 sketches de pantalla (`JWPLC_Display` 01–16, Runtime ×4, Widgets ×4, WebScreen ×2,
+  `pruebas-ia` ×6): **32/32, 0 advertencias**; `run-all.cjs` con `g++`: los 5 `SKIP` de Windows fallaban por stubs de
+  host viejos (`serviceNavigation()` ahora devuelve `bool`, subvistas y hooks de popups); corregidos, todo PASS.
+- `[ejecutado]` 17/11: el SIM_REGRESSION de #240 falló sólo en `09.HMI_Registro_Eventos`: con el árbitro I4 el OK que
+  sale del selector ya no abre también el detalle (hace falta un segundo OK, como dice el ejemplo). Prueba ajustada en
+  jwplc-sim #35.
+- `[ejecutado]` benchmark en la PC del propietario (i5-13400F, Windows 10, arduino-cli 1.5.1), `05.HMI_Plantilla_Caldera`:
+  limpia **49,1 s** precompilado vs **64,5 s** en fuente (−24 %); recompilación 8,8 s en ambos
+  ([A17_CIERRE_PRECOMPILADAS_20261104.md](A17_CIERRE_PRECOMPILADAS_20261104.md) §8).
 
 ## 4. Qué funciona en la máquina
 
@@ -100,7 +118,7 @@ Evidencia del 04/11, sobre el árbol de la feature de cierre de entonces:
 
 ## 6. Para retomar
 
-1. Fusionar la feature de cierre en `…/main`; luego PR `…/main` → `release/v2.1.x` (publica con el
+1. Fusionar la feature de cierre (PR de cierre oficial) en `…/main`; luego PR `…/main` → `release/v2.1.x` (publica con el
    cambio de `JWPLC_RELEASE_VERSION` del README). Requiere OK explícito del propietario.
 2. Tras publicar: sincronizar `release/v2.1.x` → `main` con merge commit, PR de índices y fast-forward de
    `release/v2.1.x`; en jwplc-sim, `package.lock` → tag `v2.1.0-alpha.17` y Release del Sim.

@@ -46,6 +46,16 @@ namespace JWPLCUI
     void invalidateAll(bool) { g_invalidations++; }
 }
 
+// Alpha17 (subvistas y popups I5-I6): el MENU consulta la subvista de la página
+// y puede pedir una confirmación modal. En host no hay subvistas ni popups.
+namespace JWPLCUI
+{
+    void setPageView(uint8_t, uint8_t) {}
+    uint8_t pageView(uint8_t) { return 0; }
+}
+extern "C" bool jwplcUIOverlayRequestConfirm(uint8_t, void (*)(void *), void *) { return false; }
+extern "C" bool jwplcUIOverlayOverlapsRect(int16_t, int16_t, int16_t, int16_t) { return false; }
+
 namespace JWPLCUIPages
 {
     bool selectionMode() { return g_selection; }

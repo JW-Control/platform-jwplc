@@ -56,7 +56,7 @@ mano desde el directorio de salida del script en vez de usar `--install`, que se
 
 - `[ejecutado]` compilación ESP32 real de los 79 ejemplos del package con estos `.a`: 79/79 (detalle en `ALPHA17_STATUS.md` §3).
 - `[ejecutado]` HMI Designer `tests/run-all.cjs` 21/21: los headers generados compilan y sus llamadas existen en los `.a`.
-- `[pendiente]` benchmark de compilación en la PC del propietario (Arduino IDE, sketch limpio y recompilación).
+- `[ejecutado]` benchmark de compilación en la PC del propietario: ver §8.
 
 ## 5. Segunda regeneración (16/11): #238 y #239
 
@@ -123,3 +123,32 @@ Tras incorporar subvistas por página (`viewMask`), árbitro único de teclas (`
 - Ambas librerías vuelven a distribuirse con `precompiled=full` en `library.properties`.
 - `[ejecutado]` compilación ESP32 real (`jwplc_local:esp32:jwplcbasic`) enlazando contra las `.a` nuevas de 5 ejemplos base de `JWPLC_Display` (`01`, `02`, `06`, `09`, `14`) y proyectos de `tools/jwplc-hmi-designer/pruebas-ia/`.
 - `[ejecutado]` HMI Designer `tests/run-all.cjs`: 31/31 `PASS` (5 `SKIP` en host por ausencia de `g++` en Windows).
+
+## 8. Verificación del cierre oficial y benchmark (17/11)
+
+`[ejecutado]` en la nube sobre `v2.1.0-alpha.17/JWPLC-Sim/main` @ `84715c03` (los `.a` de §7, generados por André):
+
+```bash
+CTAGS_DIR=$HOME/jwplc-build/ctags tools/alpha16/regenerate_precompiled.sh build JWPLC_TFT JWPLC_Display
+```
+
+- Los `.a` regenerados en la nube y los de §7 tienen **el mismo conjunto de símbolos** (`nm -C`, tipos T/W/V/D/R/B:
+  0 diferencias en las dos librerías). Los bytes difieren sólo por rutas y depuración del equipo que compila. Se
+  quedan los `.a` de §7.
+- Compilación ESP32 real con esos `.a` de los 32 sketches que usan la pantalla (`JWPLC_Display` 01–16, `JWPLC_Runtime`
+  ×4, `JWPLC_UI_Widgets` ×4, `JWPLC_WebScreen` ×2 y los 6 proyectos de `pruebas-ia`): **32/32, 0 advertencias**.
+
+`[ejecutado]` benchmark en la PC del propietario (PC-MASTER-RACE: Intel Core i5-13400F, 10 núcleos/16 hilos, 24 GB,
+Windows 10 Pro 19045; arduino-cli 1.5.1, el mismo de Arduino IDE 2.3.10). Sketch `JWPLC_Display/05.HMI_Plantilla_Caldera`,
+`jwplc_local:esp32:jwplcbasic`, commit `84715c03`, `--build-path` propio borrado y `--clean` antes de cada limpia,
+medido con `Measure-Command`:
+
+| Modo de `JWPLC_TFT`, `JWPLC_Display` y `JW_MatrixButtons` | Limpia (s) | Recompilar sin cambios (s) | Flash (B) |
+|---|---|---|---|
+| Precompiladas (`.a` de este cierre) | 49,6 / 48,3 / 49,3 → **49,1** | 8,8 / 8,8 | 495 337 |
+| Fuente (sin `precompiled=full`) | 65,1 / 64,9 / 63,4 → **64,5** | 8,9 / 8,7 | 495 473 |
+
+- Precompilar ahorra **15,4 s (−24 %)** en cada compilación limpia (primera vez o al cambiar una opción de placa).
+- Al recompilar sin cambios no hay diferencia: domina el enlace y el core.
+- No es comparable con la referencia de alpha.15 (18 s → 9 s): desde entonces `JWPLC_Display` creció (HMI de 64 campos,
+  TREND, subvistas, popups) y TFT_eSPI va dentro de `libJWPLC_TFT.a`.

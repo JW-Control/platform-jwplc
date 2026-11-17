@@ -8,8 +8,8 @@
 
 | Qué | Dónde |
 |---|---|
-| **OpenPLC Editor – JWPLC Edition 4.3.3-jwplc.1** (Windows x64, con el HMI Designer adentro) | [`OpenPLC-Editor.exe`](https://github.com/JW-Control/openplc-editor/releases/download/jwplc-editor-v4.3.3-jwplc.1/OpenPLC-Editor.exe) · [notas y SHA-256](https://github.com/JW-Control/openplc-editor/releases/tag/jwplc-editor-v4.3.3-jwplc.1) |
-| **Paquete de placas JWPLC Basic (VPP) 2.1.0-alpha.17**, firmado (`jwcontrol-2026`) | [`JWPLC-Basic.vpp`](https://github.com/JW-Control/openplc-editor/releases/download/jwplc-editor-v4.3.3-jwplc.1/JWPLC-Basic.vpp) |
+| **OpenPLC Editor – JWPLC Edition 4.3.3-jwplc.2** (Windows x64, con el HMI Designer adentro) | [`OpenPLC-Editor.exe`](https://github.com/JW-Control/openplc-editor/releases/download/jwplc-editor-v4.3.3-jwplc.2/OpenPLC-Editor.exe) · [notas y SHA-256](https://github.com/JW-Control/openplc-editor/releases/tag/jwplc-editor-v4.3.3-jwplc.2) |
+| **Paquete de placas JWPLC Basic (VPP) 2.1.0-alpha.17**, firmado (`jwcontrol-2026`) | [`JWPLC-Basic.vpp`](https://github.com/JW-Control/openplc-editor/releases/download/jwplc-editor-v4.3.3-jwplc.2/JWPLC-Basic.vpp) |
 | **JWPLC HMI Designer 2.1.0-alpha.17** para Arduino IDE | adjuntos a esta Release: `HMI-Designer-Setup.exe`, `HMI-Designer-Portable.exe` y `HMI-Designer-SHA256.txt` |
 | **Package Arduino** `jwplc:esp32@2.1.0-alpha.17` | índice dev (ver README) |
 
@@ -38,12 +38,16 @@ formas**.
   precompilada `JWPLC_Icons` (`JWPLC_Icons.motor(48)`): el header del Designer la usa y sólo se enlaza el tamaño elegido.
 - **Display TFT**: `JWPLC_TFT` 0.5.0 soporta `beginBatch()`/`endBatch()` anidados por profundidad; `JWPLC_Display` 1.1.0
   elimina destellos negros en tarjetas de `MENU` y evita el parpadeo de 1 Hz del reloj mientras hay un modal abierto.
+  Árbitro único de teclas: el OK que sale del selector de páginas sólo entra a la página (antes también actuaba sobre
+  el EVENT_LOG o el MENU de esa página); el segundo OK ya va al widget.
+- **Ledcito** (#240): ejemplo `JWPLC_Display/17.Display_Ledcito`, la mascota de JW Control animada en la TFT (sprite de
+  4 bits a pantalla completa, OK reinicia y ESC vuelve a IDLE).
 - **Modbus TCP** (#238): el Server de `JWPLC_ModbusTCP` atiende varios clientes a la vez, cierra las conexiones
   inactivas y responde también a Unit ID 0 y 255 (`setStrictUnitId(true)` vuelve a la comparación exacta).
   En `JW_ModbusRTU`, una tabla sin mapa responde la excepción 02.
 - **mBlock 5** (#236): extensión `jwplc_basic` 0.12.0, bridge 0.6.0 e instalador en `tools/mblock-poc/` (prueba de
   concepto, pendiente de validar en otra máquina).
-- **OpenPLC Editor 4.3.3-jwplc.1** (openplc-editor #14–#16): basado en OpenPLC Editor 4.3.3 de Autonomy, interfaz
+- **OpenPLC Editor 4.3.3-jwplc.2** (openplc-editor #14–#17; jwplc.2 trae el HMI Designer final de esta alpha): basado en OpenPLC Editor 4.3.3 de Autonomy, interfaz
   en español y VPP 2.1.0-alpha.17 con las pantallas *Serial* y *Network* nuevas para Modbus (#227).
   Los proyectos de alpha.16 se migran solos a la configuración Modbus nueva.
 - **JW Libraries** (#226): `JW_FRAM` 1.0.4, `JW_MatrixButtons` 1.0.7, `JW_RTC` 1.0.3 y `JW_SD` 1.0.3 desde
@@ -58,7 +62,7 @@ formas**.
 ## Instalación
 
 1. Package: en Arduino IDE agregar el índice dev e instalar **JW Control ESP32 Boards 2.1.0-alpha.17** (ver README).
-2. OpenPLC Editor: ejecutar `OpenPLC-Editor.exe` (4.3.3-jwplc.1; actualiza una JWPLC Edition anterior).
+2. OpenPLC Editor: ejecutar `OpenPLC-Editor.exe` (4.3.3-jwplc.2; actualiza una JWPLC Edition anterior).
 3. En el editor, importar `JWPLC-Basic.vpp` (2.1.0-alpha.17) y elegir la placa **JWPLC BASIC**.
 
 ## Verificación
@@ -80,5 +84,5 @@ Ver `ALPHA17_STATUS.md` §3 (resultados de la matriz ESP32, del Sim y de los tes
 | Package `jwplc:esp32` | 2.1.0-alpha.17 | `release/v2.1.x` al publicar |
 | HMI Designer | 2.1.0-alpha.17 | instaladores: árbol de la Release; dentro del editor: platform-jwplc `4cb23c5` |
 | VPP JWPLC Basic | 2.1.0-alpha.17 | platform-jwplc `0647a84` |
-| OpenPLC Editor – JWPLC Edition | 4.3.3-jwplc.1 | openplc-editor `2bf0b0c` (tag `jwplc-editor-v4.3.3-jwplc.1`) |
-| JWPLC Sim (gate `SIM_REGRESSION`) | — | jwplc-sim `5021377` |
+| OpenPLC Editor – JWPLC Edition | 4.3.3-jwplc.2 | openplc-editor #17 (tag `jwplc-editor-v4.3.3-jwplc.2`); Designer platform `3f29398`, VPP `0647a84` |
+| JWPLC Sim (gate `SIM_REGRESSION`) | — | jwplc-sim `c807af1` |
