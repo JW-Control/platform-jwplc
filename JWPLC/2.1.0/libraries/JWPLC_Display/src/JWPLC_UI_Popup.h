@@ -93,6 +93,7 @@ struct JWPLC_UIPopup
     int16_t width = 248;
     int16_t height = 116;
     uint8_t cornerRadius = 6;
+    uint8_t messageTextSize = 1;
     JWPLC_UIPopupColors colors = JWPLC_UIPopupPresetColors(JWPLC_UI_POPUP_INFO);
 };
 
@@ -249,6 +250,14 @@ inline JWPLC_UIPopup JWPLC_UIPopupNavTarget(
 {
     p.targetPage = targetPage;
     p.targetView = targetView;
+    return p;
+}
+
+inline JWPLC_UIPopup JWPLC_UIPopupTextSize(
+    JWPLC_UIPopup p,
+    uint8_t messageTextSize = 1)
+{
+    p.messageTextSize = (messageTextSize >= 2U && messageTextSize <= 3U) ? messageTextSize : 1U;
     return p;
 }
 

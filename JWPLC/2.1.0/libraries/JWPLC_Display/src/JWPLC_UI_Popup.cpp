@@ -445,19 +445,24 @@ namespace
         tft.print(text);
     }
 
-    void drawWrappedBody(JWPLC_TFTClass &tft, const char *msg, int16_t bx, int16_t by, int16_t bw, int16_t bh, uint16_t fg, uint16_t bg)
+    void drawWrappedBody(JWPLC_TFTClass &tft, const char *msg, int16_t bx, int16_t by, int16_t bw, int16_t bh, uint16_t fg, uint16_t bg, uint8_t textSize)
     {
         if (msg == nullptr || msg[0] == '\0')
             return;
 
-        const int16_t maxChars = (bw / CHAR_W > 4) ? (int16_t)(bw / CHAR_W) : 4;
-        const int16_t maxLines = (bh / LINE_H > 1) ? (int16_t)(bh / LINE_H) : 1;
+        const uint8_t scale = (textSize >= 2U && textSize <= 3U) ? textSize : 1U;
+        const int16_t charW = (int16_t)(CHAR_W * scale);
+        const int16_t lineH = (scale == 1U) ? (int16_t)LINE_H : (int16_t)(CHAR_H * scale + 4);
+
+        const int16_t maxChars = (bw / charW > 4) ? (int16_t)(bw / charW) : 4;
+        const int16_t rawMaxLines = (bh / lineH > 1) ? (int16_t)(bh / lineH) : 1;
+        const int16_t maxLines = (rawMaxLines < 6) ? rawMaxLines : 6;
 
         char lines[6][48];
         int16_t lineCount = 0;
 
         const char *p = msg;
-        while (*p != '\0' && lineCount < maxLines && lineCount < 6)
+        while (*p != '\0' && lineCount < maxLines)
         {
             while (*p == ' ')
                 p++;
@@ -496,19 +501,21 @@ namespace
                 p++;
         }
 
-        const int16_t totalH = (int16_t)(lineCount * LINE_H);
+        const int16_t totalH = (int16_t)(lineCount * lineH);
         const int16_t startY = (totalH < bh) ? (int16_t)(by + (bh - totalH) / 2 + 1) : by;
 
+        tft.setTextSize(scale);
         tft.setTextColor(fg, bg);
         for (int16_t i = 0; i < lineCount; ++i)
         {
-            const int16_t lw = (int16_t)(strlen(lines[i]) * CHAR_W);
+            const int16_t lw = (int16_t)(strlen(lines[i]) * charW);
             int16_t lx = (int16_t)(bx + (bw - lw) / 2);
             if (lx < bx)
                 lx = bx;
-            tft.setCursor(lx, (int16_t)(startY + i * LINE_H));
+            tft.setCursor(lx, (int16_t)(startY + i * lineH));
             tft.print(lines[i]);
         }
+        tft.setTextSize(1);
     }
 
     void drawActionButton(
@@ -596,7 +603,7 @@ namespace
         const int16_t bodyY = (int16_t)(y + 2 + HEADER_H + 4);
         const int16_t bodyW = (int16_t)(w - 20);
         const int16_t bodyH = (int16_t)(h - HEADER_H - 34);
-        drawWrappedBody(tft, def.message, bodyX, bodyY, bodyW, bodyH, c.text, c.background);
+        drawWrappedBody(tft, def.message, bodyX, bodyY, bodyW, bodyH, c.text, c.background, def.messageTextSize);
 
         // Botonera inferior
         const int16_t btnY = (int16_t)(y + h - 25);
