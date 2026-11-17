@@ -10,7 +10,8 @@ Actualizado: `2026-11-17` (cierre oficial: entran el trabajo de André del 17/11
 | platform-jwplc | Línea del editor | `v2.1.0-alpha.17/Editor-Upstream/main` | `0647a84` (VPP 4.3, #227); fusionada en `…/JWPLC-Sim/main` con #234; rama borrada el 14/11 |
 | platform-jwplc | Feature de cierre | `v2.1.0-alpha.17/JWPLC-Sim/feature/cierre-alpha17` | PR hacia `…/main`, luego `…/main` → `release/v2.1.x` |
 | openplc-editor | Línea cerrada | `v2.1.0-alpha.17/Editor-Upstream/main` | `2bf0b0c`, tag `jwplc-editor-v4.3.3-jwplc.1`; en `release/v2.1.x` @ `6886eed` (#16) |
-| openplc-editor | Designer / VPP empaquetados | `PLATFORM_DESIGNER_SHA` / `PLATFORM_VPP_SHA` | platform `4cb23c5` / `0647a84` |
+| openplc-editor | Línea JWPLC-Sim (jwplc.2) | `v2.1.0-alpha.17/JWPLC-Sim/main` | #17: 4.3.3-jwplc.2 con el Designer final; luego → `release/v2.1.x` y tag `jwplc-editor-v4.3.3-jwplc.2` |
+| openplc-editor | Designer / VPP empaquetados | `PLATFORM_DESIGNER_SHA` / `PLATFORM_VPP_SHA` | platform `3f29398` / `0647a84` (jwplc.1 usaba `4cb23c5`) |
 | jwplc-sim | Simulador | `main` | `c807af1` (#35: ejemplo 09 con el árbitro de teclas; incluye #34 Ledcito y #32/#33); fijado en `sim-regression` de los dos workflows |
 
 Ramas borradas el 04/11 (todas fusionadas): features de alpha.16 y alpha.17 en los tres repos. Sin PR y con su
