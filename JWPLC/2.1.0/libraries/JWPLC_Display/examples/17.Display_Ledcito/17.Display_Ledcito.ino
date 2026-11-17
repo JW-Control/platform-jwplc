@@ -3,7 +3,7 @@
 
   Qué hace:
     Anima el rostro de Ledcito, la mascota de JW Control, en la TFT del frente.
-    Toda la expresión está en los ojos y en la cabeza:
+    Toda la expresión está en los ojos, la cabeza y el buzzer:
       1. Despierta: ojos cerrados, entreabre, se vuelve a dormir y despierta
          de golpe con un estirón y doble parpadeo.
       2. Mira a la derecha y a la izquierda, y vuelve al centro.
@@ -27,6 +27,8 @@
       t; dibujarLedcito() la pinta. Para cambiar la coreografía basta tocar
       los tiempos de poseEn().
     - El encendido y el apagado son un fundido de la paleta del sprite.
+    - Los sonidos salen del buzzer con una línea de tiempo igual: tonoEn(t).
+      SONIDO_ACTIVO = false lo silencia.
 */
 
 // =====================================================
@@ -44,13 +46,17 @@ static const uint32_t T_FELIZ = 10300;     // ojos ^ ^ + rebotes
 static const uint32_t T_TE_MIRA = 13600;   // vuelve a mirar al frente
 static const uint32_t T_APAGA = 15600;     // fundido a negro
 
+// Sonido: false lo apaga. Volumen = ciclo PWM de 8 bits (16 bajo, 32 suave, 48 medio).
+static const bool SONIDO_ACTIVO = true;
+static const uint8_t VOLUMEN_BUZZER = 32;
+
 // Colores (RGB565), tomados del modelo impreso
 static const uint16_t COLOR_FONDO = 0x0000;
 static const uint16_t COLOR_CARA = 0xE73B;   // blanco hueso
-static const uint16_t COLOR_SOMBRA = 0x9CD3; // borde inferior de la cara
+static const uint16_t COLOR_CONTORNO = 0x2945; // borde grafito del llavero
 static const uint16_t COLOR_VISOR = 0x18E3;  // negro grafito
-static const uint16_t COLOR_VERDE = 0x3EA8;  // ojos y orejas
-static const uint16_t COLOR_VERDE_OSC = 0x2589;
+static const uint16_t COLOR_VERDE = 0x3EA8;  // ojos (brillantes en la TFT)
+static const uint16_t COLOR_OREJA = 0x3D28;  // verde del filamento
 static const uint16_t COLOR_BRILLO = 0xFFFF;
 
 // Índices de la paleta del sprite (4 bits = 16 colores)
@@ -58,10 +64,10 @@ enum : uint8_t
 {
     P_FONDO = 0,
     P_CARA,
-    P_SOMBRA,
+    P_CONTORNO,
     P_VISOR,
     P_VERDE,
-    P_VERDE_OSC,
+    P_OREJA,
     P_BRILLO
 };
 
@@ -98,6 +104,8 @@ static bool g_entro = false;
 static uint32_t g_inicioMs = 0;
 static float g_luzAplicada = -1.0f;
 static uint8_t g_fase = 0xFF;
+static bool g_buzzerListo = false;
+static uint16_t g_tonoActual = 0;
 
 // =====================================================
 // Utilidades de animación
@@ -307,6 +315,84 @@ static Pose poseEn(uint32_t t)
     return p;
 }
 
+// =====================================================
+// Sonido (buzzer del frente)
+// =====================================================
+
+// Igual que la imagen, el sonido es una línea de tiempo: tonoEn(t) dice qué
+// frecuencia suena en el instante t (0 = silencio). Cada sonido dura al
+// menos 70 ms para que no se pierda entre dos cuadros de 33 ms.
+
+// Glisando de f0 a f1 Hz entre a y b
+static uint16_t deslizar(uint32_t t, uint32_t a, uint32_t b, float f0, float f1)
+{
+    return (uint16_t)mezclar(f0, f1, tramo(t, a, b));
+}
+
+static bool entre(uint32_t t, uint32_t a, uint32_t b)
+{
+    return t >= a && t < b;
+}
+
+static uint16_t tonoEn(uint32_t t)
+{
+    // ---------- Escena 1 ----------
+    if (entre(t, 1150, 1240)) return 380;                       // «¿mm?» al entreabrir
+    if (entre(t, T_DESPIERTA, T_DESPIERTA + 200))
+        return deslizar(t, T_DESPIERTA, T_DESPIERTA + 200, 600, 1500);  // ¡despierta!
+    if (entre(t, T_DESPIERTA + 260, T_DESPIERTA + 340)) return 1800;     // bip
+    if (entre(t, 3500, 3640)) return deslizar(t, 3500, 3640, 700, 1000); // mira a la derecha
+    if (entre(t, 4700, 4840)) return deslizar(t, 4700, 4840, 1000, 700); // mira a la izquierda
+    if (entre(t, 6100, 6180)) return 900;                                 // vuelve al centro
+
+    // ---------- Escena 2 ----------
+    if (entre(t, T_CORTE + 750, T_CORTE + 830)) return 1300;   // doble toma
+    if (entre(t, T_CORTE + 980, T_CORTE + 1060)) return 1300;
+    if (entre(t, T_ASOMBRO, T_ASOMBRO + 330))
+        return deslizar(t, T_ASOMBRO, T_ASOMBRO + 330, 700, 2600);       // ¡wiii!
+    if (entre(t, T_ASOMBRO + 330, T_ASOMBRO + 430)) return 2600;
+    if (entre(t, T_ASOMBRO + 600, T_ASOMBRO + 1000))                    // trino de emoción
+        return ((t - T_ASOMBRO - 600) / 66) % 2 == 0 ? 2200 : 2600;
+
+    // Feliz: arpegio do-mi-sol-do y un «boing» en cada rebote
+    if (entre(t, T_FELIZ, T_FELIZ + 90)) return 1047;
+    if (entre(t, T_FELIZ + 90, T_FELIZ + 180)) return 1319;
+    if (entre(t, T_FELIZ + 180, T_FELIZ + 270)) return 1568;
+    if (entre(t, T_FELIZ + 270, T_FELIZ + 400)) return 2093;
+    if (entre(t, T_FELIZ + 420, T_FELIZ + 520)) return deslizar(t, T_FELIZ + 420, T_FELIZ + 520, 900, 1400);
+    if (entre(t, T_FELIZ + 840, T_FELIZ + 940)) return deslizar(t, T_FELIZ + 840, T_FELIZ + 940, 900, 1400);
+
+    // Te mira: «bi-bip»
+    if (entre(t, T_TE_MIRA + 600, T_TE_MIRA + 690)) return 1568;
+    if (entre(t, T_TE_MIRA + 760, T_TE_MIRA + 900)) return 2093;
+
+    // Se apaga: glisando hacia abajo
+    if (entre(t, T_APAGA, T_APAGA + 500)) return deslizar(t, T_APAGA, T_APAGA + 500, 1200, 250);
+    return 0;
+}
+
+static void sonar(uint16_t frecuencia)
+{
+    if (!SONIDO_ACTIVO) return;
+    if (!g_buzzerListo)
+    {
+        pinMode(JWPLC_BUZZER_PIN, OUTPUT);
+        digitalWrite(JWPLC_BUZZER_PIN, LOW);
+        ledcAttach(JWPLC_BUZZER_PIN, 2000, 8);
+        ledcWrite(JWPLC_BUZZER_PIN, 0);
+        g_buzzerListo = true;
+    }
+    if (frecuencia == g_tonoActual) return;
+    g_tonoActual = frecuencia;
+    if (frecuencia == 0)
+    {
+        ledcWrite(JWPLC_BUZZER_PIN, 0);
+        return;
+    }
+    ledcWriteTone(JWPLC_BUZZER_PIN, frecuencia);
+    ledcWrite(JWPLC_BUZZER_PIN, VOLUMEN_BUZZER);
+}
+
 // Nombre de la fase para el monitor serie
 static uint8_t faseEn(uint32_t t)
 {
@@ -339,10 +425,10 @@ static void aplicarLuz(float k)
     g_luzAplicada = k;
     g_lienzo.setPaletteColor(P_FONDO, atenuar(COLOR_FONDO, k));
     g_lienzo.setPaletteColor(P_CARA, atenuar(COLOR_CARA, k));
-    g_lienzo.setPaletteColor(P_SOMBRA, atenuar(COLOR_SOMBRA, k));
+    g_lienzo.setPaletteColor(P_CONTORNO, atenuar(COLOR_CONTORNO, k));
     g_lienzo.setPaletteColor(P_VISOR, atenuar(COLOR_VISOR, k));
     g_lienzo.setPaletteColor(P_VERDE, atenuar(COLOR_VERDE, k));
-    g_lienzo.setPaletteColor(P_VERDE_OSC, atenuar(COLOR_VERDE_OSC, k));
+    g_lienzo.setPaletteColor(P_OREJA, atenuar(COLOR_OREJA, k));
     g_lienzo.setPaletteColor(P_BRILLO, atenuar(COLOR_BRILLO, k));
 }
 
@@ -387,53 +473,65 @@ static void dibujarOjo(float x, float y, float escala, Pose p)
     g_lienzo.fillRoundRect(cx - w / 2, cy - h / 2, w, h, radio, P_VERDE);
 }
 
+// Superelipse rellena (|x/a|^n + |y/b|^n <= 1), línea por línea. Con n = 2
+// es una elipse; con n entre 2,5 y 3,5 es la forma achatada de Ledcito.
+// lado: 0 = completa, -1 = solo la mitad izquierda, 1 = solo la derecha.
+static void superelipse(float cx, float cy, float a, float b, float n, uint8_t color, int8_t lado)
+{
+    if (a < 1.0f || b < 1.0f) return;
+    const int16_t filas = (int16_t)b;
+    for (int16_t dy = -filas; dy <= filas; ++dy)
+    {
+        const float yy = fabsf((float)dy) / b;
+        const float x = a * powf(1.0f - powf(yy, n), 1.0f / n);
+        if (x < 1.0f) continue; // sin el píxel suelto de la punta
+        int16_t x0 = (int16_t)(cx - x + 0.5f);
+        int16_t x1 = (int16_t)(cx + x + 0.5f);
+        if (lado < 0) x1 = (int16_t)cx;
+        if (lado > 0) x0 = (int16_t)cx;
+        if (x1 >= x0) g_lienzo.drawFastHLine(x0, (int16_t)(cy + dy), x1 - x0 + 1, color);
+    }
+}
+
 static void dibujarLedcito(Pose p)
 {
     g_lienzo.fill(P_FONDO);
 
     const float giroAbs = fabsf(p.giro);
     const float cx = 160.0f + p.cabezaX;
-    const float cy = 87.0f + p.cabezaY;
+    const float cy = 86.0f + p.cabezaY;
 
-    // Cabeza: al estirarse se afina y al aplastarse se ensancha
-    const float hh = 142.0f * p.estira;
-    const float hw = (214.0f - giroAbs * 14.0f) * (1.0f + (1.0f - p.estira) * 0.8f);
-    const int16_t hx = (int16_t)(cx - hw / 2.0f);
-    const int16_t hy = (int16_t)(cy - hh / 2.0f);
-    const int16_t radioCabeza = (int16_t)(hh * 0.36f);
+    // Cabeza achatada (superelipse): al estirarse se afina y al aplastarse
+    // se ensancha.
+    const float ancho = (1.0f + (1.0f - p.estira) * 0.8f);
+    const float ha = (108.0f - giroAbs * 7.0f) * ancho;
+    const float hb = 70.0f * p.estira;
 
-    // Orejas verdes: la del lado al que gira se esconde y la otra asoma
-    const float orejaAlto = 64.0f * p.estira;
-    const float orejaIzq = 15.0f * (1.0f + p.giro * 0.75f);
-    const float orejaDer = 15.0f * (1.0f - p.giro * 0.75f);
-    const int16_t oy = (int16_t)(cy - 4.0f * p.estira - orejaAlto / 2.0f);
-    if (orejaIzq > 2.0f)
-    {
-        const int16_t ow = (int16_t)(orejaIzq + 10.0f);
-        g_lienzo.fillRoundRect(hx - (int16_t)orejaIzq, oy, ow, (int16_t)orejaAlto, 8, P_VERDE);
-        g_lienzo.fillRoundRect(hx - (int16_t)orejaIzq, oy + (int16_t)(orejaAlto * 0.62f), ow,
-                               (int16_t)(orejaAlto * 0.38f), 8, P_VERDE_OSC);
-    }
-    if (orejaDer > 2.0f)
-    {
-        const int16_t ow = (int16_t)(orejaDer + 10.0f);
-        const int16_t ox = (int16_t)(hx + hw) - 10;
-        g_lienzo.fillRoundRect(ox, oy, ow, (int16_t)orejaAlto, 8, P_VERDE);
-        g_lienzo.fillRoundRect(ox, oy + (int16_t)(orejaAlto * 0.62f), ow,
-                               (int16_t)(orejaAlto * 0.38f), 8, P_VERDE_OSC);
-    }
+    // Orejas verdes en «D»: la del lado al que gira se esconde y la otra asoma
+    const float orejaB = 32.0f * p.estira;
+    const float orejaY = cy - 3.0f * p.estira;
+    const float orejaIzq = 13.0f * (1.0f + p.giro * 0.75f);
+    const float orejaDer = 13.0f * (1.0f - p.giro * 0.75f);
+    const float bordeIzq = cx - ha + 1.0f;
+    const float bordeDer = cx + ha - 1.0f;
 
-    // Cara blanca con borde inferior en sombra (relieve)
-    g_lienzo.fillRoundRect(hx, hy, (int16_t)hw, (int16_t)hh, radioCabeza, P_SOMBRA);
-    g_lienzo.fillRoundRect(hx, hy, (int16_t)hw, (int16_t)hh - 6, radioCabeza, P_CARA);
+    // Contorno grafito alrededor de todo, como el llavero impreso
+    superelipse(bordeIzq, orejaY, orejaIzq + 5.0f, orejaB + 5.0f, 2.6f, P_CONTORNO, -1);
+    superelipse(bordeDer, orejaY, orejaDer + 5.0f, orejaB + 5.0f, 2.6f, P_CONTORNO, 1);
+    superelipse(cx, cy, ha + 5.0f, hb + 5.0f, 2.8f, P_CONTORNO, 0);
+
+    superelipse(bordeIzq, orejaY, orejaIzq, orejaB, 2.6f, P_OREJA, -1);
+    superelipse(bordeDer, orejaY, orejaDer, orejaB, 2.6f, P_OREJA, 1);
+
+    // Cara blanca
+    superelipse(cx, cy, ha, hb, 2.8f, P_CARA, 0);
 
     // Visor: se corre hacia donde gira la cabeza
-    const float vw = 166.0f - giroAbs * 16.0f;
-    const float vh = 94.0f * p.estira;
+    const float vw = 172.0f - giroAbs * 16.0f;
+    const float vh = 90.0f * p.estira;
     const float vx = cx + p.giro * 22.0f;
-    const float vy = cy - 5.0f * p.estira;
-    g_lienzo.fillRoundRect((int16_t)(vx - vw / 2.0f), (int16_t)(vy - vh / 2.0f), (int16_t)vw, (int16_t)vh,
-                           (int16_t)(vh * 0.42f), P_VISOR);
+    const float vy = cy - 2.0f * p.estira;
+    superelipse(vx, vy, vw / 2.0f * ancho, vh / 2.0f, 2.8f, P_VISOR, 0);
 
     // Ojos: separación y tamaño según el giro (perspectiva)
     const float separacion = 39.0f * (1.0f - giroAbs * 0.15f);
@@ -521,6 +619,8 @@ extern "C" void jwplcUIUpdate()
         Serial.println(FASE_TEXTO[fase]);
     }
 
+    sonar(tonoEn(t));
+
     const Pose p = poseEn(t);
     aplicarLuz(p.luz);
     dibujarLedcito(p);
@@ -530,6 +630,7 @@ extern "C" void jwplcUIUpdate()
 extern "C" void jwplcUIExit()
 {
     // La RAM del sprite se conserva para la próxima entrada.
+    sonar(0);
 }
 
 void setup()
