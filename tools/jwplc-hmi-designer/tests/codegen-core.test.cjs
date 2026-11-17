@@ -459,7 +459,7 @@ console.log('POPUPS I5-I6 (sin DOM)');
 const popupsApi = loadPopupsModule();
 check(Boolean(popupsApi?.generate), 'designer-popups.js carga sin DOM');
 const popupsSample = [
-  { ...popupsApi.presetDefaults('INFO', 0), name: 'LISTO', code: 'I01', acceptText: 'LISTO', autoCloseMs: 2500 },
+  { ...popupsApi.presetDefaults('INFO', 0), name: 'LISTO', code: 'I01', acceptText: 'LISTO', autoCloseMs: 2500, targetPage: 0, targetView: 0 },
   { ...popupsApi.presetDefaults('WARN', 1), name: 'TEMP_ALTA', code: 'W02', colors: { ...popupsApi.PRESET_COLORS.WARN, headerBg: 0xFFE0 } },
   { ...popupsApi.presetDefaults('CRIT', 2), name: 'SOBRE_TEMP', code: 'E104', errCode: 'E104', triggerVar: 'alarmaCrit' },
   { ...popupsApi.presetDefaults('CONFIRM', 3), name: 'CONFIRMAR_INICIO', confirmOutVar: 'confirmarAccion', targetPage: 0, targetView: 1, x: 20, width: 260, messageTextSize: 2 }
@@ -490,6 +490,8 @@ check(/#ifndef JWPLC_UI_HAS_POPUP/.test(genPopups.declarations) &&
   /JWPLC_UIPopupColorsOverride\(/.test(genPopups.declarations) &&
   /JWPLC_Display\.setPopups\(/.test(genPopups.setup),
   'POPUPS: emite todos los presets y modificadores C++ I5-I6');
+check(/JWPLC_UIPopupNavTarget\(\s*[\s\S]*JWPLC_UIPopupInfo\([\s\S]*PAGE_0,\s*0/.test(genPopups.declarations),
+  'POPUPS: emite JWPLC_UIPopupNavTarget también para INFO/WARN no CONFIRM');
 check(/bool confirmarAccion = false;/.test(genPopups.variables) && !/alarmaCrit/.test(genPopups.variables),
   'POPUPS: deduplica bool ya declaradas en fields');
 

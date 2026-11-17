@@ -328,7 +328,7 @@ namespace
         return true;
     }
 
-    void closeActive(bool accepted)
+    void closeActive(bool accepted, bool allowNonConfirmNav = true)
     {
         if (!g_active.used)
             return;
@@ -355,7 +355,10 @@ namespace
             finished.onAccept(finished.onAcceptCtx);
         }
 
-        if (accepted && finished.def.preset == JWPLC_UI_POPUP_CONFIRM)
+        const bool shouldNavigate = (finished.def.preset == JWPLC_UI_POPUP_CONFIRM)
+            ? accepted
+            : allowNonConfirmNav;
+        if (shouldNavigate)
         {
             if (finished.def.targetPage < 16U)
             {
@@ -732,7 +735,7 @@ namespace JWPLCUIPopup
         if (id == JWPLC_UI_POPUP_NONE)
         {
             g_queueCount = 0;
-            closeActive(false);
+            closeActive(false, false);
             return;
         }
 
@@ -757,7 +760,7 @@ namespace JWPLCUIPopup
 
         if (g_active.used && !g_active.isAdHoc && g_active.def.id == id)
         {
-            closeActive(false);
+            closeActive(false, false);
         }
     }
 

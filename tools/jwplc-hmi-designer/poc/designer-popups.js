@@ -566,7 +566,7 @@
       if (p.preset !== 'CONFIRM' && p.acceptText !== 'OK') {
         expr = `JWPLC_UIPopupButtons(${expr}, ${cppString(p.acceptText)})`;
       }
-      if (p.preset === 'CONFIRM' && (p.targetPage >= 0 || p.targetView >= 0)) {
+      if (p.targetPage >= 0 || p.targetView >= 0) {
         const pageArg = p.targetPage >= 0 ? pageSymbol(p.targetPage) : '0xFFU';
         const viewArg = p.targetView >= 0 ? String(p.targetView) : '0xFFU';
         expr = `JWPLC_UIPopupNavTarget(\n        ${expr},\n        ${pageArg}, ${viewArg})`;
@@ -960,8 +960,8 @@
               <button type="button" class="bar-visual-btn insp-toggle insp-wide insp-gap" data-popup-toggle="latched"><span>Retener hasta pulsar OK (latched)</span><strong data-popup-bool="latched">No</strong></button>
               <button type="button" class="bar-visual-btn insp-toggle insp-wide insp-gap" data-popup-toggle="logToEventLog"><span>Registrar en Historial EVENT_LOG</span><strong data-popup-bool="logToEventLog">No</strong></button>
             </div>
-            <div class="bar-card" data-popup-nav-wrap hidden>
-              <div class="bar-card-section-title">Navegación tras aceptar CONFIRM</div>
+            <div class="bar-card" data-popup-nav-wrap>
+              <div class="bar-card-section-title">Navegación al aceptar / cerrar</div>
               <div class="insp-two">
                 <label class="field-label">Página destino
                   <select class="field-input" data-popup-prop="targetPage"></select>
@@ -1270,7 +1270,7 @@
     rightSection.querySelector('[data-popup-cancel-wrap]').hidden = p.preset !== 'CONFIRM';
     rightSection.querySelector('[data-popup-confirm-preview]').hidden = p.preset !== 'CONFIRM';
     rightSection.querySelector('[data-popup-outvar-wrap]').hidden = p.preset !== 'CONFIRM';
-    rightSection.querySelector('[data-popup-nav-wrap]').hidden = p.preset !== 'CONFIRM';
+    rightSection.querySelector('[data-popup-nav-wrap]').hidden = false;
     rightSection.querySelectorAll('[data-popup-focus]').forEach((b) => b.classList.toggle('active', Number(b.dataset.popupFocus) === previewFocusIndex));
 
     const targetPageSel = rightSection.querySelector('[data-popup-prop="targetPage"]');

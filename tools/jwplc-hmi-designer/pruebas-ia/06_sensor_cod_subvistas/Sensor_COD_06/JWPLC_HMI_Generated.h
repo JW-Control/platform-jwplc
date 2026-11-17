@@ -821,15 +821,19 @@ static const JWPLC_UIPopup HMI_POPUPS[] =
             &popupConfirmDetener, true, false),
             2),
             JWPLC_UIPopupColors(0x1082, 0xFD20, 0xE8E4, 0xFFFF, 0xFFFF, 0xE8E4, 0xFFFF, 0x3186, 0xFFFF)),
-    JWPLC_UIPopupOptions(
+    JWPLC_UIPopupNavTarget(
+            JWPLC_UIPopupOptions(
             JWPLC_UIPopupTrigger(
             JWPLC_UIPopupInfo(POPUP_FIN_MEDICION, "CICLO COMPLETADO", "Medicion completada con exito. Muestra guardada.", nullptr),
             &popupFinMedicion, false, false),
             3500, false, false),
+            PAGE_MEDICION, 0),
     JWPLC_UIPopupColorsOverride(
+            JWPLC_UIPopupNavTarget(
             JWPLC_UIPopupTrigger(
             JWPLC_UIPopupWarn(POPUP_MEDICION_DETENIDA, "CICLO DETENIDO", "Medicion detenida manualmente por el operador.", nullptr),
             &popupMedicionDetenida, false, false),
+            PAGE_MEDICION, 0),
             JWPLC_UIPopupColors(0x1082, 0xFFE0, 0xFFE0, 0x0000, 0xFFFF, 0xFFE0, 0x0000, 0x3186, 0xFFFF)),
     JWPLC_UIPopupButtons(JWPLC_UIPopupTrigger(
             JWPLC_UIPopupWarn(POPUP_AVISO_REACTIVO, "NIVEL REACTIVO", "Nivel de reactivo bajo. Se recomienda recarga pronto.", nullptr),
