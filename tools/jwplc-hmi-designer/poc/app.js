@@ -8729,7 +8729,70 @@
   document.getElementById('sidebarPreviewFrame')?.addEventListener('click', () => {
     fitCanvas();
   });
-  window.addEventListener('resize', updateMiniPreviewViewport);
+
+  function syncToolbarCenterAxis() {
+    const topbar = document.querySelector('.topbar');
+    const toolbar = document.querySelector('.toolbar');
+    const newBtn = document.getElementById('newProjectButton');
+    const openBtn = document.getElementById('openProjectButton');
+    const themeBtn = document.getElementById('themeToggleButton');
+    if (!topbar || !toolbar || !newBtn || !openBtn) return;
+    if (
+      document.body.classList.contains('layout-medium') ||
+      document.body.classList.contains('layout-compact') ||
+      openBtn.offsetParent === null ||
+      newBtn.offsetParent === null
+    ) {
+      toolbar.style.removeProperty('--tb-center-gap');
+      return;
+    }
+    toolbar.style.setProperty('--tb-center-gap', '0px');
+    const tbRect = topbar.getBoundingClientRect();
+    const tlRect = toolbar.getBoundingClientRect();
+    const newRect = newBtn.getBoundingClientRect();
+    const openRect = openBtn.getBoundingClientRect();
+    const openCenterOffset = (openRect.left + openRect.width / 2) - newRect.left;
+    const desiredNewLeft = (tbRect.left + tbRect.width / 2) - openCenterOffset;
+    const rawGap = desiredNewLeft - tlRect.left;
+
+    let clusterRight = openRect.right;
+    for (const el of toolbar.children) {
+      if (el === themeBtn) break;
+      if (el.offsetParent === null) continue;
+      const r = el.getBoundingClientRect();
+      if (r.right > clusterRight) clusterRight = r.right;
+    }
+    const clusterWidth = clusterRight - newRect.left;
+    const themeReserve = themeBtn && themeBtn.offsetParent !== null
+      ? themeBtn.getBoundingClientRect().width + 12
+      : 0;
+    const maxGap = Math.max(0, tlRect.width - clusterWidth - themeReserve);
+    const gap = Math.max(0, Math.min(maxGap, Math.round(rawGap)));
+    toolbar.style.setProperty('--tb-center-gap', `${gap}px`);
+  }
+
+  window.addEventListener('resize', () => {
+    updateMiniPreviewViewport();
+    syncToolbarCenterAxis();
+  });
+  window.addEventListener('load', syncToolbarCenterAxis);
+  if (typeof ResizeObserver === 'function') {
+    const tbObserver = new ResizeObserver(syncToolbarCenterAxis);
+    const topbarEl = document.querySelector('.topbar');
+    const toolbarEl = document.querySelector('.toolbar');
+    const linkBtnEl = document.getElementById('linkSketchButton');
+    if (topbarEl) tbObserver.observe(topbarEl);
+    if (toolbarEl) tbObserver.observe(toolbarEl);
+    if (linkBtnEl) tbObserver.observe(linkBtnEl);
+  }
+  if (typeof MutationObserver === 'function') {
+    const toolbarEl = document.querySelector('.toolbar');
+    if (toolbarEl) {
+      new MutationObserver(() => requestAnimationFrame(syncToolbarCenterAxis))
+        .observe(toolbarEl, { childList: true, subtree: true, characterData: true });
+    }
+  }
+  requestAnimationFrame(syncToolbarCenterAxis);
 
   buildPalette();
   updateActiveColorUI();
@@ -8991,16 +9054,6 @@
   });
 
   document.getElementById('fitSelectionBtn')?.addEventListener('click', () => {
-    window.JWPLCHMIEditor?.fitSelection?.();
-  });
-
-  document.getElementById('fitButton')?.addEventListener('click', (e) => {
-    e.preventDefault();
-    window.JWPLCHMIEditor?.fitCanvas?.();
-  });
-
-  document.getElementById('fitSelectionButton')?.addEventListener('click', (e) => {
-    e.preventDefault();
     window.JWPLCHMIEditor?.fitSelection?.();
   });
 

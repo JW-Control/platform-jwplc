@@ -111,18 +111,18 @@ body.layout-compact {
 /* ------------------------------------------------------------------ */
 
 body.layout-wide {
-  grid-template-rows: 58px minmax(0, 1fr) var(--bottom-panel-height, 150px) 28px;
+  grid-template-rows: 50px minmax(0, 1fr) var(--bottom-panel-height, 150px) 28px;
 }
 
 body.layout-wide.bottom-collapsed {
-  grid-template-rows: 58px minmax(0, 1fr) 38px 28px !important;
+  grid-template-rows: 50px minmax(0, 1fr) 38px 28px !important;
 }
 
 .layout-wide .workspace {
   grid-template-columns: var(--left-panel-width, var(--responsive-left-wide)) minmax(350px, 1fr) var(--right-panel-width, var(--responsive-right-wide)) !important;
 }
 
-.layout-wide .brand h1 { font-size: 15.5px; }
+.layout-wide .brand h1 { font-size: 14.5px; }
 .layout-wide .brand p { display: flex; }
 .layout-wide .left-panel { padding-inline: 10px; }
 .layout-wide .right-panel { padding-inline: 10px; }
@@ -191,13 +191,18 @@ body.layout-medium:not(.bottom-collapsed) {
 .layout-medium .toolbar select { padding: 4px 5px; font-size: 11px; }
 .layout-medium .toolbar .separator { display: none; }
 
+.layout-medium #newProjectButton,
+.layout-medium #themeToggleButton,
+.layout-compact #newProjectButton,
+.layout-compact #themeToggleButton {
+  margin-left: 0;
+}
+
 /* Acciones secundarias pasan a ⋯ */
 .layout-medium #newProjectButton,
 .layout-medium #openProjectButton,
 .layout-medium .cmd-undo,
 .layout-medium .cmd-redo,
-.layout-medium #fitButton,
-.layout-medium #fitSelectionButton,
 .layout-medium #linkSketchButton,
 .layout-medium #installAppButton {
   display: none !important;
@@ -302,8 +307,6 @@ body.layout-compact {
 .layout-compact #openProjectButton,
 .layout-compact .cmd-undo,
 .layout-compact .cmd-redo,
-.layout-compact #fitButton,
-.layout-compact #fitSelectionButton,
 .layout-compact #linkSketchButton,
 .layout-compact #installAppButton,
 .layout-compact #saveProjectButton {
@@ -457,8 +460,8 @@ body.layout-compact {
 /* ------------------------------------------------------------------ */
 
 @media (max-height: 820px) {
-  .layout-wide { grid-template-rows: 52px minmax(0,1fr) 126px 26px !important; }
-  .layout-wide.bottom-collapsed { grid-template-rows: 52px minmax(0,1fr) 36px 26px !important; }
+  .layout-wide { grid-template-rows: 50px minmax(0,1fr) 126px 26px !important; }
+  .layout-wide.bottom-collapsed { grid-template-rows: 50px minmax(0,1fr) 36px 26px !important; }
   .layout-medium { grid-template-rows: 48px minmax(0,1fr) 34px 24px !important; }
   .layout-medium:not(.bottom-collapsed) { grid-template-rows: 48px minmax(0,1fr) 108px 24px !important; }
   .layout-medium .topbar { min-height: 48px; }

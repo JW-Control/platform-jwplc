@@ -103,7 +103,7 @@
   function proxyTarget(key) {
     const selectors = {
       new: '#newProjectButton', open: '#openProjectButton', undo: '.cmd-undo',
-      redo: '.cmd-redo', fit: '#fitButton', fitSelection: '#fitSelectionButton', sketch: '#linkSketchButton', install: '#installAppButton'
+      redo: '.cmd-redo', sketch: '#linkSketchButton', install: '#installAppButton'
     };
     return selectors[key] ? $(selectors[key]) : null;
   }
@@ -121,8 +121,6 @@
         <button type="button" data-proxy="open">Abrir proyecto</button>
         <button type="button" data-proxy="undo">Deshacer</button>
         <button type="button" data-proxy="redo">Rehacer</button>
-        <button type="button" data-proxy="fit">Ajustar canvas</button>
-        <button type="button" data-proxy="fitSelection">Ajustar selección</button>
         <button type="button" data-proxy="sketch">Vincular sketch…</button>
         <button type="button" data-proxy="install">Instalar app</button>
       </div>`;
@@ -139,14 +137,8 @@
     $$('[data-proxy]', menu).forEach((button) => {
       button.addEventListener('click', () => {
         const proxyKey = button.dataset.proxy;
-        if (proxyKey === 'fit') {
-          window.JWPLCHMIEditor?.fitCanvas?.();
-        } else if (proxyKey === 'fitSelection') {
-          window.JWPLCHMIEditor?.fitSelection?.();
-        } else {
-          const source = proxyTarget(proxyKey);
-          if (source && !source.disabled && !source.hidden) source.click();
-        }
+        const source = proxyTarget(proxyKey);
+        if (source && !source.disabled && !source.hidden) source.click();
         menu.hidden = true;
         toggle.setAttribute('aria-expanded', 'false');
       });
@@ -388,20 +380,6 @@
   }
 
   function bindAdaptiveFit() {
-    const fit = $('#fitButton');
-    if (fit && fit.dataset.responsiveBound !== '1') {
-      fit.dataset.responsiveBound = '1';
-      fit.addEventListener('click', () => {
-        window.JWPLCHMIEditor?.fitCanvas?.();
-      });
-    }
-    const fitSel = $('#fitSelectionButton');
-    if (fitSel && fitSel.dataset.responsiveBound !== '1') {
-      fitSel.dataset.responsiveBound = '1';
-      fitSel.addEventListener('click', () => {
-        window.JWPLCHMIEditor?.fitSelection?.();
-      });
-    }
     const select = $('#zoomSelect');
     if (select && select.dataset.responsiveBound !== '1') {
       select.dataset.responsiveBound = '1';

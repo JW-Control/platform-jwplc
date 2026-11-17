@@ -73,21 +73,21 @@
     style.id = 'a11-project-integration-style';
     style.textContent = `
       .a11-project-button.linked {
-        border-color: rgba(67, 209, 122, 0.48) !important;
-        background: rgba(67, 209, 122, 0.11) !important;
-        color: #7af0ae !important;
+        border-color: rgba(67, 209, 122, 0.48);
+        background: rgba(67, 209, 122, 0.11);
+        color: #7af0ae;
         box-shadow: inset 0 1px 0 rgba(67, 209, 122, 0.18);
       }
       .a11-project-button.update-ready:not(:disabled) {
-        border-color: rgba(0, 215, 239, 0.55) !important;
-        background: linear-gradient(180deg, rgba(0, 215, 239, 0.15) 0%, rgba(0, 215, 239, 0.07) 100%) !important;
-        color: #52c9ff !important;
+        border-color: rgba(0, 215, 239, 0.55);
+        background: linear-gradient(180deg, rgba(0, 215, 239, 0.15) 0%, rgba(0, 215, 239, 0.07) 100%);
+        color: #52c9ff;
         box-shadow: inset 0 -2px 0 rgba(0, 215, 239, 0.45);
       }
       .a11-project-button.update-ready:not(:disabled):hover {
-        border-color: #00d7ef !important;
-        background: linear-gradient(180deg, rgba(0, 215, 239, 0.24) 0%, rgba(0, 215, 239, 0.12) 100%) !important;
-        color: #ffffff !important;
+        border-color: #00d7ef;
+        background: linear-gradient(180deg, rgba(0, 215, 239, 0.24) 0%, rgba(0, 215, 239, 0.12) 100%);
+        color: #ffffff;
       }
       .a11-project-status {
         display:inline-flex;
@@ -753,7 +753,7 @@
     if (generateButton && !document.getElementById('linkSketchButton')) {
       const link = document.createElement('button');
       link.id = 'linkSketchButton';
-      link.className = 'a11-project-button tb-btn tb-group-end';
+      link.className = 'a11-project-button tb-btn tb-group-start';
       link.type = 'button';
       link.textContent = 'Vincular sketch…';
       link.title = 'Seleccionar la carpeta del sketch Arduino';
@@ -761,19 +761,19 @@
 
       const update = document.createElement('button');
       update.id = 'updateHmiButton';
-      update.className = 'a11-project-button update-ready tb-btn tb-group-mid';
+      update.className = 'a11-project-button update-ready tb-btn tb-group-end';
       update.type = 'button';
       update.textContent = 'Escribir en sketch';
       update.title = `Escribir ${HEADER_NAME} y el proyecto .jwhmi en la carpeta del sketch vinculado`;
       update.disabled = true;
       update.addEventListener('click', updateGeneratedHeader);
 
-      generateButton.insertAdjacentElement('afterend', update);
-      update.insertAdjacentElement('afterend', link);
-      if (!link.nextElementSibling?.classList?.contains('separator')) {
+      generateButton.insertAdjacentElement('afterend', link);
+      link.insertAdjacentElement('afterend', update);
+      if (!update.nextElementSibling?.classList?.contains('separator')) {
         const separator = document.createElement('span');
         separator.className = 'separator';
-        link.insertAdjacentElement('afterend', separator);
+        update.insertAdjacentElement('afterend', separator);
       }
     }
 

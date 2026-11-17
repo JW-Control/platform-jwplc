@@ -51,14 +51,21 @@
   const postLiveSeparator = document.createElement('span');
   postLiveSeparator.className = 'separator';
 
-  const fitButton = document.getElementById('fitButton');
-  if (toolbar && fitButton) {
-    if (!fitButton.previousElementSibling?.classList?.contains('separator')) {
-      toolbar.insertBefore(separator, fitButton);
+  const anchor = document.getElementById('themeToggleButton');
+  if (toolbar) {
+    if (anchor) {
+      if (!anchor.previousElementSibling?.classList?.contains('separator')) {
+        toolbar.insertBefore(separator, anchor);
+      }
+      toolbar.insertBefore(liveButton, anchor);
+      toolbar.insertBefore(liveStatus, anchor);
+      toolbar.insertBefore(postLiveSeparator, anchor);
+    } else {
+      toolbar.appendChild(separator);
+      toolbar.appendChild(liveButton);
+      toolbar.appendChild(liveStatus);
+      toolbar.appendChild(postLiveSeparator);
     }
-    toolbar.insertBefore(liveButton, fitButton);
-    toolbar.insertBefore(liveStatus, fitButton);
-    toolbar.insertBefore(postLiveSeparator, fitButton);
   }
 
   const diagnosticPanel = document.createElement('section');
