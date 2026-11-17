@@ -5,16 +5,22 @@ Herramienta visual para diseñar la HMI/TFT del **JWPLC Basic** sobre `JWPLC_Dis
 Estado de cierre:
 
 ```text
-VERSION_SCOPE=v2.1.0-alpha.14 (JWPLC_Display 1.1.0, JWPLC_TFT 0.3.0)
+VERSION_SCOPE=v2.1.0-alpha.17 (JWPLC_Display 1.1.0, JWPLC_TFT 0.5.0)
 TARGET=ST7789_320x170_ROT3_RGB565
 TEXT=PASS
 VALUE=PASS (miles, duración, fecha/hora del RTC)
 BOOL=PASS (texto, piloto, color por estado)
-BAR=PASS (repintado incremental)
-MENU=PASS_PHYSICAL
-ICON=PASS_HOST (biblioteca de 24 iconos; placa [no verificado])
+BAR=PASS (repintado incremental; placa [no verificado] en grosor/esquinas/bloques)
+MENU=PASS_PHYSICAL (CARDS, directToggle, lrStep, GO_VIEW y confirmPopupId)
+ICON=PASS_HOST (biblioteca nativa JWPLC_Icons de 28 iconos; sólo enlaza tamaño usado)
+TREND=PASS_HOST (hasta 3 canales, 2 umbrales y MicroSD)
+QR=PASS_PHYSICAL (estático en Flash o dinámico JWPLC_UIQR; presets WIFI/URL/TEXT)
+SUBVIEWS=PASS_PHYSICAL (hasta 8 subvistas por página via JWPLC_UIFieldViews / setPageView)
+POPUPS=PASS_PHYSICAL (INFO/WARN/CRIT/CONFIRM I5-I6, escala 1x-3x, nav al cerrar)
+OPENPLC_BINDINGS=PASS_HOST (VALUE, TEXT, BOOL, BAR, ICON, TREND, MENU y Baliza)
+EVENT_LOG=PASS_HOST
 PIXELMAP=PASS (pincel, borrador, mover, relleno, cuentagotas)
-MULTIPAGE=PASS (pestañas con estado y color por página)
+MULTIPAGE=PASS (pestañas con estado, color por página y máscaras por página)
 LIVE_WEB_SERIAL=PASS (protocolo v2 con pushImage)
 LIVE_BRIDGE_FLASHER=PASS_HOST (instalación en un clic; placa pendiente)
 CODEGEN=PASS
@@ -197,25 +203,29 @@ El Designer no modifica automáticamente el `.ino`.
 
 `Actualizar HMI` escribe `JWPLC_HMI_Generated.h` después de validar IDs/símbolos y pedir confirmación si debe reemplazar un archivo existente.
 
-Límites V1:
+Límites actuales (`v2.1.0-alpha.17`):
 
 ```text
 MAX_PAGES=16
-MAX_FIELDS=32
+MAX_FIELDS=64
 ```
 
 ---
 
 ## Fields
 
-Tipos V1:
+Tipos soportados:
 
 ```text
 TEXT
 VALUE
 BOOL
 BAR
+ICON
+TREND
 ```
+
+Además dispone de `MENU`, `EVENT_LOG`, `NAV_BAR`, `RAW_TEXT`, figuras geométricas y capas `PixelMap` (sin descontar del cupo de 64 campos).
 
 El motor usa dirty refresh y caché para evitar redibujados globales innecesarios.
 

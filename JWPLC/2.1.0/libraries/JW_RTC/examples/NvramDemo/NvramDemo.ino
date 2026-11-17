@@ -1,6 +1,22 @@
+/*
+  NvramDemo
+
+  Cuenta los arranques del equipo en la memoria NVRAM del RTC DS3232M
+  (236 bytes con batería: no se borran al quitar la alimentación).
+
+  En el JWPLC Basic el objeto global JWPLC_RTC tiene los mismos métodos
+  (JWPLC_RTC.nvramReadObject(...)). Para guardar más datos usa la FRAM
+  (JWPLC_GlobalPeripherals/04.FRAM_Basic).
+
+  Qué mirar: el Monitor serie (115200) imprime «Boot counter: N», que sube
+  en cada reinicio.
+*/
+
 #include <JW_RTC.h>
 
 JW_RTC rtc;
+
+const uint16_t MARCA_VALIDA = 0x55AA;
 
 struct DemoData
 {
@@ -11,12 +27,11 @@ struct DemoData
 void setup()
 {
   Serial.begin(115200);
-  delay(300);
 
   if (!rtc.begin())
   {
     Serial.print("RTC begin failed: ");
-    Serial.println(JW_RTC::errorToString(rtc.lastError()));
+    Serial.println(rtc.lastErrorString());
     return;
   }
 
@@ -24,13 +39,14 @@ void setup()
   if (!rtc.nvramReadObject(0, data))
   {
     Serial.print("NVRAM read failed: ");
-    Serial.println(JW_RTC::errorToString(rtc.lastError()));
+    Serial.println(rtc.lastErrorString());
     return;
   }
 
-  if (data.marker != 0x55AA)
+  // Primera vez (o NVRAM sin datos nuestros): empezar de cero.
+  if (data.marker != MARCA_VALIDA)
   {
-    data.marker = 0x55AA;
+    data.marker = MARCA_VALIDA;
     data.bootCounter = 0;
   }
 
@@ -39,7 +55,7 @@ void setup()
   if (!rtc.nvramWriteObject(0, data))
   {
     Serial.print("NVRAM write failed: ");
-    Serial.println(JW_RTC::errorToString(rtc.lastError()));
+    Serial.println(rtc.lastErrorString());
     return;
   }
 

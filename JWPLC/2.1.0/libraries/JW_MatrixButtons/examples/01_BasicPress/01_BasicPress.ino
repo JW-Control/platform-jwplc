@@ -14,7 +14,7 @@
 
 #include <Arduino.h>
 
-static void logPress(const char *name)
+static void logPress(const char name[])
 {
   Serial.print("[PRESS] ");
   Serial.println(name);

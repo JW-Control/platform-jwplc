@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 #include <JWPLC_UI.h>
+#include <JWPLC_Icons.h>
 #include <JWPLC_UI_PixelMap.h>
 #include <JWPLC_TFT.h>
 
@@ -70,6 +71,13 @@ public:
     void setUserPage(uint8_t page);
     uint8_t userPage() const;
 
+    // Subvistas por página (hasta 8 subvistas 0..7 por cada página HMI).
+    // Permiten cambiar el layout dentro de la misma página sin añadir pestañas al selector.
+    void setPageView(uint8_t page, uint8_t subView);
+    void setPageView(uint8_t subView);
+    uint8_t pageView(uint8_t page) const;
+    uint8_t pageView() const;
+
     // Navegación compacta Alpha11. Un conteo > 1 habilita el selector físico
     // NN/TT en la esquina superior derecha. El ID interno de página sigue
     // siendo 0-based; el indicador visible es 1-based.
@@ -89,11 +97,17 @@ public:
     size_t fieldCount() const;
 
     // MENU declarativo (ver JWPLC_UI_Menu.h). menuChanged() devuelve true una
-    // vez por cada valor confirmado con OK; nodeIndex = índice del nodo.
+    // vez por cada valor confirmado con OK; menuNode() dice qué nodo fue:
+    //   if (JWPLC_Display.menuChanged(MENU_AJUSTES))
+    //   {
+    //       if (JWPLC_Display.menuNode() == NODO_SETPOINT) { ... }
+    //   }
+    // (La forma vieja con puntero, menuChanged(MENU, &nodo), sigue valiendo.)
     bool setMenus(const JWPLC_UIMenu *menus, size_t count);
     void clearMenus();
     size_t menuCount() const;
     bool menuChanged(uint8_t menuId, uint8_t *nodeIndex = nullptr);
+    uint8_t menuNode() const;
     bool menuEditing() const;
 
     // PixelMaps estáticos agrupados por página.
@@ -131,6 +145,9 @@ public:
     bool setText(uint8_t fieldId, const char *value);
     bool setBool(uint8_t fieldId, bool value);
     bool setBar(uint8_t fieldId, float value);
+    bool setTrend(uint8_t fieldId, float value);
+    bool setTrend(uint8_t fieldId, float v1, float v2);
+    bool setTrend(uint8_t fieldId, float v1, float v2, float v3);
     // ICON (JWPLC_UI_HAS_ICON): estado 0..N-1. setBool() también vale (0/1).
     bool setIconState(uint8_t fieldId, uint8_t state);
 
@@ -180,6 +197,20 @@ public:
     void logEvent(uint16_t code, uint8_t transition = 1, uint8_t category = 3, uint8_t severity = 0, const char *desc = nullptr);
     size_t eventCount() const;
     void clearEvents();
+
+    // Ventanas emergentes modales (I5-I6)
+    bool setPopups(const JWPLC_UIPopup *popups, size_t count);
+    void clearPopups();
+    bool showPopup(uint8_t id);
+    bool showPopup(
+        JWPLC_UIPopupPreset preset,
+        const char *title,
+        const char *message,
+        const char *code = nullptr,
+        uint16_t autoCloseMs = 0);
+    void dismissPopup(uint8_t id = JWPLC_UI_POPUP_NONE);
+    bool popupActive() const;
+    bool popupConfirmed(uint8_t id);
 
 private:
     bool setNumericValue(uint8_t fieldId, double value);

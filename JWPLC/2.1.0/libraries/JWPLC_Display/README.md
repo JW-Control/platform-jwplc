@@ -860,10 +860,10 @@ void setup()
 
 void loop()
 {
-    uint8_t nodo = 0;
-    if (JWPLC_Display.menuChanged(0, &nodo))
+    if (JWPLC_Display.menuChanged(0))
     {
-        // el operador confirmó un valor nuevo en el nodo «nodo»
+        // el operador confirmó un valor nuevo; JWPLC_Display.menuNode() dice en qué nodo
+        uint8_t nodo = JWPLC_Display.menuNode();
     }
 }
 ```
@@ -1209,11 +1209,12 @@ extern "C" void jwplcUIUpdate();
 extern "C" void jwplcUIExit();
 ```
 
-Dentro de esos callbacks puedes acceder a la TFT:
+Dentro de esos callbacks se dibuja con el objeto global `JWPLC_TFT`:
 
 ```cpp
-auto &tft =
-    JWPLC_Display.tft();
+JWPLC_TFT.fillRect(10, 40, 120, 20, JWPLC_TFT_BLACK);
+JWPLC_TFT.setCursor(10, 40);
+JWPLC_TFT.print("Hola");
 ```
 
 - `jwplcUIEnter()`: dibujar/inicializar al entrar a USER.
@@ -1250,12 +1251,8 @@ auto &tft =
     JWPLC_Display.display();
 ```
 
-Para código nuevo se recomienda:
-
-```cpp
-auto &tft =
-    JWPLC_Display.tft();
-```
+Para código nuevo se recomienda dibujar con el objeto global `JWPLC_TFT`
+(`JWPLC_TFT.fillRect(...)`, `JWPLC_TFT.print(...)`), sin `::`, `*` ni `&` en el sketch.
 
 La API histórica `JWPLCDisplay::` continúa existiendo para sketches antiguos,
 pero no debe enseñarse como camino principal.
@@ -1272,13 +1269,16 @@ bool err =
 Para código nuevo se recomienda `setErrCode()`, porque permite representar
 un error identificable.
 
-El tipo gráfico público actual es `JWPLC_TFTClass&`. Código antiguo que
-declaraba explícitamente otro tipo gráfico debe migrarse a:
+Código antiguo que tomaba una referencia (`auto &tft = JWPLC_Display.tft();`)
+sigue compilando, pero se migra a usar `JWPLC_TFT` directamente.
 
-```cpp
-auto &tft =
-    JWPLC_Display.tft();
-```
+## Novedades de 2.1.0-alpha.17
+
+- **API con «.»** en ejemplos `JWPLC_Display` y `MENU` (`JWPLC_Display.menuChanged()`, `JWPLC_Display.menuNode()`, sin `::`, `*` ni `&`).
+- **Temas, fuentes universales y menú `CARDS`**: soporte de fuentes escaladas en estilos, `TREND` de hasta 3 canales con registro en MicroSD, hasta 64 campos en Flash y máscaras por página (`JWPLC_UIFieldPages`).
+- **`JWPLC_Icons` optimizada por tamaño**: los métodos `JWPLC_Icons.<icono>(tamaño)` enlazan únicamente el mapa de bits del tamaño utilizado.
+- **Subvistas por página (`views`)**: `JWPLC_Display.setPageView(page, view)` / `JWPLC_Display.pageView(page)` (y `JWPLC_UIFieldViews`, nodos `JWPLC_UIMenuGoView` / `JWPLC_UIMenuNodeTargetView`) permiten cambiar el contenido dentro de una misma pestaña sin añadir páginas a la barra de navegación.
+- **Ventanas emergentes modales (`popups[]`, I4–I6)**: árbitro único de teclas y motor modal (`setPopups`, `showPopup`, `dismissPopup`, `popupActive`, `popupConfirmed`) con presets `INFO`, `WARN`, `CRIT` y `CONFIRM`, escala configurable `1×–3×`, atenuación clara del botón no enfocado, redibujado selectivo sin parpadeo sobre relojes/contadores fuera del modal y navegación `targetPage`/`targetView` al confirmar o cerrar.
 
 ## Novedades de 2.1.0-alpha.16
 
@@ -1293,7 +1293,7 @@ auto &tft =
 Documentado para:
 
 ```text
-JWPLC ESP32 v2.1.0-alpha.16
+JWPLC ESP32 v2.1.0-alpha.17
 JWPLC_Display 1.1.0 (precompilada: src/esp32/libJWPLC_Display.a)
 ```
 

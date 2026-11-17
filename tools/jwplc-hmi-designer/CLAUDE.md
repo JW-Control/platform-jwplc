@@ -149,6 +149,17 @@ Estado de adopción por tipo: ver `ALPHA15_STATUS.md` (§Inspector).
   El `.jwhmi` guarda `iconAssets` (bitmaps usados) para abrir proyectos con iconos que ya no estén en el catálogo.
   Paridad lienzo/firmware: `tests/icon-smoke.cjs` (+ `tests/icon-host-sim.cjs` para el firmware solo).
 
+## Sistema de temas y diseño visual (Tokens de diseño)
+
+Documentación completa: `docs/v2.1.0-alpha.17/A17_HMI_TEMAS_DESIGN_TOKENS_20261103.md`.
+
+- **Fuente de verdad:** Las primeras 53 líneas de `poc/styles.css` definen los tokens semánticos en `:root` (tema oscuro por defecto) y `html.theme-light, body.theme-light` (tema claro).
+- **Lienzo TFT ST7789:** El lienzo de simulación (`#tftCanvas`, 320×170 px) permanece estrictamente en `#000000` en ambos temas para reflejar con fidelidad la pantalla de hardware.
+- **Regla para nuevas características y componentes:**
+  - **Prohibido** usar colores hexadecimales rígidos (`#dce9f1`, `#0d1820`, etc.) o estilos en línea `style="color:..."` en HTML/JS.
+  - Usar siempre tokens semánticos: `var(--bg)`, `var(--panel)`, `var(--panel-2)`, `var(--panel-3)`, `var(--panel-inset)`, `var(--line)`, `var(--text)`, `var(--text-heading)`, `var(--muted)`, `var(--orange)`, `var(--orange-soft)`, `var(--cyan)`, etc.
+  - Al usar estos tokens, cualquier nuevo componente hereda soporte automático e instantáneo para ambos temas sin necesidad de reglas de override adicionales en `designer-light-theme.css`.
+
 ## Reglas del codegen (A15-1..A15-3)
 
 - Gráfica estática (figuras, RAW_TEXT, NAV_BAR) -> `jwplcUIPageEnter()`; `jwplcUIUpdate()`
@@ -159,7 +170,7 @@ Estado de adopción por tipo: ver `ALPHA15_STATUS.md` (§Inspector).
   `JWPLC_TFT` >= 0.2.0 y un respaldo para 0.1.0 (`JWPLC_HMI_TFT_NATIVE_SHAPES`).
 - Fuentes: GLCD + FreeFonts vía `JWPLC_TFT` 0.3.0 (`setFont/drawString`), siempre dentro de
   `#if JWPLC_HMI_TFT_FONTS` con respaldo GLCD.
-- BAR circular/degradado: deshabilitados (`.insp-needs-fw`); el codegen cae a `JWPLC_UIBarField`.
+- BAR lineal: horizontal o vertical, sólida o por bloques, con degradado, radio, borde y grosor (`JWPLC_UIBarConfig`). `colorEnd` 0 significa sólido: el negro final se emite como `0x0001`. BAR circular: `JWPLC_UICircularField`, sin degradado.
 - Ids de página siempre contiguos `0..N-1` (`deletePage` renumera; abrir normaliza).
 - NAV con pestañas (todos los estilos salvo «Contador»), pestaña de la página actual en tres estados:
   no posicionada (estilo inactivo) · posicionada (selector, fondo de acento; una página blanca va en
@@ -190,10 +201,10 @@ Estado de adopción por tipo: ver `ALPHA15_STATUS.md` (§Inspector).
   emite TEXT/VALUE; BOOL/BAR salen como `JWPLC_UITextField` provisional que reemplazan sus capas.
 - Tras tocar el codegen: `node tests/codegen-golden.cjs` (salida byte a byte) y
   `node tests/codegen-smoke.cjs`. Un cambio intencional: `--update` y revisar el diff.
-- Tras tocar JS/CSS: subir el `?v=` del archivo tocado (hoy 1793801300; `designer-codegen` y `designer-sketch-guide` 1793801800; `designer-icons-core` 1793801900; `ux-foundation` y `designer-icons` 1793802000; `designer-native-project`, `designer-project-integration-fix` y `designer-sketch-menu` 1793802100; `designer-openplc-host` 1793802500; `designer-openplc-bindings` 1793802600; `app`, `designer-bar`, `designer-bool`, `designer-field-visibility`, `designer-pages`, `designer-pixelmap-optimizer` y `desktop-responsive` 1793802300) en
+- Tras tocar JS/CSS: subir el `?v=` del archivo tocado (hoy 1793801300; `designer-codegen` y `designer-sketch-guide` 1793801800; `designer-icons-core` 1793801900; `ux-foundation` y `designer-icons` 1793802000; `designer-native-project`, `designer-project-integration-fix` y `designer-sketch-menu` 1793802100; `designer-openplc-host` 1793802500; `designer-openplc-bindings` 1793802600; `app`, `designer-bar`, `designer-bool`, `designer-field-visibility`, `designer-pages`, `designer-pixelmap-optimizer` y `desktop-responsive` 1793802300; `styles.css`, `designer-fonts`, `designer-field-inspector`, `designer-menu` 1793803100) en
   `index.html`/`desktop.html`/`ux-foundation.js`/`designer-field-visibility.js` y `CACHE_NAME` en
-  `service-worker.js` (hoy `jwplc-hmi-designer-a16-v55`).
-- Versión visible: `2.1.0-alpha.15` (título, `.brand-badge`, `.gate` de la barra de estado, panel «Estado»,
+  `service-worker.js` (hoy `jwplc-hmi-designer-a17-v2`).
+- Versión visible: `2.1.0-alpha.17` (título, `.brand-badge`, `.gate` de la barra de estado, panel «Estado»,
   `electron/package.json`). El comentario `// API pública JWPLC_UI · Alpha11 A11-4` del header generado es un
   marcador interno de las capas del codegen: no cambiarlo.
 
@@ -211,6 +222,7 @@ Estado de adopción por tipo: ver `ALPHA15_STATUS.md` (§Inspector).
 ```bash
 for f in poc/*.js; do node --check "$f" || echo "FAIL $f"; done
 node tests/codegen-smoke.cjs            # genera headers y los compila contra el package
+node tests/fonts-resolver.test.cjs      # familias tipográficas, variantes contextuales y alturas px
 node tests/value-format-parity.cjs      # formato de VALUE: JWPLC_UI_Format.cpp real vs Designer
 node tests/inspector-smoke.cjs          # inspector TEXT/VALUE/BOOL/BAR + paridad BAR
 node tests/menu-host-sim.cjs            # MENU: JWPLC_UI_Menu.cpp real en host (g++)

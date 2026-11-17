@@ -8,4 +8,6 @@ Serie corta recomendada para taller:
 03.Ethernet_Diagnostics
 ```
 
-Los ejemplos de stress, TFT/HTTP y coexistencia SPI se mantienen como material de diagnóstico avanzado.
+En 2.1.0-alpha.17 se retiraron los repetidos con pantalla (`Ethernet_Auto_*`, `Ethernet_Display_Status`) y las pruebas
+de validación de alphas anteriores (stress, TFT/HTTP y coexistencia SPI). La pantalla web por Ethernet está en
+`JWPLC_WebScreen`.

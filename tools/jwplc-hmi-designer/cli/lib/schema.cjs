@@ -70,14 +70,33 @@ function buildSchema() {
 
   const page = objectSchema(spec.PAGE);
   page.properties.fields = { type: 'array', items: { $ref: '#/definitions/field' }, description: spec.PAGE.fields.desc };
+  page.properties.views = {
+    type: 'array',
+    maxItems: spec.LIMITS.viewsPerPage,
+    description: spec.PAGE.views.desc,
+    items: {
+      oneOf: [
+        { type: 'string' },
+        { type: 'object', properties: { id: { type: 'integer', minimum: 0, maximum: spec.LIMITS.viewsPerPage - 1 }, name: { type: 'string' } } }
+      ]
+    }
+  };
   const pixelMap = objectSchema(spec.PIXELMAP);
   pixelMap.properties.pixels = { type: 'array', description: spec.PIXELMAP.pixels.desc,
     items: { type: 'object', required: ['x', 'y'], properties: { x: { type: 'integer', minimum: 0 }, y: { type: 'integer', minimum: 0 }, color: COLOR_SCHEMA } } };
+
+  const popup = objectSchema(spec.POPUP);
+  popup.properties.colors = {
+    type: 'object',
+    description: spec.POPUP.colors.desc,
+    properties: Object.fromEntries(Object.keys(spec.POPUP_COLORS).map((k) => [k, { ...COLOR_SCHEMA, default: spec.POPUP_COLORS[k] }]))
+  };
 
   const project = objectSchema(spec.PROJECT);
   project.properties.pages = { type: 'array', minItems: 1, maxItems: spec.LIMITS.pages, description: spec.PROJECT.pages.desc,
     items: { oneOf: [{ type: 'string' }, { $ref: '#/definitions/page' }] } };
   project.properties.fields = { type: 'array', maxItems: spec.LIMITS.fields, items: { $ref: '#/definitions/field' }, description: spec.PROJECT.fields.desc };
+  project.properties.popups = { type: 'array', maxItems: spec.LIMITS.popups, items: { $ref: '#/definitions/popup' }, description: spec.PROJECT.popups.desc };
   project.properties.pixelMaps = { type: 'array', maxItems: spec.LIMITS.pixelMaps, items: { $ref: '#/definitions/pixelMap' }, description: spec.PROJECT.pixelMaps.desc };
   project.properties.display = { $ref: '#/definitions/display' };
   project.properties.format = { const: 'JWPLC_HMI_PROJECT', description: spec.PROJECT.format.desc };
@@ -90,7 +109,7 @@ function buildSchema() {
     description: 'Generado desde cli/lib/spec.cjs (node cli/jwhmi.cjs schema). Acepta la forma corta para agentes: ' +
       'la CLI la normaliza al formato completo del Designer. Pantalla ST7789 320×170 RGB565.',
     ...project,
-    definitions: { field, menuNode: node, page, display: objectSchema(spec.DISPLAY), pixelMap }
+    definitions: { field, menuNode: node, page, display: objectSchema(spec.DISPLAY), popup, pixelMap }
   };
 }
 
@@ -183,7 +202,14 @@ function buildReference() {
         ...icons.listIcons().map((i) => `| \`${i.id}\` | ${cell(i.name)} | ${i.sizes.join(', ')} | ${cell(i.stateNames.join(' · '))} |`), '');
     }
   }
-  out.push('## Capas de píxeles (`pixelMaps[]`)', '', table(spec.PIXELMAP), '',
+  out.push('## Ventanas emergentes (`popups[]`)', '',
+    'Modales I5-I6 sobre IDLE o USER (`INFO`, `WARN`, `CRIT`, `CONFIRM`). Máximo `' + spec.LIMITS.popups + '` definidos en el proyecto.', '',
+    table(spec.POPUP), '',
+    'Colores por defecto según preset (`colors`):', '',
+    ...Object.entries(spec.POPUP_PRESET_COLORS).map(([preset, cols]) =>
+      `- \`${preset}\`: ` + Object.entries(cols).map(([k, v]) => `\`${k}\`=0x${v.toString(16).toUpperCase().padStart(4, '0')}`).join(', ')),
+    '',
+    '## Capas de píxeles (`pixelMaps[]`)', '', table(spec.PIXELMAP), '',
     '## Fuentes de `RAW_TEXT`', '', spec.FONTS.map((f) => `\`${f}\``).join(' · '), '');
   return out.join('\n');
 }

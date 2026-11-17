@@ -203,7 +203,8 @@ async function main() {
     check(sel.iconState === 2, 'clic en un estado lo muestra en el lienzo');
     await page.fill(`${S} [data-icon-prop="label"]`, 'P1');
     await page.locator(`${S} [data-icon-prop="label"]`).dispatchEvent('change');
-    await page.click(`${S} [data-icon-set="layout"][data-value="INLINE"]`);
+    // Desde #239 la posición de la etiqueta se elige en la matriz 3x3 (fila del medio = INLINE).
+    await page.click(`${S} [data-icon-matrix-wrap] [data-align-v="MID"][data-align-h="LEFT"]`);
     sel = await page.evaluate(() => ({ ...window.JWPLCHMIEditor.getSelectedField() }));
     check(sel.label === 'P1' && sel.layout === 'INLINE', 'etiqueta y posición');
     await page.click(`${S} [data-icon-sub="shape"]`);
@@ -231,9 +232,10 @@ async function main() {
     check(sel.iconVarType === 'bool', 'deshacer vuelve al tipo anterior');
 
     const text = await header();
-    check(/JWPLC_UIIconField\(\n {8}FIELD_ICON_\d+,/.test(text) && text.includes('#ifndef JWPLC_UI_HAS_ICON'), 'header con JWPLC_UIIconField y guarda de versión');
+    // Iconos del catálogo sin colores propios: el header llama a JWPLC_Icons (precompilada en JWPLC_Display).
+    check(/JWPLC_UIIconField\(\n {8}FIELD_ICON_\d+,/.test(text) && text.includes('JWPLC_Icons.motor(48)'), 'header con JWPLC_UIIconField y llamada nativa JWPLC_Icons.motor(48)');
     check(text.includes('JWPLC_Display.setIconState(') && /uint8_t \w+ = 0; \/\/ ICON: 0=\S+/.test(text), 'variable uint8_t y setIconState en jwplcUIUpdate()');
-    check((text.match(/static const JWPLC_UIIcon HMI_ICON_MOTORES_MOTOR_48\(/g) || []).length === 1, 'dos ICON del mismo icono y tamaño comparten un solo JWPLC_UIIcon');
+    check(!text.includes('HMI_ICON_MOTORES_MOTOR_48'), 'los iconos de catálogo no saturan el sketch con mapas de bits en el header');
 
     console.log('GUARDAR / ABRIR');
     const saved = await page.evaluate(() => window.JWPLCHMIProject.serialize());
@@ -313,13 +315,13 @@ async function main() {
     const limited = await page.evaluate(async () => {
       const P = window.JWPLCHMIProject;
       const s = P.serialize();
-      s.fields = Array.from({ length: 32 }, (_, i) => ({ type: 'TEXT', name: `T${i}`, id: `T_${i}`, variable: `t${i}`, capacity: 2, x: (i % 8) * 38, y: Math.floor(i / 8) * 40, label: '', unit: '', valueSize: 1, labelSize: 1, frame: false, layout: 'INLINE', align: 'LEFT', page: 0, labelColor: 0xFFFF, valueColor: 0xFFFF, backgroundColor: 0, frameColor: 0xFFFF }));
+      s.fields = Array.from({ length: 64 }, (_, i) => ({ type: 'TEXT', name: `T${i}`, id: `T_${i}`, variable: `t${i}`, capacity: 2, x: (i % 8) * 38, y: Math.floor(i / 8) * 40, label: '', unit: '', valueSize: 1, labelSize: 1, frame: false, layout: 'INLINE', align: 'LEFT', page: 0, labelColor: 0xFFFF, valueColor: 0xFFFF, backgroundColor: 0, frameColor: 0xFFFF }));
       delete s.iconAssets;
       await P.apply(s);
       await new Promise((r) => setTimeout(r, 300));
       return { added: Boolean(window.JWPLCHMIEditor.addIconField('motores/motor', 32)), count: window.JWPLCHMIEditor.getAllFields().length };
     });
-    check(!limited.added && limited.count === 32, 'con 32 campos no se agrega otro ICON (cuenta como campo)');
+    check(!limited.added && limited.count === 64, 'con 64 campos no se agrega otro ICON (cuenta como campo)');
 
     check(errors.length === 0, `sin errores de página${errors.length ? `: ${errors[0]}` : ''}`);
   } finally {

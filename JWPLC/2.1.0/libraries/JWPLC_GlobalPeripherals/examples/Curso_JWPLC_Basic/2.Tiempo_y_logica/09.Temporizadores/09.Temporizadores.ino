@@ -7,9 +7,9 @@
         lleva cierto tiempo activa. Si la entrada se suelta antes, no pasa nada.
       Retardo a la desconexión (TOF): la salida se activa con la entrada y
         se queda activa cierto tiempo después de que la entrada se apaga.
-  - A escribir tus propias funciones: un bloque con nombre que se usa las
-    veces que haga falta.
-  - A agrupar datos con struct.
+  - A agrupar datos y funciones con struct: cada temporizador guarda su
+    estado y sabe "ejecutarse" con temporizador.ejecutar(...).
+  - Son los mismos TON y TOF de la Plantilla de proyecto (K_Utilidades.h).
 
   Qué conectar
   - Borne 1M a 0 V.
@@ -33,52 +33,58 @@
     presencia de I0.1 dura más de 30 segundos.
 */
 
-// struct agrupa varios datos bajo un mismo nombre. Cada temporizador guarda
-// el momento en que empezó a contar y si su salida está activa.
-struct Temporizador
-{
-    uint32_t inicio;
-    bool salida;
-};
-
-// Un temporizador para cada uso. {0, false}: empieza en 0 y con la salida apagada.
-Temporizador arranque = {0, false};
-Temporizador luzPasillo = {0, false};
+// struct agrupa datos y funciones bajo un mismo nombre. Cada temporizador
+// guarda el momento en que empezó a contar y si su salida está activa, y su
+// función ejecutar() lo actualiza en cada vuelta de loop().
 
 // Retardo a la conexión (TON).
-// El & delante de "t" hace que la función trabaje sobre el temporizador
-// original y no sobre una copia: así recuerda su estado entre vueltas.
-bool retardoConexion(Temporizador &t, bool entrada, uint32_t tiempoMs)
+struct TON
 {
-    if (!entrada)
+    uint32_t inicioMs = 0;
+    bool salida = false;
+
+    bool ejecutar(bool entrada, uint32_t tiempoMs)
     {
-        // Entrada apagada: la cuenta vuelve a empezar desde ahora.
-        t.inicio = millis();
-        t.salida = false;
+        if (!entrada)
+        {
+            // Entrada apagada: la cuenta vuelve a empezar desde ahora.
+            inicioMs = millis();
+            salida = false;
+        }
+        else if (millis() - inicioMs >= tiempoMs)
+        {
+            salida = true;
+        }
+        return salida;
     }
-    else if (millis() - t.inicio >= tiempoMs)
-    {
-        t.salida = true;
-    }
-    return t.salida;
-}
+};
 
 // Retardo a la desconexión (TOF).
-bool retardoDesconexion(Temporizador &t, bool entrada, uint32_t tiempoMs)
+struct TOF
 {
-    if (entrada)
+    uint32_t inicioMs = 0;
+    bool salida = false;
+
+    bool ejecutar(bool entrada, uint32_t tiempoMs)
     {
-        // Mientras la entrada esté activa, la salida también, y la cuenta
-        // se reinicia en cada vuelta.
-        t.inicio = millis();
-        t.salida = true;
+        if (entrada)
+        {
+            // Mientras la entrada esté activa, la salida también, y la cuenta
+            // se reinicia en cada vuelta.
+            inicioMs = millis();
+            salida = true;
+        }
+        else if (millis() - inicioMs >= tiempoMs)
+        {
+            salida = false;
+        }
+        return salida;
     }
-    else if (millis() - t.inicio >= tiempoMs)
-    {
-        t.salida = false;
-    }
-    return t.salida;
-}
+};
+
+// Un temporizador para cada uso: cada uno recuerda su propio estado.
+TON arranque;
+TOF luzPasillo;
 
 void setup()
 {
@@ -89,8 +95,8 @@ void loop()
     bool pulsador = digitalRead(I0_0) == HIGH;
     bool presencia = digitalRead(I0_1) == HIGH;
 
-    // Una función se "llama" escribiendo su nombre con los datos que necesita.
-    // Devuelve un resultado que se puede escribir directo en la salida.
-    digitalWrite(Q0_0, retardoConexion(arranque, pulsador, 3000));
-    digitalWrite(Q0_1, retardoDesconexion(luzPasillo, presencia, 10000));
+    // Se llama con nombre.ejecutar(entrada, tiempo). Devuelve la salida del
+    // temporizador, que se puede escribir directo en la salida del PLC.
+    digitalWrite(Q0_0, arranque.ejecutar(pulsador, 3000));
+    digitalWrite(Q0_1, luzPasillo.ejecutar(presencia, 10000));
 }

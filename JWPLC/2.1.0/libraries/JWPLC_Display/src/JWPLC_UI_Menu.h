@@ -4,6 +4,8 @@
 #include <Arduino.h>
 #include <stddef.h>
 
+struct JWPLC_TFTFont;
+
 // MENU declarativo (Alpha15, MVP): árbol de menús/submenús dentro de una
 // página USER para ver y configurar variables con la botonera.
 //
@@ -40,10 +42,14 @@ enum JWPLC_UIMenuNodeType : uint8_t
     JWPLC_UI_MENU_EDIT_BOOL,
     // Alpha15: acción "volver a la pantalla IDLE" (OK -> JWPLC_Display.goIdle()).
     // Sirve con el retorno "Nunca" del Designer: la salida la decide el menú.
-    JWPLC_UI_MENU_GO_IDLE
+    JWPLC_UI_MENU_GO_IDLE,
+    // Alpha17+: acción "cambiar a subvista dentro de la misma página" (OK -> setPageView(page, targetView)).
+    JWPLC_UI_MENU_GO_VIEW
 };
 
 #define JWPLC_UI_HAS_MENU_GO_IDLE 1
+#define JWPLC_UI_HAS_MENU_GO_VIEW 1
+#define JWPLC_UI_HAS_MENU_VIEWS 1
 
 enum JWPLC_UIMenuValueKind : uint8_t
 {
@@ -70,6 +76,22 @@ struct JWPLC_UIMenuNode
     const char *unit;
     const char *falseText;
     const char *trueText;
+    bool hasPillColors = false;
+    uint16_t pillFalseBg = 0;
+    uint16_t pillTrueBg = 0;
+    uint16_t pillTextColor = 0xFFFF;
+    const char *valuePrefix = nullptr;
+    uint8_t zeroPad = 0;
+    uint16_t lrStep = 0;
+    bool directToggle = false;
+    uint8_t targetView = 0xFFU;
+    uint8_t confirmPopupId = 0xFFU;
+};
+
+enum JWPLC_UIMenuRowStyle : uint8_t
+{
+    JWPLC_UI_MENU_ROW_FLAT = 0,
+    JWPLC_UI_MENU_ROW_CARDS = 1
 };
 
 struct JWPLC_UIMenuColors
@@ -112,6 +134,17 @@ struct JWPLC_UIMenu
     uint8_t textSize;
     bool frame;
     JWPLC_UIMenuColors colors;
+    const JWPLC_TFTFont *font = nullptr;
+    JWPLC_UIMenuRowStyle rowStyle = JWPLC_UI_MENU_ROW_FLAT;
+    uint8_t rowGap = 0;
+    uint8_t cornerRadius = 0;
+    uint8_t rowPadY = 0;
+    uint8_t rowPadX = 0;
+    bool inlineValue = false;
+    bool selectOutlineOnly = false;
+    uint16_t cardBackground = 0x18E3;
+    uint16_t cardBorder = 0x39E7;
+    uint8_t viewMask = 0xFFU;
 };
 
 JWPLC_UIMenuNode JWPLC_UIMenuSubmenu(
@@ -169,6 +202,12 @@ JWPLC_UIMenuNode JWPLC_UIMenuGoIdle(
     uint8_t parent,
     const char *label);
 
+// Ítem de acción: con OK cambia a otra subvista (0..7) dentro de la página actual.
+JWPLC_UIMenuNode JWPLC_UIMenuGoView(
+    uint8_t parent,
+    const char *label,
+    uint8_t targetView);
+
 // width/height obligatorios (> 0). textSize 1 (filas de 12 px) o 2 (20 px).
 JWPLC_UIMenu JWPLC_UIMenuField(
     uint8_t id,
@@ -182,7 +221,96 @@ JWPLC_UIMenu JWPLC_UIMenuField(
     uint8_t page = 0,
     uint8_t textSize = 1,
     bool frame = true,
-    JWPLC_UIMenuColors colors = JWPLC_UIMenuColors());
+    JWPLC_UIMenuColors colors = JWPLC_UIMenuColors(),
+    const JWPLC_TFTFont *font = nullptr);
+
+#define JWPLC_UI_HAS_MENU_CARDS 1
+
+inline JWPLC_UIMenu JWPLC_UIMenuCardStyle(
+    JWPLC_UIMenu menu,
+    uint8_t rowGap = 4,
+    uint8_t cornerRadius = 4,
+    uint8_t rowPadY = 5,
+    uint8_t rowPadX = 8,
+    bool inlineValue = true,
+    bool selectOutlineOnly = true,
+    uint16_t cardBackground = 0x18E3,
+    uint16_t cardBorder = 0x39E7)
+{
+    menu.rowStyle = JWPLC_UI_MENU_ROW_CARDS;
+    menu.rowGap = rowGap;
+    menu.cornerRadius = cornerRadius;
+    menu.rowPadY = rowPadY;
+    menu.rowPadX = rowPadX;
+    menu.inlineValue = inlineValue;
+    menu.selectOutlineOnly = selectOutlineOnly;
+    menu.cardBackground = cardBackground;
+    menu.cardBorder = cardBorder;
+    return menu;
+}
+
+inline JWPLC_UIMenuNode JWPLC_UIMenuNodePill(
+    JWPLC_UIMenuNode node,
+    uint16_t falseBg,
+    uint16_t trueBg,
+    uint16_t textColor = 0xFFFF)
+{
+    node.hasPillColors = true;
+    node.pillFalseBg = falseBg;
+    node.pillTrueBg = trueBg;
+    node.pillTextColor = textColor;
+    return node;
+}
+
+inline JWPLC_UIMenuNode JWPLC_UIMenuNodeFormat(
+    JWPLC_UIMenuNode node,
+    const char *valuePrefix,
+    uint8_t zeroPad = 0)
+{
+    node.valuePrefix = valuePrefix;
+    node.zeroPad = zeroPad;
+    return node;
+}
+
+inline JWPLC_UIMenuNode JWPLC_UIMenuNodeLRStep(
+    JWPLC_UIMenuNode node,
+    uint16_t lrStep)
+{
+    node.lrStep = lrStep;
+    return node;
+}
+
+inline JWPLC_UIMenuNode JWPLC_UIMenuNodeDirectToggle(
+    JWPLC_UIMenuNode node,
+    bool direct = true)
+{
+    node.directToggle = direct;
+    return node;
+}
+
+inline JWPLC_UIMenu JWPLC_UIMenuViews(
+    JWPLC_UIMenu menu,
+    uint8_t viewMask)
+{
+    menu.viewMask = viewMask;
+    return menu;
+}
+
+inline JWPLC_UIMenuNode JWPLC_UIMenuNodeTargetView(
+    JWPLC_UIMenuNode node,
+    uint8_t targetView)
+{
+    node.targetView = targetView;
+    return node;
+}
+
+inline JWPLC_UIMenuNode JWPLC_UIMenuNodeConfirm(
+    JWPLC_UIMenuNode node,
+    uint8_t popupId)
+{
+    node.confirmPopupId = popupId;
+    return node;
+}
 
 namespace JWPLCUI
 {
@@ -190,6 +318,7 @@ namespace JWPLCUI
     void clearMenus();
     size_t menuCount();
     bool menuChanged(uint8_t menuId, uint8_t *nodeIndex);
+    uint8_t menuNode();
     bool menuEditing();
 }
 

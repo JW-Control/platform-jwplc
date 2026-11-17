@@ -1,0 +1,215 @@
+============================================================
+ JWPLC MBLOCK POC - GATE 0: INSPECCION DE TOOLCHAIN
+============================================================
+
+DATE=2026-09-09 23:58:48 -05:00
+REPO_ROOT=C:/Users/jeykc/Documentos/GitHub/platform-jwplc
+BRANCH=experiment/mblock-jwplc-poc
+HEAD=e458389284e26e94fc05f11b0a7d27ed6c0dc87d
+
+
+APP=mBlock 5.4.3
+VERSION=5.4.3
+INSTALL_LOCATION=
+
+=== ROOTS MBLOCK ===
+MBLOCK_ROOT=C:\Users\Public\Programs\mblock
+
+=== TOOLCHAIN / ARCHIVOS RELEVANTES ===
+C:\Users\Public\Programs\mblock\resources\app\mcode\assets\guides\console-upload.svg
+C:\Users\Public\Programs\mblock\resources\app\mcode\assets\images\mlink-download-1z60VkN.png
+C:\Users\Public\Programs\mblock\resources\app\mcode\assets\images\mlink-unConnect-223WZ1l.svg
+C:\Users\Public\Programs\mblock\resources\app\mlink-v1\external\arduino\avr-library\bootloaders\gemma\avrdude.conf
+C:\Users\Public\Programs\mblock\resources\app\mlink-v1\external\arduino\avr-library\bootloaders\optiboot\stk500.h
+C:\Users\Public\Programs\mblock\resources\app\mlink-v1\external\arduino\avr-library\bootloaders\stk500v2\stk500boot_v2_mega2560.hex
+C:\Users\Public\Programs\mblock\resources\app\mlink-v1\external\arduino\avr-library\bootloaders\stk500v2\stk500boot.c
+C:\Users\Public\Programs\mblock\resources\app\mlink-v1\external\arduino\avr-library\bootloaders\stk500v2\stk500boot.ppg
+C:\Users\Public\Programs\mblock\resources\app\mlink-v1\external\arduino\avr-library\bootloaders\stk500v2\STK500V2.pnproj
+C:\Users\Public\Programs\mblock\resources\app\mlink-v1\external\arduino\avr-library\bootloaders\stk500v2\STK500V2.pnps
+C:\Users\Public\Programs\mblock\resources\app\mlink-v1\external\arduino\avr-toolchain\bin\avrdude.exe
+C:\Users\Public\Programs\mblock\resources\app\mlink-v1\external\arduino\avr-toolchain\etc\avrdude.conf
+C:\Users\Public\Programs\mblock\resources\app\mlink-v1\platforms\esptool\bin\esptool.exe
+C:\Users\Public\Programs\mblock\resources\app\mlink-v1\platforms\esptool\esptoolByExec.js
+C:\Users\Public\Programs\mblock\resources\app\mlink-v2\exec\python-env\win\Lib\distutils\command\upload.py
+C:\Users\Public\Programs\mblock\resources\app\mlink-v2\exec\python-env\win\Lib\distutils\tests\test_upload.py
+C:\Users\Public\Programs\mblock\resources\app\mlink-v2\exec\python-env\win\Lib\site-packages\setuptools\command\upload_docs.py
+C:\Users\Public\Programs\mblock\resources\app\mlink-v2\exec\python-env\win\Lib\site-packages\setuptools\command\upload.py
+C:\Users\Public\Programs\mblock\resources\app\node_modules\@makeblock\mlink-socket\py\haloboard_by_mlink.py
+C:\Users\Public\Programs\mblock\resources\app\node_modules\fs-extra\lib\ensure\symlink-paths.js
+C:\Users\Public\Programs\mblock\resources\app\node_modules\fs-extra\lib\ensure\symlink-type.js
+C:\Users\Public\Programs\mblock\resources\app\node_modules\fs-extra\lib\ensure\symlink.js
+C:\Users\Public\Programs\mblock\resources\app\node_modules\streamroller\node_modules\fs-extra\lib\ensure\symlink-paths.js
+C:\Users\Public\Programs\mblock\resources\app\node_modules\streamroller\node_modules\fs-extra\lib\ensure\symlink-type.js
+C:\Users\Public\Programs\mblock\resources\app\node_modules\streamroller\node_modules\fs-extra\lib\ensure\symlink.js
+C:\Users\Public\Programs\mblock\resources\app\node_modules\vinyl-fs\lib\src\resolve-symlinks.js
+C:\Users\Public\Programs\mblock\resources\app\www\assets\images\mlink-helper-header-1Sj2omR.png
+C:\Users\Public\Programs\mblock\resources\app\www\assets\images\uninstall-extra-mlink-2Qi-y6Z.png
+C:\Users\Public\Programs\mblock\resources\ml\node_modules\@makeblock\mlink-socket\py\haloboard_by_mlink.py
+C:\Users\Public\Programs\mblock\resources\ml\node_modules\fs-extra\lib\ensure\symlink-paths.js
+C:\Users\Public\Programs\mblock\resources\ml\node_modules\fs-extra\lib\ensure\symlink-type.js
+C:\Users\Public\Programs\mblock\resources\ml\node_modules\fs-extra\lib\ensure\symlink.js
+C:\Users\Public\Programs\mblock\resources\ml\node_modules\needle\examples\upload-image.js
+C:\Users\Public\Programs\mblock\resources\ml\node_modules\noble-uwp\node_modules\fstream\examples\symlink-write.js
+C:\Users\Public\Programs\mblock\resources\ml\node_modules\resolve\test\symlinks.js
+C:\Users\Public\Programs\mblock\resources\ml\node_modules\streamroller\node_modules\fs-extra\lib\ensure\symlink-paths.js
+C:\Users\Public\Programs\mblock\resources\ml\node_modules\streamroller\node_modules\fs-extra\lib\ensure\symlink-type.js
+C:\Users\Public\Programs\mblock\resources\ml\node_modules\streamroller\node_modules\fs-extra\lib\ensure\symlink.js
+C:\Users\Public\Programs\mblock\resources\ml\node_modules\vinyl-fs\lib\src\resolve-symlinks.js
+C:\Users\Public\Programs\mblock\resources\ml\v1\external\arduino\arduino-libraries\arduino\Temboo\examples\ArduinoYun\UploadToDropbox\UploadToDropbox.ino
+C:\Users\Public\Programs\mblock\resources\ml\v1\external\arduino\avr-library\bootloaders\gemma\avrdude.conf
+C:\Users\Public\Programs\mblock\resources\ml\v1\external\arduino\avr-library\bootloaders\optiboot\stk500.h
+C:\Users\Public\Programs\mblock\resources\ml\v1\external\arduino\avr-library\bootloaders\stk500v2\stk500boot_v2_mega2560.hex
+C:\Users\Public\Programs\mblock\resources\ml\v1\external\arduino\avr-library\bootloaders\stk500v2\stk500boot.c
+C:\Users\Public\Programs\mblock\resources\ml\v1\external\arduino\avr-library\bootloaders\stk500v2\stk500boot.ppg
+C:\Users\Public\Programs\mblock\resources\ml\v1\external\arduino\avr-library\bootloaders\stk500v2\STK500V2.pnproj
+C:\Users\Public\Programs\mblock\resources\ml\v1\external\arduino\avr-library\bootloaders\stk500v2\STK500V2.pnps
+C:\Users\Public\Programs\mblock\resources\ml\v1\external\arduino\avr-toolchain\bin\avrdude.exe
+C:\Users\Public\Programs\mblock\resources\ml\v1\external\arduino\avr-toolchain\etc\avrdude.conf
+C:\Users\Public\Programs\mblock\resources\ml\v1\platforms\esptool\bin\esptool.exe
+C:\Users\Public\Programs\mblock\resources\ml\v1\platforms\esptool\esptoolByExec.js
+C:\Users\Public\Programs\mblock\resources\ml\v2\exec\node-env\mlinkNode.exe
+C:\Users\Public\Programs\mblock\resources\ml\v2\exec\python-env\win\Lib\distutils\command\upload.py
+C:\Users\Public\Programs\mblock\resources\ml\v2\exec\python-env\win\Lib\distutils\tests\test_upload.py
+C:\Users\Public\Programs\mblock\resources\ml\v2\exec\python-env\win\Lib\site-packages\setuptools\command\upload_docs.py
+C:\Users\Public\Programs\mblock\resources\ml\v2\exec\python-env\win\Lib\site-packages\setuptools\command\upload.py
+
+=== DIRECTORIOS RELEVANTES ===
+C:\Users\Public\Programs\mblock\resources\app\mblock\exts\arduino_broadcast
+C:\Users\Public\Programs\mblock\resources\app\mblock\exts\arduino_for_rj25
+C:\Users\Public\Programs\mblock\resources\app\mblock\exts\codey_upload_mode_message
+C:\Users\Public\Programs\mblock\resources\app\mblock\exts\codey_upload_mode_message\src\cates\codey_upload_mode_message
+C:\Users\Public\Programs\mblock\resources\app\mblock\exts\cyberpi_upload_message
+C:\Users\Public\Programs\mblock\resources\app\mblock\exts\halocode_mbuild_dcmotordriver
+C:\Users\Public\Programs\mblock\resources\app\mblock\exts\halocode_mbuild_leddriver
+C:\Users\Public\Programs\mblock\resources\app\mblock\exts\halocode_mbuild_servodriver
+C:\Users\Public\Programs\mblock\resources\app\mblock\exts\halocode_upload_message
+C:\Users\Public\Programs\mblock\resources\app\mblock\exts\novapi_mbuild_dc_motor_driver
+C:\Users\Public\Programs\mblock\resources\app\mblock\exts\novapi_mbuild_led_driver
+C:\Users\Public\Programs\mblock\resources\app\mblock\exts\novapi_mbuild_servo_driver
+C:\Users\Public\Programs\mblock\resources\app\mlink-v1
+C:\Users\Public\Programs\mblock\resources\app\mlink-v1\external\arduino
+C:\Users\Public\Programs\mblock\resources\app\mlink-v1\external\arduino\arduino-libraries
+C:\Users\Public\Programs\mblock\resources\app\mlink-v1\external\arduino\arduino-libraries\arduino
+C:\Users\Public\Programs\mblock\resources\app\mlink-v1\external\arduino\arduino-libraries\arduino\WiFi\extras\wifi_dnld\src\SOFTWARE_FRAMEWORK\BOARDS\ARDUINO
+C:\Users\Public\Programs\mblock\resources\app\mlink-v1\external\arduino\arduino-libraries\arduino\WiFi\extras\wifi_dnld\src\SOFTWARE_FRAMEWORK\DRIVERS
+C:\Users\Public\Programs\mblock\resources\app\mlink-v1\external\arduino\arduino-libraries\arduino\WiFi\extras\wifiHD\src\SOFTWARE_FRAMEWORK\BOARDS\ARDUINO
+C:\Users\Public\Programs\mblock\resources\app\mlink-v1\external\arduino\arduino-libraries\arduino\WiFi\extras\wifiHD\src\SOFTWARE_FRAMEWORK\DRIVERS
+C:\Users\Public\Programs\mblock\resources\app\mlink-v1\external\arduino\avr-library\bootloaders\caterina-Arduino_Robot
+C:\Users\Public\Programs\mblock\resources\app\mlink-v1\external\arduino\avr-library\cores\arduino
+C:\Users\Public\Programs\mblock\resources\app\mlink-v1\external\arduino\avr-library\firmwares\arduinoISP
+C:\Users\Public\Programs\mblock\resources\app\mlink-v1\external\arduino\avr-library\firmwares\atmegaxxu2\arduino-usbdfu
+C:\Users\Public\Programs\mblock\resources\app\mlink-v1\external\arduino\avr-library\firmwares\atmegaxxu2\arduino-usbserial
+C:\Users\Public\Programs\mblock\resources\app\mlink-v1\external\arduino\avr-library\firmwares\wifishield\wifi_dnld\src\SOFTWARE_FRAMEWORK\BOARDS\ARDUINO
+C:\Users\Public\Programs\mblock\resources\app\mlink-v1\external\arduino\avr-library\firmwares\wifishield\wifi_dnld\src\SOFTWARE_FRAMEWORK\DRIVERS
+C:\Users\Public\Programs\mblock\resources\app\mlink-v1\external\arduino\avr-library\firmwares\wifishield\wifiHD\src\SOFTWARE_FRAMEWORK\BOARDS\ARDUINO
+C:\Users\Public\Programs\mblock\resources\app\mlink-v1\external\arduino\avr-library\firmwares\wifishield\wifiHD\src\SOFTWARE_FRAMEWORK\DRIVERS
+C:\Users\Public\Programs\mblock\resources\app\mlink-v1\platforms\arduino
+C:\Users\Public\Programs\mblock\resources\app\mlink-v2
+C:\Users\Public\Programs\mblock\resources\app\mlink-v2\exec\python-env\win\Lib\site-packages\jedi\third_party\typeshed\third_party\2and3\werkzeug\middleware
+C:\Users\Public\Programs\mblock\resources\app\mlink-v2\exec\python-env\win\Lib\site-packages\makeblock\comm\mlink
+C:\Users\Public\Programs\mblock\resources\app\mlink-v2\exec\python-env\win\Lib\site-packages\mlink
+C:\Users\Public\Programs\mblock\resources\app\mlink-v2\exec\python-env\win\Lib\site-packages\mlink-0.0.6.dist-info
+C:\Users\Public\Programs\mblock\resources\app\node_modules\@makeblock\mlink-socket
+C:\Users\Public\Programs\mblock\resources\app\node_modules\@makeblock\mlink-socket\py\mlink
+C:\Users\Public\Programs\mblock\resources\app\node_modules\express\lib\middleware
+C:\Users\Public\Programs\mblock\resources\app\node_modules\vinyl-fs\lib\symlink
+C:\Users\Public\Programs\mblock\resources\drivers
+C:\Users\Public\Programs\mblock\resources\ml\node_modules\@makeblock\mlink-socket
+C:\Users\Public\Programs\mblock\resources\ml\node_modules\@makeblock\mlink-socket\py\mlink
+C:\Users\Public\Programs\mblock\resources\ml\node_modules\express\lib\middleware
+C:\Users\Public\Programs\mblock\resources\ml\node_modules\resolve\test\resolver\nested_symlinks
+C:\Users\Public\Programs\mblock\resources\ml\node_modules\resolve\test\resolver\symlinked
+C:\Users\Public\Programs\mblock\resources\ml\node_modules\supports-preserve-symlinks-flag
+C:\Users\Public\Programs\mblock\resources\ml\node_modules\union\examples\simple\middleware
+C:\Users\Public\Programs\mblock\resources\ml\node_modules\vinyl-fs\lib\symlink
+C:\Users\Public\Programs\mblock\resources\ml\v1\external\arduino
+C:\Users\Public\Programs\mblock\resources\ml\v1\external\arduino\arduino-libraries
+C:\Users\Public\Programs\mblock\resources\ml\v1\external\arduino\arduino-libraries\arduino
+C:\Users\Public\Programs\mblock\resources\ml\v1\external\arduino\arduino-libraries\arduino\Temboo\examples\ArduinoYun
+C:\Users\Public\Programs\mblock\resources\ml\v1\external\arduino\arduino-libraries\arduino\Temboo\examples\ArduinoYun\UploadToDropbox
+C:\Users\Public\Programs\mblock\resources\ml\v1\external\arduino\arduino-libraries\arduino\TFT\examples\Arduino
+C:\Users\Public\Programs\mblock\resources\ml\v1\external\arduino\arduino-libraries\arduino\WiFi\extras\wifi_dnld\src\SOFTWARE_FRAMEWORK\BOARDS\ARDUINO
+C:\Users\Public\Programs\mblock\resources\ml\v1\external\arduino\arduino-libraries\arduino\WiFi\extras\wifi_dnld\src\SOFTWARE_FRAMEWORK\DRIVERS
+C:\Users\Public\Programs\mblock\resources\ml\v1\external\arduino\arduino-libraries\arduino\WiFi\extras\wifiHD\src\SOFTWARE_FRAMEWORK\BOARDS\ARDUINO
+C:\Users\Public\Programs\mblock\resources\ml\v1\external\arduino\arduino-libraries\arduino\WiFi\extras\wifiHD\src\SOFTWARE_FRAMEWORK\DRIVERS
+C:\Users\Public\Programs\mblock\resources\ml\v1\external\arduino\avr-library\bootloaders\caterina-Arduino_Robot
+C:\Users\Public\Programs\mblock\resources\ml\v1\external\arduino\avr-library\cores\arduino
+C:\Users\Public\Programs\mblock\resources\ml\v1\external\arduino\avr-library\firmwares\arduinoISP
+C:\Users\Public\Programs\mblock\resources\ml\v1\external\arduino\avr-library\firmwares\atmegaxxu2\arduino-usbdfu
+C:\Users\Public\Programs\mblock\resources\ml\v1\external\arduino\avr-library\firmwares\atmegaxxu2\arduino-usbserial
+C:\Users\Public\Programs\mblock\resources\ml\v1\external\arduino\avr-library\firmwares\wifishield\wifi_dnld\src\SOFTWARE_FRAMEWORK\BOARDS\ARDUINO
+C:\Users\Public\Programs\mblock\resources\ml\v1\external\arduino\avr-library\firmwares\wifishield\wifi_dnld\src\SOFTWARE_FRAMEWORK\DRIVERS
+C:\Users\Public\Programs\mblock\resources\ml\v1\external\arduino\avr-library\firmwares\wifishield\wifiHD\src\SOFTWARE_FRAMEWORK\BOARDS\ARDUINO
+C:\Users\Public\Programs\mblock\resources\ml\v1\external\arduino\avr-library\firmwares\wifishield\wifiHD\src\SOFTWARE_FRAMEWORK\DRIVERS
+C:\Users\Public\Programs\mblock\resources\ml\v1\platforms\arduino
+C:\Users\Public\Programs\mblock\resources\ml\v2\exec\python-env\win\Lib\site-packages\jedi\third_party\typeshed\third_party\2and3\werkzeug\middleware
+C:\Users\Public\Programs\mblock\resources\ml\v2\exec\python-env\win\Lib\site-packages\makeblock\comm\mlink
+C:\Users\Public\Programs\mblock\resources\ml\v2\exec\python-env\win\Lib\site-packages\mlink
+C:\Users\Public\Programs\mblock\resources\ml\v2\exec\python-env\win\Lib\site-packages\mlink-0.0.6.dist-info
+
+=== REFERENCIAS INTERNAS ===
+C:\Users\Public\Programs\mblock\resources\app\mblock\chunks\mblock.50676005446d3a480f97.js:1: [código minificado de mBlock omitido: 442299 caracteres]
+C:\Users\Public\Programs\mblock\resources\app\mblock\exts\codey\index.js:1: [código minificado de mBlock omitido: 682978 caracteres]
+C:\Users\Public\Programs\mblock\resources\app\mblock\exts\codey\src\index.js:2792: "name": "esptool",
+C:\Users\Public\Programs\mblock\resources\app\mblock\exts\codey\src\index.js:2794: "driverName": "esptoolByExec"
+C:\Users\Public\Programs\mblock\resources\app\mblock\exts\cyberpi\index.js:1: [código minificado de mBlock omitido: 1627022 caracteres]
+C:\Users\Public\Programs\mblock\resources\app\mblock\exts\cyberpi\src\index.js:13: const cyberpiFirmwareDriverEspTool =
+C:\Users\Public\Programs\mblock\resources\app\mblock\exts\cyberpi\src\index.js:3354: // 升级主控ESP32
+C:\Users\Public\Programs\mblock\resources\app\mblock\exts\cyberpi\src\index.js:3355: Protocol.updateESP32 = (app, device, data, logHandler, progressHandle, finishHandler, errHandler) => {
+C:\Users\Public\Programs\mblock\resources\app\mblock\exts\cyberpi\src\index.js:3360: let uploader1 = uploaderService.getDriver('esptool');
+C:\Users\Public\Programs\mblock\resources\app\mblock\exts\cyberpi\src\index.js:3362: errHandler('cannot find firmware driver of esptool');
+C:\Users\Public\Programs\mblock\resources\app\mblock\exts\fingertip_piano\index.js:1: [código minificado de mBlock omitido: 152812 caracteres]
+C:\Users\Public\Programs\mblock\resources\app\mblock\exts\fingertip_piano\src\index.js:1801: // 升级主控ESP32
+C:\Users\Public\Programs\mblock\resources\app\mblock\exts\fingertip_piano\src\index.js:1802: Protocol.updateESP32 = (app, device, data, logHandler, progressHandle, finishHandler, errHandler) => {
+C:\Users\Public\Programs\mblock\resources\app\mblock\exts\fingertip_piano\src\index.js:1807: let uploader1 = uploaderService.getDriver('esptool');
+C:\Users\Public\Programs\mblock\resources\app\mblock\exts\fingertip_piano\src\index.js:1809: errHandler('cannot find firmware driver of esptool');
+C:\Users\Public\Programs\mblock\resources\app\mblock\exts\fingertip_piano\src\index.js:1815: errHandler(`upload esptool fail` + ex);
+C:\Users\Public\Programs\mblock\resources\app\mblock\exts\haloboard\index.js:1: [código minificado de mBlock omitido: 770332 caracteres]
+C:\Users\Public\Programs\mblock\resources\app\mblock\exts\haloboard\src\index.js:5052: "name": "esptool"
+C:\Users\Public\Programs\mblock\resources\app\mblock\exts\mbuild\index.js:1: [código minificado de mBlock omitido: 716499 caracteres]
+C:\Users\Public\Programs\mblock\resources\app\mblock\exts\mbuild\src\index.js:1622: // 升级主控ESP32
+C:\Users\Public\Programs\mblock\resources\app\mblock\exts\mbuild\src\index.js:1623: Protocol.updateESP32 = (app, device, data, logHandler, progressHandle, finishHandler, errHandler) => {
+C:\Users\Public\Programs\mblock\resources\app\mblock\exts\mbuild\src\index.js:1628: let uploader1 = uploaderService.getDriver('esptool');
+C:\Users\Public\Programs\mblock\resources\app\mblock\exts\mbuild\src\index.js:1630: errHandler('cannot find firmware driver of esptool');
+C:\Users\Public\Programs\mblock\resources\app\mblock\exts\mbuild\src\index.js:1636: errHandler(`upload esptool fail` + ex);
+C:\Users\Public\Programs\mblock\resources\app\mblock\exts\mcore\index.js:1: [código minificado de mBlock omitido: 619069 caracteres]
+C:\Users\Public\Programs\mblock\resources\app\mblock\exts\mcore\src\index.js:2241: "name": "stk500v1"
+C:\Users\Public\Programs\mblock\resources\app\mblock\exts\mcore\src\index.js:2255: "name": "stk500v1"
+C:\Users\Public\Programs\mblock\resources\app\mblock\exts\motionblock\index.js:1: [código minificado de mBlock omitido: 187766 caracteres]
+C:\Users\Public\Programs\mblock\resources\app\mblock\exts\orion\index.js:1: [código minificado de mBlock omitido: 291849 caracteres]
+C:\Users\Public\Programs\mblock\resources\app\mblock\exts\orion\src\index.js:1823: "name": "stk500v1"
+C:\Users\Public\Programs\mblock\resources\app\mblock\exts\orion\src\index.js:1837: "name": "stk500v1"
+C:\Users\Public\Programs\mblock\resources\app\mlink-v1\constant.js:1: [código minificado de mBlock omitido: 1287 caracteres]
+C:\Users\Public\Programs\mblock\resources\app\mlink-v1\router.js:1: [código minificado de mBlock omitido: 1542 caracteres]
+C:\Users\Public\Programs\mblock\resources\app\mlink-v1\external\arduino\avr-library\programmers.txt:3: avrisp.protocol=stk500v1
+C:\Users\Public\Programs\mblock\resources\app\mlink-v1\external\arduino\avr-library\programmers.txt:4: avrisp.program.protocol=stk500v1
+C:\Users\Public\Programs\mblock\resources\app\mlink-v1\external\arduino\avr-library\programmers.txt:46: arduinoasisp.protocol=stk500v1
+C:\Users\Public\Programs\mblock\resources\app\mlink-v1\external\arduino\avr-library\programmers.txt:48: arduinoasisp.program.protocol=stk500v1
+C:\Users\Public\Programs\mblock\resources\app\mlink-v1\external\arduino\avr-library\programmers.txt:84: # stk500v1 and stk500v2 entries to allow explicitely selecting the
+C:\Users\Public\Programs\mblock\resources\app\mlink-v1\external\arduino\avr-library\bootloaders\optiboot\README.TXT:69: make ISPTOOL=stk500v1 ISPPORT=/dev/tty.usbserial-A20e1eAN  \
+C:\Users\Public\Programs\mblock\resources\app\mlink-v1\platforms\esptool\esptoolByExec.js:1: [código minificado de mBlock omitido: 2184 caracteres]
+C:\Users\Public\Programs\mblock\resources\app\mlink-v1\platforms\serialport\serialPortChildProcess.js:1: [código minificado de mBlock omitido: 2470 caracteres]
+C:\Users\Public\Programs\mblock\resources\ml\v1\constant.js:10: ESPTOOL_BY_EXEC: 'esptoolByExec',
+C:\Users\Public\Programs\mblock\resources\ml\v1\constant.js:36: name: ROUTER.CONNECT_TYPE.ESPTOOL_BY_EXEC,
+C:\Users\Public\Programs\mblock\resources\ml\v1\constant.js:37: path: '/platforms/esptool/esptoolByExec',
+C:\Users\Public\Programs\mblock\resources\ml\v1\router.js:14: esptoolByExec: esptoolByExec,
+C:\Users\Public\Programs\mblock\resources\ml\v1\router.js:28: case ROUTER.CONNECT_TYPE.ESPTOOL_BY_EXEC:
+C:\Users\Public\Programs\mblock\resources\ml\v1\router.js:29: return esptoolByExec;
+C:\Users\Public\Programs\mblock\resources\ml\v1\external\arduino\arduino-libraries\arduino\SD\.travis.yml:14: - arduino-cli core install arduino:avr
+C:\Users\Public\Programs\mblock\resources\ml\v1\external\arduino\arduino-libraries\arduino\SD\.travis.yml:19: - arduino-cli core install arduino:samd
+C:\Users\Public\Programs\mblock\resources\ml\v1\external\arduino\arduino-libraries\arduino\SD\.travis.yml:24: - arduino-cli core install arduino:megaavr
+C:\Users\Public\Programs\mblock\resources\ml\v1\external\arduino\arduino-libraries\arduino\SD\.travis.yml:29: - arduino-cli core install arduino:sam
+C:\Users\Public\Programs\mblock\resources\ml\v1\external\arduino\arduino-libraries\arduino\SD\.travis.yml:65: - wget http://downloads.arduino.cc/arduino-cli/arduino-cli-$CLI_VERSION-linux64.tar.bz2
+C:\Users\Public\Programs\mblock\resources\ml\v1\external\arduino\avr-library\programmers.txt:3: avrisp.protocol=stk500v1
+C:\Users\Public\Programs\mblock\resources\ml\v1\external\arduino\avr-library\programmers.txt:4: avrisp.program.protocol=stk500v1
+C:\Users\Public\Programs\mblock\resources\ml\v1\external\arduino\avr-library\programmers.txt:46: arduinoasisp.protocol=stk500v1
+C:\Users\Public\Programs\mblock\resources\ml\v1\external\arduino\avr-library\programmers.txt:48: arduinoasisp.program.protocol=stk500v1
+C:\Users\Public\Programs\mblock\resources\ml\v1\external\arduino\avr-library\programmers.txt:84: # stk500v1 and stk500v2 entries to allow explicitely selecting the
+C:\Users\Public\Programs\mblock\resources\ml\v1\external\arduino\avr-library\bootloaders\optiboot\README.TXT:69: make ISPTOOL=stk500v1 ISPPORT=/dev/tty.usbserial-A20e1eAN  \
+C:\Users\Public\Programs\mblock\resources\ml\v1\platforms\esptool\esptoolByExec.js:1: [código minificado de mBlock omitido: 2177 caracteres]
+C:\Users\Public\Programs\mblock\resources\ml\v1\platforms\serialport\serialPortChildProcess.js:100: if (message.esp32r0_delay) {
+C:\Users\Public\Programs\mblock\resources\ml\v1\platforms\serialport\serialPortChildProcess.js:105: if (message.esp32r0_delay) {
+
+============================================================
+ GATE0_SCAN_COMPLETE=YES
+============================================================

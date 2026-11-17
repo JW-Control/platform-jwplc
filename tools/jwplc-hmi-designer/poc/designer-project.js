@@ -73,21 +73,21 @@
     style.id = 'a11-project-integration-style';
     style.textContent = `
       .a11-project-button.linked {
-        border-color: rgba(67, 209, 122, 0.48) !important;
-        background: rgba(67, 209, 122, 0.11) !important;
-        color: #7af0ae !important;
+        border-color: rgba(67, 209, 122, 0.48);
+        background: rgba(67, 209, 122, 0.11);
+        color: #7af0ae;
         box-shadow: inset 0 1px 0 rgba(67, 209, 122, 0.18);
       }
       .a11-project-button.update-ready:not(:disabled) {
-        border-color: rgba(0, 215, 239, 0.55) !important;
-        background: linear-gradient(180deg, rgba(0, 215, 239, 0.15) 0%, rgba(0, 215, 239, 0.07) 100%) !important;
-        color: #52c9ff !important;
+        border-color: rgba(0, 215, 239, 0.55);
+        background: linear-gradient(180deg, rgba(0, 215, 239, 0.15) 0%, rgba(0, 215, 239, 0.07) 100%);
+        color: #52c9ff;
         box-shadow: inset 0 -2px 0 rgba(0, 215, 239, 0.45);
       }
       .a11-project-button.update-ready:not(:disabled):hover {
-        border-color: #00d7ef !important;
-        background: linear-gradient(180deg, rgba(0, 215, 239, 0.24) 0%, rgba(0, 215, 239, 0.12) 100%) !important;
-        color: #ffffff !important;
+        border-color: #00d7ef;
+        background: linear-gradient(180deg, rgba(0, 215, 239, 0.24) 0%, rgba(0, 215, 239, 0.12) 100%);
+        color: #ffffff;
       }
       .a11-project-status {
         display:inline-flex;
@@ -262,7 +262,18 @@
 
   function serializeProject() {
     const api = editor();
-    const pages = api?.getPages?.() || [{ id: 0, name: 'Principal' }];
+    const pages = (api?.getPages?.() || [{ id: 0, name: 'Principal' }]).map((page) => {
+      const copy = { ...page };
+      if (Array.isArray(copy.views)) {
+        const cleanViews = copy.views.map((v, i) => ({ id: i, name: String(v?.name || `Vista ${i + 1}`) }));
+        if (cleanViews.length > 1 || (cleanViews.length === 1 && cleanViews[0].name !== 'Principal')) {
+          copy.views = cleanViews;
+        } else {
+          delete copy.views;
+        }
+      }
+      return copy;
+    });
     const fields = (api?.getAllFields?.() || []).map((field) => {
       const copy = { ...field };
       delete copy.key;
@@ -270,6 +281,7 @@
       Object.keys(copy).forEach((k) => { if (k.startsWith('_')) delete copy[k]; });
       return copy;
     });
+    const popups = window.JWPLCHMIPopups?.serialize?.() || [];
 
     return {
       format: PROJECT_FORMAT,
@@ -291,6 +303,7 @@
       projectType: window.JWPLCHMIRuntime?.get?.() || 'arduino',
       pages,
       fields,
+      popups,
       // Alpha16: copia de los iconos usados (se abre igual si cambia el catálogo).
       iconAssets: window.JWPLCHMIIcons?.assetsFor?.(fields),
       declarativeOnly: true
@@ -308,8 +321,24 @@
 
     data.pages = sorted.map((page) => ({ ...page, id: remap.get(Number(page.id)) }));
     data.fields = data.fields
-      .filter((field) => isGlobal(field) || remap.has(Number(field.page || 0)))
-      .map((field) => isGlobal(field) ? field : { ...field, page: remap.get(Number(field.page || 0)) });
+      .filter((field) => {
+        if (isGlobal(field)) return true;
+        if (Array.isArray(field.pages) && field.pages.length) {
+          return field.pages.some((p) => remap.has(Number(p)));
+        }
+        return remap.has(Number(field.page || 0));
+      })
+      .map((field) => {
+        if (isGlobal(field)) return field;
+        if (Array.isArray(field.pages) && field.pages.length) {
+          const mappedPages = [...new Set(field.pages.map((p) => remap.get(Number(p))).filter((p) => p !== undefined))].sort((a, b) => a - b);
+          if (mappedPages.length > 1) return { ...field, page: mappedPages[0], pages: mappedPages };
+          const copy = { ...field, page: mappedPages[0] ?? 0 };
+          delete copy.pages;
+          return copy;
+        }
+        return { ...field, page: remap.get(Number(field.page || 0)) };
+      });
     if (Array.isArray(data.pixelMaps)) {
       const before = data.pixelMaps.length;
       data.pixelMaps = data.pixelMaps
@@ -329,7 +358,12 @@
     if (!Array.isArray(data.pages) || !data.pages.length || data.pages.length > 16) {
       throw new Error('El proyecto contiene una cantidad de páginas inválida.');
     }
-    if (!Array.isArray(data.fields) || data.fields.length > 32) {
+    const DYNAMIC_FIELD_TYPES = new Set(['TEXT', 'VALUE', 'BOOL', 'BAR', 'ICON', 'TREND']);
+    if (!Array.isArray(data.fields) || data.fields.length > 256) {
+      throw new Error('El proyecto contiene una cantidad de objetos inválida.');
+    }
+    const dynamicCount = data.fields.filter((f) => DYNAMIC_FIELD_TYPES.has(f?.type)).length;
+    if (dynamicCount > 64) {
       throw new Error('El proyecto contiene una cantidad de campos inválida.');
     }
 
@@ -338,12 +372,35 @@
   }
 
   function normalizeImportedFields(fields) {
-    return fields.map((field, index) => ({
-      ...field,
-      key: `${String(field.type || 'TEXT').toLowerCase()}-${index + 1}`,
-      page: Number(field.page || 0),
-      cornerRadius: Number(field.cornerRadius || 0)
-    }));
+    return fields.map((field, index) => {
+      const core = window.JWPLCHMICodegenCore;
+      const pagesList = core?.supportsMultiPage?.(field) && Array.isArray(field.pages) && field.pages.length
+        ? core.fieldPages(field)
+        : null;
+      const normalized = {
+        ...field,
+        key: `${String(field.type || 'TEXT').toLowerCase()}-${index + 1}`,
+        page: pagesList ? pagesList[0] : Number(field.page || 0),
+        cornerRadius: Number(field.cornerRadius || 0)
+      };
+      if (pagesList && pagesList.length > 1) normalized.pages = pagesList;
+      else delete normalized.pages;
+      if (normalized.type === 'NAV_BAR') {
+        const navPages = window.JWPLCHMIPages;
+        if (navPages?.normalizeNavPresetAndLabels) {
+          const { preset, labelFormat } = navPages.normalizeNavPresetAndLabels(normalized);
+          normalized.preset = preset;
+          normalized.labelFormat = labelFormat;
+        }
+        if (navPages?.resolveNavFontSpec) {
+          const { font, textScale, fontSize } = navPages.resolveNavFontSpec(normalized);
+          normalized.font = font;
+          normalized.textScale = textScale;
+          normalized.fontSize = fontSize;
+        }
+      }
+      return normalized;
+    });
   }
 
   async function applyProject(data) {
@@ -355,7 +412,9 @@
     const pages = normalized.pages.slice().sort((a, b) => Number(a.id) - Number(b.id));
 
     suppressDirty = true;
+    window.JWPLCHMIPopups?.closeMode?.();
     document.getElementById('newProjectButton')?.click();
+    window.JWPLCHMIPopups?.load?.(Array.isArray(normalized.popups) ? normalized.popups : []);
 
     if (normalized.navigationBar && api.setNavBarConfig) {
       api.setNavBarConfig(normalized.navigationBar);
@@ -372,6 +431,9 @@
     }
 
     pages.forEach((p) => {
+      if (Array.isArray(p.views) && p.views.length && api.setPageViews) {
+        api.setPageViews(p.id, p.views);
+      }
       if (api.setPageMetadata) {
         api.setPageMetadata(p.id, { shortName: p.shortName, color: p.color });
       }
@@ -379,7 +441,11 @@
 
     const desiredCount = Math.max(1, importedFields.length);
     const currentFields = api.getAllFields();
-    while (currentFields.length < desiredCount) api.addTextField?.();
+    while (currentFields.length < desiredCount) {
+      if (api.addTextField?.() === false) {
+        currentFields.push({ type: 'RECT', key: `tmp-${currentFields.length + 1}`, page: 0, x: 0, y: 0, x2: 1, y2: 1 });
+      }
+    }
 
     window.JWPLCHMIIcons?.loadAssets?.(normalized.iconAssets);
     const liveFields = api.getAllFields();
@@ -705,7 +771,7 @@
     if (generateButton && !document.getElementById('linkSketchButton')) {
       const link = document.createElement('button');
       link.id = 'linkSketchButton';
-      link.className = 'a11-project-button tb-btn tb-group-end';
+      link.className = 'a11-project-button tb-btn tb-group-start';
       link.type = 'button';
       link.textContent = 'Vincular sketch…';
       link.title = 'Seleccionar la carpeta del sketch Arduino';
@@ -713,19 +779,19 @@
 
       const update = document.createElement('button');
       update.id = 'updateHmiButton';
-      update.className = 'a11-project-button update-ready tb-btn tb-group-mid';
+      update.className = 'a11-project-button update-ready tb-btn tb-group-end';
       update.type = 'button';
       update.textContent = 'Escribir en sketch';
       update.title = `Escribir ${HEADER_NAME} y el proyecto .jwhmi en la carpeta del sketch vinculado`;
       update.disabled = true;
       update.addEventListener('click', updateGeneratedHeader);
 
-      generateButton.insertAdjacentElement('afterend', update);
-      update.insertAdjacentElement('afterend', link);
-      if (!link.nextElementSibling?.classList?.contains('separator')) {
+      generateButton.insertAdjacentElement('afterend', link);
+      link.insertAdjacentElement('afterend', update);
+      if (!update.nextElementSibling?.classList?.contains('separator')) {
         const separator = document.createElement('span');
         separator.className = 'separator';
-        link.insertAdjacentElement('afterend', separator);
+        update.insertAdjacentElement('afterend', separator);
       }
     }
 
@@ -768,6 +834,8 @@
     document.getElementById('newProjectButton')?.addEventListener('click', () => {
       projectFileHandle = null;
       projectName = 'HMI_ST7789';
+      window.JWPLCHMIPopups?.load?.([]);
+      window.JWPLCHMIPopups?.closeMode?.();
       if (!suppressDirty) {
         setDirty(true);
         unlinkSketch();

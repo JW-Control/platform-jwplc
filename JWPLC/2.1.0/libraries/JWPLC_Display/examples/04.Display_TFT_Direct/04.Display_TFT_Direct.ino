@@ -1,9 +1,8 @@
 /*
   04.Display_TFT_Direct
 
-  Acceso gráfico directo mediante JWPLC_TFT:
-
-      auto &tft = JWPLC_Display.tft();
+  Dibujo directo en la pantalla con el objeto JWPLC_TFT
+  (JWPLC_TFT.fillScreen(), .setCursor(), .print(), .fillRect()...).
 
   Para coexistir correctamente con Ethernet, FRAM y microSD, el dibujo directo
   se realiza dentro de jwplcUIEnter()/jwplcUIUpdate(). El runtime ya posee el
@@ -20,19 +19,17 @@ static uint8_t lastSecondDrawn = 255;
 
 extern "C" void jwplcUIEnter()
 {
-    auto &tft = JWPLC_Display.tft();
+    JWPLC_TFT.fillScreen(JWPLC_TFT_BLACK);
+    JWPLC_TFT.setTextWrap(false);
+    JWPLC_TFT.setTextColor(JWPLC_TFT_CYAN, JWPLC_TFT_BLACK);
+    JWPLC_TFT.setTextSize(2);
+    JWPLC_TFT.setCursor(20, 20);
+    JWPLC_TFT.print("JWPLC TFT");
 
-    tft.fillScreen(JWPLC_TFT_BLACK);
-    tft.setTextWrap(false);
-    tft.setTextColor(JWPLC_TFT_CYAN, JWPLC_TFT_BLACK);
-    tft.setTextSize(2);
-    tft.setCursor(20, 20);
-    tft.print("JWPLC TFT");
-
-    tft.setTextColor(JWPLC_TFT_WHITE, JWPLC_TFT_BLACK);
-    tft.setTextSize(1);
-    tft.setCursor(20, 55);
-    tft.print("Dibujo directo en USER");
+    JWPLC_TFT.setTextColor(JWPLC_TFT_WHITE, JWPLC_TFT_BLACK);
+    JWPLC_TFT.setTextSize(1);
+    JWPLC_TFT.setCursor(20, 55);
+    JWPLC_TFT.print("Dibujo directo en USER");
 
     lastSecondDrawn = 255;
 }
@@ -44,22 +41,20 @@ extern "C" void jwplcUIUpdate()
 
     lastSecondDrawn = JWPLC_Time.second();
 
-    auto &tft = JWPLC_Display.tft();
-
     // Limpiar sólo la región dinámica evita parpadeos de pantalla completa.
-    tft.fillRect(20, 85, 180, 30, JWPLC_TFT_BLACK);
-    tft.setTextColor(JWPLC_TFT_YELLOW, JWPLC_TFT_BLACK);
-    tft.setTextSize(2);
-    tft.setCursor(20, 90);
+    JWPLC_TFT.fillRect(20, 85, 180, 30, JWPLC_TFT_BLACK);
+    JWPLC_TFT.setTextColor(JWPLC_TFT_YELLOW, JWPLC_TFT_BLACK);
+    JWPLC_TFT.setTextSize(2);
+    JWPLC_TFT.setCursor(20, 90);
 
-    if (JWPLC_Time.hour() < 10) tft.print('0');
-    tft.print(JWPLC_Time.hour());
-    tft.print(':');
-    if (JWPLC_Time.minute() < 10) tft.print('0');
-    tft.print(JWPLC_Time.minute());
-    tft.print(':');
-    if (JWPLC_Time.second() < 10) tft.print('0');
-    tft.print(JWPLC_Time.second());
+    if (JWPLC_Time.hour() < 10) JWPLC_TFT.print('0');
+    JWPLC_TFT.print(JWPLC_Time.hour());
+    JWPLC_TFT.print(':');
+    if (JWPLC_Time.minute() < 10) JWPLC_TFT.print('0');
+    JWPLC_TFT.print(JWPLC_Time.minute());
+    JWPLC_TFT.print(':');
+    if (JWPLC_Time.second() < 10) JWPLC_TFT.print('0');
+    JWPLC_TFT.print(JWPLC_Time.second());
 }
 
 void setup()

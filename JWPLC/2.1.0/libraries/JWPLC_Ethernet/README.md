@@ -583,7 +583,7 @@ if (cliente.connect("example.com", 80))
 Entre una operación y la siguiente la TFT, la FRAM y la microSD pueden seguir
 usando el bus. `jwplcSPI_acquire()` sólo tiene sentido para leer varios datos
 de estado seguidos (hardware, enlace, IP) sin que otro periférico se intercale,
-como hace el ejemplo `Ethernet_Continuous_Stress_TFT`.
+como hacía la prueba `Ethernet_Continuous_Stress_TFT` (retirada en 2.1.0-alpha.17).
 
 ## API avanzada
 

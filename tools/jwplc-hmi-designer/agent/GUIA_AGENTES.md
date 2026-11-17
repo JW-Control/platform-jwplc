@@ -88,14 +88,22 @@ La CLI acepta un JSON mínimo y completa el resto con los mismos valores por def
   Alturas de un campo INLINE: ~13 px (escala 1), ~20 px (escala 2), ~28 px (escala 3).
 - Con una `NAV_BAR` abajo (alto 22) deja libre `y ≥ 147`. Arriba (`position: "top"`), `y ≤ 24`.
 - **Estático vs dinámico.** Figuras y `RAW_TEXT` se dibujan una vez al entrar a la página. Los campos
-  (TEXT, VALUE, BOOL, BAR) y el MENU se redibujan cuando cambian y pintan su caja con su
+  (TEXT, VALUE, BOOL, BAR, ICON, TREND) y el MENU se redibujan cuando cambian y pintan su caja con su
   `backgroundColor`: si un campo va sobre una figura de color, dale ese mismo fondo
   (ver `FIELD_HORA` en `examples/05_estacion_bombeo.json`).
 - **Dos campos dinámicos no deben pisarse** (el último en redibujarse tapa al otro): `validate` lo avisa.
 - Tildes, ñ y ° existen en la fuente GLCD (no las mayúsculas acentuadas como Á, Í, Ú). Las fuentes
   FreeFont (`SANS_*`, `SERIF_*`, `MONO_*`) y `FONT2`/`FONT4` sólo tienen ASCII.
 - `VALUE` reserva el ancho de `integerDigits` + decimales: elige los dígitos del peor caso.
-- BAR: el firmware dibuja sólo la barra horizontal lineal sólida; no hay medidor circular ni degradado.
+- BAR: `barPreset` `LINEAR` admite vertical, bloques, degradado (`barFillMode`, `valueColorEnd`), radio, borde y grosor. `CIRCULAR` es sólido: no hay degradado en el medidor circular.
+- `TREND`: gráfica temporal en tiempo real (`width` 40..320, `height` 30..170). Ocupa su caja fija y sigue
+  muestreando aunque estés en otra página (`sampleIntervalMs`, `visibleSamples`).
+  - `scaleMode: "AUTO"` ajusta `low/mid/high` dinámicamente; `"MANUAL"` fija el rango con `minValue`/`maxValue`.
+  - Soporta guías referenciales al 25%/75% (`showGuides`), ejes sólidos con color entero (`axesColor`), marcas
+    de tiempo (`showTimeAxis`), grosor `1` o `2` px (`lineWidth`), hasta 3 canales (`ch2Enabled`/`ch3Enabled`) y
+    hasta 2 umbrales punteados horizontales (`thr1Enabled`/`thr2Enabled`).
+  - `enableSD: true` registra CSV continuo (`/TREND_<id>.CSV` cada `sdIntervalMs`) iniciando `JWPLC_SD` si no estaba lista.
+  - **Evita repetir variables de `MENU` en `ch2Variable`/`ch3Variable`**: el codegen declara la variable de `MENU` y las de `TREND` por separado; usa un nombre distinto en el canal (ej. `consignaHorno`) y sincronízalo en el `.ino`.
 - ICON: imagen fija por estado del catálogo (`jwhmi icons`), sin animación. Ocupa `iconSize` (24, 32, 48;
   64 en algunos) + 3 px de margen por lado, y con etiqueta STACKED suma ~9 px arriba (escala 1).
   Con 2 estados la variable es `bool`; con más, `uint8_t` y el sketch asigna 0..N-1 (el nombre de cada
@@ -103,8 +111,16 @@ La CLI acepta un JSON mínimo y completa el resto con los mismos valores por def
   dos ICON del mismo icono y tamaño comparten el bitmap en flash (una imagen de 64 px pesa 2 KB).
   `transparentBackground: true` (sin fondo) deja ver la figura o el texto fijo de debajo fuera de la
   silueta del icono: úsalo para poner equipos sobre un `RECT` de color.
-- MENU: uno por página; necesita teclas (▲▼ OK ESC) y ocupa la página, así que suele ir en una
-  página propia («Ajustes»).
+- MENU: uno por página (o varios en la misma página si usan subvistas `views` disjuntas); necesita teclas (▲▼ OK ESC).
+- **Subvistas por página (`views`):** cualquier página (`pages[i]`) puede tener de `1` a `8` subvistas internas (`views: ["Config", "Medicion"]` o `{ id, name }`) que cambian **en sitio** sin añadir pestañas a la `NAV_BAR` ni incrementar `NN/TT`.
+  - Cada objeto (`TEXT`, `VALUE`, `BOOL`, `BAR`, `ICON`, `TREND`, `QR`, `MENU`, figuras, `RAW_TEXT`) acepta `views: [0]` / `[1]` (si se omite o está vacío se muestra en todas las subvistas de la página). Objetos en subvistas disjuntas no generan aviso de solapamiento.
+  - En `MENU`, usa nodos `type: "GO_VIEW"` (`targetView: 1`) o añade `targetView` / `confirmPopupId` a nodos editables para cambiar de subvista tras confirmar con OK.
+- **Código `QR` (`type: "QR"`):** dibuja códigos QR ISO/IEC 18004 (`sourceMode`: `"STATIC"` en Flash o `"VARIABLE"` con `char[]` y `JWPLC_UIQR`), con `preset` (`"WIFI"`, `"URL"`, `"TEXT"`), `text`, `scale` (`1..4`), `ecc` (`L|M|Q|H`), `quietZone` (`0..4`) y `frame`.
+- **Ventanas emergentes modales (`popups[]`, I5–I6):** hasta `12` modales superpuestos sobre IDLE y USER sin añadir páginas (`preset`: `"INFO"`, `"WARN"`, `"CRIT"`, `"CONFIRM"`).
+  - Propiedades principales: `id` (`0..254`), `name` (`POPUP_<NOMBRE>`), `title`, `message`, `messageTextSize` (`1` = 6×8 px, `2` = 12×16 px, `3` = 18×24 px), `code`, `acceptText`, `cancelText`, `triggerVar` (`bool` de flanco 0→1), `confirmOutVar` (`bool` resultado de `CONFIRM`), `errCode` (4 chars para LED lateral IDLE), `autoCloseMs`, `showOverIdle`, `blocksIdle`, `latched`, `logToEventLog`, `targetPage`, `targetView`, `x`/`y`/`width`/`height`/`cornerRadius` y `colors`.
+  - `targetPage` / `targetView` funciona en `CONFIRM` al aceptar y también al cerrarse en `INFO`, `WARN` y `CRIT` (por `OK`, `ESC` o `autoCloseMs`).
+  - Si un campo `BOOL`, `ICON` (`bool`) o nodo `MENU` ya declara la misma variable booleana que `triggerVar` o `confirmOutVar`, el codegen evita duplicar la declaración.
+  - Ejemplo completo de subvistas + popups + WiFi/QR: [`../pruebas-ia/06_sensor_cod_subvistas/README.md`](../pruebas-ia/06_sensor_cod_subvistas/README.md).
 - Con varias páginas el firmware cambia de página con ◀ ▶ (`JWPLC_UI_Pages`); la `NAV_BAR` muestra las pestañas.
 
 ## 5. Recetas
@@ -118,10 +134,27 @@ La CLI acepta un JSON mínimo y completa el resto con los mismos valores por def
   para el estado de falla usa el estado 2 de los que lo tienen. Pilotos pequeños: `pilotos/piloto` de 24 px
   con `layout: "INLINE"` (etiqueta a la izquierda). Ejemplo: `examples/06_iconos.json`.
 - **Nivel de tanque:** `BAR` con `barWidth` del ancho disponible, `frame: true` y `trackColor` oscuro.
+- **Gráfica de tendencia:** `TREND` con `width: 312, height: 118` (pantalla completa bajo barra de título y sobre `NAV_BAR`) o recuadro compacto (`176×86`) junto a `VALUE`/`BOOL`. Añade `ch2Enabled`/`ch3Enabled` para comparar consigna y salida, `thr1Enabled`/`thr2Enabled` para límites de alarma y `enableSD: true` para CSV automático. Ejemplo completo: [`../pruebas-ia/04_tendencias/`](../pruebas-ia/04_tendencias/README.md).
 - **Ajustes:** página con un `MENU` de `EDIT_NUM` (consignas) y `EDIT_BOOL` (habilitaciones), un
   `SUBMENU` para lo avanzado y un `GO_IDLE` para volver al inicio.
 - **Pantalla de inicio:** `display.start: "IDLE"` muestra la pantalla JWPLC al encender;
   `wake: "ANY"` entra al HMI con cualquier tecla y `back: "TIMEOUT"` vuelve tras `timeoutS`.
+- **Flujo Config → Medición en una misma página (subvistas + confirmación modal):**
+
+```json
+{
+  "pages": [{ "id": 0, "name": "Proceso", "views": ["Config", "Medicion"] }],
+  "fields": [
+    { "type": "MENU", "id": "MENU_CFG", "page": 0, "views": [0], "x": 10, "y": 24, "width": 230, "height": 100,
+      "nodes": [{ "type": "GO_VIEW", "label": "Iniciar medicion", "targetView": 1, "confirmPopupId": 0 }] },
+    { "type": "VALUE", "id": "VAL_RES", "variable": "resultado", "label": "COD", "x": 20, "y": 40, "valueSize": 2, "page": 0, "views": [1] }
+  ],
+  "popups": [
+    { "id": 0, "name": "CONF_INICIO", "preset": "CONFIRM", "title": "CONFIRMAR", "message": "Iniciar medicion?",
+      "messageTextSize": 2, "confirmOutVar": "medicionActiva", "targetPage": 0, "targetView": 1 }
+  ]
+}
+```
 
 ## 6. El sketch
 
@@ -134,7 +167,9 @@ La CLI acepta un JSON mínimo y completa el resto con los mismos valores por def
 | `JWPLC_HMI_LEEME.md` | Sketch base, tabla de variables y cómo leer el MENU (`JWPLC_Display.menuChanged`). |
 
 En el `.ino`: `#include "JWPLC_HMI_Generated.h"`, `jwplcHMISetup();` en `setup()` y en `loop()` sólo
-asignar las variables (sin `delay()`, sin dibujar). El runtime redibuja lo que cambió.
+asignar las variables (sin `delay()`, sin dibujar). El runtime redibuja lo que cambió:
+- **Cambiar de subvista desde código:** `JWPLC_Display.setPageView(PAGE_PROCESO, 1);` (o leer la actual con `JWPLC_Display.pageView()`).
+- **Disparar o leer popups desde código:** `JWPLC_Display.showPopup(POPUP_...)` (o poner a `true` su variable `triggerVar`), y en `CONFIRM` comprobar una sola vez `if (JWPLC_Display.popupConfirmed(POPUP_...)) { ... }`.
 
 Si el `.ino` lee la botonera: sólo cuando la página está en modo contenido
 (`!JWPLC_Display.isUserPageSelection() && JWPLC_Display.userPage() == PAGE_X`), nunca en la página

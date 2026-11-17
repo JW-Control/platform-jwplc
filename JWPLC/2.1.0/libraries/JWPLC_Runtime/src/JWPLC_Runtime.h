@@ -27,6 +27,11 @@
 // Se muestra en la pantalla RUN y en Configuración > Versión.
 #define JWPLC_RUNTIME_VERSION "0.2.0"
 
+// Programas de ejemplo para loadDemoIfEmpty().
+static const uint8_t RUNTIME_DEMO_FERIA = 0;
+static const uint8_t RUNTIME_DEMO_INTERMITENTE = 1;
+static const uint8_t RUNTIME_DEMO_ESCALONADO = 2;
+
 class JWPLC_RuntimeClass
 {
 public:
@@ -34,8 +39,20 @@ public:
     // de arranque y toma las salidas Q, la botonera y la pantalla USER.
     bool begin();
 
-    // Si la FRAM no tiene programa, carga el de ejemplo (útil para probar).
-    void loadDemoIfEmpty(bool enable) { _demoIfEmpty = enable; }
+    // Si la FRAM no tiene programa, carga un programa de ejemplo (útil para
+    // probar); Programa > Cargar ejemplo carga ese mismo. Ejemplos:
+    //   RUNTIME_DEMO_FERIA         «Demo feria» (marcha/parada, bomba, contador)
+    //   RUNTIME_DEMO_INTERMITENTE  «Intermitente»: Q1 y Q2 alternan cada 1 s
+    //                              con dos TON, sin entradas
+    //   RUNTIME_DEMO_ESCALONADO    «Escalonado»: con I1, Q1 y Q2 se encienden
+    //                              a 1 y 2 s (dos TON)
+    void loadDemoIfEmpty(bool enable, uint8_t demo = RUNTIME_DEMO_FERIA);
+
+    // Como loadDemoIfEmpty(), pero también reemplaza el programa de la FRAM
+    // si es otro (por nombre): al subir el ejemplo se ve ese programa aunque
+    // la placa tuviera la «Demo feria». Si la FRAM ya lo tiene, se conserva
+    // tal cual (parámetros cambiados en el panel incluidos).
+    void loadDemo(uint8_t demo);
 
     void run();
     void stop();
@@ -58,6 +75,7 @@ public:
 
 private:
     bool _demoIfEmpty = false;
+    bool _demoReplace = false;
 };
 
 extern JWPLC_RuntimeClass JWPLC_Runtime;

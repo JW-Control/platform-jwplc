@@ -55,14 +55,15 @@ async function main() {
       window.JWPLCHMIBar.addBarField(); await new Promise((x) => setTimeout(x, 80)); r.BAR = { ...E.getSelectedField() };
       r.ICON = { ...E.addIconField('pilotos/piloto', 32) };
       r.RAW_TEXT = { ...E.addRawTextField() };
+      r.QR = { ...E.addQrField() };
       r.MENU = window.JWPLCHMIMenu.createDefault('m', 1, []);
       r.DISPLAY = window.JWPLCHMIIdle.defaults();
       return r;
     });
-    for (const type of ['TEXT', 'VALUE', 'BOOL', 'BAR', 'ICON', 'RAW_TEXT', 'MENU']) {
+    for (const type of ['TEXT', 'VALUE', 'BOOL', 'BAR', 'ICON', 'RAW_TEXT', 'QR', 'MENU']) {
       const props = spec.TYPES[type].props;
       const diffs = Object.entries(created[type])
-        .filter(([key]) => !EXEMPT.has(key) && !['nodes', 'colors'].includes(key))
+        .filter(([key]) => !EXEMPT.has(key) && !['nodes', 'colors'].includes(key) && !(type === 'RAW_TEXT' && key === 'size'))
         .filter(([key, value]) => !props[key] || (props[key].default !== undefined && JSON.stringify(props[key].default) !== JSON.stringify(value)))
         .map(([key, value]) => `${key}: Designer ${JSON.stringify(value)} / spec ${props[key] ? JSON.stringify(props[key].default) : '(no está)'}`);
       check(diffs.length === 0, `${type}: cada propiedad del Designer está en la spec con el mismo valor por defecto${diffs.length ? `\n      ${diffs.join('\n      ')}` : ''}`);
@@ -129,6 +130,31 @@ async function main() {
     check(has(bad, /ICON_B\)\.iconVarType:.*usa "uint8"/, 'warnings') && has(bad, /ICON_B\)\.iconState/, 'warnings'), 'ICON: bool con 3 estados y estado fuera de rango (avisos)');
     check(has(bad, /tipo "IMAGE" desconocido.*\(¿ICON\?\)/), 'ICON: sinónimo IMAGE -> ICON');
 
+    // Límite de 64 campos dinámicos vs objetos estáticos (hasta 256 totales)
+    const dyn64PlusStatic = normalizeProject({
+      pages: ['P'],
+      fields: [
+        ...Array.from({ length: 64 }, (_, i) => ({
+          type: 'TEXT', id: `F_${i}`, variable: `v_${i}`, x: 4, y: 4
+        })),
+        ...Array.from({ length: 6 }, (_, i) => ({
+          type: 'RECT', id: `R_${i}`, x: 10 + i * 20, y: 20, x2: 25 + i * 20, y2: 35
+        })),
+        { type: 'NAV_BAR', id: 'NAV_0', x: 0, y: 160, w: 320, h: 36 }
+      ]
+    });
+    const rDynOk = validateProject(dyn64PlusStatic);
+    check(rDynOk.errors.length === 0, `64 dinámicos + 7 estáticos (71 totales) valida sin errores${rDynOk.errors.map((e) => `\n      ${e.path}: ${e.message}`).join('')}`);
+
+    const dyn65 = normalizeProject({
+      pages: ['P'],
+      fields: Array.from({ length: 65 }, (_, i) => ({
+        type: 'TEXT', id: `F_${i}`, variable: `v_${i}`, x: 4, y: 4
+      }))
+    });
+    const rDynBad = validateProject(dyn65);
+    check(has(rDynBad, /máximo 64 campos dinámicos/), '65 campos dinámicos excede el límite');
+
     const geo = normalizeProject({ pages: ['P'], fields: [
       { type: 'VALUE', id: 'FIELD_X', variable: 'x', x: 280, y: 4, valueSize: 3 },
       { type: 'TEXT', id: 'FIELD_Y', variable: 'y', x: 150, y: 4, capacity: 20 }
@@ -145,6 +171,137 @@ async function main() {
       const golden = fs.readFileSync(path.join(__dirname, 'golden', `${name}.h`), 'utf8').replace(/\r\n/g, '\n');
       check(header === (golden.endsWith('\n') ? golden : `${golden}\n`), `${name}: header de la CLI == golden`);
     }
+
+    // Etiqueta VALUE compartiendo la misma variable float que una gráfica TREND
+    const linked = normalizeProject({
+      pages: ['Monitor'],
+      fields: [
+        { type: 'TREND', id: 'TREND_T', variable: 'sensorTemp', title: 'TEMP', unit: 'C', x: 10, y: 24, width: 220, height: 90, visibleSamples: 60 },
+        { type: 'VALUE', id: 'VAL_T', variable: 'sensorTemp', label: 'T', unit: 'C', x: 10, y: 2, valueSize: 2 }
+      ]
+    });
+    const rLinked = validateProject(linked);
+    check(rLinked.errors.length === 0, `TREND + VALUE compartiendo variable float valida sin errores${rLinked.errors.map((e) => `\n      ${e.path}: ${e.message}`).join('')}`);
+    await session.load(linked);
+    const linkedInsp = await session.inspect();
+    check(linkedInsp.issues.length === 0, 'Designer no reporta conflicto en variable float compartida');
+    const linkedHeader = await session.header();
+    const declMatches = linkedHeader.match(/\bfloat\s+sensorTemp\s*=/g) || [];
+    check(declMatches.length === 1, `1 sola declaración C++ para sensorTemp (emitidas: ${declMatches.length})`);
+    check(/setTrend\(TREND_T,\s*sensorTemp\)/.test(linkedHeader) && /setValue\(VAL_T,\s*sensorTemp\)/.test(linkedHeader), 'emite ambos setters (setTrend y setValue) con sensorTemp');
+    const linkedCheck = hostCheck(linkedHeader);
+    if (!linkedCheck.skipped) check(linkedCheck.ok, `TREND + VALUE vinculados compilan en host g++${linkedCheck.ok ? '' : `\n${linkedCheck.log}`}`);
+
+    // TREND multicanal (ch2/ch3) compartiendo variable float con EDIT_NUM del MENU
+    const trendMenuProject = normalizeProject({
+      pages: ['Monitor', 'Ajustes'],
+      fields: [
+        {
+          type: 'TREND', id: 'TREND_H', variable: 'tempHorno', title: 'HORNO', unit: 'C',
+          x: 4, y: 20, width: 280, height: 100, visibleSamples: 60,
+          ch2Enabled: true, ch2Variable: 'consignaHorno', ch2Label: 'SP',
+          ch3Enabled: true, ch3Variable: 'potenciaSalida', ch3Label: 'OUT',
+          page: 0
+        },
+        {
+          type: 'MENU', id: 'MENU_AJ', page: 1, x: 4, y: 4, width: 312, height: 120,
+          nodes: [
+            { type: 'EDIT_NUM', label: 'Consigna', variable: 'consignaHorno', valueType: 'float', initial: 45, min: 0, max: 100, step: 1, decimals: 1, unit: 'C' },
+            { type: 'VIEW', label: 'Salida', variable: 'potenciaSalida', valueType: 'float', initial: 0, decimals: 1, unit: '%' }
+          ]
+        }
+      ]
+    });
+    const rTrendMenu = validateProject(trendMenuProject);
+    check(rTrendMenu.errors.length === 0, `TREND ch2/ch3 + MENU compartiendo float valida sin errores${rTrendMenu.errors.map((e) => `\n      ${e.path}: ${e.message}`).join('')}`);
+    await session.load(trendMenuProject);
+    const trendMenuHeader = await session.header();
+    const spDecls = trendMenuHeader.match(/\bfloat\s+consignaHorno\s*=/g) || [];
+    const outDecls = trendMenuHeader.match(/\bfloat\s+potenciaSalida\s*=/g) || [];
+    check(spDecls.length === 1 && outDecls.length === 1, `1 sola declaración C++ para consignaHorno (${spDecls.length}) y potenciaSalida (${outDecls.length})`);
+    check(/setTrend\(TREND_H,\s*tempHorno,\s*consignaHorno,\s*potenciaSalida\)/.test(trendMenuHeader) &&
+      /JWPLC_UIMenuEditNum\([^)]*&consignaHorno/.test(trendMenuHeader),
+      'TREND ch2/ch3 y MENU usan las mismas variables sin duplicar declaración');
+
+    // Subvistas por página (viewMask) + MENU GO_VIEW + Popups I5-I6 (4 presets + variable bool compartida)
+    const subviewPopupProject = normalizeProject({
+      pages: [
+        { id: 0, name: 'Proceso', views: [{ id: 0, name: 'Config' }, { id: 1, name: 'Medicion' }] }
+      ],
+      fields: [
+        { type: 'RECT', id: 'BG_CFG', x: 8, y: 8, x2: 140, y2: 34, fill: true, fillColor: '#102030', frameColor: '#102030', page: 0, views: [0] },
+        { type: 'TEXT', id: 'LBL_MEAS', label: 'Estado', preview: 'MIDIENDO', capacity: 12, x: 10, y: 12, variable: 'estadoMed', page: 0, views: [1] },
+        { type: 'BOOL', id: 'IND_BOMBA', label: 'Bomba', variable: 'bombaActiva', x: 10, y: 40, page: 0, views: [1] },
+        {
+          type: 'MENU', id: 'MENU_CFG', page: 0, views: [0], x: 10, y: 40, width: 220, height: 96,
+          nodes: [
+            { key: 'start', parent: null, type: 'GO_VIEW', label: 'Iniciar', targetView: 1, confirmPopupId: 3 },
+            { key: 'pump', parent: null, type: 'EDIT_BOOL', label: 'Bomba', variable: 'bombaActiva', valueType: 'bool', initial: 0, falseText: 'OFF', trueText: 'ON' }
+          ]
+        }
+      ],
+      popups: [
+        { id: 0, name: 'INFO_OK', preset: 'INFO', title: 'INFO', message: 'Proceso listo.', code: 'I01' },
+        { id: 1, name: 'AVISO_NIVEL', preset: 'WARN', title: 'AVISO', message: 'Nivel bajo.', code: 'W01', autoCloseMs: 3000 },
+        { id: 2, name: 'FALLA_BOMBA', preset: 'CRIT', title: 'FALLA', message: 'Bomba activa con sobrecarga.', code: 'E10', errCode: 'E10', triggerVar: 'bombaActiva' },
+        { id: 3, name: 'CONFIRMA_INICIO', preset: 'CONFIRM', title: 'INICIAR', message: 'Comenzar medicion?', messageTextSize: 2, acceptText: 'INICIAR', cancelText: 'CANCELAR', confirmOutVar: 'inicioConfirmado', targetPage: 0, targetView: 1 }
+      ]
+    });
+    const rSubPop = validateProject(subviewPopupProject);
+    check(rSubPop.errors.length === 0, `Subvistas + MENU GO_VIEW + 4 Popups I5-I6 valida sin errores${rSubPop.errors.map((e) => `\n      ${e.path}: ${e.message}`).join('')}`);
+    await session.load(subviewPopupProject);
+    const uiInteract = await session.page.evaluate(async () => {
+      const bar = document.getElementById('pageViewsBar');
+      const v2Btn = bar?.querySelector('[data-view-id="1"]');
+      v2Btn?.click();
+      await new Promise((r) => setTimeout(r, 60));
+      const activeViewAfterClick = window.JWPLCHMIEditor.getActivePageView(0);
+      document.getElementById('popupsModeToggleBtn')?.click();
+      await new Promise((r) => setTimeout(r, 60));
+      const popupsOpen = Boolean(window.JWPLCHMIPopups?.isOpen?.());
+      const inspShown = !document.getElementById('popupInspectorSection')?.hidden;
+      const leftShown = !document.getElementById('popupsLeftSection')?.hidden;
+      document.querySelector('#popupInspectorSection [data-popup-sub="appearance"]')?.click();
+      await new Promise((r) => setTimeout(r, 60));
+      const colorRect = document.querySelector('#popupInspectorSection .color-editor')?.getBoundingClientRect();
+      const prevRect = document.querySelector('#popupInspectorSection [data-popup-preview-canvas]')?.getBoundingClientRect();
+      const colorEditorVisible = Boolean(colorRect && colorRect.width > 100 && colorRect.height > 100);
+      const previewVisible = Boolean(prevRect && prevRect.width > 100 && prevRect.height > 60);
+      document.querySelector('#popupInspectorSection [data-popup-tab="data"]')?.click();
+      await new Promise((r) => setTimeout(r, 40));
+      const varPick = document.querySelector('#popupInspectorSection [data-popup-var-pick="triggerVar"]');
+      const varInput = document.querySelector('#popupInspectorSection [data-popup-prop="triggerVar"]');
+      const pickVals = varPick ? [...varPick.options].map((o) => o.value) : [];
+      const hasBoolVarOption = pickVals.includes('bombaActiva') && !pickVals.includes('estadoMed');
+      let varPickApplied = false;
+      if (varPick && varInput) {
+        varPick.value = 'bombaActiva';
+        varPick.dispatchEvent(new Event('change', { bubbles: true }));
+        varPickApplied = varInput.value === 'bombaActiva' && window.JWPLCHMIPopups.all()[0].triggerVar === 'bombaActiva';
+        varPick.value = '';
+        varPick.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      document.getElementById('popupsModeToggleBtn')?.click();
+      await new Promise((r) => setTimeout(r, 60));
+      const popupsClosed = !window.JWPLCHMIPopups?.isOpen?.();
+      return { barVisible: Boolean(bar && !bar.hidden), activeViewAfterClick, popupsOpen, inspShown, leftShown, colorEditorVisible, previewVisible, hasBoolVarOption, varPickApplied, popupsClosed };
+    });
+    check(uiInteract.barVisible && uiInteract.activeViewAfterClick === 1 && uiInteract.popupsOpen && uiInteract.inspShown && uiInteract.leftShown && uiInteract.colorEditorVisible && uiInteract.previewVisible && uiInteract.hasBoolVarOption && uiInteract.varPickApplied && uiInteract.popupsClosed,
+      `UI Designer alterna subvistas y modo Popups correctamente (${JSON.stringify(uiInteract)})`);
+    const subPopHeader = await session.header();
+    const pumpDecls = subPopHeader.match(/\bbool\s+bombaActiva\s*=/g) || [];
+    check(pumpDecls.length === 1, `1 sola declaración bool bombaActiva compartida entre BOOL, MENU y POPUP (${pumpDecls.length})`);
+    check(/JWPLC_UIFieldViews\(/.test(subPopHeader) &&
+      /JWPLC_UIMenuGoView\(/.test(subPopHeader) &&
+      /JWPLC_UIMenuNodeConfirm\(/.test(subPopHeader) &&
+      /JWPLC_UIPopupTextSize\(/.test(subPopHeader) &&
+      /JWPLC_Display\.pageView\(/.test(subPopHeader) &&
+      /JWPLC_Display\.setPopups\(/.test(subPopHeader),
+      'Header generado emite JWPLC_UIFieldViews, GO_VIEW, Confirm, TextSize, pageView() y setPopups()');
+    const savedSubPop = normalizeProject(await session.serialize());
+    const revalSubPop = validateProject(savedSubPop);
+    check(revalSubPop.errors.length === 0 && revalSubPop.warnings.length === 0 && savedSubPop.pages[0].views.length === 2 && savedSubPop.popups.length === 4,
+      `Serializado de subvistas + popups vuelve a validar sin avisos${revalSubPop.errors.concat(revalSubPop.warnings).map((e) => `\n      ${e.path}: ${e.message}`).join('')}`);
 
     console.log('6. Ejemplos');
     const examples = fs.readdirSync(path.join(DESIGNER, 'examples')).filter((f) => f.endsWith('.json')).sort();

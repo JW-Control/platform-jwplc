@@ -3,6 +3,7 @@
 
 #include "JWPLC_Display_API.h"
 #include "JWPLC_UI.h"
+#include "JWPLC_UI_RuntimeHooks.h"
 #include "JWPLC_Display_H3E1_Profile.h"
 
 #include <JWPLC_GlobalPeripherals.h>
@@ -140,6 +141,8 @@ namespace JWPLCUIPages
 {
     void setPageCount(uint8_t count)
     {
+        jwplcUIRuntimeEnsureLinked();
+
         if (count == 0)
         {
             count = 1;
@@ -191,7 +194,7 @@ namespace JWPLCUIPages
         return navigationEnabled() && g_selectionMode;
     }
 
-    void serviceNavigation()
+    bool serviceNavigation()
     {
         const uint8_t downMask = readButtonDownMask();
         const uint8_t pressedEdges =
@@ -200,7 +203,7 @@ namespace JWPLCUIPages
 
         if (!navigationEnabled())
         {
-            return;
+            return false;
         }
 
         if (g_selectionMode)
@@ -259,7 +262,7 @@ namespace JWPLCUIPages
                 consumeNavigationInput();
             }
 
-            return;
+            return consumed;
         }
 
         // PAGE_CONTENT: LEFT/RIGHT/UP/DOWN/OK quedan intactos para el usuario.
@@ -284,7 +287,10 @@ namespace JWPLCUIPages
         if (JWPLC_Buttons.pressed(BTN_ESC))
         {
             enterSelectionMode();
+            return true;
         }
+
+        return false;
     }
 
     void prepareEnter()

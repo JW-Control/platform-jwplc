@@ -29,7 +29,7 @@ DWIN_Key button = {0x10, 0x31, 4, 5};
 uint16_t counter = 0;
 String line;
 
-void handleCommand(const String &cmd)
+void handleCommand(String cmd)
 {
     if (cmd == "ping")
     {
@@ -48,10 +48,10 @@ void handleCommand(const String &cmd)
 
 void readConsole()
 {
-    Stream &console = transport.text();
-    while (console.available())
+    // transport.text(): el texto que llega de la consola del simulador.
+    while (transport.text().available())
     {
-        char c = console.read();
+        char c = transport.text().read();
         if (c == '\n')
         {
             line.trim();

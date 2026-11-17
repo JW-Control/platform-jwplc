@@ -4,6 +4,8 @@
 #include <Arduino.h>
 #include <stddef.h>
 
+struct JWPLC_TFTFont;
+
 #define JWPLC_UI_HAS_EVENT_LOG 1
 
 static constexpr uint8_t JWPLC_EVENT_MAX_RAM_DEFAULT = 64;
@@ -108,6 +110,8 @@ struct JWPLC_UIEventLog
     const JWPLC_UIEventDescriptor *descriptors;
     size_t descriptorCount;
     JWPLC_UIEventLogColors colors;
+    const JWPLC_TFTFont *headerFont = nullptr;
+    const JWPLC_TFTFont *rowFont = nullptr;
 };
 
 class JWPLC_TFTClass;
@@ -134,7 +138,7 @@ namespace JWPLCUIEventLog
     bool getRecord(size_t index, JWPLC_UIEventRecord &outRecord);
     void clear();
 
-    void service();
+    bool service();
     bool isPageActive();
     bool inDetail();
     void exitDetail();

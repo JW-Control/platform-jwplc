@@ -103,6 +103,7 @@ namespace
     const JWPLC_TFTFont *g_font = &JWPLC_FONT_GLCD;
     // 0.4.0: recorte activo. Fuera de la clase para no tocar su layout (ABI).
     bool g_clipActive = false;
+    uint16_t g_batchDepth = 0;
     JWPLC_TFTDatum g_datum = JWPLC_TFTDatum::TOP_LEFT;
     uint16_t g_padding = 0;
 
@@ -234,7 +235,10 @@ bool JWPLC_TFTClass::beginBatch(uint32_t timeoutMs)
     void *const self = xTaskGetCurrentTaskHandle();
     if (_batchOwner.load(std::memory_order_acquire) == self)
     {
-        // Idempotencia previa para la misma tarea: un endBatch() basta.
+        if (g_batchDepth < 0xFFFFU)
+        {
+            g_batchDepth++;
+        }
         return true;
     }
 
@@ -248,6 +252,7 @@ bool JWPLC_TFTClass::beginBatch(uint32_t timeoutMs)
     jwplcSPI_prepareForTFT();
     g_backend.startWrite();
 
+    g_batchDepth = 1;
     _batchOwner.store(self, std::memory_order_release);
     return true;
 }
@@ -261,6 +266,12 @@ void JWPLC_TFTClass::endBatch()
         return;
     }
 
+    if (g_batchDepth > 1U)
+    {
+        g_batchDepth--;
+        return;
+    }
+
     if (g_clipActive)
     {
         // El recorte vive sólo dentro del batch que lo pidió.
@@ -268,6 +279,7 @@ void JWPLC_TFTClass::endBatch()
         g_clipActive = false;
     }
 
+    g_batchDepth = 0;
     g_backend.endWrite();
     _batchOwner.store(nullptr, std::memory_order_release);
     jwplcSPI_release();

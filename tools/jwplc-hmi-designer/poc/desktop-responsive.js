@@ -6,6 +6,8 @@
   const STORAGE = 'jwplc-hmi-layout.';
   const WIDE_RATIO = 0.70;
   const COMPACT_RATIO = 0.38;
+  // Ancho mínimo del modo amplio: columnas 280 + 650 + 360 de desktop-responsive.css.
+  const WIDE_MIN_WIDTH = 1290;
   const ZOOMS = [1, 2, 3, 4, 6, 8];
   // Dentro de OpenPLC el botón del sketch muestra el proyecto (carpeta hmi/).
   const openplc = window.JWPLCHMIHost?.mode === 'openplc';
@@ -35,7 +37,8 @@
   function chooseMode() {
     const ratio = screenRatio();
     if (ratio < COMPACT_RATIO || innerWidth < 620) return 'compact';
-    if (ratio < WIDE_RATIO) return 'medium';
+    // Dentro de OpenPLC (webview) outerWidth es el de toda la ventana: se mira también innerWidth.
+    if (ratio < WIDE_RATIO || innerWidth < WIDE_MIN_WIDTH) return 'medium';
     return 'wide';
   }
 
@@ -100,7 +103,7 @@
   function proxyTarget(key) {
     const selectors = {
       new: '#newProjectButton', open: '#openProjectButton', undo: '.cmd-undo',
-      redo: '.cmd-redo', fit: '#fitButton', fitSelection: '#fitSelectionButton', sketch: '#linkSketchButton', install: '#installAppButton'
+      redo: '.cmd-redo', sketch: '#linkSketchButton', install: '#installAppButton'
     };
     return selectors[key] ? $(selectors[key]) : null;
   }
@@ -118,8 +121,6 @@
         <button type="button" data-proxy="open">Abrir proyecto</button>
         <button type="button" data-proxy="undo">Deshacer</button>
         <button type="button" data-proxy="redo">Rehacer</button>
-        <button type="button" data-proxy="fit">Ajustar canvas</button>
-        <button type="button" data-proxy="fitSelection">Ajustar selección</button>
         <button type="button" data-proxy="sketch">Vincular sketch…</button>
         <button type="button" data-proxy="install">Instalar app</button>
       </div>`;
@@ -136,14 +137,8 @@
     $$('[data-proxy]', menu).forEach((button) => {
       button.addEventListener('click', () => {
         const proxyKey = button.dataset.proxy;
-        if (proxyKey === 'fit') {
-          window.JWPLCHMIEditor?.fitCanvas?.();
-        } else if (proxyKey === 'fitSelection') {
-          window.JWPLCHMIEditor?.fitSelection?.();
-        } else {
-          const source = proxyTarget(proxyKey);
-          if (source && !source.disabled && !source.hidden) source.click();
-        }
+        const source = proxyTarget(proxyKey);
+        if (source && !source.disabled && !source.hidden) source.click();
         menu.hidden = true;
         toggle.setAttribute('aria-expanded', 'false');
       });
@@ -169,9 +164,12 @@
     });
   }
 
+  // La vista previa vive en el panel izquierdo («Vista Previa»); sin .preview-section la pestaña «Vista 1:1» no mostraría nada.
+  const hasRightPreview = () => Boolean($('.right-panel .preview-section'));
+
   function ensureRightTabs() {
     const panel = rightPanel();
-    if (!panel || $('#responsiveRightTabs')) return;
+    if (!panel || $('#responsiveRightTabs') || !hasRightPreview()) return;
     const tabs = document.createElement('div');
     tabs.id = 'responsiveRightTabs';
     tabs.className = 'responsive-right-tabs';
@@ -205,7 +203,7 @@
       });
       bar.appendChild(button);
     }
-    if (!$('#compactPreviewButton')) {
+    if (!$('#compactPreviewButton') && hasRightPreview()) {
       const button = document.createElement('button');
       button.id = 'compactPreviewButton';
       button.type = 'button';
@@ -382,20 +380,6 @@
   }
 
   function bindAdaptiveFit() {
-    const fit = $('#fitButton');
-    if (fit && fit.dataset.responsiveBound !== '1') {
-      fit.dataset.responsiveBound = '1';
-      fit.addEventListener('click', () => {
-        window.JWPLCHMIEditor?.fitCanvas?.();
-      });
-    }
-    const fitSel = $('#fitSelectionButton');
-    if (fitSel && fitSel.dataset.responsiveBound !== '1') {
-      fitSel.dataset.responsiveBound = '1';
-      fitSel.addEventListener('click', () => {
-        window.JWPLCHMIEditor?.fitSelection?.();
-      });
-    }
     const select = $('#zoomSelect');
     if (select && select.dataset.responsiveBound !== '1') {
       select.dataset.responsiveBound = '1';

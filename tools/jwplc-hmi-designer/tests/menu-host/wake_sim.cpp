@@ -14,6 +14,10 @@
 
 #include <cstdio>
 
+// Desde #239 Pages/Menu llaman a jwplcUIRuntimeEnsureLinked() (definida en
+// JWPLC_UI_API.cpp, que este simulador no compila): basta un cuerpo vacío.
+extern "C" void jwplcUIRuntimeEnsureLinked(void) {}
+
 JW_MatrixButtons JWPLC_Buttons;
 JWPLC_DisplayClass JWPLC_Display;
 
@@ -39,6 +43,16 @@ namespace JWPLCUI
     void requestRefresh() {}
     void invalidateAll(bool) {}
 }
+
+// Alpha17 (subvistas y popups I5-I6): el MENU consulta la subvista de la página
+// y puede pedir una confirmación modal. En host no hay subvistas ni popups.
+namespace JWPLCUI
+{
+    void setPageView(uint8_t, uint8_t) {}
+    uint8_t pageView(uint8_t) { return 0; }
+}
+extern "C" bool jwplcUIOverlayRequestConfirm(uint8_t, void (*)(void *), void *) { return false; }
+extern "C" bool jwplcUIOverlayOverlapsRect(int16_t, int16_t, int16_t, int16_t) { return false; }
 
 // Hook de la barra de navegación (strong, como el que emite el Designer).
 static int g_modeCalls = 0;

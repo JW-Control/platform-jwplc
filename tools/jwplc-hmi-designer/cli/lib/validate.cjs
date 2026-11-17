@@ -12,6 +12,7 @@ const path = require('path');
 const vm = require('vm');
 const spec = require('./spec.cjs');
 const icons = require('./icons.cjs');
+const qrCore = require('../../poc/designer-qr-core.js');
 
 const POC = path.resolve(__dirname, '..', '..', 'poc');
 const SYMBOL = /^[A-Za-z_][A-Za-z0-9_]*$/;
@@ -153,8 +154,9 @@ function noGlyph(report, at, text) {
 // Tipo C++ de la variable de cada campo (como designer-codegen-core.js).
 function cppType(field) {
   if (field.type === 'TEXT') return 'char[]';
+  if (field.type === 'QR') return field.sourceMode === 'VARIABLE' ? 'char[]' : null;
   if (field.type === 'BOOL') return 'bool';
-  if (field.type === 'BAR') return 'float';
+  if (field.type === 'BAR' || field.type === 'TREND') return 'float';
   if (field.type === 'ICON') return field.iconVarType === 'uint8' ? 'uint8_t' : 'bool';
   if (field.type === 'VALUE') {
     if (field.valueKind === 'DATETIME') return null;
@@ -179,6 +181,32 @@ function validateField(field, i, project, report) {
   if (field.type !== 'NAV_BAR' && Number.isInteger(field.page) && field.page >= project.pages.length) {
     report.error(`${where}.page`, `la página ${field.page} no existe (hay ${project.pages.length}: 0..${project.pages.length - 1})`);
   }
+  if (field.pages !== undefined) {
+    if (!Array.isArray(field.pages) || !field.pages.length) {
+      report.error(`${where}.pages`, 'debe ser un arreglo no vacío de IDs de página');
+    } else if (['NAV_BAR', 'MENU', 'EVENT_LOG'].includes(field.type)) {
+      report.error(`${where}.pages`, `${field.type} no admite múltiples páginas`);
+    } else {
+      field.pages.forEach((p, idx) => {
+        if (!Number.isInteger(p) || p < 0 || p >= project.pages.length) {
+          report.error(`${where}.pages[${idx}]`, `la página ${p} no existe (hay ${project.pages.length}: 0..${project.pages.length - 1})`);
+        }
+      });
+    }
+  }
+  if (field.views !== undefined) {
+    if (!Array.isArray(field.views)) {
+      report.error(`${where}.views`, 'debe ser un arreglo de índices de subvista (0..7)');
+    } else if (['NAV_BAR', 'EVENT_LOG'].includes(field.type)) {
+      report.error(`${where}.views`, `${field.type} no admite subvistas`);
+    } else {
+      field.views.forEach((v, idx) => {
+        if (!Number.isInteger(v) || v < 0 || v >= spec.LIMITS.viewsPerPage) {
+          report.error(`${where}.views[${idx}]`, `la subvista ${v} debe estar entre 0 y ${spec.LIMITS.viewsPerPage - 1}`);
+        }
+      });
+    }
+  }
 
   switch (field.type) {
     case 'TEXT':
@@ -186,7 +214,8 @@ function validateField(field, i, project, report) {
     case 'BOOL':
     case 'BAR':
     case 'ICON':
-      noGlyph(report, where, `${field.label || ''}${field.unit || ''}${field.falseText || ''}${field.trueText || ''}${field.barLabel || ''}${field.barUnit || ''}`);
+    case 'TREND':
+      noGlyph(report, where, `${field.label || ''}${field.unit || ''}${field.falseText || ''}${field.trueText || ''}${field.barLabel || ''}${field.barUnit || ''}${field.title || ''}${field.ch2Label || ''}${field.ch3Label || ''}`);
       break;
     case 'RAW_TEXT':
       if (field.font === 'GLCD') noGlyph(report, `${where}.text`, field.text);
@@ -201,20 +230,64 @@ function validateField(field, i, project, report) {
   }
   if (field.type === 'BAR') {
     if (Number(field.barMax) <= Number(field.barMin)) report.error(`${where}.barMax`, `barMax (${field.barMax}) debe ser mayor que barMin (${field.barMin})`);
-    // El firmware dibuja la barra LINEAR sólida horizontal y el medidor CIRCULAR.
-    if (field.barPreset !== undefined && !['LINEAR', 'CIRCULAR'].includes(field.barPreset)) report.warn(`${where}.barPreset`, 'el firmware sólo dibuja LINEAR o CIRCULAR; se generará LINEAR');
-    const caps = { barFillMode: 'SOLID', barOrientation: 'HORIZONTAL' };
-    for (const [key, ok] of Object.entries(caps)) {
-      if (field[key] !== undefined && field[key] !== ok) report.warn(`${where}.${key}`, `el firmware sólo dibuja ${key} = ${ok}; se generará así`);
+    if (field.barPreset !== undefined && !['LINEAR', 'CIRCULAR', 'GRADIENT'].includes(field.barPreset)) report.warn(`${where}.barPreset`, 'el firmware sólo dibuja LINEAR, CIRCULAR o GRADIENT; se generará LINEAR');
+    if (field.barOrientation && !['HORIZONTAL', 'VERTICAL'].includes(field.barOrientation)) {
+      report.warn(`${where}.barOrientation`, 'orientación no válida; se usará HORIZONTAL');
+    }
+    if (field.barStyle && !['SOLID', 'BLOCKS'].includes(field.barStyle)) {
+      report.warn(`${where}.barStyle`, 'estilo no soportado; se usará SOLID');
+    }
+    if (field.barFillMode && !['SOLID', 'GRADIENT'].includes(field.barFillMode)) {
+      report.warn(`${where}.barFillMode`, 'modo de relleno no válido; se usará SOLID');
+    }
+  }
+  if (field.type === 'TREND') {
+    if (field.scaleMode === 'MANUAL' && Number(field.maxValue) <= Number(field.minValue)) {
+      report.error(`${where}.maxValue`, `maxValue (${field.maxValue}) debe ser mayor que minValue (${field.minValue})`);
+    }
+    if (field.ch2Enabled && !field.ch2Variable) {
+      report.error(`${where}.ch2Variable`, 'falta variable C++ para el canal 2 (ch2Enabled es true)');
+    }
+    if (field.ch3Enabled && !field.ch3Variable) {
+      report.error(`${where}.ch3Variable`, 'falta variable C++ para el canal 3 (ch3Enabled es true)');
     }
   }
   if (field.type === 'ICON') validateIcon(field, where, project, report);
+  if (field.type === 'QR') {
+    const m = qrCore.computeMetrics(field);
+    if (field.sourceMode === 'VARIABLE' && !field.variable) {
+      report.error(`${where}.variable`, 'falta variable C++ para QR en modo VARIABLE');
+    }
+    if (!m.ok) {
+      if (field.sourceMode === 'VARIABLE' && m.encoded?.empty) {
+        report.warn(`${where}.text`, 'el texto de vista previa del QR está vacío');
+      } else {
+        report.error(`${where}.text`, m.encoded?.error || 'contenido inválido para QR');
+      }
+    }
+    if (field.sourceMode === 'VARIABLE' && m.byteLength > field.maxLength) {
+      report.warn(`${where}.maxLength`, `el texto inicial (${m.byteLength} B) supera maxLength (${field.maxLength} B)`);
+    }
+    if (!m.fitsScreen) {
+      report.warn(`${where}.scale`, `el QR (${m.width}×${m.height} px) supera la pantalla 320×170 px`);
+    }
+  }
   if (spec.SHAPE_TYPES.includes(field.type)) {
     if (field.type !== 'LINE' && (field.x === field.x2 || field.y === field.y2)) report.warn(where, 'la caja tiene ancho o alto 0: no se verá');
   }
   if (field.type === 'MENU' && Array.isArray(field.nodes)) {
+    const popupIds = new Set((Array.isArray(project.popups) ? project.popups : []).map((p) => p && Number(p.id)).filter((id) => Number.isInteger(id)));
     field.nodes.forEach((n, k) => {
-      if (n && typeof n === 'object') checkProps(n, spec.MENU_NODE, `${where}.nodes[${k}]${n.label ? ` (${n.label})` : ''}`, report);
+      const nodeWhere = `${where}.nodes[${k}]${n && n.label ? ` (${n.label})` : ''}`;
+      if (n && typeof n === 'object') {
+        checkProps(n, spec.MENU_NODE, nodeWhere, report);
+        if (n.type === 'GO_VIEW' && (!Number.isInteger(n.targetView) || n.targetView < 0 || n.targetView >= spec.LIMITS.viewsPerPage)) {
+          report.error(`${nodeWhere}.targetView`, `GO_VIEW requiere targetView entre 0 y ${spec.LIMITS.viewsPerPage - 1}`);
+        }
+        if (Number.isInteger(n.confirmPopupId) && n.confirmPopupId >= 0 && !popupIds.has(n.confirmPopupId)) {
+          report.error(`${nodeWhere}.confirmPopupId`, `popup id ${n.confirmPopupId} no existe en popups[]`);
+        }
+      }
     });
     if (field.colors && typeof field.colors === 'object') {
       for (const [key, value] of Object.entries(field.colors)) {
@@ -262,6 +335,24 @@ function validateProject(project) {
     if (!page || typeof page !== 'object') { report.error(where, 'cada página debe ser un objeto o un texto'); return; }
     checkProps(page, spec.PAGE, where, report);
     if (page.id !== i) report.error(`${where}.id`, `los ids de página deben ser 0..N-1 en orden (esperado ${i})`);
+    if (page.views !== undefined) {
+      if (!Array.isArray(page.views) || page.views.length > spec.LIMITS.viewsPerPage) {
+        report.error(`${where}.views`, `debe ser un arreglo de 1 a ${spec.LIMITS.viewsPerPage} subvistas`);
+      } else {
+        page.views.forEach((v, vi) => {
+          const vw = `${where}.views[${vi}]`;
+          if (typeof v === 'string') {
+            noGlyph(report, vw, v);
+          } else if (v && typeof v === 'object' && !Array.isArray(v)) {
+            if (!Number.isInteger(v.id) || v.id < 0 || v.id >= spec.LIMITS.viewsPerPage) report.error(`${vw}.id`, `id de subvista fuera de rango (0..${spec.LIMITS.viewsPerPage - 1})`);
+            if (typeof v.name !== 'string' || !v.name.trim()) report.error(`${vw}.name`, 'falta nombre de subvista');
+            else noGlyph(report, `${vw}.name`, v.name);
+          } else {
+            report.error(vw, 'cada subvista debe ser texto o { id, name }');
+          }
+        });
+      }
+    }
     const key = String(page.name || '').trim().toUpperCase();
     if (key && pageNames.has(key)) report.warn(`${where}.name`, `nombre repetido con pages[${pageNames.get(key)}]`);
     pageNames.set(key, i);
@@ -272,7 +363,14 @@ function validateProject(project) {
 
   // Objetos
   const fields = Array.isArray(project.fields) ? project.fields : [];
-  if (fields.length > spec.LIMITS.fields) report.error('fields', `máximo ${spec.LIMITS.fields} objetos (hay ${fields.length}, contando la NAV_BAR)`);
+  const DYNAMIC_FIELD_TYPES = new Set(['TEXT', 'VALUE', 'BOOL', 'BAR', 'ICON', 'TREND']);
+  const dynamicFields = fields.filter((f) => f && typeof f === 'object' && DYNAMIC_FIELD_TYPES.has(f.type));
+  if (dynamicFields.length > spec.LIMITS.fields) {
+    report.error('fields', `máximo ${spec.LIMITS.fields} campos dinámicos (hay ${dynamicFields.length}; TEXT, VALUE, BOOL, BAR, ICON, TREND)`);
+  }
+  if (fields.length > (spec.LIMITS.totalObjects || 256)) {
+    report.error('fields', `máximo ${spec.LIMITS.totalObjects || 256} objetos en el proyecto (hay ${fields.length})`);
+  }
   fields.forEach((field, i) => validateField(field, i, project, report));
 
   const objects = fields.filter((f) => f && typeof f === 'object' && spec.TYPES[f.type]);
@@ -284,15 +382,59 @@ function validateProject(project) {
     if (ids.has(f.id)) report.error(`fields[${i}].id`, `el id ${f.id} ya lo usa fields[${ids.get(f.id)}]`);
     else ids.set(f.id, i);
   });
-  // Variables únicas entre campos (designer-codegen.js validationIssues); el MENU sí puede
-  // usar la variable de un campo si el tipo coincide (lo revisa designer-menu.js).
+  // Variables únicas entre campos incompatibles; campos escalares del mismo tipo C++
+  // (p. ej. VALUE float + TREND float + BAR float) sí pueden compartir una misma variable.
   const variables = new Map();
+  const checkVariable = (sym, varPath, f, i, varType) => {
+    const prev = variables.get(sym);
+    if (!prev) {
+      variables.set(sym, { index: i, field: f, type: varType });
+      return;
+    }
+    if (prev.field !== f && prev.type === varType && varType !== 'char[]') return;
+    report.error(varPath, `la variable ${sym} ya la usa fields[${prev.index}] (${prev.type} vs ${varType}: sólo campos escalares del mismo tipo pueden compartir variable)`);
+  };
   objects.forEach((f) => {
-    if (!cppType(f) || !f.variable) return;
+    const varType = cppType(f);
+    if (!varType || !f.variable) return;
     const i = fields.indexOf(f);
-    if (variables.has(f.variable)) {
-      report.error(`fields[${i}].variable`, `la variable ${f.variable} ya la usa fields[${variables.get(f.variable)}]: cada campo declara la suya (para mostrar un valor en dos lugares usa dos variables y asígnalas igual en el sketch)`);
-    } else variables.set(f.variable, i);
+    checkVariable(f.variable, `fields[${i}].variable`, f, i, varType);
+    if (f.type === 'TREND') {
+      if (f.ch2Enabled && f.ch2Variable) {
+        checkVariable(f.ch2Variable, `fields[${i}].ch2Variable`, f, i, 'float');
+      }
+      if (f.ch3Enabled && f.ch3Variable) {
+        checkVariable(f.ch3Variable, `fields[${i}].ch3Variable`, f, i, 'float');
+      }
+    }
+  });
+  // Popups (ventanas emergentes I5-I6)
+  const popups = Array.isArray(project.popups) ? project.popups : [];
+  if (popups.length > spec.LIMITS.popups) report.error('popups', `máximo ${spec.LIMITS.popups} ventanas emergentes (hay ${popups.length})`);
+  const popupIds = new Map();
+  popups.forEach((p, idx) => {
+    const where = `popups[${idx}]${p && p.id !== undefined ? ` (id ${p.id})` : ''}`;
+    if (!p || typeof p !== 'object' || Array.isArray(p)) { report.error(where, 'cada popup debe ser un objeto JSON'); return; }
+    checkProps(p, spec.POPUP, where, report);
+    if (Number.isInteger(p.id)) {
+      if (popupIds.has(p.id)) report.error(`${where}.id`, `el id ${p.id} ya lo usa popups[${popupIds.get(p.id)}]`);
+      else popupIds.set(p.id, idx);
+    }
+    noGlyph(report, `${where}.title`, p.title);
+    noGlyph(report, `${where}.message`, p.message);
+    noGlyph(report, `${where}.acceptText`, p.acceptText);
+    noGlyph(report, `${where}.cancelText`, p.cancelText);
+    if (Number.isInteger(p.targetPage) && p.targetPage >= pages.length) {
+      report.error(`${where}.targetPage`, `la página ${p.targetPage} no existe`);
+    }
+    if (p.colors && typeof p.colors === 'object') {
+      for (const [k, v] of Object.entries(p.colors)) {
+        if (!(k in spec.POPUP_COLORS)) report.warn(`${where}.colors.${k}`, `color desconocido; usa ${Object.keys(spec.POPUP_COLORS).join(', ')}`);
+        else if (!Number.isInteger(v) || v < 0 || v > 0xFFFF) report.error(`${where}.colors.${k}`, `color no válido ${JSON.stringify(v)}`);
+      }
+    }
+    if (p.triggerVar) checkVariable(p.triggerVar, `${where}.triggerVar`, p, idx, 'bool');
+    if (p.confirmOutVar) checkVariable(p.confirmOutVar, `${where}.confirmOutVar`, p, idx, 'bool');
   });
   // NAV_BAR
   const navs = objects.filter((f) => f.type === 'NAV_BAR');

@@ -9,7 +9,7 @@ Las propiedades internas que el Designer guarda pero que no hace falta escribir 
 ## Límites
 
 - Pantalla: 320×170 px, origen arriba a la izquierda.
-- Páginas: 1 a 16. Objetos: 32 (contando la NAV_BAR). Capas PIXEL: 16.
+- Páginas: 1 a 16. Objetos: 64 (contando la NAV_BAR). Capas PIXEL: 16.
 - MENU: uno por página, 4 en el proyecto, 64 nodos y 3 niveles por MENU.
 
 ## Colores
@@ -27,7 +27,8 @@ Número RGB565 (`63488`), texto hexadecimal (`"0xF800"`), `"#RRGGBB"` / `"#RGB"`
 | `projectName` | texto | `"HMI_ST7789"` | Nombre del proyecto (48 caracteres). |
 | `display` | objeto |  | Pantalla IDLE y arranque (ver «display»). |
 | `pages` **(obligatoria)** | arreglo |  | Páginas (1 a 16). |
-| `fields` | arreglo | `[]` | Objetos (máximo 32 contando la NAV_BAR). |
+| `fields` | arreglo | `[]` | Objetos (máximo 64 campos dinámicos TEXT/VALUE/BOOL/BAR/ICON/TREND; figuras, RAW_TEXT, MENU, EVENT_LOG y NAV_BAR no gastan cupo). |
+| `popups` | arreglo | `[]` | Ventanas emergentes modales I5-I6 (máximo 12). |
 | `pixelMaps` | arreglo | `[]` | Capas de píxeles (máximo 16). |
 
 ## Páginas (`pages[]`)
@@ -40,6 +41,7 @@ Cada página puede ser un texto (`"Principal"`) o un objeto:
 | `name` **(obligatoria)** | texto |  | Nombre de la página (también da el símbolo C++ PAGE_<NOMBRE>). |
 | `shortName` | texto |  | Nombre corto para las pestañas de la barra de navegación. |
 | `color` | color |  | Color de la pestaña de la página. |
+| `views` | arreglo |  | Subvistas opcionales (1 a 8) dentro de esta página: strings o { id, name }. |
 | `fields` | arreglo |  | Atajo: objetos de esta página (la normalización los pasa a `fields` con page = id). |
 
 ## Pantalla IDLE y arranque (`display`)
@@ -66,6 +68,8 @@ Texto dinámico. Declara `char variable[2·capacity+1]`; el sketch lo llena y el
 | `name` | texto |  | Nombre visible en la lista de objetos del Designer (no llega al C++). |
 | `id` | identificador C++ |  | Identificador C++ del objeto (único en el proyecto). Si falta se genera FIELD_<TIPO>_<n>. |
 | `page` | entero 0..15 | `0` | Página (id) donde se dibuja. |
+| `pages` | arreglo |  | Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez. |
+| `views` | arreglo |  | Subvistas opcionales (índices 0..7 dentro de la página) donde aparece el objeto. Omitido o vacío = visible en todas. |
 | `layerOrder` | entero 0..9999 |  | Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima). |
 | `x` **(obligatoria)** | entero 0..319 |  | Esquina superior izquierda, X (px). |
 | `y` **(obligatoria)** | entero 0..169 |  | Esquina superior izquierda, Y (px). |
@@ -74,6 +78,8 @@ Texto dinámico. Declara `char variable[2·capacity+1]`; el sketch lo llena y el
 | `unit` | texto | `""` | Unidad tras el valor. Vacía = sin unidad. |
 | `labelSize` | entero 1..4 | `1` | Escala de la etiqueta (celda GLCD 6×8 px × escala). |
 | `valueSize` | entero 1..4 | `2` | Escala del valor. |
+| `labelFont` | `"GLCD"` · `"FONT2"` · `"FONT4"` · `"FONT_16"` · `"FONT_26"` · `"FONT_7SEG_48"` · `"7SEG_48"` · `"SANS_9"` · `"SANS_BOLD_9"` · `"SANS_12"` · `"SANS_BOLD_12"` · `"SANS_18"` · `"SANS_BOLD_18"` · `"SANS_24"` · `"SANS_BOLD_24"` · `"SERIF_9"` · `"SERIF_BOLD_9"` · `"SERIF_12"` · `"SERIF_BOLD_12"` · `"SERIF_18"` · `"SERIF_BOLD_18"` · `"SERIF_24"` · `"SERIF_BOLD_24"` · `"MONO_9"` · `"MONO_BOLD_9"` · `"MONO_12"` · `"MONO_BOLD_12"` · `"MONO_18"` · `"MONO_BOLD_18"` · `"MONO_24"` · `"MONO_BOLD_24"` | `"GLCD"` | Fuente de la etiqueta (GLCD por defecto, bitmap o FreeFonts). |
+| `valueFont` | `"GLCD"` · `"FONT2"` · `"FONT4"` · `"FONT_16"` · `"FONT_26"` · `"FONT_7SEG_48"` · `"7SEG_48"` · `"SANS_9"` · `"SANS_BOLD_9"` · `"SANS_12"` · `"SANS_BOLD_12"` · `"SANS_18"` · `"SANS_BOLD_18"` · `"SANS_24"` · `"SANS_BOLD_24"` · `"SERIF_9"` · `"SERIF_BOLD_9"` · `"SERIF_12"` · `"SERIF_BOLD_12"` · `"SERIF_18"` · `"SERIF_BOLD_18"` · `"SERIF_24"` · `"SERIF_BOLD_24"` · `"MONO_9"` · `"MONO_BOLD_9"` · `"MONO_12"` · `"MONO_BOLD_12"` · `"MONO_18"` · `"MONO_BOLD_18"` · `"MONO_24"` · `"MONO_BOLD_24"` | `"GLCD"` | Fuente del valor o estado (GLCD por defecto, bitmap, FreeFonts o 7SEG_48). |
 | `frame` | bool | `false` | Marco alrededor del campo. |
 | `layout` | `"INLINE"` · `"STACKED"` | `"INLINE"` | INLINE: etiqueta y valor en una fila. STACKED: etiqueta arriba, valor abajo. |
 | `align` | `"LEFT"` · `"CENTER"` · `"RIGHT"` | `"LEFT"` | Alineación del valor dentro del campo. |
@@ -94,6 +100,8 @@ Número con formato (o duración, o fecha/hora del RTC). Declara `float` (o `int
 | `name` | texto |  | Nombre visible en la lista de objetos del Designer (no llega al C++). |
 | `id` | identificador C++ |  | Identificador C++ del objeto (único en el proyecto). Si falta se genera FIELD_<TIPO>_<n>. |
 | `page` | entero 0..15 | `0` | Página (id) donde se dibuja. |
+| `pages` | arreglo |  | Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez. |
+| `views` | arreglo |  | Subvistas opcionales (índices 0..7 dentro de la página) donde aparece el objeto. Omitido o vacío = visible en todas. |
 | `layerOrder` | entero 0..9999 |  | Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima). |
 | `x` **(obligatoria)** | entero 0..319 |  | Esquina superior izquierda, X (px). |
 | `y` **(obligatoria)** | entero 0..169 |  | Esquina superior izquierda, Y (px). |
@@ -102,6 +110,8 @@ Número con formato (o duración, o fecha/hora del RTC). Declara `float` (o `int
 | `unit` | texto | `""` | Unidad tras el valor. Vacía = sin unidad. |
 | `labelSize` | entero 1..4 | `1` | Escala de la etiqueta (celda GLCD 6×8 px × escala). |
 | `valueSize` | entero 1..4 | `2` | Escala del valor. |
+| `labelFont` | `"GLCD"` · `"FONT2"` · `"FONT4"` · `"FONT_16"` · `"FONT_26"` · `"FONT_7SEG_48"` · `"7SEG_48"` · `"SANS_9"` · `"SANS_BOLD_9"` · `"SANS_12"` · `"SANS_BOLD_12"` · `"SANS_18"` · `"SANS_BOLD_18"` · `"SANS_24"` · `"SANS_BOLD_24"` · `"SERIF_9"` · `"SERIF_BOLD_9"` · `"SERIF_12"` · `"SERIF_BOLD_12"` · `"SERIF_18"` · `"SERIF_BOLD_18"` · `"SERIF_24"` · `"SERIF_BOLD_24"` · `"MONO_9"` · `"MONO_BOLD_9"` · `"MONO_12"` · `"MONO_BOLD_12"` · `"MONO_18"` · `"MONO_BOLD_18"` · `"MONO_24"` · `"MONO_BOLD_24"` | `"GLCD"` | Fuente de la etiqueta (GLCD por defecto, bitmap o FreeFonts). |
+| `valueFont` | `"GLCD"` · `"FONT2"` · `"FONT4"` · `"FONT_16"` · `"FONT_26"` · `"FONT_7SEG_48"` · `"7SEG_48"` · `"SANS_9"` · `"SANS_BOLD_9"` · `"SANS_12"` · `"SANS_BOLD_12"` · `"SANS_18"` · `"SANS_BOLD_18"` · `"SANS_24"` · `"SANS_BOLD_24"` · `"SERIF_9"` · `"SERIF_BOLD_9"` · `"SERIF_12"` · `"SERIF_BOLD_12"` · `"SERIF_18"` · `"SERIF_BOLD_18"` · `"SERIF_24"` · `"SERIF_BOLD_24"` · `"MONO_9"` · `"MONO_BOLD_9"` · `"MONO_12"` · `"MONO_BOLD_12"` · `"MONO_18"` · `"MONO_BOLD_18"` · `"MONO_24"` · `"MONO_BOLD_24"` | `"GLCD"` | Fuente del valor o estado (GLCD por defecto, bitmap, FreeFonts o 7SEG_48). |
 | `frame` | bool | `false` | Marco alrededor del campo. |
 | `layout` | `"INLINE"` · `"STACKED"` | `"INLINE"` | INLINE: etiqueta y valor en una fila. STACKED: etiqueta arriba, valor abajo. |
 | `align` | `"LEFT"` · `"CENTER"` · `"RIGHT"` | `"RIGHT"` | Alineación del valor dentro del campo. |
@@ -130,6 +140,8 @@ Estado ON/OFF. Declara `bool`. Muestra un texto por estado o un piloto (círculo
 | `name` | texto |  | Nombre visible en la lista de objetos del Designer (no llega al C++). |
 | `id` | identificador C++ |  | Identificador C++ del objeto (único en el proyecto). Si falta se genera FIELD_<TIPO>_<n>. |
 | `page` | entero 0..15 | `0` | Página (id) donde se dibuja. |
+| `pages` | arreglo |  | Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez. |
+| `views` | arreglo |  | Subvistas opcionales (índices 0..7 dentro de la página) donde aparece el objeto. Omitido o vacío = visible en todas. |
 | `layerOrder` | entero 0..9999 |  | Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima). |
 | `x` **(obligatoria)** | entero 0..319 |  | Esquina superior izquierda, X (px). |
 | `y` **(obligatoria)** | entero 0..169 |  | Esquina superior izquierda, Y (px). |
@@ -138,6 +150,8 @@ Estado ON/OFF. Declara `bool`. Muestra un texto por estado o un piloto (círculo
 | `unit` | texto | `""` | Unidad tras el valor. Vacía = sin unidad. |
 | `labelSize` | entero 1..4 | `1` | Escala de la etiqueta (celda GLCD 6×8 px × escala). |
 | `valueSize` | entero 1..4 | `2` | Escala del valor. |
+| `labelFont` | `"GLCD"` · `"FONT2"` · `"FONT4"` · `"FONT_16"` · `"FONT_26"` · `"FONT_7SEG_48"` · `"7SEG_48"` · `"SANS_9"` · `"SANS_BOLD_9"` · `"SANS_12"` · `"SANS_BOLD_12"` · `"SANS_18"` · `"SANS_BOLD_18"` · `"SANS_24"` · `"SANS_BOLD_24"` · `"SERIF_9"` · `"SERIF_BOLD_9"` · `"SERIF_12"` · `"SERIF_BOLD_12"` · `"SERIF_18"` · `"SERIF_BOLD_18"` · `"SERIF_24"` · `"SERIF_BOLD_24"` · `"MONO_9"` · `"MONO_BOLD_9"` · `"MONO_12"` · `"MONO_BOLD_12"` · `"MONO_18"` · `"MONO_BOLD_18"` · `"MONO_24"` · `"MONO_BOLD_24"` | `"GLCD"` | Fuente de la etiqueta (GLCD por defecto, bitmap o FreeFonts). |
+| `valueFont` | `"GLCD"` · `"FONT2"` · `"FONT4"` · `"FONT_16"` · `"FONT_26"` · `"FONT_7SEG_48"` · `"7SEG_48"` · `"SANS_9"` · `"SANS_BOLD_9"` · `"SANS_12"` · `"SANS_BOLD_12"` · `"SANS_18"` · `"SANS_BOLD_18"` · `"SANS_24"` · `"SANS_BOLD_24"` · `"SERIF_9"` · `"SERIF_BOLD_9"` · `"SERIF_12"` · `"SERIF_BOLD_12"` · `"SERIF_18"` · `"SERIF_BOLD_18"` · `"SERIF_24"` · `"SERIF_BOLD_24"` · `"MONO_9"` · `"MONO_BOLD_9"` · `"MONO_12"` · `"MONO_BOLD_12"` · `"MONO_18"` · `"MONO_BOLD_18"` · `"MONO_24"` · `"MONO_BOLD_24"` | `"GLCD"` | Fuente del valor o estado (GLCD por defecto, bitmap, FreeFonts o 7SEG_48). |
 | `frame` | bool | `false` | Marco alrededor del campo. |
 | `layout` | `"INLINE"` · `"STACKED"` | `"INLINE"` | INLINE: etiqueta y valor en una fila. STACKED: etiqueta arriba, valor abajo. |
 | `align` | `"LEFT"` · `"CENTER"` · `"RIGHT"` | `"CENTER"` | Alineación del valor dentro del campo. |
@@ -166,6 +180,8 @@ Indicador de nivel: barra lineal (`barPreset: LINEAR`) o medidor circular (`barP
 | `name` | texto |  | Nombre visible en la lista de objetos del Designer (no llega al C++). |
 | `id` | identificador C++ |  | Identificador C++ del objeto (único en el proyecto). Si falta se genera FIELD_<TIPO>_<n>. |
 | `page` | entero 0..15 | `0` | Página (id) donde se dibuja. |
+| `pages` | arreglo |  | Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez. |
+| `views` | arreglo |  | Subvistas opcionales (índices 0..7 dentro de la página) donde aparece el objeto. Omitido o vacío = visible en todas. |
 | `layerOrder` | entero 0..9999 |  | Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima). |
 | `x` **(obligatoria)** | entero 0..319 |  | Esquina superior izquierda, X (px). |
 | `y` **(obligatoria)** | entero 0..169 |  | Esquina superior izquierda, Y (px). |
@@ -174,6 +190,8 @@ Indicador de nivel: barra lineal (`barPreset: LINEAR`) o medidor circular (`barP
 | `unit` | texto | `""` | Unidad tras el valor. Vacía = sin unidad. |
 | `labelSize` | entero 1..4 | `1` | Escala de la etiqueta (celda GLCD 6×8 px × escala). |
 | `valueSize` | entero 1..4 | `1` | Escala del valor. |
+| `labelFont` | `"GLCD"` · `"FONT2"` · `"FONT4"` · `"FONT_16"` · `"FONT_26"` · `"FONT_7SEG_48"` · `"7SEG_48"` · `"SANS_9"` · `"SANS_BOLD_9"` · `"SANS_12"` · `"SANS_BOLD_12"` · `"SANS_18"` · `"SANS_BOLD_18"` · `"SANS_24"` · `"SANS_BOLD_24"` · `"SERIF_9"` · `"SERIF_BOLD_9"` · `"SERIF_12"` · `"SERIF_BOLD_12"` · `"SERIF_18"` · `"SERIF_BOLD_18"` · `"SERIF_24"` · `"SERIF_BOLD_24"` · `"MONO_9"` · `"MONO_BOLD_9"` · `"MONO_12"` · `"MONO_BOLD_12"` · `"MONO_18"` · `"MONO_BOLD_18"` · `"MONO_24"` · `"MONO_BOLD_24"` | `"GLCD"` | Fuente de la etiqueta (GLCD por defecto, bitmap o FreeFonts). |
+| `valueFont` | `"GLCD"` · `"FONT2"` · `"FONT4"` · `"FONT_16"` · `"FONT_26"` · `"FONT_7SEG_48"` · `"7SEG_48"` · `"SANS_9"` · `"SANS_BOLD_9"` · `"SANS_12"` · `"SANS_BOLD_12"` · `"SANS_18"` · `"SANS_BOLD_18"` · `"SANS_24"` · `"SANS_BOLD_24"` · `"SERIF_9"` · `"SERIF_BOLD_9"` · `"SERIF_12"` · `"SERIF_BOLD_12"` · `"SERIF_18"` · `"SERIF_BOLD_18"` · `"SERIF_24"` · `"SERIF_BOLD_24"` · `"MONO_9"` · `"MONO_BOLD_9"` · `"MONO_12"` · `"MONO_BOLD_12"` · `"MONO_18"` · `"MONO_BOLD_18"` · `"MONO_24"` · `"MONO_BOLD_24"` | `"GLCD"` | Fuente del valor o estado (GLCD por defecto, bitmap, FreeFonts o 7SEG_48). |
 | `frame` | bool | `false` | Marco alrededor del campo. |
 | `layout` | `"INLINE"` · `"STACKED"` | `"STACKED"` | INLINE: etiqueta y valor en una fila. STACKED: etiqueta arriba, valor abajo. |
 | `align` | `"LEFT"` · `"CENTER"` · `"RIGHT"` | `"LEFT"` | Alineación del valor dentro del campo. |
@@ -190,7 +208,16 @@ Indicador de nivel: barra lineal (`barPreset: LINEAR`) o medidor circular (`barP
 | `barValue` | número | `50` | Valor de muestra en el lienzo. |
 | `barWidth` | entero 20..320 | `110` | Ancho total del campo (px). |
 | `trackColor` | color | `0x0000` | Fondo de la pista (parte vacía). |
-| `barPreset` | `"LINEAR"` · `"CIRCULAR"` · `"GRADIENT"` | `"LINEAR"` | LINEAR = barra (JWPLC_UIBarField); CIRCULAR = medidor circular (JWPLC_UICircularField, propiedades circle*). GRADIENT cae a LINEAR. |
+| `barPreset` | `"LINEAR"` · `"CIRCULAR"` · `"GRADIENT"` | `"LINEAR"` | LINEAR = barra (JWPLC_UIBarField); CIRCULAR = medidor circular (JWPLC_UICircularField, propiedades circle*). GRADIENT cae a LINEAR con relleno degradado. |
+| `barFillMode` | `"SOLID"` · `"GRADIENT"` | `"SOLID"` | Relleno de la barra: sólido o degradado suave. |
+| `barOrientation` | `"HORIZONTAL"` · `"VERTICAL"` | `"HORIZONTAL"` | Orientación: barra horizontal o vertical (tanque). |
+| `barStyle` | `"SOLID"` · `"BLOCKS"` | `"SOLID"` | Estilo de barra: sólida continua o por bloques. |
+| `barCornerRadius` | undefined | `0` | Radio de esquinas: 0 (recto), 1..20 o FULL (píldora). |
+| `barBorderEnabled` | bool | `false` | Borde perimetral de la barra. |
+| `barBorderColor` | color | `0xFFFF` | Color del borde de la barra. |
+| `barBorderWidth` | entero 1..10 | `1` | Grosor del borde de la barra (px). |
+| `barHeight` | entero 1..170 | `12` | Alto del campo o longitud en vertical (px). |
+| `valueColorEnd` | color | `0x07E0` | Color final del degradado cuando barFillMode es GRADIENT. |
 | `circleRadius` | entero 10..80 | `26` | CIRCULAR: radio (px); el campo ocupa 2·radio de lado. |
 | `circleThickness` | entero 2..25 | `5` | CIRCULAR: grosor del arco (px). |
 | `circleSweep` | `360` · `270` · `240` · `180` | `360` | CIRCULAR: recorrido del arco (grados). |
@@ -212,12 +239,16 @@ Icono con estado (motor, piloto, válvula…; JWPLC_UIIconField): una imagen por
 | `name` | texto |  | Nombre visible en la lista de objetos del Designer (no llega al C++). |
 | `id` | identificador C++ |  | Identificador C++ del objeto (único en el proyecto). Si falta se genera FIELD_<TIPO>_<n>. |
 | `page` | entero 0..15 | `0` | Página (id) donde se dibuja. |
+| `pages` | arreglo |  | Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez. |
+| `views` | arreglo |  | Subvistas opcionales (índices 0..7 dentro de la página) donde aparece el objeto. Omitido o vacío = visible en todas. |
 | `layerOrder` | entero 0..9999 |  | Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima). |
 | `x` **(obligatoria)** | entero 0..319 |  | Esquina superior izquierda, X (px). |
 | `y` **(obligatoria)** | entero 0..169 |  | Esquina superior izquierda, Y (px). |
 | `variable` | identificador C++ |  | Variable C++ que el header declara y tu sketch asigna. Si falta se genera. |
 | `label` | texto | `""` | Etiqueta opcional (arriba con STACKED, a la izquierda con INLINE). Vacía = sin etiqueta. |
 | `labelSize` | entero 1..4 | `1` | Escala de la etiqueta (celda GLCD 6×8 px × escala). |
+| `labelFont` | `"GLCD"` · `"FONT2"` · `"FONT4"` · `"FONT_16"` · `"FONT_26"` · `"FONT_7SEG_48"` · `"7SEG_48"` · `"SANS_9"` · `"SANS_BOLD_9"` · `"SANS_12"` · `"SANS_BOLD_12"` · `"SANS_18"` · `"SANS_BOLD_18"` · `"SANS_24"` · `"SANS_BOLD_24"` · `"SERIF_9"` · `"SERIF_BOLD_9"` · `"SERIF_12"` · `"SERIF_BOLD_12"` · `"SERIF_18"` · `"SERIF_BOLD_18"` · `"SERIF_24"` · `"SERIF_BOLD_24"` · `"MONO_9"` · `"MONO_BOLD_9"` · `"MONO_12"` · `"MONO_BOLD_12"` · `"MONO_18"` · `"MONO_BOLD_18"` · `"MONO_24"` · `"MONO_BOLD_24"` | `"GLCD"` | Fuente de la etiqueta (GLCD por defecto, bitmap o FreeFonts). |
+| `valueFont` | `"GLCD"` · `"FONT2"` · `"FONT4"` · `"FONT_16"` · `"FONT_26"` · `"FONT_7SEG_48"` · `"7SEG_48"` · `"SANS_9"` · `"SANS_BOLD_9"` · `"SANS_12"` · `"SANS_BOLD_12"` · `"SANS_18"` · `"SANS_BOLD_18"` · `"SANS_24"` · `"SANS_BOLD_24"` · `"SERIF_9"` · `"SERIF_BOLD_9"` · `"SERIF_12"` · `"SERIF_BOLD_12"` · `"SERIF_18"` · `"SERIF_BOLD_18"` · `"SERIF_24"` · `"SERIF_BOLD_24"` · `"MONO_9"` · `"MONO_BOLD_9"` · `"MONO_12"` · `"MONO_BOLD_12"` · `"MONO_18"` · `"MONO_BOLD_18"` · `"MONO_24"` · `"MONO_BOLD_24"` | `"GLCD"` | Fuente del valor o estado (GLCD por defecto, bitmap, FreeFonts o 7SEG_48). |
 | `frame` | bool | `false` | Marco alrededor del campo. |
 | `layout` | `"INLINE"` · `"STACKED"` | `"STACKED"` | INLINE: etiqueta y valor en una fila. STACKED: etiqueta arriba, valor abajo. |
 | `labelColor` | color | `0xFFFF` | Color de la etiqueta. |
@@ -246,14 +277,14 @@ El estado `k` de la variable muestra la imagen `k` (bool: 0 = false, 1 = true). 
 |---|---|---|---|
 | `motores/motor` | Motor trifásico | 24, 32, 48, 64 | Parado · En marcha · Falla |
 | `motores/motorreductor` | Motorreductor | 24, 32, 48, 64 | Parado · En marcha · Falla |
-| `motores/motor_dos_sentidos` | Motor dos sentidos | 24, 32, 48 | Parado · Adelante · Atrás |
+| `motores/motor_dos_sentidos` | Motor dos sentidos | 24, 32, 48, 64 | Parado · Adelante · Atrás |
 | `bombas/bomba` | Bomba | 24, 32, 48, 64 | Parado · En marcha · Falla |
 | `bombas/ventilador` | Ventilador | 24, 32, 48, 64 | Parado · En marcha · Falla |
 | `bombas/compresor` | Compresor | 24, 32, 48 | Parado · En marcha · Falla |
-| `pilotos/piloto` | Piloto luminoso | 24, 32, 48 | Apagado · Encendido |
-| `pilotos/baliza` | Torre de señalización | 24, 32, 48 | Apagada · Verde · Ámbar · Ámbar+Verde · Rojo · Rojo+Verde · Rojo+Ámbar · Rojo+Ámbar+Verde · Azul · Azul+Verde · Azul+Ámbar · Azul+Ámbar+Verde · Azul+Rojo · Azul+Rojo+Verde · Azul+Rojo+Ámbar · Azul+Rojo+Ámbar+Verde |
+| `pilotos/piloto` | Piloto luminoso | 24, 32, 48, 64 | Apagado · Encendido |
+| `pilotos/baliza` | Torre de señalización | 24, 32, 48, 64, 96 | Apagada · Verde · Ámbar · Ámbar+Verde · Rojo · Rojo+Verde · Rojo+Ámbar · Rojo+Ámbar+Verde · Azul · Azul+Verde · Azul+Ámbar · Azul+Ámbar+Verde · Azul+Rojo · Azul+Rojo+Verde · Azul+Rojo+Ámbar · Azul+Rojo+Ámbar+Verde |
 | `valvulas/valvula` | Válvula | 24, 32, 48, 64 | Cerrada · Abierta · Falla |
-| `valvulas/valvula_motorizada` | Válvula motorizada | 24, 32, 48 | Cerrada · Abierta · Falla |
+| `valvulas/valvula_motorizada` | Válvula motorizada | 24, 32, 48, 64 | Cerrada · Abierta · Falla |
 | `valvulas/valvula_solenoide` | Electroválvula | 24, 32, 48 | Cerrada · Abierta · Falla |
 | `equipos/piston` | Pistón neumático | 24, 32, 48, 64 | Retraído · En movimiento · Extendido · Falla |
 | `equipos/piston_vertical` | Pistón vertical | 24, 32, 48, 64 | Retraído · En movimiento · Extendido · Falla |
@@ -273,6 +304,61 @@ El estado `k` de la variable muestra la imagen `k` (bool: 0 = false, 1 = true). 
 | `botones/selector` | Selector 0-1 | 24, 32, 48 | Posición 0 · Posición 1 |
 | `botones/contacto` | Contacto / interruptor | 24, 32, 48 | Abierto · Cerrado |
 
+### `TREND`
+
+Gráfica de tendencia temporal (JWPLC_UITrend). Declara `float`. Soporta auto-escala dinámica o fija, muestreo configurable y registro opcional en MicroSD.
+
+| Propiedad | Tipo / valores | Por defecto | Descripción |
+|---|---|---|---|
+| `type` **(obligatoria)** | texto |  | Tipo de objeto. |
+| `name` | texto |  | Nombre visible en la lista de objetos del Designer (no llega al C++). |
+| `id` | identificador C++ |  | Identificador C++ del objeto (único en el proyecto). Si falta se genera FIELD_<TIPO>_<n>. |
+| `page` | entero 0..15 | `0` | Página (id) donde se dibuja. |
+| `pages` | arreglo |  | Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez. |
+| `views` | arreglo |  | Subvistas opcionales (índices 0..7 dentro de la página) donde aparece el objeto. Omitido o vacío = visible en todas. |
+| `layerOrder` | entero 0..9999 |  | Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima). |
+| `x` **(obligatoria)** | entero 0..319 |  | Esquina superior izquierda, X (px). |
+| `y` **(obligatoria)** | entero 0..169 |  | Esquina superior izquierda, Y (px). |
+| `width` | entero 40..320 | `200` | Ancho total del widget (px). |
+| `height` | entero 30..170 | `80` | Alto total del widget (px). |
+| `variable` | identificador C++ | `"temperatura"` | Variable analógica C++ a graficar. |
+| `title` | texto | `"TEND"` | Título / Identificador de la curva. |
+| `unit` | texto | `""` | Unidad de la variable. |
+| `preview` | número | `24.5` | Valor de prueba para visualización en el lienzo. |
+| `sampleIntervalMs` | entero 50..60000 | `1000` | Periodo de muestreo en ms (ej. 1000 = 1 muestra/s, 100 = 10 Hz). |
+| `visibleSamples` | entero 20..320 | `150` | Puntos visibles en la ventana en vivo. |
+| `scaleMode` | `"AUTO"` · `"MANUAL"` | `"AUTO"` | AUTO: auto-escala dinámica con 3 guías. MANUAL: escala fija con minValue y maxValue. |
+| `minValue` | número | `0` | Valor mínimo en escala MANUAL. |
+| `maxValue` | número | `100` | Valor máximo en escala MANUAL. |
+| `decimals` | entero 0..3 | `1` | Decimales mostrados en las etiquetas del eje Y. |
+| `lineWidth` | `1` · `2` | `1` | Grosor de la curva en píxeles. |
+| `showAxes` | bool | `true` | Muestra el eje Y y eje X base. |
+| `showGuides` | bool | `true` | Muestra las líneas guía referenciales (25% y 75%). |
+| `showTimeAxis` | bool | `true` | Muestra marcas de tiempo en el eje X. |
+| `showLiveValue` | bool | `true` | Muestra el título y valor en vivo integrados en el encabezado de la gráfica. |
+| `frame` | bool | `true` | Marco exterior de la gráfica. |
+| `enableSD` | bool | `false` | Activa el registro continuo en tarjeta MicroSD. |
+| `sdIntervalMs` | entero 100..60000 | `1000` | Periodo de volcado a la tarjeta MicroSD. |
+| `curveColor` | color | `0xFD20` | Color de la línea de tendencia (Canal 1). |
+| `axesColor` | color | `0xFFFF` | Color de los ejes de coordenadas (color entero). |
+| `gridColor` | color | `0x4208` | Color de las líneas guía de fondo. |
+| `textColor` | color | `0xFFFF` | Color de las etiquetas y textos. |
+| `backgroundColor` | color | `0x0000` | Fondo del área de la gráfica. |
+| `ch2Enabled` | bool | `false` | Activa un segundo canal simultáneo (ej. consigna / setpoint). |
+| `ch2Variable` | identificador C++ | `"consigna"` | Variable analógica C++ del canal 2. |
+| `ch2Label` | texto | `"SP"` | Etiqueta corta del canal 2 en la leyenda. |
+| `ch2Color` | color | `0x07FF` | Color de la curva del canal 2. |
+| `ch3Enabled` | bool | `false` | Activa un tercer canal simultáneo. |
+| `ch3Variable` | identificador C++ | `"salida"` | Variable analógica C++ del canal 3. |
+| `ch3Label` | texto | `"CH3"` | Etiqueta corta del canal 3 en la leyenda. |
+| `ch3Color` | color | `0x07E0` | Color de la curva del canal 3. |
+| `thr1Enabled` | bool | `false` | Activa línea horizontal punteada de umbral/alarma 1. |
+| `thr1Value` | número | `85` | Valor numérico del umbral 1. |
+| `thr1Color` | color | `0xF800` | Color de la línea punteada de umbral 1. |
+| `thr2Enabled` | bool | `false` | Activa línea horizontal punteada de umbral/alarma 2. |
+| `thr2Value` | número | `20` | Valor numérico del umbral 2. |
+| `thr2Color` | color | `0xFFE0` | Color de la línea punteada de umbral 2. |
+
 ### `MENU`
 
 Árbol de menús para ver y editar variables con la botonera. Uno por página, hasta 4 en el proyecto, 64 nodos y 3 niveles.
@@ -283,14 +369,26 @@ El estado `k` de la variable muestra la imagen `k` (bool: 0 = false, 1 = true). 
 | `name` | texto |  | Nombre visible en la lista de objetos del Designer (no llega al C++). |
 | `id` | identificador C++ |  | Identificador C++ del objeto (único en el proyecto). Si falta se genera FIELD_<TIPO>_<n>. |
 | `page` | entero 0..15 | `0` | Página (id) donde se dibuja. |
+| `pages` | arreglo |  | Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez. |
+| `views` | arreglo |  | Subvistas opcionales (índices 0..7 dentro de la página) donde aparece el objeto. Omitido o vacío = visible en todas. |
 | `layerOrder` | entero 0..9999 |  | Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima). |
+| `cornerRadius` | entero 0..20 | `0` | Radio de esquinas para tarjetas/píldoras (rowStyle = CARDS). |
 | `x` **(obligatoria)** | entero 0..319 |  | Esquina superior izquierda, X (px). |
 | `y` **(obligatoria)** | entero 0..169 |  | Esquina superior izquierda, Y (px). |
 | `title` | texto | `"Ajustes"` | Título de la cabecera. |
 | `width` | entero 40..320 | `300` | Ancho (px). |
 | `height` | entero 30..170 | `124` | Alto (px). Filas de 12 px (textSize 1) o 20 px (textSize 2) bajo la cabecera. |
 | `textSize` | `1` · `2` | `1` | Escala del texto. |
+| `font` | `"GLCD"` · `"FONT2"` · `"FONT4"` · `"FONT_16"` · `"FONT_26"` · `"FONT_7SEG_48"` · `"7SEG_48"` · `"SANS_9"` · `"SANS_BOLD_9"` · `"SANS_12"` · `"SANS_BOLD_12"` · `"SANS_18"` · `"SANS_BOLD_18"` · `"SANS_24"` · `"SANS_BOLD_24"` · `"SERIF_9"` · `"SERIF_BOLD_9"` · `"SERIF_12"` · `"SERIF_BOLD_12"` · `"SERIF_18"` · `"SERIF_BOLD_18"` · `"SERIF_24"` · `"SERIF_BOLD_24"` · `"MONO_9"` · `"MONO_BOLD_9"` · `"MONO_12"` · `"MONO_BOLD_12"` · `"MONO_18"` · `"MONO_BOLD_18"` · `"MONO_24"` · `"MONO_BOLD_24"` | `"GLCD"` | Tipografía del menú (GLCD por defecto, bitmap o FreeFonts). |
 | `frame` | bool | `true` | Marco exterior. |
+| `rowStyle` | `"FLAT"` · `"CARDS"` | `"FLAT"` | FLAT: filas planas clásicas. CARDS: píldoras/tarjetas redondeadas separadas. |
+| `rowGap` | entero 0..16 | `4` | Separación vertical (px) entre tarjetas (rowStyle = CARDS). |
+| `rowPadY` | entero 0..16 | `5` | Relleno vertical interior (px) por fila (rowStyle = CARDS). |
+| `rowPadX` | entero 1..24 | `8` | Relleno horizontal interior (px) por fila (rowStyle = CARDS). |
+| `inlineValue` | bool | `false` | Pone etiqueta y valor juntos a la izquierda en lugar de alinear el valor a la derecha. |
+| `selectOutlineOnly` | bool | `false` | En CARDS, resalta la fila seleccionada con borde y texto de color en lugar de relleno sólido. |
+| `cardBackground` | color | `0x18E3` | Color de fondo de tarjetas no seleccionadas (CARDS). |
+| `cardBorder` | color | `0x39E7` | Color de borde de tarjetas no seleccionadas (CARDS). |
 | `colors` | objeto |  | Colores: text, background, value, selectText, selectBackground, editText, editBackground, title, titleBackground, frame. Los que falten toman su valor por defecto. |
 | `nodes` **(obligatoria)** | arreglo |  | Nodos del árbol (ver «Nodos de MENU»). Se pueden anidar con `children` en lugar de `parent`. |
 
@@ -300,23 +398,33 @@ El estado `k` de la variable muestra la imagen `k` (bool: 0 = false, 1 = true). 
 |---|---|---|---|
 | `key` | texto |  | Clave única del nodo dentro del MENU (se genera si falta). |
 | `parent` | texto |  | Clave del nodo padre (SUBMENU). null = raíz. Con `children` no hace falta. |
-| `type` **(obligatoria)** | `"SUBMENU"` · `"VIEW"` · `"EDIT_NUM"` · `"EDIT_BOOL"` · `"GO_IDLE"` |  | SUBMENU: abre hijos. VIEW: muestra una variable. EDIT_NUM/EDIT_BOOL: el operador la edita. GO_IDLE: vuelve a la pantalla de inicio. |
-| `label` **(obligatoria)** | texto |  | Texto de la fila. |
+| `type` **(obligatoria)** | `"SUBMENU"` · `"VIEW"` · `"EDIT_NUM"` · `"EDIT_BOOL"` · `"GO_IDLE"` · `"GO_VIEW"` |  | SUBMENU: abre hijos. VIEW: muestra una variable. EDIT_NUM/EDIT_BOOL: el operador la edita. GO_IDLE: vuelve a inicio. GO_VIEW: cambia a otra subvista de la página. |
+| `label` | texto | `""` | Texto de la fila. Vacío = botón centrado (píldora). |
 | `variable` | identificador C++ | `""` | Variable C++ (VIEW, EDIT_NUM, EDIT_BOOL). Puede ser la misma que la de un campo si el tipo coincide. |
-| `valueType` | `"float"` · `"int32"` · `"bool"` · `""` |  | VIEW: float\|int32\|bool. EDIT_NUM: float\|int32. EDIT_BOOL: bool. SUBMENU/GO_IDLE: vacío. |
+| `valueType` | `"float"` · `"int32"` · `"bool"` · `""` |  | VIEW: float\|int32\|bool. EDIT_NUM: float\|int32. EDIT_BOOL: bool. SUBMENU/GO_IDLE/GO_VIEW: vacío. |
 | `initial` | número | `0` | Valor inicial de la variable. |
 | `min` | número | `0` | Mínimo (EDIT_NUM). |
 | `max` | número | `100` | Máximo (EDIT_NUM). |
 | `step` | número | `1` | Paso de ▲▼ (EDIT_NUM). int32: entero. |
+| `lrStep` | entero 0..1000 |  | Paso rápido de ◄► (EDIT_NUM). 0 = 10 pasos por defecto; 1 = igual que ▲▼. |
 | `decimals` | entero 0..6 | `1` | Decimales mostrados (float). |
 | `unit` | texto | `""` | Unidad. |
+| `valuePrefix` | texto | `""` | Prefijo opcional antes del valor numérico (ej. "P" -> P01). |
+| `zeroPad` | entero 0..6 | `0` | Ceros a la izquierda para int32 (ej. 2 -> 01). |
 | `falseText` | texto | `"OFF"` | Texto para false (bool). |
 | `trueText` | texto | `"ON"` | Texto para true (bool). |
+| `directToggle` | bool |  | Si es true en EDIT_BOOL, alterna al pulsar OK una sola vez sin entrar al modo flechas. |
+| `hasPillColors` | bool | `false` | Usa relleno propio en el nodo (botón/píldora principal en CARDS). |
+| `pillFalseBg` | color | `0x05E0` | Fondo cuando el estado bool es false. |
+| `pillTrueBg` | color | `0xC800` | Fondo cuando el estado bool es true. |
+| `pillTextColor` | color | `0xFFFF` | Color del texto de la píldora. |
+| `targetView` | entero -1..7 | `-1` | Subvista destino (0..7) al pulsar OK; -1 = sin cambio. |
+| `confirmPopupId` | entero -1..254 | `-1` | ID de ventana CONFIRM previa antes de aplicar/navegar; -1 = ejecución directa. |
 | `children` | arreglo |  | Atajo: hijos anidados de un SUBMENU (la normalización los aplana con `parent`). |
 
 Colores del MENU (`colors`), por defecto:
 
-`text` = `0xFFFF` · `background` = `0x0000` · `value` = `0x07FF` · `selectText` = `0x0000` · `selectBackground` = `0x07FF` · `editText` = `0x0000` · `editBackground` = `0xFD20` · `title` = `0x0000` · `titleBackground` = `0xFFFF` · `frame` = `0xFFFF`
+`text` = `0xC618` · `background` = `0x0000` · `value` = `0x07FF` · `selectText` = `0xFFFF` · `selectBackground` = `0x03FF` · `editText` = `0x0000` · `editBackground` = `0xFD20` · `title` = `0xFFFF` · `titleBackground` = `0x2124` · `frame` = `0xFFFF`
 
 ### `EVENT_LOG`
 
@@ -328,12 +436,16 @@ Historial y registro de eventos (Alpha16). 10 filas de altura fija con registro 
 | `name` | texto |  | Nombre visible en la lista de objetos del Designer (no llega al C++). |
 | `id` | identificador C++ |  | Identificador C++ del objeto (único en el proyecto). Si falta se genera FIELD_<TIPO>_<n>. |
 | `page` | entero 0..15 | `0` | Página (id) donde se dibuja. |
+| `pages` | arreglo |  | Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez. |
+| `views` | arreglo |  | Subvistas opcionales (índices 0..7 dentro de la página) donde aparece el objeto. Omitido o vacío = visible en todas. |
 | `layerOrder` | entero 0..9999 |  | Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima). |
 | `x` **(obligatoria)** | entero 0..319 |  | Esquina superior izquierda, X (px). |
 | `y` **(obligatoria)** | entero 0..169 |  | Esquina superior izquierda, Y (px). |
 | `width` | entero 40..320 | `320` | Ancho (px). |
 | `height` | entero 30..170 | `170` | Alto (px). |
 | `frame` | bool | `true` | Marco exterior alrededor del historial. |
+| `headerFont` | `"GLCD"` · `"FONT2"` · `"FONT4"` · `"FONT_16"` · `"FONT_26"` · `"FONT_7SEG_48"` · `"7SEG_48"` · `"SANS_9"` · `"SANS_BOLD_9"` · `"SANS_12"` · `"SANS_BOLD_12"` · `"SANS_18"` · `"SANS_BOLD_18"` · `"SANS_24"` · `"SANS_BOLD_24"` · `"SERIF_9"` · `"SERIF_BOLD_9"` · `"SERIF_12"` · `"SERIF_BOLD_12"` · `"SERIF_18"` · `"SERIF_BOLD_18"` · `"SERIF_24"` · `"SERIF_BOLD_24"` · `"MONO_9"` · `"MONO_BOLD_9"` · `"MONO_12"` · `"MONO_BOLD_12"` · `"MONO_18"` · `"MONO_BOLD_18"` · `"MONO_24"` · `"MONO_BOLD_24"` | `"GLCD"` | Tipografía de la cabecera (GLCD por defecto). |
+| `rowFont` | `"GLCD"` · `"FONT2"` · `"FONT4"` · `"FONT_16"` · `"FONT_26"` · `"FONT_7SEG_48"` · `"7SEG_48"` · `"SANS_9"` · `"SANS_BOLD_9"` · `"SANS_12"` · `"SANS_BOLD_12"` · `"SANS_18"` · `"SANS_BOLD_18"` · `"SANS_24"` · `"SANS_BOLD_24"` · `"SERIF_9"` · `"SERIF_BOLD_9"` · `"SERIF_12"` · `"SERIF_BOLD_12"` · `"SERIF_18"` · `"SERIF_BOLD_18"` · `"SERIF_24"` · `"SERIF_BOLD_24"` · `"MONO_9"` · `"MONO_BOLD_9"` · `"MONO_12"` · `"MONO_BOLD_12"` · `"MONO_18"` · `"MONO_BOLD_18"` · `"MONO_24"` · `"MONO_BOLD_24"` | `"GLCD"` | Tipografía de las filas de eventos (GLCD por defecto). |
 | `ramCapacity` | entero 16..128 | `64` | Capacidad del buffer en RAM. |
 | `enableFram` | bool | `true` | Persistencia de los últimos 16 eventos en FRAM ante corte de luz. |
 | `enableSd` | bool | `true` | Exportación no bloqueante a microSD. |
@@ -350,15 +462,45 @@ Texto fijo (se dibuja una vez al entrar a la página). Admite fuentes GLCD, bitm
 | `name` | texto |  | Nombre visible en la lista de objetos del Designer (no llega al C++). |
 | `id` | identificador C++ |  | Identificador C++ del objeto (único en el proyecto). Si falta se genera FIELD_<TIPO>_<n>. |
 | `page` | entero 0..15 | `0` | Página (id) donde se dibuja. |
+| `pages` | arreglo |  | Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez. |
+| `views` | arreglo |  | Subvistas opcionales (índices 0..7 dentro de la página) donde aparece el objeto. Omitido o vacío = visible en todas. |
 | `layerOrder` | entero 0..9999 |  | Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima). |
 | `x` **(obligatoria)** | entero 0..319 |  | Esquina superior izquierda, X (px). |
 | `y` **(obligatoria)** | entero 0..169 |  | Esquina superior izquierda, Y (px). |
 | `text` **(obligatoria)** | texto |  | Texto. Tildes, ñ y ° sí existen en GLCD. |
-| `font` | `"GLCD"` · `"FONT2"` · `"FONT4"` · `"SANS_9"` · `"SANS_BOLD_9"` · `"SANS_12"` · `"SANS_BOLD_12"` · `"SANS_18"` · `"SANS_BOLD_18"` · `"SANS_24"` · `"SANS_BOLD_24"` · `"SERIF_9"` · `"SERIF_BOLD_9"` · `"SERIF_12"` · `"SERIF_BOLD_12"` · `"SERIF_18"` · `"SERIF_BOLD_18"` · `"SERIF_24"` · `"SERIF_BOLD_24"` · `"MONO_9"` · `"MONO_BOLD_9"` · `"MONO_12"` · `"MONO_BOLD_12"` · `"MONO_18"` · `"MONO_BOLD_18"` · `"MONO_24"` · `"MONO_BOLD_24"` | `"GLCD"` | Fuente. GLCD = clásica 6×8 escalable; FONT2/FONT4 bitmap de 16/26 px; FreeFonts SANS/SERIF/MONO [BOLD] 9/12/18/24 pt. |
+| `font` | `"GLCD"` · `"FONT2"` · `"FONT4"` · `"FONT_16"` · `"FONT_26"` · `"FONT_7SEG_48"` · `"7SEG_48"` · `"SANS_9"` · `"SANS_BOLD_9"` · `"SANS_12"` · `"SANS_BOLD_12"` · `"SANS_18"` · `"SANS_BOLD_18"` · `"SANS_24"` · `"SANS_BOLD_24"` · `"SERIF_9"` · `"SERIF_BOLD_9"` · `"SERIF_12"` · `"SERIF_BOLD_12"` · `"SERIF_18"` · `"SERIF_BOLD_18"` · `"SERIF_24"` · `"SERIF_BOLD_24"` · `"MONO_9"` · `"MONO_BOLD_9"` · `"MONO_12"` · `"MONO_BOLD_12"` · `"MONO_18"` · `"MONO_BOLD_18"` · `"MONO_24"` · `"MONO_BOLD_24"` | `"GLCD"` | Fuente. GLCD = clásica 6×8 escalable; FONT2/FONT4 bitmap de 16/26 px; FreeFonts SANS/SERIF/MONO [BOLD] 9/12/18/24 pt. |
 | `size` | entero 1..4 | `1` | Escala (GLCD y bitmap). |
 | `textColor` | color | `0xFFFF` | Color del texto. |
 | `backgroundColor` | color | `0x0000` | Fondo detrás del texto (si no es transparente). |
 | `transparentBackground` | bool | `true` | Sin fondo detrás del texto. |
+
+### `QR`
+
+Código QR (estático en Flash o dinámico con `JWPLC_UIQR` cuando `sourceMode` es `VARIABLE`).
+
+| Propiedad | Tipo / valores | Por defecto | Descripción |
+|---|---|---|---|
+| `type` **(obligatoria)** | texto |  | Tipo de objeto. |
+| `name` | texto |  | Nombre visible en la lista de objetos del Designer (no llega al C++). |
+| `id` | identificador C++ |  | Identificador C++ del objeto (único en el proyecto). Si falta se genera FIELD_<TIPO>_<n>. |
+| `page` | entero 0..15 | `0` | Página (id) donde se dibuja. |
+| `pages` | arreglo |  | Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez. |
+| `views` | arreglo |  | Subvistas opcionales (índices 0..7 dentro de la página) donde aparece el objeto. Omitido o vacío = visible en todas. |
+| `layerOrder` | entero 0..9999 |  | Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima). |
+| `x` **(obligatoria)** | entero 0..319 |  | Esquina superior izquierda, X (px). |
+| `y` **(obligatoria)** | entero 0..169 |  | Esquina superior izquierda, Y (px). |
+| `sourceMode` | `"STATIC"` · `"VARIABLE"` | `"STATIC"` | STATIC: fijo en Flash (`jwplcUIPageEnter`). VARIABLE: `char[]` dinámico con `JWPLC_UIQR`. |
+| `preset` | `"URL"` · `"PAIR"` · `"DOCS"` · `"WIFI"` · `"SUPPORT"` · `"CUSTOM"` | `"URL"` | Plantilla rápida en el Designer. |
+| `text` | texto | `"http://192.168.1.50"` | Enlace o texto del QR (o valor inicial / de prueba en el lienzo si `sourceMode` es `VARIABLE`). |
+| `variable` | identificador C++ | `"qrTexto"` | Variable C++ `char[]` cuando `sourceMode` es `VARIABLE`. |
+| `maxLength` | entero 16..213 | `80` | Capacidad del buffer `char[]` en bytes cuando `sourceMode` es `VARIABLE`. |
+| `scale` | entero 1..4 | `3` | Píxeles por módulo QR. |
+| `ecc` | `"L"` · `"M"` · `"Q"` · `"H"` | `"M"` | Nivel de corrección de errores Reed-Solomon (`QR_LEVEL_*`). |
+| `quietZone` | entero 0..4 | `4` | Margen claro en módulos alrededor del QR (4 recomendado / estándar `JWPLC_UIQR`). |
+| `frame` | bool | `false` | Marco exterior de 1 px alrededor del margen. |
+| `fgColor` | color | `0x0000` | Color de los módulos oscuros. |
+| `bgColor` | color | `0xFFFF` | Color del fondo y margen. |
+| `frameColor` | color | `0xFFFF` | Color del marco exterior. |
 
 ### Figuras: `LINE`, `RECT`, `ELLIPSE`, `TRIANGLE`, `POLYGON`
 
@@ -376,6 +518,8 @@ Se dibujan una vez al entrar a la página (gráfica estática).
 | `name` | texto |  | Nombre visible en la lista de objetos del Designer (no llega al C++). |
 | `id` | identificador C++ |  | Identificador C++ del objeto (único en el proyecto). Si falta se genera FIELD_<TIPO>_<n>. |
 | `page` | entero 0..15 | `0` | Página (id) donde se dibuja. |
+| `pages` | arreglo |  | Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez. |
+| `views` | arreglo |  | Subvistas opcionales (índices 0..7 dentro de la página) donde aparece el objeto. Omitido o vacío = visible en todas. |
 | `layerOrder` | entero 0..9999 |  | Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima). |
 | `cornerRadius` | entero 0..85 | `0` | Radio de esquinas (RECT). |
 | `x` **(obligatoria)** | entero 0..319 |  | Esquina superior izquierda, X (px). |
@@ -398,7 +542,7 @@ Barra de navegación entre páginas (◀ ▶ de la botonera). Global: una sola, 
 |---|---|---|---|
 | `type` **(obligatoria)** | texto |  | Tipo de objeto. |
 | `name` | texto | `"Barra de Navegación"` | Nombre visible en la lista de objetos del Designer (no llega al C++). |
-| `preset` | `"industrial-color"` · `"dark-pill"` · `"segmented-bar"` · `"compact-dots"` · `"edge-tabs"` · `"numeric-pills"` · `"counter"` | `"industrial-color"` | Estilo. counter: sólo el indicador NN/TT que pinta el firmware (sin barra). |
+| `preset` | `"industrial-color"` · `"dark-pill"` · `"segmented-bar"` · `"compact-dots"` · `"counter"` | `"industrial-color"` | Estilo. counter: sólo el indicador NN/TT que pinta el firmware (sin barra). |
 | `position` | `"bottom"` · `"top"` · `"left"` · `"right"` | `"bottom"` | Borde de la pantalla. |
 | `x` | entero 0..319 |  | X (se calcula de position si falta). |
 | `y` | entero 0..169 |  | Y (se calcula de position si falta). |
@@ -406,12 +550,52 @@ Barra de navegación entre páginas (◀ ▶ de la botonera). Global: una sola, 
 | `height` | entero 8..170 | `22` | Alto (~22 horizontal, 170 vertical). |
 | `tabDistribution` | `"center"` · `"start"` · `"end"` · `"stretch"` | `"center"` | Reparto de las pestañas. |
 | `textAlign` | `"center"` · `"left"` · `"right"` | `"center"` | Texto dentro de la pestaña. |
-| `fontSize` | `"normal"` · `"medium"` · `"micro"` | `"normal"` | Tamaño del texto. |
+| `font` | `"MICRO"` · `"GLCD"` · `"FONT2"` · `"FONT4"` · `"FONT_16"` · `"FONT_26"` · `"SANS_9"` · `"SANS_BOLD_9"` · `"SANS_12"` · `"SANS_BOLD_12"` · `"SANS_18"` · `"SANS_BOLD_18"` · `"SANS_24"` · `"SANS_BOLD_24"` · `"SERIF_9"` · `"SERIF_BOLD_9"` · `"SERIF_12"` · `"SERIF_BOLD_12"` · `"SERIF_18"` · `"SERIF_BOLD_18"` · `"SERIF_24"` · `"SERIF_BOLD_24"` · `"MONO_9"` · `"MONO_BOLD_9"` · `"MONO_12"` · `"MONO_BOLD_12"` · `"MONO_18"` · `"MONO_BOLD_18"` · `"MONO_24"` · `"MONO_BOLD_24"` | `"GLCD"` | Tipografía de pestañas (MICRO 4×6, GLCD, Bitmap o FreeFonts). |
+| `textScale` | entero 1..4 | `1` | Escala del texto cuando font es GLCD (1× a 4×). |
 | `labelFormat` | `"short"` · `"number"` · `"num_short"` | `"short"` | short: nombre corto de la página; number: 1, 2, 3; num_short: ambos. |
 | `bgMode` | `"solid"` · `"dark"` · `"transparent"` | `"solid"` | Fondo de la barra. |
 | `borderMode` | `"none"` · `"line"` · `"frame"` | `"none"` | Borde de la barra. |
 | `radius` | entero 0..11 | `3` | Radio de las pestañas. |
 | `gap` | entero 0..10 | `3` | Separación entre pestañas. |
+
+## Ventanas emergentes (`popups[]`)
+
+Modales I5-I6 sobre IDLE o USER (`INFO`, `WARN`, `CRIT`, `CONFIRM`). Máximo `12` definidos en el proyecto.
+
+| Propiedad | Tipo / valores | Por defecto | Descripción |
+|---|---|---|---|
+| `id` **(obligatoria)** | entero 0..254 |  | ID numérico único de la ventana emergente (0..254). |
+| `name` | texto | `""` | Nombre descriptivo en el Designer. |
+| `preset` **(obligatoria)** | `"INFO"` · `"WARN"` · `"CRIT"` · `"CONFIRM"` |  | Preset visual y comportamiento modal. |
+| `title` | texto | `"AVISO"` | Título de la cabecera. |
+| `code` | texto | `""` | Código breve opcional arriba a la derecha (ej. E104). |
+| `message` | texto | `""` | Mensaje del cuerpo (multilínea con ajuste de línea). |
+| `acceptText` | texto | `"OK"` | Texto del botón OK / Aceptar. |
+| `cancelText` | texto | `"CANCELAR"` | Texto del botón Cancelar (en preset CONFIRM). |
+| `triggerVar` | identificador C++ | `""` | Variable bool C++ opcional: dispara por flanco 0 -> 1. |
+| `confirmOutVar` | identificador C++ | `""` | Variable bool C++ opcional donde CONFIRM escribe true/false. |
+| `errCode` | texto | `""` | Código ERR lateral IDLE opcional (hasta 4 chars, recomendado en CRIT). |
+| `autoCloseMs` | entero 0..60000 | `0` | Auto-cierre en ms (0 = manual). No aplica a CRIT. |
+| `showOverIdle` | bool | `true` | Permitir mostrarse sobre pantalla IDLE. |
+| `blocksIdle` | bool | `false` | Bloquear retorno automático a IDLE mientras está activo. |
+| `latched` | bool | `false` | Mantener modal aunque triggerVar vuelva a false hasta pulsar OK. |
+| `logToEventLog` | bool | `false` | Registrar activación/ACK en EVENT_LOG. |
+| `targetPage` | entero -1..15 | `-1` | Página opcional al aceptar CONFIRM (-1 = sin cambio). |
+| `targetView` | entero -1..7 | `-1` | Subvista opcional al aceptar CONFIRM (-1 = sin cambio). |
+| `x` | entero 0..200 | `36` | Posición X del cuadro (px). |
+| `y` | entero 0..98 | `27` | Posición Y del cuadro (px). |
+| `width` | entero 120..312 | `248` | Ancho del cuadro (px). |
+| `height` | entero 72..162 | `116` | Alto del cuadro (px). |
+| `cornerRadius` | entero 0..12 | `6` | Radio de esquinas (px). |
+| `messageTextSize` | entero 1..3 | `1` | Escala del texto GLCD del mensaje (1 = 6×8 px, 2 = 12×16 px, 3 = 18×24 px). |
+| `colors` | objeto |  | Colores RGB565 opcionales. |
+
+Colores por defecto según preset (`colors`):
+
+- `INFO`: `background`=0x1082, `border`=0x2D7F, `headerBg`=0x1B9C, `headerText`=0xFFFF, `text`=0xFFFF, `acceptBg`=0x1B9C, `acceptText`=0xFFFF, `cancelBg`=0x3186, `cancelText`=0xFFFF
+- `WARN`: `background`=0x1082, `border`=0xFD20, `headerBg`=0xFD20, `headerText`=0x0000, `text`=0xFFFF, `acceptBg`=0xFD20, `acceptText`=0x0000, `cancelBg`=0x3186, `cancelText`=0xFFFF
+- `CRIT`: `background`=0x1082, `border`=0xF945, `headerBg`=0xE8E4, `headerText`=0xFFFF, `text`=0xFFFF, `acceptBg`=0xE8E4, `acceptText`=0xFFFF, `cancelBg`=0x3186, `cancelText`=0xFFFF
+- `CONFIRM`: `background`=0x1082, `border`=0x07FF, `headerBg`=0x055A, `headerText`=0xFFFF, `text`=0xFFFF, `acceptBg`=0x0568, `acceptText`=0xFFFF, `cancelBg`=0x3186, `cancelText`=0xFFFF
 
 ## Capas de píxeles (`pixelMaps[]`)
 
@@ -426,4 +610,4 @@ Barra de navegación entre páginas (◀ ▶ de la botonera). Global: una sola, 
 
 ## Fuentes de `RAW_TEXT`
 
-`GLCD` · `FONT2` · `FONT4` · `SANS_9` · `SANS_BOLD_9` · `SANS_12` · `SANS_BOLD_12` · `SANS_18` · `SANS_BOLD_18` · `SANS_24` · `SANS_BOLD_24` · `SERIF_9` · `SERIF_BOLD_9` · `SERIF_12` · `SERIF_BOLD_12` · `SERIF_18` · `SERIF_BOLD_18` · `SERIF_24` · `SERIF_BOLD_24` · `MONO_9` · `MONO_BOLD_9` · `MONO_12` · `MONO_BOLD_12` · `MONO_18` · `MONO_BOLD_18` · `MONO_24` · `MONO_BOLD_24`
+`GLCD` · `FONT2` · `FONT4` · `FONT_16` · `FONT_26` · `FONT_7SEG_48` · `7SEG_48` · `SANS_9` · `SANS_BOLD_9` · `SANS_12` · `SANS_BOLD_12` · `SANS_18` · `SANS_BOLD_18` · `SANS_24` · `SANS_BOLD_24` · `SERIF_9` · `SERIF_BOLD_9` · `SERIF_12` · `SERIF_BOLD_12` · `SERIF_18` · `SERIF_BOLD_18` · `SERIF_24` · `SERIF_BOLD_24` · `MONO_9` · `MONO_BOLD_9` · `MONO_12` · `MONO_BOLD_12` · `MONO_18` · `MONO_BOLD_18` · `MONO_24` · `MONO_BOLD_24`

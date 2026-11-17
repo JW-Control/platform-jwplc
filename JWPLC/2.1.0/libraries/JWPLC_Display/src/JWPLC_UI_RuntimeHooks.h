@@ -19,9 +19,31 @@ extern "C"
 
 // Se ejecuta siempre en USER antes de decidir si hace falta dibujar. Permite
 // procesar navegación física aunque el refresh haya sido forzado por un botón.
+void jwplcUIRuntimeEnsureLinked(void);
 void jwplcUIRuntimeServiceInput(void);
+// I4: árbitro único de teclas; devuelve true si algún dueño consumió la entrada.
+bool jwplcUIRuntimeArbitrateInput(void);
+bool jwplcUIRuntimeBlocksButtonIdleReturn(void);
+
+// Hooks opcionales de la capa superior de avisos/modales (I5/I6).
+typedef void (*jwplcUIPopupConfirmCallback_t)(void *userCtx);
+void jwplcUIOverlayPoll(void);
+bool jwplcUIOverlayActive(void);
+bool jwplcUIOverlayServiceInput(void);
+bool jwplcUIOverlayBlocksIdle(void);
+bool jwplcUIOverlayBlocksIdleWake(void);
+bool jwplcUIOverlayNeedsRefresh(void);
+bool jwplcUIOverlayTakeRestoreUnderlying(void);
+void jwplcUIOverlayNotifyUnderlyingDraw(void);
+bool jwplcUIOverlayOverlapsRect(int16_t x, int16_t y, int16_t w, int16_t h);
+void jwplcUIOverlayDraw(JWPLC_TFTClass *tft, bool forceRedraw);
+bool jwplcUIOverlayRequestConfirm(uint8_t popupId, jwplcUIPopupConfirmCallback_t onAccept, void *userCtx);
+void jwplcUIMenuCancelEdit(void);
+void jwplcUIMenuOnViewChanged(uint8_t page, uint8_t subView);
 
 bool jwplcUIRuntimeRefreshNeeded(void);
+bool jwplcUIRuntimeBackgroundTrendDue(void);
+void jwplcUIRuntimeTickDueTrends(void);
 void jwplcUIRuntimeInvalidateAll(bool redrawStatic);
 void jwplcUIRuntimePrepareEnter(void);
 uint8_t jwplcUIRuntimeCurrentPage(void);

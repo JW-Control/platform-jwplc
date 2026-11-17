@@ -1,0 +1,22 @@
+[2026-10-24T15:45:45.343Z] {"type":"stage","stage":"compile","fqbn":"jwplc:esp32:jwplcbasic"}
+[2026-10-24T15:45:45.343Z] RUN C:\Program Files\Arduino CLI\arduino-cli.exe compile --fqbn jwplc:esp32:jwplcbasic --build-path C:\Users\jeykc\.jwplc\mblock-bridge\build --output-dir C:\Users\jeykc\.jwplc\mblock-bridge\output C:\Users\jeykc\.jwplc\mblock-bridge\sketch\jwplc_mblock
+[2026-10-24T15:45:59.947Z] {"type":"stage","stage":"upload","port":"COM14"}
+[2026-10-24T15:45:59.948Z] RUN C:\Program Files\Arduino CLI\arduino-cli.exe upload --fqbn jwplc:esp32:jwplcbasic --port COM14 --input-dir C:\Users\jeykc\.jwplc\mblock-bridge\output C:\Users\jeykc\.jwplc\mblock-bridge\sketch\jwplc_mblock
+[2026-10-24T15:46:05.675Z] {"type":"result","ok":false,"stage":"upload","exit":1,"ms":20333}
+[2026-10-24T15:47:26.261Z] JWPLC_MBLOCK_BRIDGE=LISTENING http://127.0.0.1:47820 version=0.1.0
+[2026-10-24T15:47:26.263Z] ARDUINO_CLI=C:\Program Files\Arduino CLI\arduino-cli.exe
+[2026-10-24T15:47:26.263Z] FQBN=jwplc:esp32:jwplcbasic
+[2026-10-24T15:47:26.263Z] TOKEN_FILE=C:\Users\jeykc\.jwplc\mblock-bridge\token.txt
+[2026-10-24T15:47:26.264Z] WORK_DIR=C:\Users\jeykc\.jwplc\mblock-bridge
+[2026-10-24T15:47:38.521Z] {"type":"stage","stage":"compile","fqbn":"jwplc:esp32:jwplcbasic"}
+[2026-10-24T15:47:38.522Z] RUN C:\Program Files\Arduino CLI\arduino-cli.exe compile --fqbn jwplc:esp32:jwplcbasic --build-path C:\Users\jeykc\.jwplc\mblock-bridge\build --output-dir C:\Users\jeykc\.jwplc\mblock-bridge\output C:\Users\jeykc\.jwplc\mblock-bridge\sketch\jwplc_mblock
+[2026-10-24T15:47:56.214Z]   Sketch uses 429501 bytes (10%) of program storage space. Maximum is 4063232 bytes.
+[2026-10-24T15:47:56.215Z]   Global variables use 29532 bytes (9%) of dynamic memory, leaving 298148 bytes for local variables. Maximum is 327680 bytes.
+[2026-10-24T15:47:57.518Z] {"type":"stage","stage":"upload","port":"COM14"}
+[2026-10-24T15:47:57.519Z] RUN C:\Program Files\Arduino CLI\arduino-cli.exe upload --fqbn jwplc:esp32:jwplcbasic --port COM14 --input-dir C:\Users\jeykc\.jwplc\mblock-bridge\output C:\Users\jeykc\.jwplc\mblock-bridge\sketch\jwplc_mblock
+[2026-10-24T15:48:02.766Z]   esptool v5.2.0
+[2026-10-24T15:48:02.769Z]   A fatal error occurred: Could not open COM14, the port is busy or doesn't exist.
+[2026-10-24T15:48:02.770Z]   (could not open port 'COM14': PermissionError(13, 'Acceso denegado.', None, 5))
+[2026-10-24T15:48:02.817Z]   Serial port COM14:
+[2026-10-24T15:48:03.121Z]   Failed uploading: uploading error: exit status 2
+[2026-10-24T15:48:03.152Z] {"type":"result","ok":false,"stage":"upload","exit":1,"ms":24631}

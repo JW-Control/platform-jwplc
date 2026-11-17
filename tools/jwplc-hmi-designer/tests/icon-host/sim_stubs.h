@@ -22,11 +22,15 @@ void jwplcH3E1RecordDirtyPass(uint32_t) {}
 void jwplcH3E1RecordStage(JWPLCH3E1StageId, uint32_t) {}
 namespace JWPLCUIPages
 {
-  void serviceNavigation() {}
+  bool serviceNavigation() { return false; }
   void prepareEnter() {}
   void drawModeChange(JWPLC_TFTClass &) {}
   void drawIndicator(JWPLC_TFTClass &) {}
 }
+// Alpha17 (popups I5-I6): sin capa modal en host.
+extern "C" bool jwplcUIOverlayOverlapsRect(int16_t, int16_t, int16_t, int16_t) { return false; }
+extern "C" bool jwplcUIOverlayBlocksIdle(void) { return false; }
+extern "C" bool jwplcUIOverlayServiceInput(void) { return false; }
 void jwplcH3E1RecordFieldDraw(uint8_t, uint8_t, uint16_t, uint16_t, uint8_t, uint32_t, uint32_t, uint32_t, uint32_t) {}
 
 // ---- TFT en framebuffer ------------------------------------------------------

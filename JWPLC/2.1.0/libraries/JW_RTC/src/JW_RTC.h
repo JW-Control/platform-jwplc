@@ -159,6 +159,16 @@ public:
 
     static const __FlashStringHelper* errorToString(Error error);
 
+    // Texto del último error, sin escribir «JW_RTC::» en el sketch:
+    //   Serial.println(rtc.lastErrorString());
+    const __FlashStringHelper* lastErrorString() const { return errorToString(_lastError); }
+
+    // Pone el RTC en la fecha y hora en que se compiló el sketch. __DATE__ y
+    // __TIME__ se expanden en el archivo que llama (el sketch), no en la
+    // librería, así que es la hora de esa compilación:
+    //   if (!rtc.isTimeValid()) rtc.setFromBuildTime();
+    bool setFromBuildTime(const char* buildDate = __DATE__, const char* buildTime = __TIME__);
+
     static bool isLeapYear(uint16_t year);
     static uint8_t daysInMonth(uint16_t year, uint8_t month);
     static bool isValidDateTime(const DateTime& dt);

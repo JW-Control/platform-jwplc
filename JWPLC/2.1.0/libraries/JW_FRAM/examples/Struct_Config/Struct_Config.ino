@@ -1,3 +1,15 @@
+/*
+  Struct_Config
+
+  Guarda un struct completo de configuración con put() y lo recupera con
+  get(). Para detectar FRAM vacía o struct cambiado, usa Block_Config.
+
+  En el JWPLC Basic usa el objeto global JWPLC_FRAM (mismos métodos).
+
+  Qué mirar: el Monitor serie (115200) imprime «Struct recuperado:» y cada
+  campo leído de vuelta.
+*/
+
 #include <JW_FRAM.h>
 
 JW_FRAM fram(JWPLC_FRAM_CS);  // CS de la FRAM del JWPLC Basic (GPIO13)
