@@ -42,6 +42,7 @@ Todos dibujan con el objeto `JWPLC_TFT` (sin `::`, `*` ni `&` en el sketch).
 ```text
 15.Display_FlappyBird
 16.Display_Tetris
+17.Display_Ledcito             animación de Ledcito, la mascota de JW Control (sprite a pantalla completa)
 ```
 
 En 2.1.0-alpha.17 `Display_DotAPI_Minimal` se retiró (los LED RUN/ERR/BUS/ETH están en `01`) y los avanzados se
