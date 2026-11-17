@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE_NAME = 'jwplc-hmi-designer-a17-v30';
+const CACHE_NAME = 'jwplc-hmi-designer-a17-v32';
 const CORE = [
   './desktop.html',
   './index.html',

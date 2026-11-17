@@ -6,8 +6,8 @@
   <meta name="color-scheme" content="light dark" />
   <title>JWPLC HMI Designer</title>
   <meta name="jwplc-designer-version" content="2.1.0-alpha.17" />
-  <link rel="stylesheet" href="./styles.css?v=1794932400" />
-  <link rel="stylesheet" href="./designer-light-theme.css?v=1794880500" />
+  <link rel="stylesheet" href="./styles.css?v=1794944600" />
+  <link rel="stylesheet" href="./designer-light-theme.css?v=1794944500" />
   <script src="./designer-theme.js?v=1793802700"></script>
 </head>
 <body>
@@ -121,11 +121,6 @@
         <button type="button" class="page-tabs-nav next" title="Desplazar pestañas a la derecha" aria-label="Desplazar pestañas a la derecha" hidden>›</button>
         <button class="tab add-tab" disabled>＋</button>
         <span class="gate">v2.1.0-alpha.17</span>
-      </div>
-
-      <div class="editor-caption">
-        <span>Pantalla ST7789 · 320 × 170 px</span>
-        <span>Modo edición pixel-perfect</span>
       </div>
 
       <div id="canvasViewport" class="canvas-viewport">
@@ -526,7 +521,9 @@
       </div>
 
       <footer class="canvas-status">
-        <span>Target: ST7789 · rotation 3 · RGB565</span>
+        <span id="selectedObjectStatus">TEXT Estado · FIELD_STATUS</span>
+        <span id="selectedGeometryStatus">X:20 Y:20 · —</span>
+        <span class="canvas-status-spacer"></span>
         <span id="cursorStatus">X: — · Y: —</span>
         <span id="pixelStatus">Pixel: —</span>
       </footer>
@@ -2064,22 +2061,10 @@
     <pre id="codeOutput"></pre>
   </section>
 
-  <footer class="statusbar">
-    <span class="ready-dot"></span>
-    <span>Listo</span>
-    <span>Proyecto: HMI_ST7789</span>
-    <span>Página: 0 · Principal</span>
-    <span>Campos: 1/64</span>
-    <span>Resolución: 320 × 170</span>
-    <span>Formato: RGB565</span>
-    <span class="grow"></span>
-    <span id="selectedObjectStatus">TEXT Estado · FIELD_STATUS</span>
-    <span id="selectedGeometryStatus">X:20 Y:20 · —</span>
+  <div id="hiddenControlContainer" style="display:none !important;" aria-hidden="true">
+    <span id="sketchLinkStatus" class="a11-project-status">Sketch: sin vincular</span>
     <span id="zoomStatus">Zoom: 3×</span>
     <span id="framebufferStatus" class="sr-only">Framebuffer: 54,400 px</span>
-  </footer>
-
-  <div id="hiddenControlContainer" style="display:none !important;" aria-hidden="true">
     <canvas id="previewCanvas" width="320" height="170"></canvas>
     <select id="zoomSelect">
       <option value="1">1×</option>
@@ -2109,7 +2094,7 @@
   <script src="./designer-trend-core.js?v=1793807000"></script>
   <script src="./designer-qr-core.js?v=1794882000"></script>
   <script src="./designer-dialog.js?v=1793801300"></script>
-  <script src="./designer-layout-resizer.js?v=1793803200"></script>
+  <script src="./designer-layout-resizer.js?v=1794944500"></script>
   <script src="./app.js?v=1794936000"></script>
   <script src="./ux-foundation.js?v=1794882000"></script>
   <script src="./designer-codegen.js?v=1794882000"></script>

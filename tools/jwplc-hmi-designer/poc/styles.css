@@ -61,10 +61,10 @@ body {
   height: 100vh;
   overflow: hidden;
   display: grid;
-  grid-template-rows: 50px minmax(0, 1fr) var(--bottom-panel-height, 164px) 28px;
+  grid-template-rows: 50px minmax(0, 1fr) var(--bottom-panel-height, 164px);
   background: var(--bg);
 }
-body.bottom-collapsed { grid-template-rows: 50px minmax(0, 1fr) 38px 28px !important; }
+body.bottom-collapsed { grid-template-rows: 50px minmax(0, 1fr) 38px !important; }
 
 button, select, input, textarea { font: inherit; }
 button, select, input, textarea {
@@ -148,6 +148,9 @@ button:disabled { opacity: 0.42; cursor: default; }
 }
 #liveConnectButton + .separator,
 #liveStatus + .separator {
+  display: none;
+}
+.toolbar #liveStatus {
   display: none;
 }
 .toolbar button {
@@ -993,10 +996,6 @@ h2 { margin: 0 0 7px; font-size: 11.5px; font-weight: 600; color: var(--text-hea
   image-rendering: pixelated;
 }
 .gate { margin-left: auto; flex: 0 0 auto; white-space: nowrap; color: #83d5a3; font-size: 10.5px; }
-.editor-caption {
-  height: 30px; flex: 0 0 30px; display: flex; align-items: center; justify-content: space-between;
-  padding: 0 14px; color: #9bb0bf; font-size: 10.5px; border-bottom: 1px solid #162733;
-}
 .canvas-viewport {
   position: relative; flex: 1; min-height: 0; overflow: hidden; padding: 0;
   background:
@@ -1306,10 +1305,29 @@ h2 { margin: 0 0 7px; font-size: 11.5px; font-weight: 600; color: var(--text-hea
   position: absolute; inset: 0; pointer-events: none; display: block; image-rendering: auto;
 }
 .canvas-status {
-  min-height: 28px; flex: 0 0 28px; display: flex; align-items: center; gap: 18px;
-  padding: 0 10px; border-top: 1px solid var(--line); color: #8196a7; font-size: 10px;
+  min-height: 28px; flex: 0 0 28px; display: flex; align-items: center; gap: 12px;
+  padding: 0 12px; border-top: 1px solid var(--line); color: var(--muted); font-size: 10.5px;
+  background: var(--panel);
 }
-.canvas-status span:nth-child(2) { margin-left: auto; }
+.canvas-status #selectedObjectStatus {
+  color: var(--text);
+  font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.canvas-status #selectedGeometryStatus {
+  color: var(--cyan);
+  font-family: "Cascadia Code", Consolas, monospace;
+  white-space: nowrap;
+}
+.canvas-status-spacer { flex: 1; }
+.canvas-status #cursorStatus,
+.canvas-status #pixelStatus {
+  font-family: "Cascadia Code", Consolas, monospace;
+  white-space: nowrap;
+}
 
 .preview-section { padding-bottom: 2px; }
 .target-badge { font-size: 9.5px; color: #8da2b3; }
@@ -1362,20 +1380,11 @@ details[open] > summary::before { transform: rotate(90deg); }
 body.bottom-collapsed .code-panel pre { display: none; }
 body.bottom-collapsed .bottom-tabs { border-bottom: 0; }
 
-.statusbar {
-  display: flex; align-items: center; gap: 9px; min-width: 0; padding: 0 10px;
-  color: #87a0b1; background: #0a141c; border-top: 1px solid var(--line); font-size: 9.5px;
-}
-.statusbar > span:not(.grow) { white-space: nowrap; }
-.statusbar > span + span { padding-left: 8px; border-left: 1px solid #20323e; }
-.statusbar .ready-dot { padding-left: 0 !important; border-left: 0 !important; }
-.ready-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--green); }
-.grow { flex: 1; }
 .sr-only { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 
 @media (max-height: 820px) {
-  body { grid-template-rows: 52px minmax(0,1fr) 136px 26px; }
-  body.bottom-collapsed { grid-template-rows: 52px minmax(0,1fr) 36px 26px; }
+  body { grid-template-rows: 50px minmax(0,1fr) 136px; }
+  body.bottom-collapsed { grid-template-rows: 50px minmax(0,1fr) 36px; }
   .topbar { padding-inline: 10px; }
   .brand h1 { font-size: 16px; }
   .brand p { display: none; }

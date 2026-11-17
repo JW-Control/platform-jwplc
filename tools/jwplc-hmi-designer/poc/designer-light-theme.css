@@ -280,12 +280,6 @@ body.theme-light .tab.active {
   font-weight: 600;
 }
 
-body.theme-light .editor-caption {
-  background: #ffffff;
-  border-bottom: 1px solid #e2e8f0;
-  color: #64748b;
-}
-
 body.theme-light .gate {
   color: #16a34a;
 }
@@ -428,9 +422,17 @@ body.theme-light .right-vertical-toolbar {
 }
 
 body.theme-light .canvas-status {
-  background: #ffffff;
-  border-top: 1px solid #cbd5e1;
-  color: #64748b;
+  background: var(--panel);
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+}
+
+body.theme-light .canvas-status #selectedObjectStatus {
+  color: var(--text);
+}
+
+body.theme-light .canvas-status #selectedGeometryStatus {
+  color: var(--cyan);
 }
 
 /* --- Panel Derecho / Inspector de Propiedades --- */
@@ -862,23 +864,6 @@ body.theme-light .code-panel pre {
   background: #f8fafc;
   border-top: 1px solid #e2e8f0;
   color: #0f172a;
-}
-
-/* --- Barra de Estado Inferior --- */
-body.theme-light .statusbar {
-  background: #f8fafc;
-  border-top: 1px solid #cbd5e1;
-  color: #64748b;
-}
-
-body.theme-light .statusbar > span + span {
-  border-left: 1px solid #e2e8f0;
-}
-
-body.theme-light #selectedObjectStatus,
-body.theme-light #selectedGeometryStatus,
-body.theme-light #zoomStatus {
-  color: #334155;
 }
 
 /* --- Cuadros de Diálogo (JWPLCDialog) --- */

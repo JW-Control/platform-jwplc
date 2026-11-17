@@ -111,11 +111,11 @@ body.layout-compact {
 /* ------------------------------------------------------------------ */
 
 body.layout-wide {
-  grid-template-rows: 50px minmax(0, 1fr) var(--bottom-panel-height, 150px) 28px;
+  grid-template-rows: 50px minmax(0, 1fr) var(--bottom-panel-height, 150px);
 }
 
 body.layout-wide.bottom-collapsed {
-  grid-template-rows: 50px minmax(0, 1fr) 38px 28px !important;
+  grid-template-rows: 50px minmax(0, 1fr) 38px !important;
 }
 
 .layout-wide .workspace {
@@ -139,12 +139,12 @@ body.layout-wide.bottom-collapsed {
 /* ------------------------------------------------------------------ */
 
 body.layout-medium {
-  grid-template-rows: 52px minmax(0, 1fr) 36px 26px;
+  grid-template-rows: 52px minmax(0, 1fr) 36px;
   font-size: clamp(11px, .78vw, 13px);
 }
 
 body.layout-medium:not(.bottom-collapsed) {
-  grid-template-rows: 52px minmax(0, 1fr) var(--bottom-panel-height, 122px) 26px;
+  grid-template-rows: 52px minmax(0, 1fr) var(--bottom-panel-height, 122px);
 }
 
 .layout-medium .topbar {
@@ -241,23 +241,16 @@ body.layout-medium:not(.bottom-collapsed) {
 .layout-medium .device-preview { padding: 6px; }
 .layout-medium .preview-note { display: none; }
 .layout-medium .canvas-status { gap: 10px; }
-.layout-medium .canvas-status span:first-child { display: none; }
-.layout-medium .editor-caption span:last-child { display: none; }
 
 .layout-medium .bottom-summary { display: none; }
 .layout-medium .code-panel pre { font-size: 10px; }
-.layout-medium .status-project,
-.layout-medium .status-format,
-.layout-medium .responsive-gate-status { display: none !important; }
-.layout-medium .statusbar { gap: 6px; font-size: 9px; overflow: hidden; }
-.layout-medium .statusbar > span + span { padding-left: 6px; }
 
 /* ------------------------------------------------------------------ */
 /* COMPACT — < ~38% de la pantalla                                    */
 /* ------------------------------------------------------------------ */
 
 body.layout-compact {
-  grid-template-rows: 48px minmax(0, 1fr) 26px;
+  grid-template-rows: 48px minmax(0, 1fr);
   min-width: 0 !important;
   overflow: hidden;
   font-size: 11px;
@@ -409,11 +402,9 @@ body.layout-compact {
 .layout-compact.right-view-inspector .pixel-controls { display: block; }
 
 .layout-compact .page-tabs .gate { display: none !important; }
-.layout-compact .editor-caption { padding-inline: 8px; }
-.layout-compact .editor-caption span:last-child { display: none; }
 .layout-compact .canvas-viewport { padding: 8px; }
 .layout-compact .canvas-status { min-height: 24px; flex-basis: 24px; padding-inline: 7px; gap: 7px; }
-.layout-compact .canvas-status span:first-child,
+.layout-compact #selectedObjectStatus,
 .layout-compact #pixelStatus { display: none; }
 
 .layout-compact .code-panel {
@@ -421,7 +412,7 @@ body.layout-compact {
   z-index: 3900;
   left: var(--responsive-rail);
   right: 0;
-  bottom: 26px;
+  bottom: 0;
   height: min(190px, 40vh);
   border-left: 1px solid var(--line);
   background: var(--panel);
@@ -433,37 +424,15 @@ body.layout-compact {
 .layout-compact .bottom-summary { display: none; }
 .layout-compact .code-panel pre { font-size: 10px; padding: 8px; }
 
-.layout-compact .statusbar {
-  grid-row: 3;
-  min-width: 0;
-  gap: 5px;
-  padding-inline: 6px;
-  overflow: hidden;
-  font-size: 9px;
-}
-.layout-compact .statusbar > span + span { padding-left: 5px; }
-.layout-compact .status-project,
-.layout-compact .status-resolution,
-.layout-compact .status-format,
-.layout-compact .status-object,
-.layout-compact .status-sketch,
-.layout-compact .responsive-live-status,
-.layout-compact .responsive-gate-status { display: none !important; }
-.layout-compact .status-page,
-.layout-compact .status-fields,
-.layout-compact .status-geometry,
-.layout-compact .status-zoom { display: inline-flex; }
-.layout-compact .grow { min-width: 2px; }
-
 /* ------------------------------------------------------------------ */
 /* Ajustes de altura: no cambian el modo horizontal.                   */
 /* ------------------------------------------------------------------ */
 
 @media (max-height: 820px) {
-  .layout-wide { grid-template-rows: 50px minmax(0,1fr) 126px 26px !important; }
-  .layout-wide.bottom-collapsed { grid-template-rows: 50px minmax(0,1fr) 36px 26px !important; }
-  .layout-medium { grid-template-rows: 48px minmax(0,1fr) 34px 24px !important; }
-  .layout-medium:not(.bottom-collapsed) { grid-template-rows: 48px minmax(0,1fr) 108px 24px !important; }
+  .layout-wide { grid-template-rows: 50px minmax(0,1fr) 126px !important; }
+  .layout-wide.bottom-collapsed { grid-template-rows: 50px minmax(0,1fr) 36px !important; }
+  .layout-medium { grid-template-rows: 48px minmax(0,1fr) 34px !important; }
+  .layout-medium:not(.bottom-collapsed) { grid-template-rows: 48px minmax(0,1fr) 108px !important; }
   .layout-medium .topbar { min-height: 48px; }
   .layout-medium .component-tool,
   .layout-medium .utility-tool { min-height: 32px; }

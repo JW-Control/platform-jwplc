@@ -64,10 +64,10 @@
     .jwplc-view-bindings #themeToggleButton { display: none !important; }
     /* Sin panel de código: su fila del grid queda en 0. */
     html.jwplc-view-bindings body, html.jwplc-view-bindings body.bottom-collapsed {
-      grid-template-rows: 50px minmax(0, 1fr) 0 28px !important; }
+      grid-template-rows: 50px minmax(0, 1fr) 0 !important; }
     @media (max-height: 820px) {
       html.jwplc-view-bindings body, html.jwplc-view-bindings body.bottom-collapsed {
-        grid-template-rows: 50px minmax(0, 1fr) 0 26px !important; }
+        grid-template-rows: 50px minmax(0, 1fr) 0 !important; }
     }
     .jwplc-view-bindings .code-panel { height: 0 !important; min-height: 0 !important; border: 0 !important;
       overflow: hidden !important; visibility: hidden; }
