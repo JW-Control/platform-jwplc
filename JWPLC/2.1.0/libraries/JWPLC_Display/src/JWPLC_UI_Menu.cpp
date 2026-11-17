@@ -844,7 +844,9 @@ namespace
 
         if (cards)
         {
-            tft.fillRect(x, y, w, h, c.background);
+            // drawFull() ya pintó c.background en las esquinas exteriores; evitar
+            // rellenar todo el rectángulo de negro antes de fillRoundRect para no
+            // provocar destellos diagonales en el barrido del ST7789.
             const int16_t r = (int16_t)m.def.cornerRadius;
             if (r > 0)
             {

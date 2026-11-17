@@ -3677,6 +3677,11 @@ namespace JWPLCUI
 
             ++dirtyCount;
 
+            if (field.fieldW <= 0 || field.fieldH <= 0)
+            {
+                computeFieldGeometry(tft, field);
+            }
+
             if (jwplcUIOverlayOverlapsRect(field.fieldX, field.fieldY, field.fieldW, field.fieldH))
             {
                 // El modal activo cubre este campo y al cerrarse invalida toda la pantalla.
