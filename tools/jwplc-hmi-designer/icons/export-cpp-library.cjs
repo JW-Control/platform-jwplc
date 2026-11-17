@@ -218,11 +218,14 @@ function main() {
 
   if (isCheck) {
     let ok = true;
-    if (!fs.existsSync(HEADER_PATH) || fs.readFileSync(HEADER_PATH, 'utf8') !== headerContent) {
+    const normalizeEol = (text) => text.replace(/\r\n/g, '\n');
+    const currentHeader = fs.existsSync(HEADER_PATH) ? normalizeEol(fs.readFileSync(HEADER_PATH, 'utf8')) : '';
+    const currentCpp = fs.existsSync(CPP_PATH) ? normalizeEol(fs.readFileSync(CPP_PATH, 'utf8')) : '';
+    if (currentHeader !== normalizeEol(headerContent)) {
       console.error(`JWPLC_Icons.h no está al día. Ejecuta: node tools/jwplc-hmi-designer/icons/export-cpp-library.cjs`);
       ok = false;
     }
-    if (!fs.existsSync(CPP_PATH) || fs.readFileSync(CPP_PATH, 'utf8') !== cppContent) {
+    if (currentCpp !== normalizeEol(cppContent)) {
       console.error(`JWPLC_Icons.cpp no está al día. Ejecuta: node tools/jwplc-hmi-designer/icons/export-cpp-library.cjs`);
       ok = false;
     }
