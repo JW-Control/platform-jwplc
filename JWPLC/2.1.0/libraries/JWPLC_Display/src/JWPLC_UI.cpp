@@ -3661,6 +3661,7 @@ namespace JWPLCUI
             profile ? micros() : 0U;
 
         uint32_t dirtyCount = 0U;
+        uint32_t drawnCount = 0U;
         const uint8_t subView = activeSubView();
 
         for (size_t i = 0; i < g_fieldCount; ++i)
@@ -3676,6 +3677,15 @@ namespace JWPLCUI
 
             ++dirtyCount;
 
+            if (jwplcUIOverlayOverlapsRect(field.fieldX, field.fieldY, field.fieldW, field.fieldH))
+            {
+                // El modal activo cubre este campo y al cerrarse invalida toda la pantalla.
+                field.dirty = false;
+                continue;
+            }
+
+            ++drawnCount;
+
             if (field.staticDirty)
             {
                 drawFieldStatic(tft, field);
@@ -3684,10 +3694,7 @@ namespace JWPLCUI
             drawFieldValue(tft, field);
         }
 
-        if (dirtyCount > 0U)
-        {
-            jwplcUIOverlayNotifyUnderlyingDraw();
-        }
+        (void)drawnCount;
 
         if (profile)
         {

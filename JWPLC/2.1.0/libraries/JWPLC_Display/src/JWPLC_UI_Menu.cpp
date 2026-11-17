@@ -939,11 +939,17 @@ namespace
 
     void drawPending(JWPLC_TFTClass &tft, MenuRuntime &m)
     {
+        if (jwplcUIOverlayOverlapsRect(m.def.x, m.def.y, m.def.width, m.def.height))
+        {
+            m.fullDirty = false;
+            m.dirtyRows = 0;
+            return;
+        }
+
         bool drew = false;
         if (m.fullDirty)
         {
             drawFull(tft, m);
-            jwplcUIOverlayNotifyUnderlyingDraw();
             return;
         }
         if (m.headerDirty)
@@ -962,8 +968,7 @@ namespace
             }
         }
         m.dirtyRows = 0;
-        if (drew)
-            jwplcUIOverlayNotifyUnderlyingDraw();
+        (void)drew;
     }
 
     // ------------------------------------------------------------------

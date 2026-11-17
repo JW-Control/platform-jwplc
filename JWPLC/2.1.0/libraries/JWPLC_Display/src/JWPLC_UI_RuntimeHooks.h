@@ -35,6 +35,7 @@ bool jwplcUIOverlayBlocksIdleWake(void);
 bool jwplcUIOverlayNeedsRefresh(void);
 bool jwplcUIOverlayTakeRestoreUnderlying(void);
 void jwplcUIOverlayNotifyUnderlyingDraw(void);
+bool jwplcUIOverlayOverlapsRect(int16_t x, int16_t y, int16_t w, int16_t h);
 void jwplcUIOverlayDraw(JWPLC_TFTClass *tft, bool forceRedraw);
 bool jwplcUIOverlayRequestConfirm(uint8_t popupId, jwplcUIPopupConfirmCallback_t onAccept, void *userCtx);
 void jwplcUIMenuCancelEdit(void);

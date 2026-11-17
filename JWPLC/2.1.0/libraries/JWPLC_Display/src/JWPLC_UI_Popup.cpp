@@ -49,6 +49,7 @@ namespace
     uint8_t g_queueCount = 0;
 
     bool g_overlayDirty = false;
+    bool g_buttonsOnlyDirty = false;
     bool g_restoreUnderlying = false;
     bool g_appliedErrLed = false;
     char g_prevErrCode[5] = {};
@@ -267,6 +268,7 @@ namespace
             rebindEntryPointers(g_active);
             g_active.openedMs = millis();
             g_overlayDirty = true;
+            g_buttonsOnlyDirty = false;
             logPopupTransition(g_active, JWPLC_EVENT_TRANS_ACTIVE);
             syncErrIndicatorsForActive();
             jwplcUIMenuCancelEdit();
@@ -294,6 +296,7 @@ namespace
             rebindEntryPointers(g_active);
             g_active.openedMs = millis();
             g_overlayDirty = true;
+            g_buttonsOnlyDirty = false;
             logPopupTransition(g_active, JWPLC_EVENT_TRANS_ACTIVE);
             syncErrIndicatorsForActive();
             jwplcUIMenuCancelEdit();
@@ -380,12 +383,14 @@ namespace
             g_queueCount--;
 
             g_overlayDirty = true;
+            g_buttonsOnlyDirty = false;
             g_restoreUnderlying = true;
             logPopupTransition(g_active, JWPLC_EVENT_TRANS_ACTIVE);
         }
         else
         {
             g_overlayDirty = false;
+            g_buttonsOnlyDirty = false;
             g_restoreUnderlying = true;
         }
 
@@ -518,6 +523,21 @@ namespace
         tft.setTextSize(1);
     }
 
+    uint16_t blend565(uint16_t a, uint16_t b, uint8_t weight255)
+    {
+        const uint16_t ar = (uint16_t)((a >> 11) & 0x1FU);
+        const uint16_t ag = (uint16_t)((a >> 5) & 0x3FU);
+        const uint16_t ab = (uint16_t)(a & 0x1FU);
+        const uint16_t br = (uint16_t)((b >> 11) & 0x1FU);
+        const uint16_t bg = (uint16_t)((b >> 5) & 0x3FU);
+        const uint16_t bb = (uint16_t)(b & 0x1FU);
+        const uint16_t inv = (uint16_t)(255U - weight255);
+        const uint16_t r = (uint16_t)((ar * inv + br * weight255) / 255U);
+        const uint16_t g = (uint16_t)((ag * inv + bg * weight255) / 255U);
+        const uint16_t bl = (uint16_t)((ab * inv + bb * weight255) / 255U);
+        return (uint16_t)((r << 11) | (g << 5) | bl);
+    }
+
     void drawActionButton(
         JWPLC_TFTClass &tft,
         int16_t bx,
@@ -527,19 +547,55 @@ namespace
         const char *label,
         uint16_t fill,
         uint16_t textColor,
+        uint16_t popupBg,
         bool focused)
     {
-        tft.fillRoundRect(bx, by, bw, bh, 4, fill);
         if (focused)
         {
+            tft.fillRoundRect(bx, by, bw, bh, 4, fill);
             tft.drawRoundRect(bx, by, bw, bh, 4, JWPLC_TFT_WHITE);
             tft.drawRoundRect((int16_t)(bx + 1), (int16_t)(by + 1), (int16_t)(bw - 2), (int16_t)(bh - 2), 3, JWPLC_TFT_WHITE);
+            drawCenteredGlcd(tft, (int16_t)(bx + bw / 2), (int16_t)(by + bh / 2), label, textColor, fill);
         }
         else
         {
-            tft.drawRoundRect(bx, by, bw, bh, 4, textColor);
+            const uint16_t dimFill = blend565(popupBg, fill, 64);
+            const uint16_t dimBorder = blend565(popupBg, textColor, 110);
+            const uint16_t dimText = blend565(popupBg, textColor, 155);
+            tft.fillRoundRect(bx, by, bw, bh, 4, dimFill);
+            tft.drawRoundRect(bx, by, bw, bh, 4, dimBorder);
+            drawCenteredGlcd(tft, (int16_t)(bx + bw / 2), (int16_t)(by + bh / 2), label, dimText, dimFill);
         }
-        drawCenteredGlcd(tft, (int16_t)(bx + bw / 2), (int16_t)(by + bh / 2), label, textColor, fill);
+    }
+
+    void renderPopupButtons(JWPLC_TFTClass &tft, const ActivePopupEntry &entry, int16_t x, int16_t y, int16_t w, int16_t h)
+    {
+        const JWPLC_UIPopup &def = entry.def;
+        const JWPLC_UIPopupColors &c = def.colors;
+
+        tft.setFont(JWPLC_FONT_GLCD);
+        tft.setTextSize(1);
+
+        const int16_t btnY = (int16_t)(y + h - 25);
+        const int16_t btnH = 18;
+        if (def.preset == JWPLC_UI_POPUP_CONFIRM)
+        {
+            const int16_t btnW = 94;
+            const int16_t gap = 12;
+            const int16_t totalW = (int16_t)(btnW * 2 + gap);
+            const int16_t startX = (int16_t)(x + (w - totalW) / 2);
+            const char *cancelLbl = (def.cancelText != nullptr && def.cancelText[0] != '\0') ? def.cancelText : "CANCELAR";
+            const char *acceptLbl = (def.acceptText != nullptr && def.acceptText[0] != '\0') ? def.acceptText : "ACEPTAR";
+            drawActionButton(tft, startX, btnY, btnW, btnH, cancelLbl, c.cancelBg, c.cancelText, c.background, entry.focusIndex == 0);
+            drawActionButton(tft, (int16_t)(startX + btnW + gap), btnY, btnW, btnH, acceptLbl, c.acceptBg, c.acceptText, c.background, entry.focusIndex == 1);
+        }
+        else
+        {
+            const int16_t btnW = 86;
+            const int16_t bx = (int16_t)(x + (w - btnW) / 2);
+            const char *okLbl = (def.acceptText != nullptr && def.acceptText[0] != '\0') ? def.acceptText : "OK";
+            drawActionButton(tft, bx, btnY, btnW, btnH, okLbl, c.acceptBg, c.acceptText, c.background, true);
+        }
     }
 
     void renderPopup(JWPLC_TFTClass &tft, const ActivePopupEntry &entry)
@@ -606,26 +662,7 @@ namespace
         drawWrappedBody(tft, def.message, bodyX, bodyY, bodyW, bodyH, c.text, c.background, def.messageTextSize);
 
         // Botonera inferior
-        const int16_t btnY = (int16_t)(y + h - 25);
-        const int16_t btnH = 18;
-        if (def.preset == JWPLC_UI_POPUP_CONFIRM)
-        {
-            const int16_t btnW = 94;
-            const int16_t gap = 12;
-            const int16_t totalW = (int16_t)(btnW * 2 + gap);
-            const int16_t startX = (int16_t)(x + (w - totalW) / 2);
-            const char *cancelLbl = (def.cancelText != nullptr && def.cancelText[0] != '\0') ? def.cancelText : "CANCELAR";
-            const char *acceptLbl = (def.acceptText != nullptr && def.acceptText[0] != '\0') ? def.acceptText : "ACEPTAR";
-            drawActionButton(tft, startX, btnY, btnW, btnH, cancelLbl, c.cancelBg, c.cancelText, entry.focusIndex == 0);
-            drawActionButton(tft, (int16_t)(startX + btnW + gap), btnY, btnW, btnH, acceptLbl, c.acceptBg, c.acceptText, entry.focusIndex == 1);
-        }
-        else
-        {
-            const int16_t btnW = 86;
-            const int16_t bx = (int16_t)(x + (w - btnW) / 2);
-            const char *okLbl = (def.acceptText != nullptr && def.acceptText[0] != '\0') ? def.acceptText : "OK";
-            drawActionButton(tft, bx, btnY, btnW, btnH, okLbl, c.acceptBg, c.acceptText, true);
-        }
+        renderPopupButtons(tft, entry, x, y, w, h);
 
         tft.setFont(JWPLC_FONT_GLCD);
     }
@@ -859,10 +896,21 @@ extern "C" bool jwplcUIOverlayServiceInput(void)
         }
         if (left || right || up || down)
         {
-            g_active.focusIndex = (g_active.focusIndex == 0) ? 1 : 0;
-            g_overlayDirty = true;
+            uint8_t nextFocus = g_active.focusIndex;
+            if (left && !right)
+                nextFocus = 0;
+            else if (right && !left)
+                nextFocus = 1;
+            else
+                nextFocus = (g_active.focusIndex == 0) ? 1 : 0;
+
+            if (nextFocus != g_active.focusIndex)
+            {
+                g_active.focusIndex = nextFocus;
+                g_buttonsOnlyDirty = true;
+                jwplcSystemForceDisplayRefresh();
+            }
             JWPLCButtons::clearPendingInput();
-            jwplcSystemForceDisplayRefresh();
         }
         return true;
     }
@@ -916,7 +964,7 @@ extern "C" bool jwplcUIOverlayBlocksIdleWake(void)
 
 extern "C" bool jwplcUIOverlayNeedsRefresh(void)
 {
-    return g_overlayDirty || g_restoreUnderlying;
+    return g_overlayDirty || g_buttonsOnlyDirty || g_restoreUnderlying;
 }
 
 extern "C" bool jwplcUIOverlayTakeRestoreUnderlying(void)
@@ -935,6 +983,22 @@ extern "C" void jwplcUIOverlayNotifyUnderlyingDraw(void)
     }
 }
 
+extern "C" bool jwplcUIOverlayOverlapsRect(int16_t x, int16_t y, int16_t w, int16_t h)
+{
+    if (!shouldShowInCurrentMode(g_active) || w <= 0 || h <= 0)
+        return false;
+
+    int16_t px = 0, py = 0, pw = 0, ph = 0, pr = 0;
+    clampPopupRect(g_active.def, px, py, pw, ph, pr);
+    const int16_t ox1 = (int16_t)(px - 1);
+    const int16_t oy1 = (int16_t)(py - 1);
+    const int16_t ox2 = (int16_t)(px + pw + 1);
+    const int16_t oy2 = (int16_t)(py + ph + 1);
+    const int16_t rx2 = (int16_t)(x + w);
+    const int16_t ry2 = (int16_t)(y + h);
+    return x < ox2 && rx2 > ox1 && y < oy2 && ry2 > oy1;
+}
+
 extern "C" void jwplcUIOverlayDraw(JWPLC_TFTClass *tft, bool forceRedraw)
 {
     if (tft == nullptr || !shouldShowInCurrentMode(g_active))
@@ -944,6 +1008,14 @@ extern "C" void jwplcUIOverlayDraw(JWPLC_TFTClass *tft, bool forceRedraw)
     {
         renderPopup(*tft, g_active);
         g_overlayDirty = false;
+        g_buttonsOnlyDirty = false;
+    }
+    else if (g_buttonsOnlyDirty)
+    {
+        int16_t px = 0, py = 0, pw = 0, ph = 0, pr = 0;
+        clampPopupRect(g_active.def, px, py, pw, ph, pr);
+        renderPopupButtons(*tft, g_active, px, py, pw, ph);
+        g_buttonsOnlyDirty = false;
     }
 }
 

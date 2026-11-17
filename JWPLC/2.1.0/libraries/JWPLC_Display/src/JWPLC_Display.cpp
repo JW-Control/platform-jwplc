@@ -85,6 +85,14 @@ extern "C" bool __attribute__((weak)) jwplcUIOverlayBlocksIdleWake(void) { retur
 extern "C" bool __attribute__((weak)) jwplcUIOverlayNeedsRefresh(void) { return false; }
 extern "C" bool __attribute__((weak)) jwplcUIOverlayTakeRestoreUnderlying(void) { return false; }
 extern "C" void __attribute__((weak)) jwplcUIOverlayNotifyUnderlyingDraw(void) {}
+extern "C" bool __attribute__((weak)) jwplcUIOverlayOverlapsRect(int16_t x, int16_t y, int16_t w, int16_t h)
+{
+    (void)x;
+    (void)y;
+    (void)w;
+    (void)h;
+    return false;
+}
 extern "C" void __attribute__((weak)) jwplcUIOverlayDraw(JWPLC_TFTClass *display, bool forceRedraw)
 {
     (void)display;
