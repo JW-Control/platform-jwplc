@@ -267,12 +267,26 @@ async function main() {
       const prevRect = document.querySelector('#popupInspectorSection [data-popup-preview-canvas]')?.getBoundingClientRect();
       const colorEditorVisible = Boolean(colorRect && colorRect.width > 100 && colorRect.height > 100);
       const previewVisible = Boolean(prevRect && prevRect.width > 100 && prevRect.height > 60);
+      document.querySelector('#popupInspectorSection [data-popup-tab="data"]')?.click();
+      await new Promise((r) => setTimeout(r, 40));
+      const varPick = document.querySelector('#popupInspectorSection [data-popup-var-pick="triggerVar"]');
+      const varInput = document.querySelector('#popupInspectorSection [data-popup-prop="triggerVar"]');
+      const pickVals = varPick ? [...varPick.options].map((o) => o.value) : [];
+      const hasBoolVarOption = pickVals.includes('bombaActiva') && !pickVals.includes('estadoMed');
+      let varPickApplied = false;
+      if (varPick && varInput) {
+        varPick.value = 'bombaActiva';
+        varPick.dispatchEvent(new Event('change', { bubbles: true }));
+        varPickApplied = varInput.value === 'bombaActiva' && window.JWPLCHMIPopups.all()[0].triggerVar === 'bombaActiva';
+        varPick.value = '';
+        varPick.dispatchEvent(new Event('change', { bubbles: true }));
+      }
       document.getElementById('popupsModeToggleBtn')?.click();
       await new Promise((r) => setTimeout(r, 60));
       const popupsClosed = !window.JWPLCHMIPopups?.isOpen?.();
-      return { barVisible: Boolean(bar && !bar.hidden), activeViewAfterClick, popupsOpen, inspShown, leftShown, colorEditorVisible, previewVisible, popupsClosed };
+      return { barVisible: Boolean(bar && !bar.hidden), activeViewAfterClick, popupsOpen, inspShown, leftShown, colorEditorVisible, previewVisible, hasBoolVarOption, varPickApplied, popupsClosed };
     });
-    check(uiInteract.barVisible && uiInteract.activeViewAfterClick === 1 && uiInteract.popupsOpen && uiInteract.inspShown && uiInteract.leftShown && uiInteract.colorEditorVisible && uiInteract.previewVisible && uiInteract.popupsClosed,
+    check(uiInteract.barVisible && uiInteract.activeViewAfterClick === 1 && uiInteract.popupsOpen && uiInteract.inspShown && uiInteract.leftShown && uiInteract.colorEditorVisible && uiInteract.previewVisible && uiInteract.hasBoolVarOption && uiInteract.varPickApplied && uiInteract.popupsClosed,
       `UI Designer alterna subvistas y modo Popups correctamente (${JSON.stringify(uiInteract)})`);
     const subPopHeader = await session.header();
     const pumpDecls = subPopHeader.match(/\bbool\s+bombaActiva\s*=/g) || [];

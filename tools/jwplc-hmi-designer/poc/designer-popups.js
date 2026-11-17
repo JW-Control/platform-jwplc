@@ -83,6 +83,17 @@
     return (((c >> 11) + ((c >> 5) & 0x3F) / 2 + (c & 0x1F)) > 40);
   }
 
+  function blend565(a, b, weight255) {
+    const ca = Number(a) & 0xFFFF;
+    const cb = Number(b) & 0xFFFF;
+    const w = Math.max(0, Math.min(255, Math.trunc(Number(weight255) || 0)));
+    const inv = 255 - w;
+    const r = ((((ca >> 11) & 0x1F) * w) + (((cb >> 11) & 0x1F) * inv)) / 255;
+    const g = ((((ca >> 5) & 0x3F) * w) + (((cb >> 5) & 0x3F) * inv)) / 255;
+    const bl = (((ca & 0x1F) * w) + ((cb & 0x1F) * inv)) / 255;
+    return ((Math.round(r) & 0x1F) << 11) | ((Math.round(g) & 0x3F) << 5) | (Math.round(bl) & 0x1F);
+  }
+
   function cppString(value) {
     if (typeof window !== 'undefined' && window.JWPLCCp437?.cppEscape) {
       return `"${window.JWPLCCp437.cppEscape(value ?? '')}"`;
@@ -294,17 +305,20 @@
     }
   }
 
-  function drawButton(ctx, bx, by, bw, bh, label, fillCss, textCss, focused) {
-    fillRound(ctx, bx, by, bw, bh, 4, fillCss);
+  function drawButton(ctx, bx, by, bw, bh, label, fill565, text565, panelBg565, focused) {
+    const drawFill = focused ? fill565 : blend565(fill565, panelBg565, 64);
+    const drawBorder = focused ? 0xFFFF : blend565(text565, panelBg565, 110);
+    const drawText = focused ? text565 : blend565(text565, panelBg565, 155);
+    fillRound(ctx, bx, by, bw, bh, 4, rgb565ToCss(drawFill));
     if (focused) {
       strokeRound(ctx, bx, by, bw, bh, 4, '#ffffff');
       strokeRound(ctx, bx + 1, by + 1, bw - 2, bh - 2, 3, '#ffffff');
     } else {
-      strokeRound(ctx, bx, by, bw, bh, 4, textCss);
+      strokeRound(ctx, bx, by, bw, bh, 4, rgb565ToCss(drawBorder));
     }
     const text = String(label || '');
     const tw = text.length * CHAR_W;
-    drawGlcdText(ctx, text, Math.round(bx + (bw - tw) / 2), Math.round(by + (bh - CHAR_H) / 2), textCss);
+    drawGlcdText(ctx, text, Math.round(bx + (bw - tw) / 2), Math.round(by + (bh - CHAR_H) / 2), rgb565ToCss(drawText));
   }
 
   function paintPopup(ctx, rawPopup, focusIndex = 0) {
@@ -318,10 +332,6 @@
     const hdrBgCss = rgb565ToCss(c.headerBg);
     const hdrTxtCss = rgb565ToCss(c.headerText);
     const txtCss = rgb565ToCss(c.text);
-    const acceptBgCss = rgb565ToCss(c.acceptBg);
-    const acceptTxtCss = rgb565ToCss(c.acceptText);
-    const cancelBgCss = rgb565ToCss(c.cancelBg);
-    const cancelTxtCss = rgb565ToCss(c.cancelText);
 
     strokeRound(ctx, x - 1, y - 1, w + 2, h + 2, r > 0 ? r + 1 : 0, '#000000');
     fillRound(ctx, x, y, w, h, r, bgCss);
@@ -367,12 +377,12 @@
       const btnW = 94;
       const gap = 12;
       const startX = Math.floor(x + (w - (btnW * 2 + gap)) / 2);
-      drawButton(ctx, startX, btnY, btnW, btnH, p.cancelText, cancelBgCss, cancelTxtCss, focusIndex === 0);
-      drawButton(ctx, startX + btnW + gap, btnY, btnW, btnH, p.acceptText, acceptBgCss, acceptTxtCss, focusIndex === 1);
+      drawButton(ctx, startX, btnY, btnW, btnH, p.cancelText, c.cancelBg, c.cancelText, c.background, focusIndex === 0);
+      drawButton(ctx, startX + btnW + gap, btnY, btnW, btnH, p.acceptText, c.acceptBg, c.acceptText, c.background, focusIndex === 1);
     } else {
       const btnW = 86;
       const bx = Math.floor(x + (w - btnW) / 2);
-      drawButton(ctx, bx, btnY, btnW, btnH, p.acceptText, acceptBgCss, acceptTxtCss, true);
+      drawButton(ctx, bx, btnY, btnW, btnH, p.acceptText, c.acceptBg, c.acceptText, c.background, true);
     }
   }
 
@@ -430,6 +440,58 @@
 
   function colorsDiffer(c, dflt) {
     return Object.keys(dflt).some((k) => (Number(c[k]) & 0xFFFF) !== (Number(dflt[k]) & 0xFFFF));
+  }
+
+  function collectProjectBoolVariables(excludePopupId = null) {
+    const fields = editor()?.getAllFields?.() || [];
+    const nonBool = new Set();
+    const varsMap = new Map();
+    const addCandidate = (rawName, sourceLabel) => {
+      const sym = sanitizeSymbol(rawName, '');
+      if (!sym || nonBool.has(sym)) return;
+      if (!varsMap.has(sym)) varsMap.set(sym, new Set());
+      if (sourceLabel) varsMap.get(sym).add(sourceLabel);
+    };
+
+    fields.forEach((f) => {
+      if (!f) return;
+      if (f.type === 'BOOL' || (f.type === 'ICON' && f.iconVarType !== 'uint8')) return;
+      if (['VALUE', 'BAR', 'TREND', 'TEXT', 'QR'].includes(f.type) || (f.type === 'ICON' && f.iconVarType === 'uint8')) {
+        if (f.variable) nonBool.add(sanitizeSymbol(f.variable, ''));
+      }
+      if (f.type === 'TREND') {
+        if (f.ch2Enabled && f.ch2Variable) nonBool.add(sanitizeSymbol(f.ch2Variable, ''));
+        if (f.ch3Enabled && f.ch3Variable) nonBool.add(sanitizeSymbol(f.ch3Variable, ''));
+      }
+    });
+
+    fields.forEach((f) => {
+      if (!f) return;
+      if (f.type === 'BOOL' && f.variable) {
+        addCandidate(f.variable, 'BOOL');
+      } else if (f.type === 'ICON' && f.iconVarType !== 'uint8' && f.variable) {
+        addCandidate(f.variable, 'ICON');
+      } else if (f.type === 'MENU' && Array.isArray(f.nodes)) {
+        f.nodes.forEach((n) => {
+          if (!n || !n.variable) return;
+          if (n.type === 'EDIT_BOOL' || n.type === 'VIEW') {
+            addCandidate(n.variable, 'MENU');
+          }
+        });
+      }
+    });
+
+    state.forEach((raw, idx) => {
+      const p = normalizePopup(raw, idx);
+      if (excludePopupId !== null && p.id === excludePopupId) return;
+      if (p.triggerVar) addCandidate(p.triggerVar, `Popup #${p.id}`);
+      if (p.confirmOutVar) addCandidate(p.confirmOutVar, `Popup #${p.id}`);
+    });
+
+    return [...varsMap.entries()]
+      .filter(([sym]) => !nonBool.has(sym))
+      .map(([name, sources]) => ({ name, source: [...sources].slice(0, 2).join(', ') }))
+      .sort((a, b) => a.name.localeCompare(b.name));
   }
 
   function generate(popups = [], context = {}) {
@@ -879,8 +941,15 @@
           <div class="insp-panel" data-popup-panel="data" hidden>
             <div class="bar-card">
               <div class="bar-card-section-title">Disparo y variables C++ (bool)</div>
-              <label class="field-label">Variable trigger automático (0 → 1)<input class="field-input code-input" data-popup-prop="triggerVar" type="text" maxlength="32" placeholder="ej. alarmaSobreTemp" /></label>
-              <label class="field-label" data-popup-outvar-wrap hidden>Variable resultado CONFIRM (true/false)<input class="field-input code-input" data-popup-prop="confirmOutVar" type="text" maxlength="32" placeholder="ej. iniciarProceso" /></label>
+              <datalist id="popupProjectBoolVars"></datalist>
+              <label class="field-label">Variable trigger automático (0 → 1)
+                <select class="field-input code-input" data-popup-var-pick="triggerVar"></select>
+                <input class="field-input code-input insp-gap" data-popup-prop="triggerVar" list="popupProjectBoolVars" type="text" maxlength="32" placeholder="ej. alarmaSobreTemp (o escribe nueva)" />
+              </label>
+              <label class="field-label" data-popup-outvar-wrap hidden>Variable resultado CONFIRM (true/false)
+                <select class="field-input code-input" data-popup-var-pick="confirmOutVar"></select>
+                <input class="field-input code-input insp-gap" data-popup-prop="confirmOutVar" list="popupProjectBoolVars" type="text" maxlength="32" placeholder="ej. iniciarProceso (o escribe nueva)" />
+              </label>
               <label class="field-label">Código ERR lateral IDLE (4 chars)<input class="field-input code-input" data-popup-prop="errCode" type="text" maxlength="4" placeholder="ej. E104" /></label>
               <label class="field-label">Auto-cierre (ms, 0 = manual)<input class="field-input" data-popup-prop="autoCloseMs" type="number" min="0" max="60000" step="100" /></label>
             </div>
@@ -1044,7 +1113,25 @@
       if (e.target.matches('[data-popup-prop]')) applyProp(e.target, false);
     });
     rightSection.addEventListener('change', (e) => {
-      if (e.target.matches('[data-popup-prop]')) applyProp(e.target, true);
+      if (e.target.matches('[data-popup-prop]')) {
+        applyProp(e.target, true);
+        return;
+      }
+      if (e.target.matches('[data-popup-var-pick]')) {
+        const prop = e.target.dataset.popupVarPick;
+        const val = e.target.value;
+        if (val === '__custom__') {
+          const inp = rightSection.querySelector(`[data-popup-prop="${prop}"]`);
+          if (inp) {
+            inp.focus();
+            inp.select?.();
+          }
+          return;
+        }
+        mutateSelected((p) => {
+          p[prop] = val;
+        }, true);
+      }
     });
   }
 
@@ -1199,6 +1286,33 @@
       const viewOpts = `<option value="-1">Sin cambio de subvista</option>` + vs.map((v) => `<option value="${v.id}">V${Number(v.id) + 1} · ${escapeHtml(v.name)}</option>`).join('');
       if (targetViewSel.innerHTML !== viewOpts) targetViewSel.innerHTML = viewOpts;
     }
+
+    const projectBoolVars = collectProjectBoolVariables(p.id);
+    const boolDatalist = rightSection.querySelector('#popupProjectBoolVars');
+    if (boolDatalist) {
+      const dlHtml = projectBoolVars
+        .map((v) => `<option value="${escapeHtml(v.name)}">${escapeHtml(v.source)}</option>`)
+        .join('');
+      if (boolDatalist.innerHTML !== dlHtml) boolDatalist.innerHTML = dlHtml;
+    }
+    rightSection.querySelectorAll('[data-popup-var-pick]').forEach((sel) => {
+      const prop = sel.dataset.popupVarPick;
+      const curVal = String(p[prop] || '');
+      const known = new Set(projectBoolVars.map((v) => v.name));
+      const baseLabel = projectBoolVars.length
+        ? '— Seleccionar variable bool del proyecto —'
+        : '— Sin variables bool en el proyecto —';
+      const opts = [
+        `<option value="">${baseLabel}</option>`,
+        ...projectBoolVars.map((v) => `<option value="${escapeHtml(v.name)}">${escapeHtml(v.name)} (${escapeHtml(v.source)})</option>`),
+        curVal && !known.has(curVal)
+          ? `<option value="${escapeHtml(curVal)}">${escapeHtml(curVal)} (actual · personalizada)</option>`
+          : '',
+        '<option value="__custom__">✎ Escribir nombre abajo...</option>'
+      ].join('');
+      if (sel.innerHTML !== opts) sel.innerHTML = opts;
+      sel.value = curVal;
+    });
 
     rightSection.querySelectorAll('[data-popup-prop]').forEach((input) => {
       if (document.activeElement === input) return;

@@ -160,6 +160,18 @@ void updateMeasurementState(uint32_t nowMs)
         formatMonitoringTexts(measElapsed, durationS);
     }
 
+    // En la subvista 2 (WiFi_QR), pulsar OK regresa a Ajustes (subvista 0)
+    if (!JWPLC_Display.popupActive() &&
+        !JWPLC_Display.isUserPageSelection() &&
+        JWPLC_Display.userPage() == PAGE_MEDICION &&
+        JWPLC_Display.pageView(PAGE_MEDICION) == 2)
+    {
+        if (JWPLC_Buttons.pressed(BTN_OK))
+        {
+            JWPLC_Display.setPageView(PAGE_MEDICION, 0);
+        }
+    }
+
     // Rearma los triggers booleanos una vez que la ventana emergente se cierra
     const bool popupOpen = JWPLC_Display.popupActive();
     if (g_wasPopupOpen && !popupOpen)

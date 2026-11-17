@@ -27,35 +27,36 @@ enum HMIFieldId : uint8_t
     FIELD_V2_STATUS_TEXT = 4,
     FIELD_V2_PROGRESS_BAR = 5,
     FIELD_V2_SUBTEXT = 6,
+    FIELD_V3_WIFI_STATE = 7,
 
     // Página 02 · Vista_General
-    FIELD_GEN_TCOD = 7,
-    FIELD_GEN_COD = 8,
-    FIELD_GEN_BOD = 9,
-    FIELD_GEN_TOC = 10,
-    FIELD_GEN_TURB = 11,
-    FIELD_GEN_STATE = 12,
+    FIELD_GEN_TCOD = 8,
+    FIELD_GEN_COD = 9,
+    FIELD_GEN_BOD = 10,
+    FIELD_GEN_TOC = 11,
+    FIELD_GEN_TURB = 12,
+    FIELD_GEN_STATE = 13,
 
     // Página 03 · Temp_COD
-    FIELD_ST_REP = 13,
-    FIELD_TREND_TCOD = 14,
-    FIELD_VALUE_9 = 15,
+    FIELD_ST_REP = 14,
+    FIELD_TREND_TCOD = 15,
+    FIELD_VALUE_9 = 16,
 
     // Página 04 · Graf_COD
-    FIELD_TREND_COD = 16,
-    FIELD_VALUE_10 = 17,
+    FIELD_TREND_COD = 17,
+    FIELD_VALUE_10 = 18,
 
     // Página 05 · Graf_BOD
-    FIELD_TREND_BOD = 18,
-    FIELD_VALUE_11 = 19,
+    FIELD_TREND_BOD = 19,
+    FIELD_VALUE_11 = 20,
 
     // Página 06 · Graf_TOC
-    FIELD_TREND_TOC = 20,
-    FIELD_VALUE_12 = 21,
+    FIELD_TREND_TOC = 21,
+    FIELD_VALUE_12 = 22,
 
     // Página 07 · Graf_TURB
-    FIELD_TREND_TURB = 22,
-    FIELD_VALUE_37 = 23,
+    FIELD_TREND_TURB = 23,
+    FIELD_VALUE_37 = 24,
 };
 
 // Variables HMI
@@ -65,6 +66,7 @@ uint32_t measElapsed = 0;
 char measStatus[17] = {}; // 8 caracteres (UTF-8: cada tilde ocupa 2 bytes)
 float measProgress = 0.0f;
 char measSubtext[73] = {}; // 36 caracteres (UTF-8: cada tilde ocupa 2 bytes)
+bool wifiDownload = false;
 
 // Página 02 · Vista_General
 float valTCod = 0.0f;
@@ -93,7 +95,6 @@ float trendTurb = 0.0f;
 // MENU MENU_MEDICION
 int32_t measTag = 1;
 int32_t measMins = 5;
-bool wifiDownload = false;
 bool popupAvisoReactivo = false;
 bool popupFallaSensor = false;
 
@@ -693,7 +694,38 @@ static const JWPLC_UIField HMI_FIELDS[] =
                 0xFFFF,
                 0x0000,
                 0xFFFF)),
-        0x02U)
+        0x02U),
+    JWPLC_UIFieldViews(
+        JWPLC_UIBoolField(
+            FIELD_V3_WIFI_STATE,
+            JWPLC_UIRect(18, 42),
+            JWPLC_UIText("AP:", nullptr),
+#ifdef JWPLC_UI_HAS_BOOL_STATE_BACKGROUNDS
+            JWPLC_UIBoolText(
+                "[INACTIVO]",
+                "[ACTIVO]  ",
+                0xB5D8,
+                0x07E0,
+                0x18E3,
+                0x18E3),
+#else
+            JWPLC_UIBoolText(
+                "[INACTIVO]",
+                "[ACTIVO]  "),
+#endif
+            JWPLC_UIBoolStyle(
+                1,
+                1,
+                false,
+                JWPLC_UI_LAYOUT_INLINE,
+                JWPLC_UI_ALIGN_LEFT),
+            0,
+            JWPLC_UIColors(
+                0xFFFF,
+                0x07E0,
+                0x18E3,
+                0x39E7)),
+        0x04U)
 };
 
 // MENU (A15-8): requiere JWPLC_Display con soporte de MENU.
@@ -722,7 +754,7 @@ static const JWPLC_UIMenuNode HMI_MENU_MEDICION_NODES[] =
     JWPLC_UIMenuNodeConfirm(JWPLC_UIMenuNodePill(JWPLC_UIMenuGoView(JWPLC_UI_MENU_ROOT, "INICIAR MEDICION", 1), 0x05E0, 0xD800, 0xFFFF), 0),
     JWPLC_UIMenuNodeLRStep(JWPLC_UIMenuNodeFormat(JWPLC_UIMenuEditNum(JWPLC_UI_MENU_ROOT, "ETIQUETA:", &measTag, 1, 99, 1, nullptr), "P", 2), 1),
     JWPLC_UIMenuNodeLRStep(JWPLC_UIMenuEditNum(JWPLC_UI_MENU_ROOT, "TIEMPO:", &measMins, 1, 60, 1, "min"), 1),
-    JWPLC_UIMenuNodeDirectToggle(JWPLC_UIMenuEditBool(JWPLC_UI_MENU_ROOT, "DESCARGA WIFI", &wifiDownload, "", "ACTIVA"), true),
+    JWPLC_UIMenuNodeTargetView(JWPLC_UIMenuNodeDirectToggle(JWPLC_UIMenuEditBool(JWPLC_UI_MENU_ROOT, "DESCARGA WIFI", &wifiDownload, "", "ACTIVA"), true), 2),
     JWPLC_UIMenuNodeDirectToggle(JWPLC_UIMenuEditBool(JWPLC_UI_MENU_ROOT, "AVISO REACTIVO", &popupAvisoReactivo, "OFF", "ON"), true),
     JWPLC_UIMenuNodeDirectToggle(JWPLC_UIMenuEditBool(JWPLC_UI_MENU_ROOT, "FALLA SENSOR", &popupFallaSensor, "OFF", "ON"), true)
 };
@@ -813,6 +845,72 @@ void jwplcHMISetup()
     JWPLC_Display.setIdleWakeMode(JWPLC_DisplayClass::IDLE_WAKE_ANY_BUTTON);
     JWPLC_Display.setIdleReturnMode(JWPLC_DisplayClass::IDLE_RETURN_ESC_ONLY);
 }
+
+// Primitivas auxiliares (sólo usan API pública de JWPLC_TFT).
+#if defined(JWPLC_TFT_VERSION_MAJOR) && \
+    ((JWPLC_TFT_VERSION_MAJOR > 0) || (JWPLC_TFT_VERSION_MINOR >= 2))
+#define JWPLC_HMI_TFT_NATIVE_SHAPES 1
+#else
+#define JWPLC_HMI_TFT_NATIVE_SHAPES 0
+#endif
+#if defined(JWPLC_TFT_VERSION_MAJOR) && \
+    ((JWPLC_TFT_VERSION_MAJOR > 0) || (JWPLC_TFT_VERSION_MINOR >= 3))
+#define JWPLC_HMI_TFT_FONTS 1
+#else
+#define JWPLC_HMI_TFT_FONTS 0
+#endif
+
+static void jwplcHMIDrawQR(JWPLC_TFTClass &tft,
+    int16_t x, int16_t y, uint8_t size, uint8_t scale, uint8_t quiet,
+    uint16_t fg, uint16_t bg, bool frame, uint16_t frameColor, const uint8_t *bits)
+{
+    const int16_t pad = (frame && quiet == 0) ? 1 : 0;
+    const int16_t qrSide = (int16_t)((size + 2 * quiet) * scale);
+    const int16_t totalSide = (int16_t)(qrSide + pad * 2);
+    tft.fillRect(x, y, totalSide, totalSide, bg);
+    const int16_t ox = (int16_t)(x + pad + quiet * scale);
+    const int16_t oy = (int16_t)(y + pad + quiet * scale);
+    for (uint8_t my = 0; my < size; my++)
+    {
+        uint8_t mx = 0;
+        while (mx < size)
+        {
+            const uint16_t idx = (uint16_t)my * size + mx;
+            const bool dark = (bits[idx >> 3] & (0x80u >> (idx & 7))) != 0;
+            if (!dark)
+            {
+                mx++;
+                continue;
+            }
+            uint8_t run = 1;
+            while ((uint8_t)(mx + run) < size)
+            {
+                const uint16_t nidx = (uint16_t)my * size + (uint8_t)(mx + run);
+                if ((bits[nidx >> 3] & (0x80u >> (nidx & 7))) == 0) break;
+                run++;
+            }
+            tft.fillRect((int16_t)(ox + mx * scale), (int16_t)(oy + my * scale),
+                         (int16_t)(run * scale), scale, fg);
+            mx = (uint8_t)(mx + run);
+        }
+    }
+    if (frame)
+    {
+        tft.drawRect(x, y, totalSide, totalSide, frameColor);
+    }
+}
+
+// QR estático FIELD_V3_QR_WIFI (29x29, v3, nivel undefined, 106 B)
+static const uint8_t QR_FIELD_V3_QR_WIFI_BITS[] =
+{
+    0xFE, 0x5E, 0x4B, 0xFC, 0x11, 0x6A, 0x10, 0x6E, 0xA8, 0xC2, 0xBB, 0x75, 0x69, 0x05, 0xDB, 0xAC,
+    0x62, 0xAE, 0xC1, 0x7A, 0xD5, 0x07, 0xFA, 0xAA, 0xAF, 0xE0, 0x15, 0x53, 0x00, 0xBE, 0x31, 0x93,
+    0xE2, 0x4B, 0xE0, 0x55, 0xBB, 0xFF, 0xCB, 0xD0, 0xCB, 0xD9, 0x6D, 0x36, 0x6E, 0x3E, 0x1E, 0x6E,
+    0xA4, 0x26, 0xDB, 0xFA, 0x87, 0xBC, 0x80, 0xBA, 0x73, 0xC8, 0x5F, 0x41, 0x99, 0x5F, 0x6E, 0xB0,
+    0x46, 0xAB, 0xC5, 0xCA, 0x61, 0x40, 0x3B, 0x65, 0x19, 0xAE, 0xBE, 0xFE, 0x00, 0x50, 0x24, 0x53,
+    0xF8, 0xC7, 0xAA, 0x90, 0x5E, 0x47, 0x1B, 0xBA, 0xB1, 0xEF, 0xC5, 0xD4, 0x50, 0x06, 0xEE, 0xB3,
+    0x4E, 0x7D, 0x04, 0x38, 0x09, 0xAF, 0xEB, 0x9F, 0x4C, 0x00
+};
 
 // Barra de Navegación HMI Autogenerada (ST7789)
 // Pestaña de la página actual: posicionada en el selector (◀ ▶, fondo de
@@ -1243,6 +1341,44 @@ void jwplcUIPageEnter(uint8_t page)
         tft.setTextSize(1);
         tft.setTextColor(0xFFFF);
         tft.print("CONFIGURACION DE MEDICION");
+        if (JWPLC_Display.pageView(PAGE_MEDICION) == 2)
+        {
+            // Titulo WiFi QR
+            tft.setCursor(12, 20);
+            tft.setTextSize(1);
+            tft.setTextColor(0x07FF);
+            tft.print("PORTAL DESCARGA WIFI");
+            // Panel Datos WiFi
+            tft.fillRoundRect(10, 34, 184, 90, 5, 0x18E3);
+            tft.drawRoundRect(10, 34, 184, 90, 5, 0x39E7);
+            // SSID WiFi
+            tft.setCursor(18, 60);
+            tft.setTextSize(1);
+            tft.setTextColor(0xFFFF);
+            tft.print("RED:  JWPLC_COD_AP");
+            // Clave WiFi
+            tft.setCursor(18, 75);
+            tft.setTextSize(1);
+            tft.setTextColor(0xFFFF);
+            tft.print("PASS: 12345678");
+            // IP WiFi
+            tft.setCursor(18, 90);
+            tft.setTextSize(1);
+            tft.setTextColor(0xFFE0);
+            tft.print("IP:   192.168.4.1");
+            // Nota QR Prueba
+            tft.setCursor(18, 108);
+            tft.setTextSize(1);
+            tft.setTextColor(0xB5D8);
+            tft.print("QR generico de prueba");
+            // Ayuda Volver V3
+            tft.setCursor(12, 132);
+            tft.setTextSize(1);
+            tft.setTextColor(0xB5D8);
+            tft.print("OK: Volver a Ajustes   ESC: Inicio");
+            // QR WiFi Prueba
+            jwplcHMIDrawQR(tft, 204, 22, 29, 3, 2, 0x0000, 0xFFFF, true, 0x07FF, QR_FIELD_V3_QR_WIFI_BITS);
+        }
         break;
 
     case PAGE_VISTA_GENERAL:
@@ -1296,6 +1432,7 @@ void jwplcUIUpdate()
         JWPLC_Display.setText(FIELD_V2_STATUS_TEXT, measStatus);
         JWPLC_Display.setBar(FIELD_V2_PROGRESS_BAR, measProgress);
         JWPLC_Display.setText(FIELD_V2_SUBTEXT, measSubtext);
+        JWPLC_Display.setBool(FIELD_V3_WIFI_STATE, wifiDownload);
         break;
 
     case PAGE_VISTA_GENERAL:

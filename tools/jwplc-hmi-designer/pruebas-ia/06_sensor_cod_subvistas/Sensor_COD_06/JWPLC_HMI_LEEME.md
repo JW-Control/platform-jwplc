@@ -31,6 +31,7 @@ void loop()
     strncpy(measStatus, "Listo", sizeof(measStatus) - 1); // TEXT: 8 caracteres (UTF-8: cada tilde ocupa 2 bytes)
     measProgress = 0.0f; // p. ej. la lectura de tu sensor
     strncpy(measSubtext, "Listo", sizeof(measSubtext) - 1); // TEXT: 36 caracteres (UTF-8: cada tilde ocupa 2 bytes)
+    wifiDownload = false; // p. ej. digitalRead(I0_0) o el estado de tu lógica
     // Página 02 · Vista_General
     valTCod = 0.0f; // p. ej. la lectura de tu sensor
     valCod = 0.0f; // p. ej. la lectura de tu sensor
@@ -52,7 +53,6 @@ void loop()
     // MENU MENU_MEDICION
     measTag = 0; // p. ej. un contador de tu lógica
     measMins = 0; // p. ej. un contador de tu lógica
-    wifiDownload = false; // p. ej. digitalRead(I0_0) o el estado de tu lógica
     popupAvisoReactivo = false; // p. ej. digitalRead(I0_0) o el estado de tu lógica
     popupFallaSensor = false; // p. ej. digitalRead(I0_0) o el estado de tu lógica
     // Ventanas emergentes (I5-I6)
@@ -80,6 +80,7 @@ otra vez da error de redefinición). Si cambias un nombre en el Designer, cámbi
 | `measStatus` | `char[17]` | Página 01 · Medicion | 8 caracteres (UTF-8: cada tilde ocupa 2 bytes) |
 | `measProgress` | `float` | Página 01 · Medicion | Valor inicial 0.0f |
 | `measSubtext` | `char[73]` | Página 01 · Medicion | 36 caracteres (UTF-8: cada tilde ocupa 2 bytes) |
+| `wifiDownload` | `bool` | Página 01 · Medicion | Valor inicial false |
 | `valTCod` | `float` | Página 02 · Vista_General | Valor inicial 0.0f |
 | `valCod` | `float` | Página 02 · Vista_General | Valor inicial 0.0f |
 | `valBod` | `float` | Página 02 · Vista_General | Valor inicial 0.0f |
@@ -94,7 +95,6 @@ otra vez da error de redefinición). Si cambias un nombre en el Designer, cámbi
 | `trendTurb` | `float` | Página 07 · Graf_TURB | Valor inicial 0.0f |
 | `measTag` | `int32_t` | MENU MENU_MEDICION | El MENU la muestra («Ver»); escríbela en tu lógica |
 | `measMins` | `int32_t` | MENU MENU_MEDICION | El MENU la muestra («Ver»); escríbela en tu lógica |
-| `wifiDownload` | `bool` | MENU MENU_MEDICION | El MENU la muestra («Ver»); escríbela en tu lógica |
 | `popupAvisoReactivo` | `bool` | MENU MENU_MEDICION | El MENU la muestra («Ver»); escríbela en tu lógica |
 | `popupFallaSensor` | `bool` | MENU MENU_MEDICION | El MENU la muestra («Ver»); escríbela en tu lógica |
 | `measRun` | `bool` | Ventanas emergentes (I5-I6) | Valor inicial false |
