@@ -38,6 +38,10 @@ formas**.
   precompilada `JWPLC_Icons` (`JWPLC_Icons.motor(48)`): el header del Designer la usa y sólo se enlaza el tamaño elegido.
 - **Display TFT**: `JWPLC_TFT` 0.5.0 soporta `beginBatch()`/`endBatch()` anidados por profundidad; `JWPLC_Display` 1.1.0
   elimina destellos negros en tarjetas de `MENU` y evita el parpadeo de 1 Hz del reloj mientras hay un modal abierto.
+  Árbitro único de teclas: el OK que sale del selector de páginas sólo entra a la página (antes también actuaba sobre
+  el EVENT_LOG o el MENU de esa página); el segundo OK ya va al widget.
+- **Ledcito** (#240): ejemplo `JWPLC_Display/17.Display_Ledcito`, la mascota de JW Control animada en la TFT (sprite de
+  4 bits a pantalla completa, OK reinicia y ESC vuelve a IDLE).
 - **Modbus TCP** (#238): el Server de `JWPLC_ModbusTCP` atiende varios clientes a la vez, cierra las conexiones
   inactivas y responde también a Unit ID 0 y 255 (`setStrictUnitId(true)` vuelve a la comparación exacta).
   En `JW_ModbusRTU`, una tabla sin mapa responde la excepción 02.
@@ -81,4 +85,4 @@ Ver `ALPHA17_STATUS.md` §3 (resultados de la matriz ESP32, del Sim y de los tes
 | HMI Designer | 2.1.0-alpha.17 | instaladores: árbol de la Release; dentro del editor: platform-jwplc `4cb23c5` |
 | VPP JWPLC Basic | 2.1.0-alpha.17 | platform-jwplc `0647a84` |
 | OpenPLC Editor – JWPLC Edition | 4.3.3-jwplc.1 | openplc-editor `2bf0b0c` (tag `jwplc-editor-v4.3.3-jwplc.1`) |
-| JWPLC Sim (gate `SIM_REGRESSION`) | — | jwplc-sim `5021377` |
+| JWPLC Sim (gate `SIM_REGRESSION`) | — | jwplc-sim `c807af1` |
