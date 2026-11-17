@@ -202,6 +202,7 @@
   }
 
   function bind(input, target, variableName) {
+    window.JWPLCHMISaveFlow?.flushBaselineBeforeEdit?.();
     if (!variableName) {
       if (target.kind === 'node') {
         menuApi()?.mutateSelectedNode?.((node) => { delete node.plcBinding; }, true);
@@ -216,10 +217,6 @@
           if (target.field.tierBindings.every((b) => !b || !b.plcBinding)) {
             delete target.field.tierBindings;
           }
-        }
-        if (Array.isArray(target.field.tierVariables)) {
-          target.field.tierVariables = [...target.field.tierVariables];
-          target.field.tierVariables[target.tierIndex] = '';
         }
       } else if (target.kind === 'trend') {
         delete target.field[target.bindingProp];
@@ -264,13 +261,10 @@
       target.field.tierBindings[target.tierIndex] = {
         plcBinding: { var: variable.name, access: target.wants?.rw ? 'RW' : 'R' }
       };
-      if (input.value !== name) {
-        fire(input, name);
-      } else {
-        target.field.tierVariables = Array.isArray(target.field.tierVariables) ? [...target.field.tierVariables] : [];
-        target.field.tierVariables[target.tierIndex] = name;
-        editor()?.commitHistory?.();
-      }
+      target.field.tierVariables = Array.isArray(target.field.tierVariables) ? [...target.field.tierVariables] : [];
+      target.field.tierVariables[target.tierIndex] = name;
+      input.value = name;
+      editor()?.commitHistory?.();
       syncDirty();
       schedule();
       return;
@@ -413,6 +407,7 @@
   function watchDirty() {
     setInterval(syncDirty, DIRTY_POLL_MS);
     window.addEventListener('jwplc:editor-refresh', syncDirty);
+    window.addEventListener('jwplc:dirty-changed', syncDirty);
     window.addEventListener('jwplc:project-loaded', () => setTimeout(syncDirty, 0));
     window.addEventListener('jwplc:project-written', syncDirty);
   }

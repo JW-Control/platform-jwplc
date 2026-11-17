@@ -4,6 +4,8 @@
   const native = window.JWPLCHMINative;
   if (!native?.isNative) return;
 
+  window.__jwplcNativeProjectLoaded = false;
+
   const HEADER_NAME = 'JWPLC_HMI_Generated.h';
   // Dentro de OpenPLC el «sketch» es la carpeta hmi/ del proyecto y no se desvincula.
   const openplc = window.JWPLCHMIHost?.mode === 'openplc';
@@ -225,16 +227,20 @@
     window.JWPLCHMIProject.updateGeneratedHeader = updateHeaderNative;
     window.JWPLCHMIProject.linkedSketchName = () => linked?.name || null;
 
-    const restored = await native.getLinkedSketch();
-    if (restored?.ok) {
-      linked = restored;
-      updateUi();
-      if (restored.projectExists) {
-        await loadProjectFromSketch(restored);
+    try {
+      const restored = await native.getLinkedSketch();
+      if (restored?.ok) {
+        linked = restored;
+        updateUi();
+        if (restored.projectExists) {
+          await loadProjectFromSketch(restored);
+        }
+      } else {
+        linked = null;
+        updateUi();
       }
-    } else {
-      linked = null;
-      updateUi();
+    } finally {
+      window.__jwplcNativeProjectLoaded = true;
     }
 
     // designer-sketch-menu.js vincula por su cuenta («Cambiar sketch…»):

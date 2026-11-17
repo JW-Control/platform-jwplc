@@ -371,6 +371,28 @@ async function main() {
     await b.page.waitForTimeout(250);
     const tierUnbound = await b.page.evaluate(() => window.JWPLCHMIEditor.getAllFields().find((x) => x.type === 'ICON').tierBindings);
     check(tierUnbound === undefined, `Baliza limpia tierBindings al desenlazar (${JSON.stringify(tierUnbound)})`);
+    await b.page.evaluate(() => window.JWPLCHMIEditor.undo());
+    await b.page.waitForTimeout(250);
+    const tierRestored = await b.page.evaluate(() => {
+      const f = window.JWPLCHMIEditor.getAllFields().find((x) => x.type === 'ICON');
+      return { plc: f.tierBindings?.[0]?.plcBinding?.var, varName: f.tierVariables?.[0] };
+    });
+    check(tierRestored.plc === 'RELE' && tierRestored.varName === 'rele',
+      `Ctrl+Z restaura tierBindings y tierVariables de Baliza (${JSON.stringify(tierRestored)})`);
+
+    // 5. Duplicar un objeto enlazado no comparte referencias de bindings con el original.
+    await b.page.evaluate(() => {
+      const E = window.JWPLCHMIEditor;
+      const trend = E.getAllFields().find((f) => f.type === 'TREND');
+      E.setSelectedFieldKeys([trend.key]);
+      E.duplicateSelectedField();
+    });
+    await b.page.waitForTimeout(250);
+    const dupIsolated = await b.page.evaluate(() => {
+      const trends = window.JWPLCHMIEditor.getAllFields().filter((f) => f.type === 'TREND');
+      return trends.length === 2 && trends[0].plcBinding && trends[1].plcBinding && trends[0].plcBinding !== trends[1].plcBinding;
+    });
+    check(dupIsolated, 'duplicar TREND clona plcBinding sin compartir referencia con el original');
 
     check(b.errors.length === 0, `sin errores JS (${b.errors.join(' | ') || 'ninguno'})`);
   } finally {

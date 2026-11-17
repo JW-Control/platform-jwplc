@@ -5718,13 +5718,38 @@
     }
   }
 
+  function cloneField(field) {
+    const copy = { ...field };
+    if (Array.isArray(field.pages)) copy.pages = [...field.pages];
+    if (Array.isArray(field.views)) copy.views = [...field.views];
+    if (field.plcBinding && typeof field.plcBinding === 'object') copy.plcBinding = { ...field.plcBinding };
+    if (field.ch2PlcBinding && typeof field.ch2PlcBinding === 'object') copy.ch2PlcBinding = { ...field.ch2PlcBinding };
+    if (field.ch3PlcBinding && typeof field.ch3PlcBinding === 'object') copy.ch3PlcBinding = { ...field.ch3PlcBinding };
+    if (Array.isArray(field.tierVariables)) copy.tierVariables = [...field.tierVariables];
+    if (Array.isArray(field.tierBindings)) {
+      copy.tierBindings = field.tierBindings.map((b) => (
+        b && typeof b === 'object'
+          ? { ...b, ...(b.plcBinding && typeof b.plcBinding === 'object' ? { plcBinding: { ...b.plcBinding } } : {}) }
+          : b
+      ));
+    }
+    if (Array.isArray(field.nodes)) {
+      copy.nodes = field.nodes.map((n) => (
+        n && typeof n === 'object'
+          ? { ...n, ...(n.plcBinding && typeof n.plcBinding === 'object' ? { plcBinding: { ...n.plcBinding } } : {}) }
+          : n
+      ));
+    }
+    if (Array.isArray(field.events)) copy.events = field.events.map((e) => (e && typeof e === 'object' ? { ...e } : e));
+    if (Array.isArray(field.stateColors)) copy.stateColors = [...field.stateColors];
+    if (Array.isArray(field.stateNames)) copy.stateNames = [...field.stateNames];
+    if (Array.isArray(field.tierColors)) copy.tierColors = [...field.tierColors];
+    return copy;
+  }
+
   function captureSnapshot() {
     return {
-      fields: hmiFields.map((field) => ({
-        ...field,
-        ...(Array.isArray(field.pages) ? { pages: [...field.pages] } : {}),
-        ...(Array.isArray(field.views) ? { views: [...field.views] } : {})
-      })),
+      fields: hmiFields.map(cloneField),
       pages: hmiPages.map((page) => ({
         ...page,
         ...(Array.isArray(page.views) ? { views: page.views.map((v) => ({ ...v })) } : {})
@@ -5770,11 +5795,7 @@
   }
 
   function restoreSnapshot(snapshot) {
-    hmiFields = snapshot.fields.map((field) => ({
-      ...field,
-      ...(Array.isArray(field.pages) ? { pages: [...field.pages] } : {}),
-      ...(Array.isArray(field.views) ? { views: [...field.views] } : {})
-    }));
+    hmiFields = snapshot.fields.map(cloneField);
     hmiPages = (snapshot.pages || [{ id: 0, name: 'Principal' }]).map((page) => ({
       ...page,
       ...(Array.isArray(page.views) ? { views: page.views.map((v) => ({ ...v })) } : {})
@@ -6630,7 +6651,7 @@
       const newKeys = [];
       sources.forEach((source) => {
         fieldSerial += 1;
-        const copy = { ...source };
+        const copy = cloneField(source);
         delete copy.layerOrder;
         const prefix = source.type.toLowerCase();
         copy.key = `${prefix}-${fieldSerial}`;

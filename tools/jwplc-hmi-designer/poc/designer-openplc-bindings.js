@@ -116,7 +116,10 @@
       '<span class="jwplc-bindings-chip">Vista de enlaces · elige la variable PLC de cada objeto</span>' +
       '<button type="button" class="jwplc-bindings-edit" id="jwplcEditDesignButton"></button>';
     anchor.appendChild(bar);
-    bar.querySelector('button').addEventListener('click', () => host.openEditor?.());
+    bar.querySelector('button').addEventListener('click', () => {
+      if (window.JWPLCHMISaveFlow?.isDirty?.()) host.setDirty?.(true);
+      host.openEditor?.();
+    });
     syncEditButton();
   }
 

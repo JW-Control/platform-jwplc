@@ -61,6 +61,7 @@
   function markSaved() {
     baseline = fingerprint();
     updateStatus();
+    window.dispatchEvent(new CustomEvent('jwplc:dirty-changed'));
   }
 
   function isDirty() {
@@ -73,7 +74,24 @@
   // Los PixelMaps se importan después de apply, por eso la espera.
   function markSavedSoon() {
     clearTimeout(markSavedSoon.timer);
-    markSavedSoon.timer = setTimeout(markSaved, 600);
+    clearTimeout(markSavedSoon.earlyTimer);
+    markSavedSoon.pending = true;
+    markSavedSoon.earlyTimer = setTimeout(markSaved, 50);
+    markSavedSoon.timer = setTimeout(() => {
+      markSavedSoon.pending = false;
+      markSaved();
+    }, 600);
+  }
+
+  // Si el usuario enlaza o edita antes de que venzan los timers de carga inicial,
+  // fijar baseline con el estado previo a la edición y cancelar los timers pendientes.
+  function flushBaselineBeforeEdit() {
+    if (markSavedSoon.pending || baseline === null) {
+      clearTimeout(markSavedSoon.timer);
+      clearTimeout(markSavedSoon.earlyTimer);
+      markSavedSoon.pending = false;
+      baseline = fingerprint();
+    }
   }
 
   let statusTimer = null;
@@ -336,10 +354,11 @@
     setTimeout(() => clearInterval(timer), 4000);
     api.isDirty = isDirty;
     // Lo que queda en pantalla al arrancar (diseño vacío o el HMI del sketch).
-    await wait(1500);
+    for (let i = 0; i < 60 && window.__jwplcNativeProjectLoaded === false; i++) await wait(50);
+    await wait(300);
     if (baseline === null) markSaved();
   }
 
-  window.JWPLCHMISaveFlow = { save, isDirty, markSaved, guardChanges };
+  window.JWPLCHMISaveFlow = { save, isDirty, markSaved, flushBaselineBeforeEdit, guardChanges };
   init().catch((error) => console.error('[JWPLC HMI save flow]', error));
 })();
