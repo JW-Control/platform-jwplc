@@ -49,6 +49,18 @@ namespace
     // Nodo del último menuChanged() que devolvió true (alpha.17, menuNode()).
     uint8_t g_lastMenuNode = 0;
 
+    bool isMenuOnView(const MenuRuntime &m, uint8_t subView)
+    {
+        return (m.def.viewMask == 0U)
+                   ? (subView == 0U)
+                   : (subView < 8U && ((m.def.viewMask & static_cast<uint8_t>(1U << subView)) != 0U));
+    }
+
+    bool isMenuOnPageView(const MenuRuntime &m, uint8_t page, uint8_t subView)
+    {
+        return m.def.page == page && isMenuOnView(m, subView);
+    }
+
     // ------------------------------------------------------------------
     // Árbol
     // ------------------------------------------------------------------
@@ -209,6 +221,12 @@ namespace
         if (node.type == JWPLC_UI_MENU_GO_IDLE)
         {
             snprintf(out, size, "<");
+            return;
+        }
+
+        if (node.type == JWPLC_UI_MENU_GO_VIEW)
+        {
+            snprintf(out, size, ">");
             return;
         }
 
@@ -379,6 +397,75 @@ namespace
         return ((uint32_t)idx > maxIdx) ? maxIdx : (uint32_t)idx;
     }
 
+    struct PendingConfirmCtx
+    {
+        uint8_t menuIdx;
+        uint8_t nodeIdx;
+        uint8_t rowPos;
+        bool fromEdit;
+    };
+
+    PendingConfirmCtx g_pendingConfirm = {0, 0, 0, false};
+
+    void executeConfirmedNode(uint8_t menuIdx, uint8_t nodeIdx, uint8_t rowPos, bool fromEdit)
+    {
+        if (menuIdx >= g_menuCount)
+            return;
+        MenuRuntime &m = g_menus[menuIdx];
+        if (nodeIdx >= m.def.nodeCount)
+            return;
+        const JWPLC_UIMenuNode &node = m.def.nodes[nodeIdx];
+
+        if (fromEdit)
+        {
+            commitEdit(m, nodeIdx, rowPos);
+            JWPLCUI::requestRefresh();
+            if (node.targetView < 8U)
+                JWPLCUI::setPageView(m.def.page, node.targetView);
+            return;
+        }
+
+        if (node.type == JWPLC_UI_MENU_SUBMENU)
+        {
+            enterLevel(m, nodeIdx);
+            if (node.targetView < 8U)
+                JWPLCUI::setPageView(m.def.page, node.targetView);
+        }
+        else if (node.type == JWPLC_UI_MENU_EDIT_BOOL && node.directToggle)
+        {
+            if (node.value != nullptr)
+            {
+                bool *target = static_cast<bool *>(node.value);
+                *target = !(*target);
+                m.changedNode = (uint8_t)(nodeIdx + 1);
+                markRow(m, rowPos);
+                JWPLCUI::requestRefresh();
+            }
+            if (node.targetView < 8U)
+                JWPLCUI::setPageView(m.def.page, node.targetView);
+        }
+        else if (node.type == JWPLC_UI_MENU_GO_IDLE)
+        {
+            JWPLC_Display.goIdle();
+        }
+        else if (node.type == JWPLC_UI_MENU_GO_VIEW ||
+                 (node.type == JWPLC_UI_MENU_VIEW && (node.targetView < 8U || node.confirmPopupId != 0xFFU)))
+        {
+            m.changedNode = (uint8_t)(nodeIdx + 1);
+            if (node.targetView < 8U)
+                JWPLCUI::setPageView(m.def.page, node.targetView);
+        }
+    }
+
+    void onMenuConfirmAccepted(void *ctx)
+    {
+        const PendingConfirmCtx *p = static_cast<const PendingConfirmCtx *>(ctx);
+        if (p != nullptr)
+        {
+            executeConfirmedNode(p->menuIdx, p->nodeIdx, p->rowPos, p->fromEdit);
+        }
+    }
+
     bool handleEdit(MenuRuntime &m)
     {
         const uint8_t lv = level(m);
@@ -401,7 +488,17 @@ namespace
 
         if (JWPLC_Buttons.pressed(BTN_OK))
         {
-            commitEdit(m, (uint8_t)nodeIndex, pos);
+            const uint8_t menuIdx = (uint8_t)(&m - g_menus);
+            if (node.confirmPopupId != 0xFFU)
+            {
+                g_pendingConfirm = {menuIdx, (uint8_t)nodeIndex, pos, true};
+                if (jwplcUIOverlayRequestConfirm(node.confirmPopupId, onMenuConfirmAccepted, &g_pendingConfirm))
+                {
+                    JWPLC_Buttons.clearPendingInput();
+                    return true;
+                }
+            }
+            executeConfirmedNode(menuIdx, (uint8_t)nodeIndex, pos, true);
             JWPLC_Buttons.clearPendingInput();
             return true;
         }
@@ -504,22 +601,35 @@ namespace
         if (nodeIndex < 0)
             return consumed;
         const JWPLC_UIMenuNode &node = m.def.nodes[nodeIndex];
+        const uint8_t menuIdx = (uint8_t)(&m - g_menus);
 
         if (node.type == JWPLC_UI_MENU_SUBMENU)
         {
-            enterLevel(m, (uint8_t)nodeIndex);
+            if (node.confirmPopupId != 0xFFU)
+            {
+                g_pendingConfirm = {menuIdx, (uint8_t)nodeIndex, pos, false};
+                if (jwplcUIOverlayRequestConfirm(node.confirmPopupId, onMenuConfirmAccepted, &g_pendingConfirm))
+                {
+                    JWPLC_Buttons.clearPendingInput();
+                    return true;
+                }
+            }
+            executeConfirmedNode(menuIdx, (uint8_t)nodeIndex, pos, false);
             JWPLC_Buttons.clearPendingInput();
             return true;
         }
         else if (ok && node.type == JWPLC_UI_MENU_EDIT_BOOL && node.directToggle)
         {
-            if (node.value != nullptr)
+            if (node.confirmPopupId != 0xFFU)
             {
-                bool *target = static_cast<bool *>(node.value);
-                *target = !(*target);
-                m.changedNode = (uint8_t)(nodeIndex + 1);
-                markRow(m, pos);
+                g_pendingConfirm = {menuIdx, (uint8_t)nodeIndex, pos, false};
+                if (jwplcUIOverlayRequestConfirm(node.confirmPopupId, onMenuConfirmAccepted, &g_pendingConfirm))
+                {
+                    JWPLC_Buttons.clearPendingInput();
+                    return true;
+                }
             }
+            executeConfirmedNode(menuIdx, (uint8_t)nodeIndex, pos, false);
             JWPLC_Buttons.clearPendingInput();
             return true;
         }
@@ -530,12 +640,21 @@ namespace
             JWPLC_Buttons.clearPendingInput();
             return true;
         }
-        else if (ok && node.type == JWPLC_UI_MENU_GO_IDLE)
+        else if (ok && (node.type == JWPLC_UI_MENU_GO_IDLE ||
+                        node.type == JWPLC_UI_MENU_GO_VIEW ||
+                        (node.type == JWPLC_UI_MENU_VIEW && (node.targetView < 8U || node.confirmPopupId != 0xFFU))))
         {
-            // El refresco revisa el modo después de atender la entrada, así
-            // que la IDLE se dibuja en este mismo ciclo.
+            if (node.confirmPopupId != 0xFFU)
+            {
+                g_pendingConfirm = {menuIdx, (uint8_t)nodeIndex, pos, false};
+                if (jwplcUIOverlayRequestConfirm(node.confirmPopupId, onMenuConfirmAccepted, &g_pendingConfirm))
+                {
+                    JWPLC_Buttons.clearPendingInput();
+                    return true;
+                }
+            }
             JWPLC_Buttons.clearPendingInput();
-            JWPLC_Display.goIdle();
+            executeConfirmedNode(menuIdx, (uint8_t)nodeIndex, pos, false);
             return true;
         }
 
@@ -559,7 +678,9 @@ namespace
             if (nodeIndex < 0)
                 break;
             const JWPLC_UIMenuNode &node = m.def.nodes[nodeIndex];
-            if (node.type == JWPLC_UI_MENU_SUBMENU || node.type == JWPLC_UI_MENU_GO_IDLE)
+            if (node.type == JWPLC_UI_MENU_SUBMENU ||
+                node.type == JWPLC_UI_MENU_GO_IDLE ||
+                node.type == JWPLC_UI_MENU_GO_VIEW)
                 continue;
             if (m.editing && pos == m.selected[lv])
                 continue;
@@ -572,9 +693,10 @@ namespace
 
     MenuRuntime *activeMenu(uint8_t page)
     {
+        const uint8_t subView = JWPLCUI::pageView(page);
         for (uint8_t i = 0; i < g_menuCount; ++i)
         {
-            if (g_menus[i].def.page == page)
+            if (isMenuOnPageView(g_menus[i], page, subView))
                 return &g_menus[i];
         }
         return nullptr;
@@ -792,7 +914,11 @@ namespace
                 drawText(tft, m, x + w - padX - valueW, y + padY, value, vfg, bg);
         }
 
-        m.cache[row] = (node.type == JWPLC_UI_MENU_SUBMENU || node.type == JWPLC_UI_MENU_GO_IDLE) ? 0.0f : readValue(node);
+        m.cache[row] = (node.type == JWPLC_UI_MENU_SUBMENU ||
+                        node.type == JWPLC_UI_MENU_GO_IDLE ||
+                        node.type == JWPLC_UI_MENU_GO_VIEW)
+                           ? 0.0f
+                           : readValue(node);
     }
 
     void drawFull(JWPLC_TFTClass &tft, MenuRuntime &m)
@@ -813,21 +939,31 @@ namespace
 
     void drawPending(JWPLC_TFTClass &tft, MenuRuntime &m)
     {
+        bool drew = false;
         if (m.fullDirty)
         {
             drawFull(tft, m);
+            jwplcUIOverlayNotifyUnderlyingDraw();
             return;
         }
         if (m.headerDirty)
+        {
             drawHeader(tft, m);
+            drew = true;
+        }
 
         const uint8_t rows = visibleRows(m);
         for (uint8_t r = 0; r < rows; ++r)
         {
             if (m.dirtyRows & (uint16_t)(1u << r))
+            {
                 drawRow(tft, m, r);
+                drew = true;
+            }
         }
         m.dirtyRows = 0;
+        if (drew)
+            jwplcUIOverlayNotifyUnderlyingDraw();
     }
 
     // ------------------------------------------------------------------
@@ -860,7 +996,12 @@ namespace
             if (depth > JWPLC_UI_MENU_MAX_DEPTH)
                 return false;
 
-            if (node.type != JWPLC_UI_MENU_SUBMENU && node.type != JWPLC_UI_MENU_GO_IDLE && node.value == nullptr)
+            if (node.type != JWPLC_UI_MENU_SUBMENU &&
+                node.type != JWPLC_UI_MENU_GO_IDLE &&
+                node.type != JWPLC_UI_MENU_GO_VIEW &&
+                node.value == nullptr)
+                return false;
+            if (node.type == JWPLC_UI_MENU_GO_VIEW && node.targetView >= 8U)
                 return false;
             if (node.type == JWPLC_UI_MENU_EDIT_NUM && node.max < node.min)
                 return false;
@@ -920,6 +1061,8 @@ static JWPLC_UIMenuNode makeNode(JWPLC_UIMenuNodeType type, JWPLC_UIMenuValueKin
     node.zeroPad = 0;
     node.lrStep = 0;
     node.directToggle = false;
+    node.targetView = 0xFFU;
+    node.confirmPopupId = 0xFFU;
     return node;
 }
 
@@ -931,6 +1074,13 @@ JWPLC_UIMenuNode JWPLC_UIMenuSubmenu(uint8_t parent, const char *label)
 JWPLC_UIMenuNode JWPLC_UIMenuGoIdle(uint8_t parent, const char *label)
 {
     return makeNode(JWPLC_UI_MENU_GO_IDLE, JWPLC_UI_MENU_VALUE_NONE, parent, label, nullptr);
+}
+
+JWPLC_UIMenuNode JWPLC_UIMenuGoView(uint8_t parent, const char *label, uint8_t targetView)
+{
+    JWPLC_UIMenuNode node = makeNode(JWPLC_UI_MENU_GO_VIEW, JWPLC_UI_MENU_VALUE_NONE, parent, label, nullptr);
+    node.targetView = targetView;
+    return node;
 }
 
 JWPLC_UIMenuNode JWPLC_UIMenuView(uint8_t parent, const char *label, const float *value, uint8_t decimals, const char *unit)
@@ -1141,6 +1291,7 @@ static bool serviceMenu(bool allowInput)
         return false;
 
     const uint8_t page = JWPLCUI::currentPage();
+    const uint8_t subView = JWPLCUI::pageView(page);
     const bool focused = !JWPLCUIPages::selectionMode();
     bool dirty = false;
     bool consumed = false;
@@ -1148,9 +1299,9 @@ static bool serviceMenu(bool allowInput)
     for (uint8_t i = 0; i < g_menuCount; ++i)
     {
         MenuRuntime &m = g_menus[i];
-        if (m.def.page != page)
+        if (!isMenuOnPageView(m, page, subView))
         {
-            // Salir de la página cancela una edición sin confirmar.
+            // Salir de la página o subvista cancela una edición sin confirmar.
             m.editing = false;
             continue;
         }
@@ -1174,7 +1325,7 @@ static bool serviceMenu(bool allowInput)
 
     for (uint8_t i = 0; i < g_menuCount; ++i)
     {
-        if (g_menus[i].def.page == page && anyDirty(g_menus[i]))
+        if (isMenuOnPageView(g_menus[i], page, subView) && anyDirty(g_menus[i]))
             dirty = true;
     }
 
@@ -1214,17 +1365,31 @@ extern "C" void jwplcUIMenuServiceInput(void)
     (void)serviceMenu(true);
 }
 
+extern "C" void jwplcUIMenuOnViewChanged(uint8_t page, uint8_t subView)
+{
+    (void)subView;
+    for (uint8_t i = 0; i < g_menuCount; ++i)
+    {
+        if (g_menus[i].def.page == page)
+        {
+            g_menus[i].editing = false;
+            markAll(g_menus[i]);
+        }
+    }
+}
+
 extern "C" void jwplcUIMenuPrepareEnter(void)
 {
     bool menuOnPage = false;
     const uint8_t page = JWPLCUI::currentPage();
+    const uint8_t subView = JWPLCUI::pageView(page);
     for (uint8_t i = 0; i < g_menuCount; ++i)
     {
         resetMenu(g_menus[i]);
-        menuOnPage = menuOnPage || g_menus[i].def.page == page;
+        menuOnPage = menuOnPage || isMenuOnPageView(g_menus[i], page, subView);
     }
 
-    // Un MENU en la página de entrada es dueño de la botonera (con una sola
+    // Un MENU en la página/subvista de entrada es dueño de la botonera (con una sola
     // página tiene el foco al instante): la tecla que despertó la IDLE no debe
     // editar ni moverse en él. Sin MENU los latches siguen siendo del sketch
     // (Alpha8).
@@ -1243,9 +1408,10 @@ extern "C" void jwplcUIMenuDrawStatic(JWPLC_TFTClass *tft)
     if (tft == nullptr)
         return;
     const uint8_t page = JWPLCUI::currentPage();
+    const uint8_t subView = JWPLCUI::pageView(page);
     for (uint8_t i = 0; i < g_menuCount; ++i)
     {
-        if (g_menus[i].def.page == page)
+        if (isMenuOnPageView(g_menus[i], page, subView))
             drawFull(*tft, g_menus[i]);
     }
 }
@@ -1255,9 +1421,10 @@ extern "C" void jwplcUIMenuDrawDirty(JWPLC_TFTClass *tft)
     if (tft == nullptr)
         return;
     const uint8_t page = JWPLCUI::currentPage();
+    const uint8_t subView = JWPLCUI::pageView(page);
     for (uint8_t i = 0; i < g_menuCount; ++i)
     {
-        if (g_menus[i].def.page == page)
+        if (isMenuOnPageView(g_menus[i], page, subView))
             drawPending(*tft, g_menus[i]);
     }
 }

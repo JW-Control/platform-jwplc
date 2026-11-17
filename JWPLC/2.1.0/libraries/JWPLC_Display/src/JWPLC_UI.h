@@ -48,19 +48,25 @@ enum JWPLC_UIRefreshMode : uint8_t
 // Los grupos mantienen exactamente la API publica Alpha8, pero sus cuerpos
 // viven en JWPLC_UI_API.cpp. Esto reduce el trabajo de parseo/instanciacion del
 // sketch sin cambiar nombres, parametros ni inicializadores {...}.
+#ifndef JWPLC_UI_HAS_PAGE_VIEWS
+#define JWPLC_UI_HAS_PAGE_VIEWS 1
+#endif
+
 struct JWPLC_UIFieldMeta
 {
     uint8_t id;
     uint8_t page;
     JWPLC_UIFieldType type;
     uint16_t pageMask;
+    uint8_t viewMask;
 
     constexpr JWPLC_UIFieldMeta(
         uint8_t idValue = 0,
         uint8_t pageValue = 0,
         JWPLC_UIFieldType typeValue = JWPLC_UI_FIELD_VALUE,
-        uint16_t pageMaskValue = 0U)
-        : id(idValue), page(pageValue), type(typeValue), pageMask(pageMaskValue)
+        uint16_t pageMaskValue = 0U,
+        uint8_t viewMaskValue = 0xFFU)
+        : id(idValue), page(pageValue), type(typeValue), pageMask(pageMaskValue), viewMask(viewMaskValue)
     {
     }
 };
@@ -71,6 +77,19 @@ constexpr bool JWPLC_UIFieldOnPage(const JWPLC_UIFieldMeta &meta, uint8_t page)
                ? (meta.page == page)
                : (page < 16U &&
                   ((meta.pageMask & static_cast<uint16_t>(1U << page)) != 0U));
+}
+
+constexpr bool JWPLC_UIFieldOnView(const JWPLC_UIFieldMeta &meta, uint8_t subView)
+{
+    return (meta.viewMask == 0U)
+               ? (subView == 0U)
+               : (subView < 8U &&
+                  ((meta.viewMask & static_cast<uint8_t>(1U << subView)) != 0U));
+}
+
+constexpr bool JWPLC_UIFieldOnPageView(const JWPLC_UIFieldMeta &meta, uint8_t page, uint8_t subView)
+{
+    return JWPLC_UIFieldOnPage(meta, page) && JWPLC_UIFieldOnView(meta, subView);
 }
 
 struct JWPLC_UIRect
@@ -1096,6 +1115,10 @@ namespace JWPLCUI
 
     void setPage(uint8_t page);
     uint8_t currentPage();
+    void setPageView(uint8_t page, uint8_t subView);
+    void setPageView(uint8_t subView);
+    uint8_t pageView(uint8_t page);
+    uint8_t pageView();
 
     bool pageRedrawPending();
     void consumePageRedrawPending();
@@ -1117,7 +1140,16 @@ JWPLC_UI_CONSTEXPR14 inline JWPLC_UIField JWPLC_UIFieldPages(
     return field;
 }
 
+JWPLC_UI_CONSTEXPR14 inline JWPLC_UIField JWPLC_UIFieldViews(
+    JWPLC_UIField field,
+    uint8_t viewMask)
+{
+    field.meta.viewMask = viewMask;
+    return field;
+}
+
 #include "JWPLC_UI_Menu.h"
 #include "JWPLC_UI_EventLog.h"
+#include "JWPLC_UI_Popup.h"
 
 #endif // JWPLC_UI_H

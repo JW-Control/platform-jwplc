@@ -71,6 +71,13 @@ public:
     void setUserPage(uint8_t page);
     uint8_t userPage() const;
 
+    // Subvistas por página (hasta 8 subvistas 0..7 por cada página HMI).
+    // Permiten cambiar el layout dentro de la misma página sin añadir pestañas al selector.
+    void setPageView(uint8_t page, uint8_t subView);
+    void setPageView(uint8_t subView);
+    uint8_t pageView(uint8_t page) const;
+    uint8_t pageView() const;
+
     // Navegación compacta Alpha11. Un conteo > 1 habilita el selector físico
     // NN/TT en la esquina superior derecha. El ID interno de página sigue
     // siendo 0-based; el indicador visible es 1-based.
@@ -190,6 +197,20 @@ public:
     void logEvent(uint16_t code, uint8_t transition = 1, uint8_t category = 3, uint8_t severity = 0, const char *desc = nullptr);
     size_t eventCount() const;
     void clearEvents();
+
+    // Ventanas emergentes modales (I5-I6)
+    bool setPopups(const JWPLC_UIPopup *popups, size_t count);
+    void clearPopups();
+    bool showPopup(uint8_t id);
+    bool showPopup(
+        JWPLC_UIPopupPreset preset,
+        const char *title,
+        const char *message,
+        const char *code = nullptr,
+        uint16_t autoCloseMs = 0);
+    void dismissPopup(uint8_t id = JWPLC_UI_POPUP_NONE);
+    bool popupActive() const;
+    bool popupConfirmed(uint8_t id);
 
 private:
     bool setNumericValue(uint8_t fieldId, double value);

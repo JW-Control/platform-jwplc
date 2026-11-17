@@ -22,6 +22,11 @@ extern "C" bool __attribute__((weak)) jwplcUIMenuHasFocus(void) { return false; 
 extern "C" void __attribute__((weak)) jwplcUIMenuCancelEdit(void) {}
 extern "C" void __attribute__((weak)) jwplcUIMenuPrepareEnter(void) {}
 extern "C" void __attribute__((weak)) jwplcUIMenuInvalidateAll(void) {}
+extern "C" void __attribute__((weak)) jwplcUIMenuOnViewChanged(uint8_t page, uint8_t subView)
+{
+    (void)page;
+    (void)subView;
+}
 extern "C" void __attribute__((weak)) jwplcUIMenuDrawStatic(JWPLC_TFTClass *tft) { (void)tft; }
 extern "C" void __attribute__((weak)) jwplcUIMenuDrawDirty(JWPLC_TFTClass *tft) { (void)tft; }
 
@@ -37,6 +42,14 @@ extern "C" void __attribute__((weak)) jwplcUIEventLogPrepareEnter(void) {}
 extern "C" void __attribute__((weak)) jwplcUIEventLogInvalidateAll(void) {}
 extern "C" void __attribute__((weak)) jwplcUIEventLogDrawStatic(JWPLC_TFTClass *tft) { (void)tft; }
 extern "C" void __attribute__((weak)) jwplcUIEventLogDrawDirty(JWPLC_TFTClass *tft) { (void)tft; }
+
+extern "C" bool __attribute__((weak)) jwplcUIOverlayRequestConfirm(uint8_t popupId, jwplcUIPopupConfirmCallback_t onAccept, void *userCtx)
+{
+    (void)popupId;
+    (void)onAccept;
+    (void)userCtx;
+    return false;
+}
 
 // Implementaciones strong de los hooks internos. Este TU se enlaza cuando
 // cualquier entrada HMI (setFields, setPageCount, setPage, setMenus,

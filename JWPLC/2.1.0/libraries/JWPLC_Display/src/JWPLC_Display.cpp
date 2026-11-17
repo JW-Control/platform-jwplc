@@ -77,9 +77,19 @@ extern "C" bool __attribute__((weak)) jwplcUIRuntimeArbitrateInput(void)
     return false;
 }
 extern "C" bool __attribute__((weak)) jwplcUIRuntimeBlocksButtonIdleReturn(void) { return false; }
+extern "C" void __attribute__((weak)) jwplcUIOverlayPoll(void) {}
+extern "C" bool __attribute__((weak)) jwplcUIOverlayActive(void) { return false; }
 extern "C" bool __attribute__((weak)) jwplcUIOverlayServiceInput(void) { return false; }
 extern "C" bool __attribute__((weak)) jwplcUIOverlayBlocksIdle(void) { return false; }
 extern "C" bool __attribute__((weak)) jwplcUIOverlayBlocksIdleWake(void) { return false; }
+extern "C" bool __attribute__((weak)) jwplcUIOverlayNeedsRefresh(void) { return false; }
+extern "C" bool __attribute__((weak)) jwplcUIOverlayTakeRestoreUnderlying(void) { return false; }
+extern "C" void __attribute__((weak)) jwplcUIOverlayNotifyUnderlyingDraw(void) {}
+extern "C" void __attribute__((weak)) jwplcUIOverlayDraw(JWPLC_TFTClass *display, bool forceRedraw)
+{
+    (void)display;
+    (void)forceRedraw;
+}
 extern "C" bool __attribute__((weak)) jwplcUIRuntimeRefreshNeeded(void) { return true; }
 extern "C" bool __attribute__((weak)) jwplcUIRuntimeBackgroundTrendDue(void) { return false; }
 extern "C" void __attribute__((weak)) jwplcUIRuntimeTickDueTrends(void) {}
@@ -325,10 +335,9 @@ static void serviceIdleWake()
         return;
     }
 
-    // I4: un aviso crítico visible sobre IDLE toma las teclas sin despertar el HMI.
-    if (jwplcUIOverlayBlocksIdleWake())
+    // I4/I5-I6: un modal activo sobre IDLE arbitra la botonera sin despertar el HMI.
+    if (jwplcUIOverlayServiceInput() || jwplcUIOverlayBlocksIdleWake())
     {
-        (void)jwplcUIOverlayServiceInput();
         return;
     }
 
@@ -675,6 +684,7 @@ namespace JWPLCDisplay
 
             jwplcUIRuntimeDrawStatic(&JWPLC_TFT);
             jwplcUIRuntimeDrawDirty(&JWPLC_TFT);
+            jwplcUIOverlayDraw(&JWPLC_TFT, true);
             jwplcUIRuntimeConsumePageRedrawPending();
             jwplcUIRuntimeConsumeRefreshRequest();
 
@@ -1000,6 +1010,8 @@ extern "C" void jwplcDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC
     const uint32_t precheckStartUs =
         profile ? micros() : 0U;
 
+    jwplcUIOverlayPoll();
+
     if (g_displayMode == DISPLAY_MODE_IDLE)
     {
         serviceIdleWake();
@@ -1014,6 +1026,19 @@ extern "C" void jwplcDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC
         // botón para que avisos, EVENT_LOG, MENU o páginas consuman su ESC.
         const bool inputConsumed = jwplcUIRuntimeArbitrateInput();
         serviceUserIdleReturn(inputConsumed);
+    }
+
+    if (jwplcUIOverlayTakeRestoreUnderlying())
+    {
+        if (g_displayMode == DISPLAY_MODE_IDLE)
+        {
+            JWPLCIdleScreen::forceFullRedraw();
+        }
+        else if (g_displayMode == DISPLAY_MODE_USER)
+        {
+            g_userRefreshForced = true;
+            jwplcUIRuntimeInvalidateAll(true);
+        }
     }
 
     updateAutomaticBusLed();
@@ -1036,7 +1061,8 @@ extern "C" void jwplcDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC
             profile ? micros() : 0U;
 
         const bool refreshNeeded =
-            jwplcUserDisplayRefreshNeededCallback(io, rtc);
+            jwplcUserDisplayRefreshNeededCallback(io, rtc) ||
+            jwplcUIOverlayNeedsRefresh();
 
         if (profile)
         {
@@ -1095,19 +1121,33 @@ extern "C" void jwplcDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC
 
     if (g_displayMode == DISPLAY_MODE_IDLE)
     {
-        JWPLCIdleScreen::StatusPanel panel;
-        panel.pwr = true;
-        panel.run = g_runLed;
-        panel.err = g_errLed;
-        memcpy(panel.errCode, g_errCode, sizeof(panel.errCode));
+        static bool idleBasePaintedUnderOverlay = false;
+        const bool overlayOnIdle = jwplcUIOverlayActive();
+        const bool overlayDirty = jwplcUIOverlayNeedsRefresh();
+        const bool drawBase = !overlayOnIdle || !idleBasePaintedUnderOverlay;
 
-        panel.bus = g_busLedState;
-        panel.eth = g_ethLedState;
-        memcpy(panel.busCode, g_busDiagnosticCode, sizeof(panel.busCode));
-        memcpy(panel.ethCode, g_ethDiagnosticCode, sizeof(panel.ethCode));
+        if (drawBase)
+        {
+            JWPLCIdleScreen::StatusPanel panel;
+            panel.pwr = true;
+            panel.run = g_runLed;
+            panel.err = g_errLed;
+            memcpy(panel.errCode, g_errCode, sizeof(panel.errCode));
 
-        JWPLCIdleScreen::setStatusPanel(panel);
-        JWPLCIdleScreen::draw(io, rtc);
+            panel.bus = g_busLedState;
+            panel.eth = g_ethLedState;
+            memcpy(panel.busCode, g_busDiagnosticCode, sizeof(panel.busCode));
+            memcpy(panel.ethCode, g_ethDiagnosticCode, sizeof(panel.ethCode));
+
+            JWPLCIdleScreen::setStatusPanel(panel);
+            JWPLCIdleScreen::draw(io, rtc);
+            idleBasePaintedUnderOverlay = overlayOnIdle;
+        }
+
+        if (overlayOnIdle)
+        {
+            jwplcUIOverlayDraw(&JWPLC_TFT, drawBase || overlayDirty);
+        }
 
         const uint32_t releaseStartUs =
             profile ? micros() : 0U;
@@ -1134,7 +1174,8 @@ extern "C" void jwplcDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC
         return;
     }
 
-    if (jwplcUIRuntimePageRedrawPending())
+    const bool pageRedrawnForOverlay = jwplcUIRuntimePageRedrawPending();
+    if (pageRedrawnForOverlay)
     {
         const uint32_t clearStartUs =
             profile ? micros() : 0U;
@@ -1208,6 +1249,7 @@ extern "C" void jwplcDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC
         profile ? micros() : 0U;
 
     jwplcUIRuntimeDrawDirty(&JWPLC_TFT);
+    jwplcUIOverlayDraw(&JWPLC_TFT, pageRedrawnForOverlay);
 
     if (profile)
     {

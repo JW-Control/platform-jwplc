@@ -26,9 +26,19 @@ bool jwplcUIRuntimeArbitrateInput(void);
 bool jwplcUIRuntimeBlocksButtonIdleReturn(void);
 
 // Hooks opcionales de la capa superior de avisos/modales (I5/I6).
+typedef void (*jwplcUIPopupConfirmCallback_t)(void *userCtx);
+void jwplcUIOverlayPoll(void);
+bool jwplcUIOverlayActive(void);
 bool jwplcUIOverlayServiceInput(void);
 bool jwplcUIOverlayBlocksIdle(void);
 bool jwplcUIOverlayBlocksIdleWake(void);
+bool jwplcUIOverlayNeedsRefresh(void);
+bool jwplcUIOverlayTakeRestoreUnderlying(void);
+void jwplcUIOverlayNotifyUnderlyingDraw(void);
+void jwplcUIOverlayDraw(JWPLC_TFTClass *tft, bool forceRedraw);
+bool jwplcUIOverlayRequestConfirm(uint8_t popupId, jwplcUIPopupConfirmCallback_t onAccept, void *userCtx);
+void jwplcUIMenuCancelEdit(void);
+void jwplcUIMenuOnViewChanged(uint8_t page, uint8_t subView);
 
 bool jwplcUIRuntimeRefreshNeeded(void);
 bool jwplcUIRuntimeBackgroundTrendDue(void);
