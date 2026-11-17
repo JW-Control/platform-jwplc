@@ -29,7 +29,7 @@ los módulos tocados 643/643 y `npm run build`. En Windows fallan `board-info-re
 
 ```text
 A18_H0_APERTURA=IN_PROGRESS
-A18_H1_EDITOR_SIM=IN_PROGRESS        # Simular → Sim instalado PASS (17/11); resto [no verificado]
+A18_H1_EDITOR_SIM=IN_PROGRESS        # Simular PASS (manual); --open-project, second-instance y --jwsim-close PASS [ejecutado] e2e; faltan diálogo «Localizar» y sin project.json
 A18_H2_HMI_ENLACES=IN_PROGRESS       # unit tests PASS; Designer en vivo [no verificado]
 A18_H3_MODBUS_TCP=PENDING            # requiere JWPLC Basic físico
 A18_H4_CIERRE=PENDING
@@ -38,7 +38,8 @@ A18_H4_CIERRE=PENDING
 ## 4. Riesgos y deuda
 
 - #19 y #20 se fusionaron con la prueba manual incompleta (decisión del 17/11): H1–H3 siguen abiertos.
-- `--jwsim-close` cierra el editor aunque se haya abierto a mano: falta decisión de producto.
+- `--jwsim-close` muestra «¿Seguro que quieres salir?» aun sin cambios y cierra aunque el editor se haya abierto a
+  mano: falta decisión de producto.
 - Upstream 4.3.4 (30 commits) y 4.3.5 (237) sin integrar: alpha.19.
 - La rama suelta `ccr-4e8cc1e7-lygr9t` del editor sigue en GitHub (su commit ya está en #20).
 

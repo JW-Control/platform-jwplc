@@ -29,9 +29,10 @@ UPSTREAM=4.3.4 y 4.3.5 de Autonomy quedan para alpha.19 (decisión del 17/11)
 - [x] Con un proyecto abierto, «Simular en JWPLC Sim» abre el Sim instalado (k23n0, 17/11).
 - [ ] Sin el Sim: diálogo «Localizar JWPLC Sim»; la ruta elegida se recuerda.
 - [ ] Proyecto sin `project.json`: aviso, no abre nada.
-- [ ] Sim → editor con el editor cerrado: arranca con el proyecto abierto.
-- [ ] Sim → editor con el editor abierto: cambia de proyecto (pregunta si hay cambios sin guardar).
-- [ ] Cerrar el Sim cierra el editor (con aviso de cambios). Pregunta abierta: ¿también si el editor se abrió a mano?
+- [x] Sim → editor con el editor cerrado: arranca con el proyecto abierto (e2e `--open-project`, 17/11).
+- [x] Sim → editor con el editor abierto: cambia de proyecto por second-instance (e2e, 17/11; sin cambios pendientes).
+- [x] Cerrar el Sim (`--jwsim-close`) cierra el editor tras «¿Seguro que quieres salir?» (e2e, 17/11). Preguntas
+  abiertas: ¿debe preguntar aun sin cambios? ¿también si el editor se abrió a mano?
 
 **H2** (proyecto JWPLC Basic con HMI):
 
