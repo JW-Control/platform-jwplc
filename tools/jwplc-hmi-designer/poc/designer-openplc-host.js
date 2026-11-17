@@ -217,10 +217,6 @@
             delete target.field.tierBindings;
           }
         }
-        if (Array.isArray(target.field.tierVariables)) {
-          target.field.tierVariables = [...target.field.tierVariables];
-          target.field.tierVariables[target.tierIndex] = '';
-        }
       } else if (target.kind === 'trend') {
         delete target.field[target.bindingProp];
       } else {
@@ -264,13 +260,10 @@
       target.field.tierBindings[target.tierIndex] = {
         plcBinding: { var: variable.name, access: target.wants?.rw ? 'RW' : 'R' }
       };
-      if (input.value !== name) {
-        fire(input, name);
-      } else {
-        target.field.tierVariables = Array.isArray(target.field.tierVariables) ? [...target.field.tierVariables] : [];
-        target.field.tierVariables[target.tierIndex] = name;
-        editor()?.commitHistory?.();
-      }
+      target.field.tierVariables = Array.isArray(target.field.tierVariables) ? [...target.field.tierVariables] : [];
+      target.field.tierVariables[target.tierIndex] = name;
+      input.value = name;
+      editor()?.commitHistory?.();
       syncDirty();
       schedule();
       return;
