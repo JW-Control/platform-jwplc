@@ -515,10 +515,12 @@
         const cRect = miniCanvas.getBoundingClientRect();
         const fRect = frame.getBoundingClientRect();
         if (cRect.width > 0 && cRect.height > 0) {
-          const scaleX = cRect.width / WIDTH;
-          const scaleY = cRect.height / HEIGHT;
-          const leftOffset = cRect.left - fRect.left;
-          const topOffset = cRect.top - fRect.top;
+          const contentW = miniCanvas.clientWidth || cRect.width;
+          const contentH = miniCanvas.clientHeight || cRect.height;
+          const scaleX = contentW / WIDTH;
+          const scaleY = contentH / HEIGHT;
+          const leftOffset = (cRect.left + miniCanvas.clientLeft) - (fRect.left + frame.clientLeft);
+          const topOffset = (cRect.top + miniCanvas.clientTop) - (fRect.top + frame.clientTop);
           vpBox.style.display = 'block';
           vpBox.style.left = `${leftOffset + visX1 * scaleX}px`;
           vpBox.style.top = `${topOffset + visY1 * scaleY}px`;
@@ -8727,6 +8729,7 @@
   document.getElementById('sidebarPreviewFrame')?.addEventListener('click', () => {
     fitCanvas();
   });
+  window.addEventListener('resize', updateMiniPreviewViewport);
 
   buildPalette();
   updateActiveColorUI();

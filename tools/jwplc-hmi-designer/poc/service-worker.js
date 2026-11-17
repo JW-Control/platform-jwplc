@@ -1,16 +1,19 @@
 'use strict';
 
-const CACHE_NAME = 'jwplc-hmi-designer-a17-v19';
+const CACHE_NAME = 'jwplc-hmi-designer-a17-v22';
 const CORE = [
   './desktop.html',
   './index.html',
   './styles.css',
+  './designer-light-theme.css',
   './desktop-responsive.css',
   './desktop-responsive-compat.css',
+  './designer-theme.js',
   './designer-cp437.js',
   './gfx-classic-font.js',
   './designer-fonts-data.js',
   './designer-fonts.js',
+  './designer-layout-resizer.js',
   './app.js',
   './ux-foundation.js',
   './designer-codegen.js',
@@ -40,7 +43,9 @@ const CORE = [
   './designer-pixelmap-optimizer.js',
   './designer-pixelmap-codegen-guard.js',
   './designer-project-integration-fix.js',
+  './designer-native-project.js',
   './designer-openplc-host.js',
+  './designer-openplc-bindings.js',
   './designer-inspector-state.js',
   './designer-pages.js',
   './designer-flasher.js',
