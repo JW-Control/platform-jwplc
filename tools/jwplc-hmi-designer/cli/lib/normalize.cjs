@@ -85,6 +85,15 @@ function normalizePages(project) {
       p.fields.forEach((field) => fromPages.push({ field, pageId: p.id }));
     }
     delete p.fields;
+    if (Array.isArray(p.views) && p.views.length) {
+      p.views = p.views.slice(0, spec.LIMITS.viewsPerPage).map((v, vIdx) => {
+        if (typeof v === 'string') return { id: vIdx, name: v.trim() || `Vista ${vIdx + 1}` };
+        if (isObject(v)) return { id: vIdx, name: String(v.name || `Vista ${vIdx + 1}`).trim() || `Vista ${vIdx + 1}` };
+        return { id: vIdx, name: `Vista ${vIdx + 1}` };
+      });
+    } else {
+      delete p.views;
+    }
     return p;
   });
 
@@ -151,6 +160,20 @@ function normalizeMenu(field) {
     });
     if (n.valueType === undefined) n.valueType = (spec.MENU_KINDS[n.type] || [''])[0];
     if (n.valueType === 'int32' && node.decimals === undefined) n.decimals = 0;
+    if (n.targetView !== undefined && n.targetView !== null && n.targetView !== '') {
+      const tv = Math.trunc(Number(n.targetView));
+      if (Number.isFinite(tv) && tv >= 0) n.targetView = tv;
+      else delete n.targetView;
+    } else {
+      delete n.targetView;
+    }
+    if (n.confirmPopupId !== undefined && n.confirmPopupId !== null && n.confirmPopupId !== '') {
+      const pid = Math.trunc(Number(n.confirmPopupId));
+      if (Number.isFinite(pid) && pid >= 0) n.confirmPopupId = pid;
+      else delete n.confirmPopupId;
+    } else {
+      delete n.confirmPopupId;
+    }
     return n;
   });
 }
@@ -209,6 +232,14 @@ function normalizeField(raw, index, ctx) {
     }
   } else {
     delete field.pages;
+  }
+
+  if (Array.isArray(field.views) && !['NAV_BAR', 'EVENT_LOG'].includes(field.type)) {
+    const cleanViews = [...new Set(field.views.map((v) => Math.trunc(Number(v))).filter((v) => Number.isInteger(v) && v >= 0 && v < spec.LIMITS.viewsPerPage))].sort((a, b) => a - b);
+    if (cleanViews.length) field.views = cleanViews;
+    else delete field.views;
+  } else {
+    delete field.views;
   }
 
   if (field.type === 'BOOL') {
@@ -298,6 +329,24 @@ function normalizePixelMap(raw) {
   return map;
 }
 
+function normalizePopup(raw, index) {
+  if (!isObject(raw)) return raw;
+  const p = { ...raw };
+  if (typeof p.preset === 'string') p.preset = p.preset.trim().toUpperCase();
+  if (p.id === undefined) p.id = index;
+  const presetKey = spec.POPUP_PRESET_COLORS[p.preset] ? p.preset : 'INFO';
+  if (raw.acceptText === undefined && presetKey === 'CONFIRM') p.acceptText = 'ACEPTAR';
+  if (raw.blocksIdle === undefined) p.blocksIdle = presetKey === 'CRIT' || presetKey === 'CONFIRM';
+  if (raw.latched === undefined) p.latched = presetKey === 'CRIT' || presetKey === 'CONFIRM';
+  if (raw.logToEventLog === undefined) p.logToEventLog = presetKey === 'CRIT';
+  const baseColors = spec.POPUP_PRESET_COLORS[presetKey];
+  p.colors = { ...baseColors, ...(isObject(p.colors) ? p.colors : {}) };
+  for (const key of Object.keys(p.colors)) p.colors[key] = parseColor(p.colors[key]);
+  applyDefaults(p, spec.POPUP);
+  if (!p.name) p.name = `Popup_${p.id}`;
+  return p;
+}
+
 // options.savedAt: fecha fija (tests); por defecto, ahora.
 function normalizeProject(input, options = {}) {
   const project = isObject(input) ? clone(input) : {};
@@ -313,6 +362,8 @@ function normalizeProject(input, options = {}) {
   const display = { ...(isObject(project.display) ? project.display : {}) };
   applyDefaults(display, spec.DISPLAY);
 
+  const popups = (Array.isArray(project.popups) ? project.popups : []).map((p, i) => normalizePopup(p, i));
+
   return {
     format: project.format || spec.PROJECT.format.default,
     version: project.version === undefined ? spec.PROJECT.version.default : project.version,
@@ -324,6 +375,7 @@ function normalizeProject(input, options = {}) {
     display,
     pages: project.pages,
     fields,
+    popups,
     declarativeOnly: true,
     pixelMaps: (Array.isArray(project.pixelMaps) ? project.pixelMaps : []).map(normalizePixelMap),
     ...(iconAssets ? { iconAssets } : {})

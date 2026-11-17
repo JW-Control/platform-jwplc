@@ -107,6 +107,12 @@
       : Number(field?.page || 0) === Number(pageId);
   }
 
+  function fieldViews(field) {
+    return window.JWPLCHMICodegenCore?.fieldViews
+      ? window.JWPLCHMICodegenCore.fieldViews(field)
+      : null;
+  }
+
   function pageForField(field) {
     const pageId = fieldPages(field)[0];
     return pages().find((page) => Number(page.id) === pageId) || {
@@ -169,6 +175,27 @@
             type: 'float'
           });
         }
+      }
+    });
+    const popups = window.JWPLCHMIPopups?.all?.() || [];
+    popups.forEach((p, idx) => {
+      if (p?.triggerVar) {
+        entries.push({
+          field: p,
+          index: idx,
+          prop: 'triggerVar',
+          canonical: sanitizeSymbol(p.triggerVar, ''),
+          type: 'bool'
+        });
+      }
+      if (p?.confirmOutVar) {
+        entries.push({
+          field: p,
+          index: idx,
+          prop: 'confirmOutVar',
+          canonical: sanitizeSymbol(p.confirmOutVar, ''),
+          type: 'bool'
+        });
       }
     });
     return entries;
@@ -1025,21 +1052,63 @@ static void jwplcHMIDrawMicroText(JWPLC_TFTClass &tft, int16_t x, int16_t y, con
     const cases = [];
 
     pages().forEach((page) => {
-      const lines = [];
-      fields
+      const symbol = symbols.get(Number(page.id)) || String(Number(page.id));
+      const statics = fields
         .filter((field) => fieldOnPage(field, page.id) && isStaticObject(field) && !field.hidden)
         // En el lienzo, layerOrder menor = más al frente (app.js composeFramebuffer
         // recorre el arreglo al revés). Se dibuja de atrás hacia adelante.
-        .sort((a, b) => (Number(b.layerOrder) || 0) - (Number(a.layerOrder) || 0))
-        .forEach((field) => {
+        .sort((a, b) => (Number(b.layerOrder) || 0) - (Number(a.layerOrder) || 0));
+
+      const hasViewFilter = statics.some((f) => Boolean(fieldViews(f)?.length));
+      const lines = [];
+
+      if (!hasViewFilter) {
+        statics.forEach((field) => {
           const code = staticDrawCode(field);
           code.helpers.forEach((name) => helpers.add(name));
           if (!code.lines.length) return;
           lines.push(`        // ${String(field.name || field.type).replace(/[\r\n]+/g, ' ')}`);
           code.lines.forEach((line) => lines.push(`        ${line}`));
         });
+      } else {
+        const maskKey = (field) => {
+          const vs = fieldViews(field);
+          if (!vs || !vs.length) return 'ALL';
+          const mask = vs.reduce((acc, v) => acc | (1 << v), 0) & 0xFF;
+          return mask === 0xFF ? 'ALL' : `MASK:${mask}`;
+        };
+        let activeGroupKey = null;
+        const flushGroup = () => {
+          if (activeGroupKey && activeGroupKey !== 'ALL') lines.push('        }');
+          activeGroupKey = null;
+        };
+        statics.forEach((field) => {
+          const code = staticDrawCode(field);
+          code.helpers.forEach((name) => helpers.add(name));
+          if (!code.lines.length) return;
+          const gKey = maskKey(field);
+          if (gKey !== activeGroupKey) {
+            flushGroup();
+            activeGroupKey = gKey;
+            if (gKey !== 'ALL') {
+              const vs = fieldViews(field);
+              if (vs.length === 1) {
+                lines.push(`        if (JWPLC_Display.pageView(${symbol}) == ${vs[0]})`);
+              } else {
+                const hex = `0x${vs.reduce((a, v) => a | (1 << v), 0).toString(16).toUpperCase().padStart(2, '0')}U`;
+                lines.push(`        if (((1U << JWPLC_Display.pageView(${symbol})) & ${hex}) != 0U)`);
+              }
+              lines.push('        {');
+            }
+          }
+          const ind = gKey === 'ALL' ? '        ' : '            ';
+          lines.push(`${ind}// ${String(field.name || field.type).replace(/[\r\n]+/g, ' ')}`);
+          code.lines.forEach((line) => lines.push(`${ind}${line}`));
+        });
+        flushGroup();
+      }
+
       if (!lines.length) return;
-      const symbol = symbols.get(Number(page.id)) || String(Number(page.id));
       cases.push(
         `    case ${symbol}:\n` +
         `${lines.join('\n')}\n` +
@@ -1216,11 +1285,10 @@ static void jwplcHMIDrawMicroText(JWPLC_TFTClass &tft, int16_t x, int16_t y, con
 
   function duplicateDiagnostic(text, issues) {
     if (!issues.length) return text;
+    const placeLabel = (obj) => (obj?.preset ? 'Popups' : pageComment(pageForField(obj)));
     const lines = issues.map((issue) => {
-      const firstPage = pageForField(issue.first);
-      const secondPage = pageForField(issue.second);
       const type = issue.property === 'id' ? 'ID C++' : 'Variable C++';
-      return `// - ${type} ${issue.canonical}: ${pageComment(firstPage)} (${issue.first.name || issue.first.type}) <-> ${pageComment(secondPage)} (${issue.second.name || issue.second.type})`;
+      return `// - ${type} ${issue.canonical}: ${placeLabel(issue.first)} (${issue.first.name || issue.first.title || issue.first.type}) <-> ${placeLabel(issue.second)} (${issue.second.name || issue.second.title || issue.second.type})`;
     });
     return `// ERROR CODEGEN: existen identificadores C++ duplicados. Corrígelos en el Inspector.\n${lines.join('\n')}\n\n${text}`;
   }
@@ -1235,6 +1303,7 @@ static void jwplcHMIDrawMicroText(JWPLC_TFTClass &tft, int16_t x, int16_t y, con
     if (window.JWPLCHMIIdle?.patchHeader) text = window.JWPLCHMIIdle.patchHeader(text);
     // Alpha16: proyecto «Runtime» (página HMI dentro de JWPLC_Runtime).
     if (window.JWPLCHMIRuntime?.patchHeader) text = window.JWPLCHMIRuntime.patchHeader(text);
+    if (window.JWPLCHMIPopups?.patchHeader) text = window.JWPLCHMIPopups.patchHeader(text);
     text = duplicateDiagnostic(text, validationIssues());
     codeOutput.textContent = text;
   }

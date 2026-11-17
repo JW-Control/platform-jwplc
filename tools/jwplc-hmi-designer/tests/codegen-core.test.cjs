@@ -41,6 +41,16 @@ function loadEventLogModule() {
   return context.window.JWPLCHMIEventLog;
 }
 
+function loadPopupsModule() {
+  const context = { window: {}, console };
+  context.self = context.window;
+  vm.createContext(context);
+  for (const file of ['designer-cp437.js', 'designer-fonts.js', 'designer-popups.js']) {
+    vm.runInContext(fs.readFileSync(path.join(POC, file), 'utf8'), context, { filename: file });
+  }
+  return context.window.JWPLCHMIPopups;
+}
+
 const failures = [];
 function check(condition, message) {
   if (condition) console.log(`  PASS ${message}`);
@@ -397,6 +407,90 @@ const genEvtFont = evtApi.generate([evtWithFont]);
 check(/\/\* headerFont \*\/ &JWPLC_FONT_16/.test(genEvtFont.declarations) &&
   /\/\* rowFont \*\/ &JWPLC_FONT_26/.test(genEvtFont.declarations),
   'EVENT_LOG: emite &JWPLC_FONT_16 y &JWPLC_FONT_26');
+
+console.log('SUBVISTAS (viewMask / wrapFieldBlockPages)');
+const vList = core.fieldViews({ views: [2, 0, 2, 9, -1] });
+check(Array.isArray(vList) && vList.length === 2 && vList[0] === 0 && vList[1] === 2,
+  'fieldViews normaliza, ordena y filtra 0..7');
+check(core.fieldOnPageView({ page: 1, views: [2] }, 1, 2) &&
+  !core.fieldOnPageView({ page: 1, views: [2] }, 1, 0) &&
+  core.fieldOnPageView({ page: 1 }, 1, 5),
+  'fieldOnPageView filtra por página y subvista');
+check(core.fieldViewMaskHex({ views: [0, 2] }) === '0x05U' &&
+  core.fieldViewMaskHex({ views: [0, 1, 2, 3, 4, 5, 6, 7] }) === '',
+  'fieldViewMaskHex emite 0x05U o vacío cuando cubre las 8 subvistas');
+const wrappedView = core.wrapFieldBlockPages({ type: 'TEXT', page: 0, views: [0, 2] }, '    JWPLC_UITextField(F)');
+const wrappedBoth = core.wrapFieldBlockPages({ type: 'TEXT', pages: [0, 2], views: [1] }, '    JWPLC_UITextField(F)');
+const wrappedNone = core.wrapFieldBlockPages({ type: 'TEXT', page: 0 }, '    JWPLC_UITextField(F)');
+check(/JWPLC_UIFieldViews\(/.test(wrappedView) && /0x05U\)/.test(wrappedView) && !/JWPLC_UIFieldPages/.test(wrappedView),
+  'wrapFieldBlockPages envuelve solo con JWPLC_UIFieldViews cuando hay subvistas');
+check(/JWPLC_UIFieldViews\(/.test(wrappedBoth) && /JWPLC_UIFieldPages\(/.test(wrappedBoth) && /0x02U\)/.test(wrappedBoth),
+  'wrapFieldBlockPages combina JWPLC_UIFieldPages + JWPLC_UIFieldViews');
+check(wrappedNone === '    JWPLC_UITextField(F)', 'wrapFieldBlockPages no envuelve si no hay restricciones');
+
+console.log('MENU (subvistas disjuntas, GO_VIEW, targetView, confirmPopupId)');
+const menuView0 = {
+  ...JSON.parse(JSON.stringify(menus[0])),
+  key: 'menu-v0', id: 'MENU_V0', page: 0, views: [0],
+  nodes: [
+    { key: 'go', parent: null, type: 'GO_VIEW', label: 'Iniciar medicion', targetView: 1, confirmPopupId: 3 },
+    { key: 'act', parent: null, type: 'EDIT_BOOL', label: 'Bomba', variable: 'bombaActiva', valueType: 'bool', initial: 0, falseText: 'OFF', trueText: 'ON', targetView: 1, confirmPopupId: 3 }
+  ]
+};
+const menuView1 = {
+  ...JSON.parse(JSON.stringify(menus[0])),
+  key: 'menu-v1', id: 'MENU_V1', page: 0, views: [1],
+  nodes: [
+    { key: 'back', parent: null, type: 'GO_VIEW', label: 'Configuracion', targetView: 0 }
+  ]
+};
+check(menuApi.validate([menuView0, menuView1], []).errors.length === 0,
+  'MENU en la misma página pero en subvistas disjuntas ([0] y [1]) valida sin errores');
+check(menuApi.validate([{ ...menuView0, views: [0, 1] }, menuView1], []).errors.some((e) => /MENU/.test(e)),
+  'MENU en subvistas solapadas de la misma página produce error');
+const genViewMenu = menuApi.generate([menuView0, menuView1]);
+check(/JWPLC_UIMenuViews\(/.test(genViewMenu.declarations) &&
+  /JWPLC_UIMenuGoView\(/.test(genViewMenu.declarations) &&
+  /JWPLC_UIMenuNodeTargetView\(/.test(genViewMenu.declarations) &&
+  /JWPLC_UIMenuNodeConfirm\(/.test(genViewMenu.declarations),
+  'MENU: emite JWPLC_UIMenuViews, GO_VIEW, TargetView y Confirm');
+
+console.log('POPUPS I5-I6 (sin DOM)');
+const popupsApi = loadPopupsModule();
+check(Boolean(popupsApi?.generate), 'designer-popups.js carga sin DOM');
+const popupsSample = [
+  { ...popupsApi.presetDefaults('INFO', 0), name: 'LISTO', code: 'I01', acceptText: 'LISTO', autoCloseMs: 2500 },
+  { ...popupsApi.presetDefaults('WARN', 1), name: 'TEMP_ALTA', code: 'W02', colors: { ...popupsApi.PRESET_COLORS.WARN, headerBg: 0xFFE0 } },
+  { ...popupsApi.presetDefaults('CRIT', 2), name: 'SOBRE_TEMP', code: 'E104', errCode: 'E104', triggerVar: 'alarmaCrit' },
+  { ...popupsApi.presetDefaults('CONFIRM', 3), name: 'CONFIRMAR_INICIO', confirmOutVar: 'confirmarAccion', targetPage: 0, targetView: 1, x: 20, width: 260 }
+];
+const fieldsForPopupCheck = [
+  { type: 'BOOL', id: 'F_ALARMA', variable: 'alarmaCrit' },
+  { type: 'VALUE', id: 'F_TEMP', variable: 'sensorTemp' }
+];
+check(popupsApi.validate(popupsSample, fieldsForPopupCheck).errors.length === 0,
+  'POPUPS: 4 presets validan sin errores');
+check(popupsApi.validate([popupsSample[0], { ...popupsSample[1], id: 0 }], []).errors.some((e) => /duplicado/.test(e)),
+  'POPUPS: rechaza IDs numéricos duplicados');
+check(popupsApi.validate([{ ...popupsSample[0], triggerVar: 'sensorTemp' }], fieldsForPopupCheck).errors.some((e) => /no booleano/.test(e)),
+  'POPUPS: rechaza variable no booleana en triggerVar');
+const genPopups = popupsApi.generate(popupsSample, { fields: fieldsForPopupCheck, pageSymbol: (id) => `PAGE_${id}` });
+check(/#ifndef JWPLC_UI_HAS_POPUP/.test(genPopups.declarations) &&
+  /enum HMIPopupId : uint8_t/.test(genPopups.declarations) &&
+  /JWPLC_UIPopupInfo\(/.test(genPopups.declarations) &&
+  /JWPLC_UIPopupWarn\(/.test(genPopups.declarations) &&
+  /JWPLC_UIPopupCrit\(/.test(genPopups.declarations) &&
+  /JWPLC_UIPopupConfirm\(/.test(genPopups.declarations) &&
+  /JWPLC_UIPopupTrigger\(/.test(genPopups.declarations) &&
+  /JWPLC_UIPopupOptions\(/.test(genPopups.declarations) &&
+  /JWPLC_UIPopupButtons\(/.test(genPopups.declarations) &&
+  /JWPLC_UIPopupNavTarget\(\s*[\s\S]*PAGE_0,\s*1/.test(genPopups.declarations) &&
+  /JWPLC_UIPopupRect\(/.test(genPopups.declarations) &&
+  /JWPLC_UIPopupColorsOverride\(/.test(genPopups.declarations) &&
+  /JWPLC_Display\.setPopups\(/.test(genPopups.setup),
+  'POPUPS: emite todos los presets y modificadores C++ I5-I6');
+check(/bool confirmarAccion = false;/.test(genPopups.variables) && !/alarmaCrit/.test(genPopups.variables),
+  'POPUPS: deduplica bool ya declaradas en fields');
 
 if (hasGpp()) {
   console.log('COMPILACIÓN HOST (g++)');

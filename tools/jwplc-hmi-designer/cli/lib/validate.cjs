@@ -192,6 +192,19 @@ function validateField(field, i, project, report) {
       });
     }
   }
+  if (field.views !== undefined) {
+    if (!Array.isArray(field.views)) {
+      report.error(`${where}.views`, 'debe ser un arreglo de índices de subvista (0..7)');
+    } else if (['NAV_BAR', 'EVENT_LOG'].includes(field.type)) {
+      report.error(`${where}.views`, `${field.type} no admite subvistas`);
+    } else {
+      field.views.forEach((v, idx) => {
+        if (!Number.isInteger(v) || v < 0 || v >= spec.LIMITS.viewsPerPage) {
+          report.error(`${where}.views[${idx}]`, `la subvista ${v} debe estar entre 0 y ${spec.LIMITS.viewsPerPage - 1}`);
+        }
+      });
+    }
+  }
 
   switch (field.type) {
     case 'TEXT':
@@ -242,8 +255,18 @@ function validateField(field, i, project, report) {
     if (field.type !== 'LINE' && (field.x === field.x2 || field.y === field.y2)) report.warn(where, 'la caja tiene ancho o alto 0: no se verá');
   }
   if (field.type === 'MENU' && Array.isArray(field.nodes)) {
+    const popupIds = new Set((Array.isArray(project.popups) ? project.popups : []).map((p) => p && Number(p.id)).filter((id) => Number.isInteger(id)));
     field.nodes.forEach((n, k) => {
-      if (n && typeof n === 'object') checkProps(n, spec.MENU_NODE, `${where}.nodes[${k}]${n.label ? ` (${n.label})` : ''}`, report);
+      const nodeWhere = `${where}.nodes[${k}]${n && n.label ? ` (${n.label})` : ''}`;
+      if (n && typeof n === 'object') {
+        checkProps(n, spec.MENU_NODE, nodeWhere, report);
+        if (n.type === 'GO_VIEW' && (!Number.isInteger(n.targetView) || n.targetView < 0 || n.targetView >= spec.LIMITS.viewsPerPage)) {
+          report.error(`${nodeWhere}.targetView`, `GO_VIEW requiere targetView entre 0 y ${spec.LIMITS.viewsPerPage - 1}`);
+        }
+        if (Number.isInteger(n.confirmPopupId) && n.confirmPopupId >= 0 && !popupIds.has(n.confirmPopupId)) {
+          report.error(`${nodeWhere}.confirmPopupId`, `popup id ${n.confirmPopupId} no existe en popups[]`);
+        }
+      }
     });
     if (field.colors && typeof field.colors === 'object') {
       for (const [key, value] of Object.entries(field.colors)) {
@@ -291,6 +314,24 @@ function validateProject(project) {
     if (!page || typeof page !== 'object') { report.error(where, 'cada página debe ser un objeto o un texto'); return; }
     checkProps(page, spec.PAGE, where, report);
     if (page.id !== i) report.error(`${where}.id`, `los ids de página deben ser 0..N-1 en orden (esperado ${i})`);
+    if (page.views !== undefined) {
+      if (!Array.isArray(page.views) || page.views.length > spec.LIMITS.viewsPerPage) {
+        report.error(`${where}.views`, `debe ser un arreglo de 1 a ${spec.LIMITS.viewsPerPage} subvistas`);
+      } else {
+        page.views.forEach((v, vi) => {
+          const vw = `${where}.views[${vi}]`;
+          if (typeof v === 'string') {
+            noGlyph(report, vw, v);
+          } else if (v && typeof v === 'object' && !Array.isArray(v)) {
+            if (!Number.isInteger(v.id) || v.id < 0 || v.id >= spec.LIMITS.viewsPerPage) report.error(`${vw}.id`, `id de subvista fuera de rango (0..${spec.LIMITS.viewsPerPage - 1})`);
+            if (typeof v.name !== 'string' || !v.name.trim()) report.error(`${vw}.name`, 'falta nombre de subvista');
+            else noGlyph(report, `${vw}.name`, v.name);
+          } else {
+            report.error(vw, 'cada subvista debe ser texto o { id, name }');
+          }
+        });
+      }
+    }
     const key = String(page.name || '').trim().toUpperCase();
     if (key && pageNames.has(key)) report.warn(`${where}.name`, `nombre repetido con pages[${pageNames.get(key)}]`);
     pageNames.set(key, i);
@@ -345,6 +386,34 @@ function validateProject(project) {
         checkVariable(f.ch3Variable, `fields[${i}].ch3Variable`, f, i, 'float');
       }
     }
+  });
+  // Popups (ventanas emergentes I5-I6)
+  const popups = Array.isArray(project.popups) ? project.popups : [];
+  if (popups.length > spec.LIMITS.popups) report.error('popups', `máximo ${spec.LIMITS.popups} ventanas emergentes (hay ${popups.length})`);
+  const popupIds = new Map();
+  popups.forEach((p, idx) => {
+    const where = `popups[${idx}]${p && p.id !== undefined ? ` (id ${p.id})` : ''}`;
+    if (!p || typeof p !== 'object' || Array.isArray(p)) { report.error(where, 'cada popup debe ser un objeto JSON'); return; }
+    checkProps(p, spec.POPUP, where, report);
+    if (Number.isInteger(p.id)) {
+      if (popupIds.has(p.id)) report.error(`${where}.id`, `el id ${p.id} ya lo usa popups[${popupIds.get(p.id)}]`);
+      else popupIds.set(p.id, idx);
+    }
+    noGlyph(report, `${where}.title`, p.title);
+    noGlyph(report, `${where}.message`, p.message);
+    noGlyph(report, `${where}.acceptText`, p.acceptText);
+    noGlyph(report, `${where}.cancelText`, p.cancelText);
+    if (Number.isInteger(p.targetPage) && p.targetPage >= pages.length) {
+      report.error(`${where}.targetPage`, `la página ${p.targetPage} no existe`);
+    }
+    if (p.colors && typeof p.colors === 'object') {
+      for (const [k, v] of Object.entries(p.colors)) {
+        if (!(k in spec.POPUP_COLORS)) report.warn(`${where}.colors.${k}`, `color desconocido; usa ${Object.keys(spec.POPUP_COLORS).join(', ')}`);
+        else if (!Number.isInteger(v) || v < 0 || v > 0xFFFF) report.error(`${where}.colors.${k}`, `color no válido ${JSON.stringify(v)}`);
+      }
+    }
+    if (p.triggerVar) checkVariable(p.triggerVar, `${where}.triggerVar`, p, idx, 'bool');
+    if (p.confirmOutVar) checkVariable(p.confirmOutVar, `${where}.confirmOutVar`, p, idx, 'bool');
   });
   // NAV_BAR
   const navs = objects.filter((f) => f.type === 'NAV_BAR');

@@ -62,6 +62,14 @@
       },
       "description": "Objetos (máximo 64 campos dinámicos TEXT/VALUE/BOOL/BAR/ICON/TREND; figuras, RAW_TEXT, MENU, EVENT_LOG y NAV_BAR no gastan cupo)."
     },
+    "popups": {
+      "type": "array",
+      "maxItems": 12,
+      "items": {
+        "$ref": "#/definitions/popup"
+      },
+      "description": "Ventanas emergentes modales I5-I6 (máximo 12)."
+    },
     "pixelMaps": {
       "type": "array",
       "maxItems": 16,
@@ -147,6 +155,10 @@
               },
               "pages": {
                 "description": "Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez.",
+                "type": "array"
+              },
+              "views": {
+                "description": "Subvistas opcionales (índices 0..7 dentro de la página) donde aparece el objeto. Omitido o vacío = visible en todas.",
                 "type": "array"
               },
               "layerOrder": {
@@ -416,6 +428,10 @@
               },
               "pages": {
                 "description": "Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez.",
+                "type": "array"
+              },
+              "views": {
+                "description": "Subvistas opcionales (índices 0..7 dentro de la página) donde aparece el objeto. Omitido o vacío = visible en todas.",
                 "type": "array"
               },
               "layerOrder": {
@@ -750,6 +766,10 @@
               },
               "pages": {
                 "description": "Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez.",
+                "type": "array"
+              },
+              "views": {
+                "description": "Subvistas opcionales (índices 0..7 dentro de la página) donde aparece el objeto. Omitido o vacío = visible en todas.",
                 "type": "array"
               },
               "layerOrder": {
@@ -1103,6 +1123,10 @@
               },
               "pages": {
                 "description": "Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez.",
+                "type": "array"
+              },
+              "views": {
+                "description": "Subvistas opcionales (índices 0..7 dentro de la página) donde aparece el objeto. Omitido o vacío = visible en todas.",
                 "type": "array"
               },
               "layerOrder": {
@@ -1657,6 +1681,10 @@
                 "description": "Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez.",
                 "type": "array"
               },
+              "views": {
+                "description": "Subvistas opcionales (índices 0..7 dentro de la página) donde aparece el objeto. Omitido o vacío = visible en todas.",
+                "type": "array"
+              },
               "layerOrder": {
                 "description": "Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima).",
                 "type": "integer",
@@ -2018,6 +2046,10 @@
               },
               "pages": {
                 "description": "Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez.",
+                "type": "array"
+              },
+              "views": {
+                "description": "Subvistas opcionales (índices 0..7 dentro de la página) donde aparece el objeto. Omitido o vacío = visible en todas.",
                 "type": "array"
               },
               "layerOrder": {
@@ -2399,6 +2431,10 @@
                 "description": "Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez.",
                 "type": "array"
               },
+              "views": {
+                "description": "Subvistas opcionales (índices 0..7 dentro de la página) donde aparece el objeto. Omitido o vacío = visible en todas.",
+                "type": "array"
+              },
               "layerOrder": {
                 "description": "Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima).",
                 "type": "integer",
@@ -2776,6 +2812,10 @@
                 "description": "Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez.",
                 "type": "array"
               },
+              "views": {
+                "description": "Subvistas opcionales (índices 0..7 dentro de la página) donde aparece el objeto. Omitido o vacío = visible en todas.",
+                "type": "array"
+              },
               "layerOrder": {
                 "description": "Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima).",
                 "type": "integer",
@@ -2968,6 +3008,10 @@
                 "description": "Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez.",
                 "type": "array"
               },
+              "views": {
+                "description": "Subvistas opcionales (índices 0..7 dentro de la página) donde aparece el objeto. Omitido o vacío = visible en todas.",
+                "type": "array"
+              },
               "layerOrder": {
                 "description": "Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima).",
                 "type": "integer",
@@ -3125,6 +3169,10 @@
                 "description": "Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez.",
                 "type": "array"
               },
+              "views": {
+                "description": "Subvistas opcionales (índices 0..7 dentro de la página) donde aparece el objeto. Omitido o vacío = visible en todas.",
+                "type": "array"
+              },
               "layerOrder": {
                 "description": "Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima).",
                 "type": "integer",
@@ -3290,6 +3338,10 @@
               },
               "pages": {
                 "description": "Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez.",
+                "type": "array"
+              },
+              "views": {
+                "description": "Subvistas opcionales (índices 0..7 dentro de la página) donde aparece el objeto. Omitido o vacío = visible en todas.",
                 "type": "array"
               },
               "layerOrder": {
@@ -3459,6 +3511,10 @@
                 "description": "Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez.",
                 "type": "array"
               },
+              "views": {
+                "description": "Subvistas opcionales (índices 0..7 dentro de la página) donde aparece el objeto. Omitido o vacío = visible en todas.",
+                "type": "array"
+              },
               "layerOrder": {
                 "description": "Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima).",
                 "type": "integer",
@@ -3626,6 +3682,10 @@
                 "description": "Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez.",
                 "type": "array"
               },
+              "views": {
+                "description": "Subvistas opcionales (índices 0..7 dentro de la página) donde aparece el objeto. Omitido o vacío = visible en todas.",
+                "type": "array"
+              },
               "layerOrder": {
                 "description": "Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima).",
                 "type": "integer",
@@ -3791,6 +3851,10 @@
               },
               "pages": {
                 "description": "Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez.",
+                "type": "array"
+              },
+              "views": {
+                "description": "Subvistas opcionales (índices 0..7 dentro de la página) donde aparece el objeto. Omitido o vacío = visible en todas.",
                 "type": "array"
               },
               "layerOrder": {
@@ -4167,13 +4231,14 @@
           "description": "Clave del nodo padre (SUBMENU). null = raíz. Con `children` no hace falta."
         },
         "type": {
-          "description": "SUBMENU: abre hijos. VIEW: muestra una variable. EDIT_NUM/EDIT_BOOL: el operador la edita. GO_IDLE: vuelve a la pantalla de inicio.",
+          "description": "SUBMENU: abre hijos. VIEW: muestra una variable. EDIT_NUM/EDIT_BOOL: el operador la edita. GO_IDLE: vuelve a inicio. GO_VIEW: cambia a otra subvista de la página.",
           "enum": [
             "SUBMENU",
             "VIEW",
             "EDIT_NUM",
             "EDIT_BOOL",
-            "GO_IDLE"
+            "GO_IDLE",
+            "GO_VIEW"
           ]
         },
         "label": {
@@ -4188,7 +4253,7 @@
           "default": ""
         },
         "valueType": {
-          "description": "VIEW: float|int32|bool. EDIT_NUM: float|int32. EDIT_BOOL: bool. SUBMENU/GO_IDLE: vacío.",
+          "description": "VIEW: float|int32|bool. EDIT_NUM: float|int32. EDIT_BOOL: bool. SUBMENU/GO_IDLE/GO_VIEW: vacío.",
           "enum": [
             "float",
             "int32",
@@ -4310,6 +4375,20 @@
           ],
           "default": 65535
         },
+        "targetView": {
+          "description": "Subvista destino (0..7) al pulsar OK; -1 = sin cambio.",
+          "type": "integer",
+          "minimum": -1,
+          "maximum": 7,
+          "default": -1
+        },
+        "confirmPopupId": {
+          "description": "ID de ventana CONFIRM previa antes de aplicar/navegar; -1 = ejecución directa.",
+          "type": "integer",
+          "minimum": -1,
+          "maximum": 254,
+          "default": -1
+        },
         "children": {
           "type": "array",
           "items": {
@@ -4352,6 +4431,31 @@
               "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
             }
           ]
+        },
+        "views": {
+          "type": "array",
+          "maxItems": 8,
+          "description": "Subvistas opcionales (1 a 8) dentro de esta página: strings o { id, name }.",
+          "items": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 7
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                }
+              }
+            ]
+          }
         },
         "fields": {
           "type": "array",
@@ -4418,6 +4522,294 @@
           "type": "string"
         }
       }
+    },
+    "popup": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "ID numérico único de la ventana emergente (0..254).",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 254
+        },
+        "name": {
+          "description": "Nombre descriptivo en el Designer.",
+          "type": "string",
+          "default": ""
+        },
+        "preset": {
+          "description": "Preset visual y comportamiento modal.",
+          "enum": [
+            "INFO",
+            "WARN",
+            "CRIT",
+            "CONFIRM"
+          ]
+        },
+        "title": {
+          "description": "Título de la cabecera.",
+          "type": "string",
+          "default": "AVISO"
+        },
+        "code": {
+          "description": "Código breve opcional arriba a la derecha (ej. E104).",
+          "type": "string",
+          "default": ""
+        },
+        "message": {
+          "description": "Mensaje del cuerpo (multilínea con ajuste de línea).",
+          "type": "string",
+          "default": ""
+        },
+        "acceptText": {
+          "description": "Texto del botón OK / Aceptar.",
+          "type": "string",
+          "default": "OK"
+        },
+        "cancelText": {
+          "description": "Texto del botón Cancelar (en preset CONFIRM).",
+          "type": "string",
+          "default": "CANCELAR"
+        },
+        "triggerVar": {
+          "description": "Variable bool C++ opcional: dispara por flanco 0 -> 1.",
+          "type": "string",
+          "pattern": "^([A-Za-z_][A-Za-z0-9_]*)?$",
+          "default": ""
+        },
+        "confirmOutVar": {
+          "description": "Variable bool C++ opcional donde CONFIRM escribe true/false.",
+          "type": "string",
+          "pattern": "^([A-Za-z_][A-Za-z0-9_]*)?$",
+          "default": ""
+        },
+        "errCode": {
+          "description": "Código ERR lateral IDLE opcional (hasta 4 chars, recomendado en CRIT).",
+          "type": "string",
+          "default": ""
+        },
+        "autoCloseMs": {
+          "description": "Auto-cierre en ms (0 = manual). No aplica a CRIT.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 60000,
+          "default": 0
+        },
+        "showOverIdle": {
+          "description": "Permitir mostrarse sobre pantalla IDLE.",
+          "type": "boolean",
+          "default": true
+        },
+        "blocksIdle": {
+          "description": "Bloquear retorno automático a IDLE mientras está activo.",
+          "type": "boolean",
+          "default": false
+        },
+        "latched": {
+          "description": "Mantener modal aunque triggerVar vuelva a false hasta pulsar OK.",
+          "type": "boolean",
+          "default": false
+        },
+        "logToEventLog": {
+          "description": "Registrar activación/ACK en EVENT_LOG.",
+          "type": "boolean",
+          "default": false
+        },
+        "targetPage": {
+          "description": "Página opcional al aceptar CONFIRM (-1 = sin cambio).",
+          "type": "integer",
+          "minimum": -1,
+          "maximum": 15,
+          "default": -1
+        },
+        "targetView": {
+          "description": "Subvista opcional al aceptar CONFIRM (-1 = sin cambio).",
+          "type": "integer",
+          "minimum": -1,
+          "maximum": 7,
+          "default": -1
+        },
+        "x": {
+          "description": "Posición X del cuadro (px).",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 200,
+          "default": 36
+        },
+        "y": {
+          "description": "Posición Y del cuadro (px).",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 98,
+          "default": 27
+        },
+        "width": {
+          "description": "Ancho del cuadro (px).",
+          "type": "integer",
+          "minimum": 120,
+          "maximum": 312,
+          "default": 248
+        },
+        "height": {
+          "description": "Alto del cuadro (px).",
+          "type": "integer",
+          "minimum": 72,
+          "maximum": 162,
+          "default": 116
+        },
+        "cornerRadius": {
+          "description": "Radio de esquinas (px).",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 12,
+          "default": 6
+        },
+        "colors": {
+          "type": "object",
+          "description": "Colores RGB565 opcionales.",
+          "properties": {
+            "background": {
+              "description": "RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+              "oneOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 65535
+                },
+                {
+                  "type": "string",
+                  "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                }
+              ],
+              "default": 4226
+            },
+            "border": {
+              "description": "RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+              "oneOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 65535
+                },
+                {
+                  "type": "string",
+                  "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                }
+              ],
+              "default": 11647
+            },
+            "headerBg": {
+              "description": "RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+              "oneOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 65535
+                },
+                {
+                  "type": "string",
+                  "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                }
+              ],
+              "default": 7068
+            },
+            "headerText": {
+              "description": "RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+              "oneOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 65535
+                },
+                {
+                  "type": "string",
+                  "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                }
+              ],
+              "default": 65535
+            },
+            "text": {
+              "description": "RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+              "oneOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 65535
+                },
+                {
+                  "type": "string",
+                  "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                }
+              ],
+              "default": 65535
+            },
+            "acceptBg": {
+              "description": "RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+              "oneOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 65535
+                },
+                {
+                  "type": "string",
+                  "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                }
+              ],
+              "default": 7068
+            },
+            "acceptText": {
+              "description": "RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+              "oneOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 65535
+                },
+                {
+                  "type": "string",
+                  "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                }
+              ],
+              "default": 65535
+            },
+            "cancelBg": {
+              "description": "RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+              "oneOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 65535
+                },
+                {
+                  "type": "string",
+                  "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                }
+              ],
+              "default": 12678
+            },
+            "cancelText": {
+              "description": "RGB565 (0..65535), \"0xF800\", \"#RRGGBB\", \"#RGB\" o un nombre: BLACK, WHITE, RED, GREEN, BLUE, CYAN, YELLOW, ORANGE, NAVY, DARKGREEN, DARKCYAN, MAROON, PURPLE, OLIVE, LIGHTGREY, DARKGREY, GREY, MAGENTA, PINK, GREENYELLOW, BROWN, GOLD",
+              "oneOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 65535
+                },
+                {
+                  "type": "string",
+                  "pattern": "^(0[xX][0-9a-fA-F]{1,4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|(TFT_)?[A-Za-z]+)$"
+                }
+              ],
+              "default": 65535
+            }
+          }
+        }
+      },
+      "required": [
+        "id",
+        "preset"
+      ]
     },
     "pixelMap": {
       "type": "object",

@@ -672,7 +672,9 @@
   let codeMode = 'status';
   let gestureChanged = false;
   let keyboardNudgeChanged = false;
+  const MAX_VIEWS_PER_PAGE = 8;
   let activePage = 0;
+  let activePageViews = {};
   let hmiPages = [{ id: 0, name: 'Principal' }];
   let navBarConfig = {
     enabled: true,
@@ -1346,8 +1348,183 @@
     return fieldPages(field).includes(Math.trunc(Number(page) || 0));
   }
 
-  function fieldsForPage(page = activePage) {
-    return hmiFields.filter((field) => fieldOnPage(field, page));
+  function getPageViews(pageId = activePage) {
+    const pid = Math.trunc(Number(pageId) || 0);
+    const page = hmiPages.find((item) => Number(item.id) === pid);
+    if (Array.isArray(page?.views) && page.views.length) {
+      return page.views.slice(0, MAX_VIEWS_PER_PAGE).map((v, idx) => ({
+        id: idx,
+        name: String(typeof v === 'string' ? v : (v?.name || `Vista ${idx + 1}`)).slice(0, 24) || `Vista ${idx + 1}`
+      }));
+    }
+    return [{ id: 0, name: 'Principal' }];
+  }
+
+  function getActivePageView(pageId = activePage) {
+    const pid = Math.trunc(Number(pageId) || 0);
+    const count = getPageViews(pid).length;
+    const raw = Math.trunc(Number(activePageViews[pid] || 0));
+    return (raw >= 0 && raw < count) ? raw : 0;
+  }
+
+  function fieldOnPageView(field, page = activePage, view = getActivePageView(page)) {
+    if (!fieldOnPage(field, page)) return false;
+    if (field.type === 'NAV_BAR' || field.global || field.type === 'EVENT_LOG') return true;
+    const views = window.JWPLCHMICodegenCore?.fieldViews?.(field)
+      || (Array.isArray(field.views) && field.views.length ? field.views.map(Number) : null);
+    if (!views || !views.length) return true;
+    return views.includes(Math.trunc(Number(view) || 0));
+  }
+
+  function applyDefaultViewScope(field) {
+    if (!field || field.type === 'NAV_BAR' || field.type === 'EVENT_LOG') return;
+    if (Array.isArray(field.views) && field.views.length) return;
+    const pageId = Number(field.page ?? activePage);
+    if (getPageViews(pageId).length > 1) {
+      field.views = [getActivePageView(pageId)];
+    }
+  }
+
+  function setPageViews(pageId = activePage, viewsList = []) {
+    const pid = Math.trunc(Number(pageId) || 0);
+    const page = hmiPages.find((item) => Number(item.id) === pid);
+    if (!page) return false;
+    const clean = Array.isArray(viewsList) && viewsList.length
+      ? viewsList.slice(0, MAX_VIEWS_PER_PAGE).map((v, idx) => ({
+          id: idx,
+          name: String(typeof v === 'string' ? v : (v?.name || `Vista ${idx + 1}`)).trim().slice(0, 24) || `Vista ${idx + 1}`
+        }))
+      : [{ id: 0, name: 'Principal' }];
+    if (clean.length === 1 && clean[0].name === 'Principal') delete page.views;
+    else page.views = clean;
+    if (Number(activePageViews[pid] || 0) >= clean.length) {
+      activePageViews[pid] = clean.length - 1;
+    }
+    return true;
+  }
+
+  function setActivePageView(viewId, pageId = activePage) {
+    const pid = Math.trunc(Number(pageId) || 0);
+    const views = getPageViews(pid);
+    const next = Math.trunc(Number(viewId) || 0);
+    if (next < 0 || next >= views.length) return false;
+    const changed = Number(activePageViews[pid] || 0) !== next;
+    activePageViews[pid] = next;
+    if (pid === activePage && changed) {
+      const selected = selectedField();
+      if (!selected || !fieldOnPageView(selected, activePage, next)) selectFirstOnPage();
+      syncInputsFromState();
+      syncToolUI();
+      render();
+    }
+    return true;
+  }
+
+  function addPageView(pageId = activePage, name) {
+    const pid = Math.trunc(Number(pageId) || 0);
+    const page = hmiPages.find((item) => Number(item.id) === pid);
+    if (!page) return null;
+    const cur = getPageViews(pid);
+    if (cur.length >= MAX_VIEWS_PER_PAGE) return null;
+    if (cur.length === 1) {
+      // Al pasar de 1 a 2 subvistas, fija los objetos actuales a V1 para que V2 inicie limpia.
+      hmiFields.forEach((f) => {
+        if (fieldOnPage(f, pid) && f.type !== 'NAV_BAR' && f.type !== 'EVENT_LOG' && !f.global && (!Array.isArray(f.views) || !f.views.length)) {
+          f.views = [0];
+        }
+      });
+    }
+    const nextId = cur.length;
+    const created = { id: nextId, name: String(name || `Vista ${nextId + 1}`).trim().slice(0, 24) || `Vista ${nextId + 1}` };
+    page.views = [...cur, created];
+    activePageViews[pid] = nextId;
+    if (pid === activePage) {
+      setSelectedKeys([]);
+      selectedTool = 'none';
+      syncInputsFromState();
+      syncToolUI();
+      render();
+    }
+    commitHistory();
+    window.dispatchEvent(new CustomEvent('jwplc:editor-refresh'));
+    return { ...created };
+  }
+
+  function renamePageView(pageId, viewId, name) {
+    const pid = Math.trunc(Number(pageId) || 0);
+    const vid = Math.trunc(Number(viewId) || 0);
+    const page = hmiPages.find((item) => Number(item.id) === pid);
+    if (!page) return false;
+    const cur = getPageViews(pid);
+    if (vid < 0 || vid >= cur.length) return false;
+    const next = String(name || '').trim().slice(0, 24);
+    if (!next || next === cur[vid].name) return false;
+    cur[vid].name = next;
+    setPageViews(pid, cur);
+    render();
+    commitHistory();
+    window.dispatchEvent(new CustomEvent('jwplc:editor-refresh'));
+    return true;
+  }
+
+  function deletePageView(pageId, viewId) {
+    const pid = Math.trunc(Number(pageId) || 0);
+    const vid = Math.trunc(Number(viewId) || 0);
+    const page = hmiPages.find((item) => Number(item.id) === pid);
+    if (!page) return false;
+    const cur = getPageViews(pid);
+    if (cur.length <= 1 || vid < 0 || vid >= cur.length) return false;
+
+    const nextViews = cur.filter((_, idx) => idx !== vid).map((v, idx) => ({ id: idx, name: v.name }));
+    hmiFields = hmiFields.filter((f) => {
+      if (!fieldOnPage(f, pid) || f.type === 'NAV_BAR' || f.global || f.type === 'EVENT_LOG') return true;
+      if (!Array.isArray(f.views) || !f.views.length) return true;
+      const mapped = [...new Set(
+        f.views
+          .map(Number)
+          .filter((v) => v !== vid)
+          .map((v) => (v > vid ? v - 1 : v))
+      )].sort((a, b) => a - b);
+      if (!mapped.length) return false;
+      if (nextViews.length <= 1) delete f.views;
+      else f.views = mapped;
+      return true;
+    });
+
+    // Ajustar destinos de nodos MENU que apuntasen a subvistas iguales/superiores.
+    hmiFields.forEach((f) => {
+      if (f.type !== 'MENU' || Number(f.page || 0) !== pid || !Array.isArray(f.nodes)) return;
+      f.nodes.forEach((n) => {
+        if (n && Number.isInteger(Number(n.targetView)) && Number(n.targetView) >= 0) {
+          const tv = Number(n.targetView);
+          if (tv === vid) n.targetView = 0;
+          else if (tv > vid) n.targetView = tv - 1;
+        }
+      });
+    });
+
+    setPageViews(pid, nextViews);
+    const curActive = Number(activePageViews[pid] || 0);
+    activePageViews[pid] = curActive === vid ? Math.max(0, vid - 1) : (curActive > vid ? curActive - 1 : curActive);
+
+    if (pid === activePage) {
+      setSelectedKeys([]);
+      selectedTool = 'none';
+      syncInputsFromState();
+      syncToolUI();
+      render();
+    }
+    commitHistory();
+    window.dispatchEvent(new CustomEvent('jwplc:editor-refresh'));
+    return true;
+  }
+
+  function fieldsForPage(page = activePage, options = {}) {
+    if (options && options.allViews) {
+      return hmiFields.filter((field) => fieldOnPage(field, page));
+    }
+    const view = getActivePageView(page);
+    return hmiFields.filter((field) => fieldOnPageView(field, page, view));
   }
 
   function setSelectedKeys(keys) {
@@ -1356,7 +1533,8 @@
   }
 
   function selectedFields() {
-    return hmiFields.filter((field) => selectedFieldKeys.includes(field.key) && fieldOnPage(field, activePage));
+    const view = getActivePageView(activePage);
+    return hmiFields.filter((field) => selectedFieldKeys.includes(field.key) && fieldOnPageView(field, activePage, view));
   }
 
   function selectedField() {
@@ -3137,6 +3315,10 @@
     if (window.JWPLCHMIPages?.drawHMINavigationBar) {
       window.JWPLCHMIPages.drawHMINavigationBar(logicalCtx, 1);
     }
+
+    if (window.JWPLCHMIPopups?.paintOnLogical) {
+      window.JWPLCHMIPopups.paintOnLogical(logicalCtx);
+    }
   }
 
   function drawGrid() {
@@ -3284,7 +3466,8 @@
 
   function buildContractText() {
     const validFields = hmiFields.filter(f => !['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON', 'RAW_TEXT', 'NAV_BAR', 'MENU', 'EVENT_LOG'].includes(f.type));
-    const hasStaticObjects = hmiFields.some(f => ['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON', 'RAW_TEXT', 'NAV_BAR', 'MENU', 'EVENT_LOG'].includes(f.type));
+    const hasPopups = (window.JWPLCHMIPopups?.all?.()?.length || 0) > 0;
+    const hasStaticObjects = hasPopups || hmiFields.some(f => ['LINE', 'RECT', 'ELLIPSE', 'TRIANGLE', 'POLYGON', 'RAW_TEXT', 'NAV_BAR', 'MENU', 'EVENT_LOG'].includes(f.type));
     if (validFields.length === 0 && !hasStaticObjects) return '// Sin campos HMI. Agrega TEXT, VALUE, BOOL o BAR para comenzar.';
     if (validFields.length === 0) {
       // Sólo gráfica estática: sin HMI_FIELDS (un arreglo vacío no es C++ válido).
@@ -4095,6 +4278,7 @@
   }
 
   function drawSelectionAndGuides() {
+    if (window.JWPLCHMIPopups?.isOpen?.()) return;
     const fields = selectedFields();
     const selPms = (window.JWPLCHMIPixelMaps?.getSelectedMaps?.() || []).filter(
       (pm) => Number(pm.page || 0) === activePage && pm.editorVisible !== false && pm.pixels?.length
@@ -5494,10 +5678,18 @@
 
   function captureSnapshot() {
     return {
-      fields: hmiFields.map((field) => ({ ...field })),
-      pages: hmiPages.map((page) => ({ ...page })),
+      fields: hmiFields.map((field) => ({
+        ...field,
+        ...(Array.isArray(field.pages) ? { pages: [...field.pages] } : {}),
+        ...(Array.isArray(field.views) ? { views: [...field.views] } : {})
+      })),
+      pages: hmiPages.map((page) => ({
+        ...page,
+        ...(Array.isArray(page.views) ? { views: page.views.map((v) => ({ ...v })) } : {})
+      })),
       navBar: { ...navBarConfig },
       activePage,
+      activePageViews: { ...activePageViews },
       selectedFieldKeys: [...selectedFieldKeys],
       selectedFieldKey,
       selectedTool,
@@ -5516,6 +5708,7 @@
   function sameSnapshot(a, b) {
     if (!a || !b) return false;
     if (a.activePage !== b.activePage || a.selectedFieldKey !== b.selectedFieldKey || a.selectedTool !== b.selectedTool || a.serial !== b.serial) return false;
+    if (JSON.stringify(a.activePageViews || {}) !== JSON.stringify(b.activePageViews || {})) return false;
     if (JSON.stringify(a.selectedFieldKeys || []) !== JSON.stringify(b.selectedFieldKeys || [])) return false;
     if (JSON.stringify(a.fields) !== JSON.stringify(b.fields)) return false;
     if (JSON.stringify(a.pages) !== JSON.stringify(b.pages)) return false;
@@ -5535,17 +5728,25 @@
   }
 
   function restoreSnapshot(snapshot) {
-    hmiFields = snapshot.fields.map((field) => ({ ...field }));
-    hmiPages = (snapshot.pages || [{ id: 0, name: 'Principal' }]).map((page) => ({ ...page }));
+    hmiFields = snapshot.fields.map((field) => ({
+      ...field,
+      ...(Array.isArray(field.pages) ? { pages: [...field.pages] } : {}),
+      ...(Array.isArray(field.views) ? { views: [...field.views] } : {})
+    }));
+    hmiPages = (snapshot.pages || [{ id: 0, name: 'Principal' }]).map((page) => ({
+      ...page,
+      ...(Array.isArray(page.views) ? { views: page.views.map((v) => ({ ...v })) } : {})
+    }));
     if (snapshot.navBar) navBarConfig = { ...snapshot.navBar };
     activePage = pageExists(snapshot.activePage) ? snapshot.activePage : 0;
+    activePageViews = { ...(snapshot.activePageViews || {}) };
     setSelectedKeys(snapshot.selectedFieldKeys || (snapshot.selectedFieldKey ? [snapshot.selectedFieldKey] : []));
     selectedTool = snapshot.selectedTool;
     Object.assign(rawState, snapshot.raw);
     pixelLayer.set(snapshot.pixels);
     fieldSerial = snapshot.serial;
     const selected = selectedField();
-    if (!selected || !fieldOnPage(selected, activePage)) {
+    if (!selected || !fieldOnPageView(selected, activePage, getActivePageView(activePage))) {
       const replacement = fieldsForPage(activePage)[0] || null;
       setSelectedKeys(replacement ? [replacement.key] : []);
       selectedTool = replacement ? toolForField(replacement) : 'none';
@@ -5692,7 +5893,7 @@
     if (!pageExists(target) || target === activePage) return false;
     activePage = target;
     const selected = selectedField();
-    if (!selected || !fieldOnPage(selected, activePage)) selectFirstOnPage();
+    if (!selected || !fieldOnPageView(selected, activePage, getActivePageView(activePage))) selectFirstOnPage();
     syncInputsFromState();
     syncToolUI();
     render();
@@ -5708,6 +5909,7 @@
     hmiPages.push(page);
     hmiPages.sort((a, b) => a.id - b.id);
     activePage = id;
+    activePageViews[id] = 0;
     setSelectedKeys([]);
     selectedTool = 'none';
     syncInputsFromState();
@@ -5803,7 +6005,14 @@
     // A15-2: el runtime y el formato .jwhmi exigen ids contiguos 0..N-1.
     // Se renumeran páginas, campos y PixelMaps conservando el orden.
     const remap = new Map(hmiPages.map((item, index) => [item.id, index]));
-    hmiPages.forEach((item) => { item.id = remap.get(item.id); });
+    const nextViewsMap = {};
+    hmiPages.forEach((item) => {
+      const oldId = item.id;
+      const newId = remap.get(oldId);
+      item.id = newId;
+      nextViewsMap[newId] = Number(activePageViews[oldId] || 0);
+    });
+    activePageViews = nextViewsMap;
     hmiFields.forEach((field) => {
       if (field.type === 'NAV_BAR' || field.global) return;
       if (Array.isArray(field.pages) && field.pages.length) {
@@ -5907,6 +6116,71 @@
     return true;
   }
 
+  function setSelectedFieldViews(viewsList) {
+    const field = selectedField();
+    if (!field || field.type === 'NAV_BAR' || field.type === 'EVENT_LOG') return false;
+    const pViews = getPageViews(fieldPages(field)[0]);
+    if (!viewsList || !viewsList.length) {
+      if (field.type === 'MENU') {
+        const clash = hmiFields.some((f) => f.type === 'MENU' && f !== field && Number(f.page || 0) === Number(field.page || 0));
+        if (clash) {
+          showToastMessage('Otro MENU de esta página ya ocupa otra subvista.', 'warning');
+          return false;
+        }
+      }
+      delete field.views;
+    } else {
+      const clean = [...new Set(
+        viewsList
+          .map((v) => Math.trunc(Number(v)))
+          .filter((v) => Number.isInteger(v) && v >= 0 && v < MAX_VIEWS_PER_PAGE)
+      )].sort((a, b) => a - b);
+      if (!clean.length) return false;
+      if (field.type === 'MENU') {
+        const nextMask = clean.reduce((acc, v) => acc | (1 << v), 0);
+        const clash = hmiFields.some((f) => {
+          if (f.type !== 'MENU' || f === field || Number(f.page || 0) !== Number(field.page || 0)) return false;
+          const om = (Array.isArray(f.views) && f.views.length) ? f.views.reduce((a, v) => a | (1 << Number(v)), 0) : 0xFF;
+          return (om & nextMask) !== 0;
+        });
+        if (clash) {
+          showToastMessage('Otro MENU de esta página ya ocupa esa subvista.', 'warning');
+          return false;
+        }
+      }
+      const allCovered = pViews.length > 0 && pViews.every((v) => clean.includes(Number(v.id)));
+      const hasOtherMenuOnPage = field.type === 'MENU' && hmiFields.some((f) => f.type === 'MENU' && f !== field && Number(f.page || 0) === Number(field.page || 0));
+      if (allCovered && !hasOtherMenuOnPage) delete field.views;
+      else field.views = clean;
+    }
+    if (!fieldOnPageView(field, activePage, getActivePageView(activePage))) {
+      const firstView = Array.isArray(field.views) && field.views.length ? field.views[0] : 0;
+      activePageViews[activePage] = firstView;
+    }
+    setSelectedKeys([field.key]);
+    selectedTool = toolForField(field);
+    syncInputsFromState();
+    syncToolUI();
+    render();
+    commitHistory();
+    window.dispatchEvent(new CustomEvent('jwplc:editor-refresh'));
+    return true;
+  }
+
+  function toggleSelectedFieldView(viewId) {
+    const target = Math.trunc(Number(viewId));
+    const field = selectedField();
+    if (!field || !Number.isInteger(target) || target < 0 || target >= MAX_VIEWS_PER_PAGE) return false;
+    const pViews = getPageViews(fieldPages(field)[0]);
+    const current = Array.isArray(field.views) && field.views.length
+      ? field.views.map(Number)
+      : pViews.map((v) => Number(v.id));
+    const exists = current.includes(target);
+    if (exists && current.length <= 1) return true;
+    const next = exists ? current.filter((v) => v !== target) : [...current, target];
+    return setSelectedFieldViews(next);
+  }
+
   function buildPageChipHtml(pages, field, attrName = 'data-page-id') {
     const activePages = fieldPages(field);
     const supportsMulti = Boolean(field && window.JWPLCHMICodegenCore?.supportsMultiPage?.(field));
@@ -5923,7 +6197,23 @@
       const name = p.name || `Página ${id + 1}`;
       return `<button type="button" class="insp-chip${active ? ' active' : ''}" ${attrName}="${id}" title="Página ${id}: ${esc(name)}">${String(id + 1).padStart(2, '0')} · ${esc(name)}</button>`;
     }).join('');
-    return multiControls + chips;
+    let viewHtml = '';
+    if (field && field.type !== 'NAV_BAR' && field.type !== 'EVENT_LOG') {
+      const pViews = getPageViews(activePages[0]);
+      if (pViews.length > 1) {
+        const restricted = Array.isArray(field.views) && field.views.length;
+        const activeViews = restricted ? field.views.map(Number) : pViews.map((v) => Number(v.id));
+        const allViewsActive = !restricted || pViews.every((v) => activeViews.includes(Number(v.id)));
+        viewHtml =
+          `<div class="insp-subview-group">` +
+          `<div class="insp-subview-title">Subvistas</div>` +
+          `<div class="insp-chip-row">` +
+          `<button type="button" class="insp-chip${allViewsActive ? ' active' : ''}" data-view-action="all" title="Visible en todas las subvistas de esta página">Todas</button>` +
+          pViews.map((v) => `<button type="button" class="insp-chip${activeViews.includes(Number(v.id)) ? ' active' : ''}" data-view-id="${v.id}" title="Subvista ${Number(v.id) + 1}: ${esc(v.name)}">V${Number(v.id) + 1} · ${esc(v.name)}</button>`).join('') +
+          `</div></div>`;
+      }
+    }
+    return multiControls + chips + viewHtml;
   }
 
   function renderPageChipsHost(host, field, attrName = 'data-page-id') {
@@ -5934,7 +6224,10 @@
     else if (!field || !window.JWPLCHMICodegenCore?.supportsMultiPage?.(field)) delete host.dataset.multiMode;
     const multiFlag = host.dataset.multiMode === '1' ? 'M1' : 'M0';
     const keyPart = field?.key || (field?.type || 'NONE');
-    const signature = pages.map((p) => `${p.id}:${p.name}`).join('|') + `#${keyPart}#${activePages.join(',')}#${multiFlag}`;
+    const pViews = getPageViews(activePages[0]);
+    const viewsMeta = pViews.map((v) => `${v.id}:${v.name}`).join(',');
+    const fViews = Array.isArray(field?.views) ? field.views.join(',') : 'all';
+    const signature = pages.map((p) => `${p.id}:${p.name}`).join('|') + `#${keyPart}#${activePages.join(',')}#${multiFlag}#${viewsMeta}#${fViews}`;
     if (host.dataset.signature === signature) return;
     host.dataset.signature = signature;
     host.innerHTML = buildPageChipHtml(pages, field, attrName);
@@ -5944,6 +6237,16 @@
   }
 
   function handlePageChipHostClick(host, event, field, attrName = 'data-page-id') {
+    const viewAllBtn = event.target.closest('[data-view-action="all"]');
+    if (viewAllBtn && field) {
+      setSelectedFieldViews(null);
+      return true;
+    }
+    const viewChip = event.target.closest('[data-view-id]');
+    if (viewChip && field) {
+      toggleSelectedFieldView(Number(viewChip.dataset.viewId));
+      return true;
+    }
     const actionBtn = event.target.closest('[data-page-action]');
     if (actionBtn) {
       const action = actionBtn.dataset.pageAction;
@@ -6007,6 +6310,7 @@
       sides: Number(document.getElementById('mainPolySidesInput')?.value || 5)
     };
     assignNewLayerOrder(field);
+    applyDefaultViewScope(field);
     hmiFields.push(field);
     setSelectedKeys([field.key]);
     syncInputsFromState();
@@ -6045,6 +6349,7 @@
     };
     placeNewField(field);
     assignNewLayerOrder(field);
+    applyDefaultViewScope(field);
     hmiFields.push(field);
     setSelectedKeys([field.key]);
     selectedTool = 'pointer';
@@ -6070,6 +6375,7 @@
     field.y = 20 + ((serial - 1) * 8) % 60;
     placeNewField(field);
     assignNewLayerOrder(field);
+    applyDefaultViewScope(field);
     hmiFields.push(field);
     setSelectedKeys([field.key]);
     selectedTool = 'textField';
@@ -6109,8 +6415,9 @@
   function addMenuField() {
     const api = window.JWPLCHMIMenu;
     if (!api || hmiFields.length >= MAX_TOTAL_OBJECTS) return;
-    if (hmiFields.some((f) => f.type === 'MENU' && Number(f.page || 0) === activePage)) {
-      window.JWPLCDialog.alert('Esta página ya tiene un MENU: el firmware atiende un solo MENU por página.');
+    const curView = getActivePageView(activePage);
+    if (hmiFields.some((f) => f.type === 'MENU' && fieldOnPageView(f, activePage, curView))) {
+      window.JWPLCDialog.alert('Esta subvista ya tiene un MENU: el firmware atiende un solo MENU activo por página y subvista.');
       return;
     }
     fieldSerial += 1;
@@ -6120,6 +6427,7 @@
     field.page = activePage;
     placeNewField(field);
     assignNewLayerOrder(field);
+    applyDefaultViewScope(field);
     hmiFields.push(field);
     setSelectedKeys([field.key]);
     selectedTool = 'menuField';
@@ -6190,6 +6498,7 @@
     }
     placeNewField(field);
     assignNewLayerOrder(field);
+    applyDefaultViewScope(field);
     hmiFields.push(field);
     setSelectedKeys([field.key]);
     selectedTool = 'iconField';
@@ -6213,6 +6522,7 @@
     field.y = 44 + ((serial - 1) * 8) % 70;
     placeNewField(field);
     assignNewLayerOrder(field);
+    applyDefaultViewScope(field);
     hmiFields.push(field);
     setSelectedKeys([field.key]);
     selectedTool = 'valueField';
@@ -6235,6 +6545,7 @@
     field.page = activePage;
     placeNewField(field);
     assignNewLayerOrder(field);
+    applyDefaultViewScope(field);
     hmiFields.push(field);
     setSelectedKeys([field.key]);
     selectedTool = 'trendField';
@@ -8844,10 +9155,23 @@
     getSelectedFieldType: () => selectedField()?.type || null,
     getAllFields: () => hmiFields,
     getDynamicFieldCount: () => dynamicFieldCount(),
-    getFieldsForPage: (page = activePage) => fieldsForPage(page),
-    getPages: () => hmiPages.map((page) => ({ ...page })),
+    getFieldsForPage: (page = activePage, opts = {}) => fieldsForPage(page, opts),
+    getPages: () => hmiPages.map((page) => ({
+      ...page,
+      ...(Array.isArray(page.views) && page.views.length ? { views: page.views.map((v) => ({ ...v })) } : {})
+    })),
     getActivePage: () => activePage,
     getMaxPages: () => MAX_PAGES,
+    getPageViews,
+    setPageViews,
+    getActivePageView,
+    setActivePageView,
+    addPageView,
+    renamePageView,
+    deletePageView,
+    getMaxViewsPerPage: () => MAX_VIEWS_PER_PAGE,
+    isFieldOnPageView: fieldOnPageView,
+    applyDefaultViewScope,
     computeSelectedGeometry: () => computeFieldGeometry(selectedField()),
     selectAll: selectAllOnPage,
     selectAllOnPage,

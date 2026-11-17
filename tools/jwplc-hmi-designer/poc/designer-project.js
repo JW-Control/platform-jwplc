@@ -262,7 +262,18 @@
 
   function serializeProject() {
     const api = editor();
-    const pages = api?.getPages?.() || [{ id: 0, name: 'Principal' }];
+    const pages = (api?.getPages?.() || [{ id: 0, name: 'Principal' }]).map((page) => {
+      const copy = { ...page };
+      if (Array.isArray(copy.views)) {
+        const cleanViews = copy.views.map((v, i) => ({ id: i, name: String(v?.name || `Vista ${i + 1}`) }));
+        if (cleanViews.length > 1 || (cleanViews.length === 1 && cleanViews[0].name !== 'Principal')) {
+          copy.views = cleanViews;
+        } else {
+          delete copy.views;
+        }
+      }
+      return copy;
+    });
     const fields = (api?.getAllFields?.() || []).map((field) => {
       const copy = { ...field };
       delete copy.key;
@@ -270,6 +281,7 @@
       Object.keys(copy).forEach((k) => { if (k.startsWith('_')) delete copy[k]; });
       return copy;
     });
+    const popups = window.JWPLCHMIPopups?.serialize?.() || [];
 
     return {
       format: PROJECT_FORMAT,
@@ -291,6 +303,7 @@
       projectType: window.JWPLCHMIRuntime?.get?.() || 'arduino',
       pages,
       fields,
+      popups,
       // Alpha16: copia de los iconos usados (se abre igual si cambia el catálogo).
       iconAssets: window.JWPLCHMIIcons?.assetsFor?.(fields),
       declarativeOnly: true
@@ -399,7 +412,9 @@
     const pages = normalized.pages.slice().sort((a, b) => Number(a.id) - Number(b.id));
 
     suppressDirty = true;
+    window.JWPLCHMIPopups?.closeMode?.();
     document.getElementById('newProjectButton')?.click();
+    window.JWPLCHMIPopups?.load?.(Array.isArray(normalized.popups) ? normalized.popups : []);
 
     if (normalized.navigationBar && api.setNavBarConfig) {
       api.setNavBarConfig(normalized.navigationBar);
@@ -416,6 +431,9 @@
     }
 
     pages.forEach((p) => {
+      if (Array.isArray(p.views) && p.views.length && api.setPageViews) {
+        api.setPageViews(p.id, p.views);
+      }
       if (api.setPageMetadata) {
         api.setPageMetadata(p.id, { shortName: p.shortName, color: p.color });
       }
@@ -816,6 +834,8 @@
     document.getElementById('newProjectButton')?.addEventListener('click', () => {
       projectFileHandle = null;
       projectName = 'HMI_ST7789';
+      window.JWPLCHMIPopups?.load?.([]);
+      window.JWPLCHMIPopups?.closeMode?.();
       if (!suppressDirty) {
         setDirty(true);
         unlinkSketch();

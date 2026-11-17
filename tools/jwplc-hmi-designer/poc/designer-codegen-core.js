@@ -54,17 +54,50 @@
     return `0x${(mask >>> 0).toString(16).toUpperCase().padStart(4, '0')}U`;
   }
 
+  function fieldViews(field) {
+    if (!field || !Array.isArray(field.views) || !field.views.length) return null;
+    const clean = [...new Set(
+      field.views
+        .map((v) => Math.trunc(Number(v)))
+        .filter((v) => Number.isInteger(v) && v >= 0 && v < 8)
+    )].sort((a, b) => a - b);
+    return clean.length ? clean : null;
+  }
+
+  function fieldOnPageView(field, pageId, viewId = 0) {
+    if (!fieldOnPage(field, pageId)) return false;
+    const views = fieldViews(field);
+    if (!views) return true;
+    return views.includes(Number(viewId));
+  }
+
+  function fieldViewMaskHex(field) {
+    const views = fieldViews(field);
+    if (!views) return '';
+    let mask = 0;
+    views.forEach((v) => { mask |= (1 << v); });
+    mask &= 0xFF;
+    if (mask === 0 || mask === 0xFF) return '';
+    return `0x${mask.toString(16).toUpperCase().padStart(2, '0')}U`;
+  }
+
   function wrapFieldBlockPages(field, block) {
     const maskHex = fieldPageMaskHex(field);
-    if (!maskHex) return block;
+    const viewMaskHex = fieldViewMaskHex(field);
+    if (!maskHex && !viewMaskHex) return block;
     const lines = String(block || '').split('\n');
     const comments = [];
     while (lines.length && lines[0].trimStart().startsWith('//')) {
       comments.push(lines.shift());
     }
-    const indented = lines.join('\n').replace(/^    /gm, '        ');
-    const wrapped = `    JWPLC_UIFieldPages(\n${indented},\n        ${maskHex})`;
-    return comments.length ? `${comments.join('\n')}\n${wrapped}` : wrapped;
+    let inner = lines.join('\n');
+    if (maskHex) {
+      inner = `    JWPLC_UIFieldPages(\n${inner.replace(/^    /gm, '        ')},\n        ${maskHex})`;
+    }
+    if (viewMaskHex) {
+      inner = `    JWPLC_UIFieldViews(\n${inner.replace(/^    /gm, '        ')},\n        ${viewMaskHex})`;
+    }
+    return comments.length ? `${comments.join('\n')}\n${inner}` : inner;
   }
 
   function sanitizeSymbol(value, fallback) {
@@ -517,6 +550,9 @@
     fieldPages,
     fieldOnPage,
     fieldPageMaskHex,
+    fieldViews,
+    fieldOnPageView,
+    fieldViewMaskHex,
     wrapFieldBlockPages,
     variableDeclaration,
     setterCall

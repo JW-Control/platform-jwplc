@@ -222,6 +222,65 @@ async function main() {
       /JWPLC_UIMenuEditNum\([^)]*&consignaHorno/.test(trendMenuHeader),
       'TREND ch2/ch3 y MENU usan las mismas variables sin duplicar declaración');
 
+    // Subvistas por página (viewMask) + MENU GO_VIEW + Popups I5-I6 (4 presets + variable bool compartida)
+    const subviewPopupProject = normalizeProject({
+      pages: [
+        { id: 0, name: 'Proceso', views: [{ id: 0, name: 'Config' }, { id: 1, name: 'Medicion' }] }
+      ],
+      fields: [
+        { type: 'RECT', id: 'BG_CFG', x: 8, y: 8, x2: 140, y2: 34, fill: true, fillColor: '#102030', frameColor: '#102030', page: 0, views: [0] },
+        { type: 'TEXT', id: 'LBL_MEAS', label: 'Estado', preview: 'MIDIENDO', capacity: 12, x: 10, y: 12, variable: 'estadoMed', page: 0, views: [1] },
+        { type: 'BOOL', id: 'IND_BOMBA', label: 'Bomba', variable: 'bombaActiva', x: 10, y: 40, page: 0, views: [1] },
+        {
+          type: 'MENU', id: 'MENU_CFG', page: 0, views: [0], x: 10, y: 40, width: 220, height: 96,
+          nodes: [
+            { key: 'start', parent: null, type: 'GO_VIEW', label: 'Iniciar', targetView: 1, confirmPopupId: 3 },
+            { key: 'pump', parent: null, type: 'EDIT_BOOL', label: 'Bomba', variable: 'bombaActiva', valueType: 'bool', initial: 0, falseText: 'OFF', trueText: 'ON' }
+          ]
+        }
+      ],
+      popups: [
+        { id: 0, name: 'INFO_OK', preset: 'INFO', title: 'INFO', message: 'Proceso listo.', code: 'I01' },
+        { id: 1, name: 'AVISO_NIVEL', preset: 'WARN', title: 'AVISO', message: 'Nivel bajo.', code: 'W01', autoCloseMs: 3000 },
+        { id: 2, name: 'FALLA_BOMBA', preset: 'CRIT', title: 'FALLA', message: 'Bomba activa con sobrecarga.', code: 'E10', errCode: 'E10', triggerVar: 'bombaActiva' },
+        { id: 3, name: 'CONFIRMA_INICIO', preset: 'CONFIRM', title: 'INICIAR', message: 'Comenzar medicion?', acceptText: 'INICIAR', cancelText: 'CANCELAR', confirmOutVar: 'inicioConfirmado', targetPage: 0, targetView: 1 }
+      ]
+    });
+    const rSubPop = validateProject(subviewPopupProject);
+    check(rSubPop.errors.length === 0, `Subvistas + MENU GO_VIEW + 4 Popups I5-I6 valida sin errores${rSubPop.errors.map((e) => `\n      ${e.path}: ${e.message}`).join('')}`);
+    await session.load(subviewPopupProject);
+    const uiInteract = await session.page.evaluate(async () => {
+      const bar = document.getElementById('pageViewsBar');
+      const v2Btn = bar?.querySelector('[data-view-id="1"]');
+      v2Btn?.click();
+      await new Promise((r) => setTimeout(r, 60));
+      const activeViewAfterClick = window.JWPLCHMIEditor.getActivePageView(0);
+      document.getElementById('popupsModeToggleBtn')?.click();
+      await new Promise((r) => setTimeout(r, 60));
+      const popupsOpen = Boolean(window.JWPLCHMIPopups?.isOpen?.());
+      const inspShown = !document.getElementById('popupInspectorSection')?.hidden;
+      const leftShown = !document.getElementById('popupsLeftSection')?.hidden;
+      document.getElementById('popupsModeToggleBtn')?.click();
+      await new Promise((r) => setTimeout(r, 60));
+      const popupsClosed = !window.JWPLCHMIPopups?.isOpen?.();
+      return { barVisible: Boolean(bar && !bar.hidden), activeViewAfterClick, popupsOpen, inspShown, leftShown, popupsClosed };
+    });
+    check(uiInteract.barVisible && uiInteract.activeViewAfterClick === 1 && uiInteract.popupsOpen && uiInteract.inspShown && uiInteract.leftShown && uiInteract.popupsClosed,
+      `UI Designer alterna subvistas y modo Popups correctamente (${JSON.stringify(uiInteract)})`);
+    const subPopHeader = await session.header();
+    const pumpDecls = subPopHeader.match(/\bbool\s+bombaActiva\s*=/g) || [];
+    check(pumpDecls.length === 1, `1 sola declaración bool bombaActiva compartida entre BOOL, MENU y POPUP (${pumpDecls.length})`);
+    check(/JWPLC_UIFieldViews\(/.test(subPopHeader) &&
+      /JWPLC_UIMenuGoView\(/.test(subPopHeader) &&
+      /JWPLC_UIMenuNodeConfirm\(/.test(subPopHeader) &&
+      /JWPLC_Display\.pageView\(/.test(subPopHeader) &&
+      /JWPLC_Display\.setPopups\(/.test(subPopHeader),
+      'Header generado emite JWPLC_UIFieldViews, GO_VIEW, Confirm, pageView() y setPopups()');
+    const savedSubPop = normalizeProject(await session.serialize());
+    const revalSubPop = validateProject(savedSubPop);
+    check(revalSubPop.errors.length === 0 && revalSubPop.warnings.length === 0 && savedSubPop.pages[0].views.length === 2 && savedSubPop.popups.length === 4,
+      `Serializado de subvistas + popups vuelve a validar sin avisos${revalSubPop.errors.concat(revalSubPop.warnings).map((e) => `\n      ${e.path}: ${e.message}`).join('')}`);
+
     console.log('6. Ejemplos');
     const examples = fs.readdirSync(path.join(DESIGNER, 'examples')).filter((f) => f.endsWith('.json')).sort();
     check(examples.length >= 6, `${examples.length} ejemplos`);

@@ -43,6 +43,7 @@
   }
 
   function currentMode() {
+    if (window.JWPLCHMIPopups?.isOpen?.()) return 'POPUP';
     const tool = editor()?.getSelectedTool?.();
     if (tool === 'fill' || tool === 'pick') return 'COLOR';
     const field = editor()?.getSelectedField?.();
@@ -72,6 +73,7 @@
   function syncInspectorState() {
     const mode = currentMode();
 
+    setSectionVisible(document.getElementById('popupInspectorSection'), mode === 'POPUP');
     setSectionVisible(navBarSection, mode === 'NAV_BAR');
     setSectionVisible(document.getElementById('menuInspectorSection'), mode === 'MENU');
     setSectionVisible(document.getElementById('eventLogInspectorSection'), mode === 'EVENT_LOG');

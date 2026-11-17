@@ -1466,7 +1466,9 @@
     add.disabled = totalPages >= (editor()?.getMaxPages?.() || 16);
     add.title = 'Nueva página';
     add.addEventListener('click', addPage);
-    pageTabs.insertBefore(add, gateNode);
+    const addSubBtn = pageTabs.querySelector?.('#addSubViewTabBtn') || null;
+    const popupsBtn = pageTabs.querySelector?.('#popupsModeToggleBtn') || null;
+    pageTabs.insertBefore(add, addSubBtn || popupsBtn || gateNode);
 
     scrollActiveTabIntoView();
     if (typeof requestAnimationFrame === 'function') {
@@ -1474,6 +1476,232 @@
     } else {
       syncTabsScrollState();
     }
+  }
+
+  let activeSubViewRename = null;
+
+  function ensureAddSubViewInlineButton() {
+    if (!pageTabs?.querySelector || typeof document === 'undefined' || !document.createElement) return null;
+    let btn = document.getElementById('addSubViewTabBtn');
+    if (!btn) {
+      btn = document.createElement('button');
+      btn.id = 'addSubViewTabBtn';
+      btn.type = 'button';
+      btn.className = 'tab subview-inline-add-tab';
+      btn.textContent = '+ Vista';
+      btn.title = 'Agregar subvista en esta página (cambia en sitio sin añadir pestaña)';
+      btn.addEventListener('click', () => {
+        editor()?.addPageView?.(activePage());
+        patchUI();
+      });
+      const popupsBtn = pageTabs.querySelector?.('#popupsModeToggleBtn') || null;
+      if (popupsBtn && popupsBtn.parentNode === pageTabs) pageTabs.insertBefore(btn, popupsBtn);
+      else if (gate && gate.parentNode === pageTabs) pageTabs.insertBefore(btn, gate);
+      else pageTabs.appendChild(btn);
+    }
+    return btn;
+  }
+
+  function ensurePopupsToggleButton() {
+    if (!pageTabs?.querySelector || typeof document === 'undefined' || !document.createElement) return null;
+    let btn = document.getElementById('popupsModeToggleBtn');
+    if (!btn) {
+      btn = document.createElement('button');
+      btn.id = 'popupsModeToggleBtn';
+      btn.type = 'button';
+      btn.className = 'tab popups-mode-tab';
+      btn.title = 'Editar ventanas emergentes modales I5-I6 (Info, Advertencia, Crítica, Confirmación)';
+      btn.addEventListener('click', () => {
+        window.JWPLCHMIPopups?.toggleMode?.();
+      });
+      if (gate && gate.parentNode === pageTabs) pageTabs.insertBefore(btn, gate);
+      else pageTabs.appendChild(btn);
+    }
+    const count = window.JWPLCHMIPopups?.all?.()?.length || 0;
+    const open = Boolean(window.JWPLCHMIPopups?.isOpen?.());
+    btn.classList.toggle('active', open);
+    btn.textContent = count > 0 ? `⚠ Popups (${count})` : '⚠ Popups';
+    ensureAddSubViewInlineButton();
+    return btn;
+  }
+
+  function ensureSubViewsBar() {
+    if (!pageTabs?.insertAdjacentElement || typeof document === 'undefined' || !document.createElement) return null;
+    let bar = document.getElementById('pageViewsBar');
+    if (!bar) {
+      bar = document.createElement('div');
+      bar.id = 'pageViewsBar';
+      bar.className = 'subviews-bar';
+      pageTabs.insertAdjacentElement('afterend', bar);
+    }
+    return bar;
+  }
+
+  function syncSubViewsBar() {
+    const bar = ensureSubViewsBar();
+    if (!bar) return;
+
+    const api = editor();
+    const curPage = activePage();
+    const pageObj = pages().find((p) => p.id === curPage);
+    const popupsOpen = Boolean(window.JWPLCHMIPopups?.isOpen?.());
+    const views = api?.getPageViews?.(curPage) || [{ id: 0, name: 'Principal' }];
+    const maxViews = api?.getMaxViewsPerPage?.() || 8;
+    const inlineAdd = ensureAddSubViewInlineButton();
+
+    if (!popupsOpen && views.length <= 1) {
+      bar.hidden = true;
+      if (inlineAdd) {
+        inlineAdd.hidden = false;
+        inlineAdd.disabled = views.length >= maxViews;
+      }
+      return;
+    }
+
+    bar.hidden = false;
+    if (inlineAdd) inlineAdd.hidden = true;
+
+    if (activeSubViewRename !== null && !popupsOpen) return;
+
+    if (popupsOpen) {
+      bar.innerHTML = '';
+      bar.classList.add('is-popups-banner');
+      const note = document.createElement('span');
+      note.className = 'subviews-banner-text';
+      const activeView = Number(api?.getActivePageView?.(curPage) ?? 0);
+      note.textContent = `Editando Ventanas Emergentes · Fondo actual: ${pageObj?.name || `Página ${curPage + 1}`} (V${activeView + 1})`;
+      const backBtn = document.createElement('button');
+      backBtn.type = 'button';
+      backBtn.className = 'tab subview-back-btn';
+      backBtn.textContent = '← Volver al lienzo';
+      backBtn.addEventListener('click', () => window.JWPLCHMIPopups?.closeMode?.());
+      bar.appendChild(note);
+      bar.appendChild(backBtn);
+      return;
+    }
+
+    bar.classList.remove('is-popups-banner');
+    const activeViewId = Number(api?.getActivePageView?.(curPage) ?? 0);
+
+    bar.innerHTML = '';
+    const prefix = document.createElement('span');
+    prefix.className = 'subviews-label';
+    prefix.textContent = `Subvistas (${pageObj?.name || `P${curPage + 1}`}):`;
+    bar.appendChild(prefix);
+
+    const track = document.createElement('div');
+    track.className = 'subviews-track';
+
+    views.forEach((view) => {
+      const pill = document.createElement('div');
+      const isAct = Number(view.id) === activeViewId;
+      pill.className = `tab subview-pill${isAct ? ' active' : ''}`;
+      pill.dataset.viewId = String(view.id);
+
+      const lbl = document.createElement('span');
+      lbl.className = 'subview-label';
+      lbl.textContent = `V${Number(view.id) + 1} · ${view.name}`;
+      lbl.title = `Subvista ${Number(view.id) + 1}: ${view.name} (Doble clic para renombrar)`;
+
+      const editIcon = document.createElement('span');
+      editIcon.className = 'page-tab-edit-icon subview-edit-icon';
+      editIcon.textContent = '✎';
+      editIcon.title = 'Renombrar subvista';
+
+      function startRename(e) {
+        if (e) { e.stopPropagation(); e.preventDefault(); }
+        if (pill.querySelector('.page-tab-rename-input')) return;
+        activeSubViewRename = `${curPage}:${view.id}`;
+        lbl.style.display = 'none';
+        editIcon.style.display = 'none';
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'page-tab-rename-input';
+        input.value = view.name;
+        input.maxLength = 24;
+        let done = false;
+        const finish = (apply) => {
+          if (done) return;
+          done = true;
+          activeSubViewRename = null;
+          if (apply) {
+            const next = input.value.trim().slice(0, 24);
+            if (next) api?.renamePageView?.(curPage, view.id, next);
+          }
+          syncSubViewsBar();
+          patchStatus();
+        };
+        input.addEventListener('keydown', (ev) => {
+          ev.stopPropagation();
+          if (ev.key === 'Enter') { ev.preventDefault(); finish(true); }
+          if (ev.key === 'Escape') { ev.preventDefault(); finish(false); }
+        });
+        input.addEventListener('blur', () => finish(true));
+        pill.insertBefore(input, pill.firstChild);
+        input.focus();
+        input.select();
+      }
+
+      pill.addEventListener('click', (e) => {
+        if (e.target.closest('.page-tab-rename-input') || e.target.closest('.page-delete-btn') || e.target.closest('.subview-edit-icon')) return;
+        api?.setActivePageView?.(view.id, curPage);
+        navigationMode = 'CONTENT';
+        patchUI();
+      });
+      lbl.addEventListener('dblclick', startRename);
+      editIcon.addEventListener('click', startRename);
+
+      pill.appendChild(lbl);
+      pill.appendChild(editIcon);
+
+      if (views.length > 1) {
+        const delBtn = document.createElement('button');
+        delBtn.type = 'button';
+        delBtn.className = 'page-delete-btn';
+        delBtn.title = `Eliminar subvista ${view.name}`;
+        delBtn.innerHTML = '<span class="del-icon">✕</span>';
+        let timer = null;
+        const disarm = () => {
+          clearTimeout(timer);
+          delBtn.classList.remove('is-armed');
+          delBtn.innerHTML = '<span class="del-icon">✕</span>';
+        };
+        delBtn.addEventListener('pointerdown', (e) => e.stopPropagation());
+        delBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          if (!delBtn.classList.contains('is-armed')) {
+            delBtn.classList.add('is-armed');
+            delBtn.innerHTML = '<span class="del-icon">¿Borrar?</span>';
+            timer = setTimeout(disarm, 3000);
+            return;
+          }
+          disarm();
+          api?.deletePageView?.(curPage, view.id);
+          patchUI();
+        });
+        delBtn.addEventListener('blur', disarm);
+        pill.appendChild(delBtn);
+      }
+
+      track.appendChild(pill);
+    });
+
+    bar.appendChild(track);
+
+    const addViewBtn = document.createElement('button');
+    addViewBtn.type = 'button';
+    addViewBtn.className = 'tab subview-add-btn';
+    addViewBtn.textContent = '+ Vista';
+    addViewBtn.disabled = views.length >= maxViews;
+    addViewBtn.title = views.length >= maxViews
+      ? `Máximo ${maxViews} subvistas por página`
+      : 'Agregar subvista dentro de esta página (cambia en sitio sin añadir pestaña)';
+    addViewBtn.addEventListener('click', () => {
+      api?.addPageView?.(curPage);
+      patchUI();
+    });
+    bar.appendChild(addViewBtn);
   }
 
   function ensurePageSelect() {
@@ -2270,14 +2498,19 @@
 
   function patchStatus() {
     const current = pages().find((page) => page.id === activePage());
+    const views = editor()?.getPageViews?.(activePage()) || [{ id: 0, name: 'Principal' }];
+    const activeView = Number(editor()?.getActivePageView?.(activePage()) ?? 0);
+    const viewSuffix = views.length > 1 ? ` · V${activeView + 1} (${views[activeView]?.name || ''})` : '';
     const cfg = getNavBarConfig();
-    if (statusPage) statusPage.textContent = `Página: ${activePage()} · ${current?.name || 'Página'}`;
+    if (statusPage) statusPage.textContent = `Página: ${activePage()} · ${current?.name || 'Página'}${viewSuffix}`;
     if (gate) gate.textContent = 'v2.1.0-alpha.17';
     if (bottomSummary) bottomSummary.textContent = cfg.enabled ? `Páginas + Barra HMI (${pages().length} págs)` : 'Páginas + navegación compacta';
   }
 
   function patchUI() {
     rebuildTopTabs();
+    ensurePopupsToggleButton();
+    syncSubViewsBar();
     syncInspectorPage();
     syncNavBarInspector();
     patchStatus();

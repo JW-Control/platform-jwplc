@@ -112,7 +112,8 @@ class DesignerSession {
       const boxes = E.getAllFields().map((f, index) => {
         const b = E.getFieldBounds(f);
         const pages = core?.fieldPages ? core.fieldPages(f) : [Number(f.page || 0)];
-        return { index, id: f.id, type: f.type, page: Number(f.page || 0), pages, global: f.type === 'NAV_BAR', minX: b.minX, minY: b.minY, maxX: b.maxX, maxY: b.maxY };
+        const views = core?.fieldViews ? core.fieldViews(f) : null;
+        return { index, id: f.id, type: f.type, page: Number(f.page || 0), pages, views, global: f.type === 'NAV_BAR', minX: b.minX, minY: b.minY, maxX: b.maxX, maxY: b.maxY };
       });
       const issues = (window.JWPLCHMICodegen.validateIdentifiers?.() || []).map((i) => ({ property: i.property, canonical: i.canonical }));
       return { boxes, issues };
@@ -167,6 +168,7 @@ function geometryWarnings(inspection, project) {
       const bPages = Array.isArray(b.pages) && b.pages.length ? b.pages : [b.page];
       const sharedPage = aPages.find((p) => bPages.includes(p));
       if (!(a.global || b.global) && sharedPage === undefined) continue;
+      if (!a.global && !b.global && Array.isArray(a.views) && Array.isArray(b.views) && !a.views.some((v) => b.views.includes(v))) continue;
       if (a.global && b.global) continue;
       if (b.type === 'NAV_BAR' && project.navigationBar?.preset === 'counter') continue;
       if (overlap(a, b)) warnings.push({ path: label(a), message: `se pisa con ${label(b)}${a.global || b.global ? '' : ` en la página ${sharedPage}`}: el último que se redibuja tapa al otro` });
