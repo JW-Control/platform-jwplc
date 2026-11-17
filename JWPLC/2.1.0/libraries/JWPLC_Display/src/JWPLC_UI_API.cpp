@@ -10,6 +10,16 @@
 // Hooks del MENU (Alpha15). JWPLC_UI_Menu.cpp aporta las versiones strong y
 // sólo se enlaza si el sketch registra menús (setMenus / JWPLC_UIMenu*).
 extern "C" void __attribute__((weak)) jwplcUIMenuServiceInput(void) {}
+extern "C" bool __attribute__((weak)) jwplcUIMenuHandleInput(bool allowInput)
+{
+    if (allowInput)
+    {
+        jwplcUIMenuServiceInput();
+    }
+    return false;
+}
+extern "C" bool __attribute__((weak)) jwplcUIMenuHasFocus(void) { return false; }
+extern "C" void __attribute__((weak)) jwplcUIMenuCancelEdit(void) {}
 extern "C" void __attribute__((weak)) jwplcUIMenuPrepareEnter(void) {}
 extern "C" void __attribute__((weak)) jwplcUIMenuInvalidateAll(void) {}
 extern "C" void __attribute__((weak)) jwplcUIMenuDrawStatic(JWPLC_TFTClass *tft) { (void)tft; }
@@ -17,6 +27,12 @@ extern "C" void __attribute__((weak)) jwplcUIMenuDrawDirty(JWPLC_TFTClass *tft) 
 
 // Hooks de EVENT_LOG (Alpha16). JWPLC_UI_EventLog.cpp aporta las versiones strong.
 extern "C" void __attribute__((weak)) jwplcUIEventLogServiceInput(void) {}
+extern "C" bool __attribute__((weak)) jwplcUIEventLogHandleInput(void)
+{
+    jwplcUIEventLogServiceInput();
+    return false;
+}
+extern "C" bool __attribute__((weak)) jwplcUIEventLogHasFocus(void) { return false; }
 extern "C" void __attribute__((weak)) jwplcUIEventLogPrepareEnter(void) {}
 extern "C" void __attribute__((weak)) jwplcUIEventLogInvalidateAll(void) {}
 extern "C" void __attribute__((weak)) jwplcUIEventLogDrawStatic(JWPLC_TFTClass *tft) { (void)tft; }
@@ -27,13 +43,51 @@ extern "C" void __attribute__((weak)) jwplcUIEventLogDrawDirty(JWPLC_TFTClass *t
 // setPixelMaps) referencia jwplcUIRuntimeEnsureLinked().
 extern "C" void jwplcUIRuntimeEnsureLinked(void) {}
 
+extern "C" bool jwplcUIRuntimeBlocksButtonIdleReturn(void)
+{
+    return jwplcUIOverlayBlocksIdle() ||
+           jwplcUIEventLogHasFocus() ||
+           jwplcUIMenuHasFocus();
+}
+
+extern "C" bool jwplcUIRuntimeArbitrateInput(void)
+{
+    bool consumed = false;
+
+    // Prioridad única I4 (A15 §B.2):
+    // 1-2. Capa superior de avisos/modales (cuando exista I5/I6).
+    if (jwplcUIOverlayServiceInput())
+    {
+        jwplcUIMenuCancelEdit();
+        consumed = true;
+    }
+
+    // 3. Componente con foco de contenido (EVENT_LOG / futuras plantillas).
+    if (!consumed && jwplcUIEventLogHandleInput())
+    {
+        consumed = true;
+    }
+
+    // 4. MENU de la página actual (si otro dueño consumió la tecla, sólo
+    //    sincroniza foco y valores mostrados sin leer botones).
+    if (jwplcUIMenuHandleInput(!consumed))
+    {
+        consumed = true;
+    }
+
+    // 5. Selector de páginas / vuelta del contenido al selector.
+    if (!consumed && JWPLCUIPages::serviceNavigation())
+    {
+        consumed = true;
+    }
+
+    JWPLCUI::pollClockFields();
+    return consumed;
+}
+
 extern "C" void jwplcUIRuntimeServiceInput(void)
 {
-    // EVENT_LOG y MENU atienden sus teclas con prioridad antes del selector de páginas.
-    jwplcUIEventLogServiceInput();
-    jwplcUIMenuServiceInput();
-    JWPLCUIPages::serviceNavigation();
-    JWPLCUI::pollClockFields();
+    (void)jwplcUIRuntimeArbitrateInput();
 }
 
 extern "C" bool jwplcUIRuntimeRefreshNeeded(void)

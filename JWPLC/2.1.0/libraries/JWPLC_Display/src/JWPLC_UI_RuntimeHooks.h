@@ -21,6 +21,14 @@ extern "C"
 // procesar navegación física aunque el refresh haya sido forzado por un botón.
 void jwplcUIRuntimeEnsureLinked(void);
 void jwplcUIRuntimeServiceInput(void);
+// I4: árbitro único de teclas; devuelve true si algún dueño consumió la entrada.
+bool jwplcUIRuntimeArbitrateInput(void);
+bool jwplcUIRuntimeBlocksButtonIdleReturn(void);
+
+// Hooks opcionales de la capa superior de avisos/modales (I5/I6).
+bool jwplcUIOverlayServiceInput(void);
+bool jwplcUIOverlayBlocksIdle(void);
+bool jwplcUIOverlayBlocksIdleWake(void);
 
 bool jwplcUIRuntimeRefreshNeeded(void);
 bool jwplcUIRuntimeBackgroundTrendDue(void);

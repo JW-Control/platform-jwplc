@@ -379,7 +379,7 @@ namespace
         return ((uint32_t)idx > maxIdx) ? maxIdx : (uint32_t)idx;
     }
 
-    void handleEdit(MenuRuntime &m)
+    bool handleEdit(MenuRuntime &m)
     {
         const uint8_t lv = level(m);
         const uint8_t pos = m.selected[lv];
@@ -387,7 +387,7 @@ namespace
         if (nodeIndex < 0)
         {
             m.editing = false;
-            return;
+            return false;
         }
         const JWPLC_UIMenuNode &node = m.def.nodes[nodeIndex];
 
@@ -396,14 +396,14 @@ namespace
             m.editing = false;
             markRow(m, pos);
             JWPLC_Buttons.clearPendingInput();
-            return;
+            return true;
         }
 
         if (JWPLC_Buttons.pressed(BTN_OK))
         {
             commitEdit(m, (uint8_t)nodeIndex, pos);
             JWPLC_Buttons.clearPendingInput();
-            return;
+            return true;
         }
 
         // LEFT/RIGHT no tienen repeat: se consumen todas las pulsaciones
@@ -427,12 +427,13 @@ namespace
                 m.editInt = (int32_t)state;
                 markRow(m, pos);
             }
-            return;
+            return lr || ud || left > 0 || right > 0;
         }
 
         const uint32_t maxIdx = stepCount(node);
         uint32_t idx = currentStepIndex(m, node);
-        bool changed = JWPLC_Buttons.applyAxis(&idx, 0, maxIdx, BTN_DOWN, BTN_UP, false, true);
+        const bool ud = JWPLC_Buttons.applyAxis(&idx, 0, maxIdx, BTN_DOWN, BTN_UP, false, true);
+        bool changed = ud;
         const uint32_t lr = (node.lrStep > 0) ? (uint32_t)node.lrStep : 10U;
 
         for (uint8_t i = 0; i < left; ++i)
@@ -451,13 +452,15 @@ namespace
             applyStepIndex(m, node, idx);
             markRow(m, pos);
         }
+        return changed || left > 0 || right > 0;
     }
 
-    void handleNavigate(MenuRuntime &m)
+    bool handleNavigate(MenuRuntime &m)
     {
         const uint8_t lv = level(m);
         const uint8_t parent = currentParent(m);
         const uint8_t count = childCount(m, parent);
+        bool consumed = false;
 
         if (count > 0)
         {
@@ -465,13 +468,16 @@ namespace
             if (sel >= count)
                 sel = (uint32_t)(count - 1);
             const uint8_t before = (uint8_t)sel;
-            if (JWPLC_Buttons.applyAxis(&sel, 0, (uint32_t)(count - 1), BTN_UP, BTN_DOWN, true, false) &&
-                (uint8_t)sel != before)
+            if (JWPLC_Buttons.applyAxis(&sel, 0, (uint32_t)(count - 1), BTN_UP, BTN_DOWN, true, false))
             {
-                markRow(m, before);
-                m.selected[lv] = (uint8_t)sel;
-                markRow(m, (uint8_t)sel);
-                ensureVisible(m);
+                consumed = true;
+                if ((uint8_t)sel != before)
+                {
+                    markRow(m, before);
+                    m.selected[lv] = (uint8_t)sel;
+                    markRow(m, (uint8_t)sel);
+                    ensureVisible(m);
+                }
             }
         }
 
@@ -487,22 +493,23 @@ namespace
         {
             leaveLevel(m);
             JWPLC_Buttons.clearPendingInput();
-            return;
+            return true;
         }
 
         if (count == 0 || !(ok || right))
-            return;
+            return consumed;
 
         const uint8_t pos = m.selected[lv];
         const int16_t nodeIndex = childAt(m, parent, pos);
         if (nodeIndex < 0)
-            return;
+            return consumed;
         const JWPLC_UIMenuNode &node = m.def.nodes[nodeIndex];
 
         if (node.type == JWPLC_UI_MENU_SUBMENU)
         {
             enterLevel(m, (uint8_t)nodeIndex);
             JWPLC_Buttons.clearPendingInput();
+            return true;
         }
         else if (ok && node.type == JWPLC_UI_MENU_EDIT_BOOL && node.directToggle)
         {
@@ -514,12 +521,14 @@ namespace
                 markRow(m, pos);
             }
             JWPLC_Buttons.clearPendingInput();
+            return true;
         }
         else if (ok &&
                  (node.type == JWPLC_UI_MENU_EDIT_NUM || node.type == JWPLC_UI_MENU_EDIT_BOOL))
         {
             startEdit(m, node, pos);
             JWPLC_Buttons.clearPendingInput();
+            return true;
         }
         else if (ok && node.type == JWPLC_UI_MENU_GO_IDLE)
         {
@@ -527,7 +536,10 @@ namespace
             // que la IDLE se dibuja en este mismo ciclo.
             JWPLC_Buttons.clearPendingInput();
             JWPLC_Display.goIdle();
+            return true;
         }
+
+        return consumed;
     }
 
     // Repinta las filas cuyo valor vinculado cambió desde el último dibujo.
@@ -1123,14 +1135,15 @@ bool JWPLC_DisplayClass::menuEditing() const
 // Hooks strong (reemplazan los weak de JWPLC_UI_API.cpp)
 // ----------------------------------------------------------------------
 
-extern "C" void jwplcUIMenuServiceInput(void)
+static bool serviceMenu(bool allowInput)
 {
     if (g_menuCount == 0)
-        return;
+        return false;
 
     const uint8_t page = JWPLCUI::currentPage();
     const bool focused = !JWPLCUIPages::selectionMode();
     bool dirty = false;
+    bool consumed = false;
 
     for (uint8_t i = 0; i < g_menuCount; ++i)
     {
@@ -1150,14 +1163,11 @@ extern "C" void jwplcUIMenuServiceInput(void)
 
     MenuRuntime *m = activeMenu(page);
     if (m == nullptr)
-        return;
+        return false;
 
-    if (focused && JWPLCButtons::isReady())
+    if (allowInput && focused && JWPLCButtons::isReady())
     {
-        if (m->editing)
-            handleEdit(*m);
-        else
-            handleNavigate(*m);
+        consumed = m->editing ? handleEdit(*m) : handleNavigate(*m);
     }
 
     pollValues(*m);
@@ -1170,6 +1180,38 @@ extern "C" void jwplcUIMenuServiceInput(void)
 
     if (dirty)
         JWPLCUI::requestRefresh();
+
+    return consumed;
+}
+
+extern "C" bool jwplcUIMenuHandleInput(bool allowInput)
+{
+    return serviceMenu(allowInput);
+}
+
+extern "C" bool jwplcUIMenuHasFocus(void)
+{
+    const uint8_t page = JWPLCUI::currentPage();
+    MenuRuntime *m = activeMenu(page);
+    return (m != nullptr) && !JWPLCUIPages::selectionMode() && (m->editing || m->depth > 1);
+}
+
+extern "C" void jwplcUIMenuCancelEdit(void)
+{
+    for (uint8_t i = 0; i < g_menuCount; ++i)
+    {
+        if (g_menus[i].editing)
+        {
+            g_menus[i].editing = false;
+            markRow(g_menus[i], g_menus[i].selected[level(g_menus[i])]);
+            JWPLCUI::requestRefresh();
+        }
+    }
+}
+
+extern "C" void jwplcUIMenuServiceInput(void)
+{
+    (void)serviceMenu(true);
 }
 
 extern "C" void jwplcUIMenuPrepareEnter(void)

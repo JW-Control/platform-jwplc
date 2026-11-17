@@ -138,7 +138,7 @@ namespace JWPLCUIEventLog
     bool getRecord(size_t index, JWPLC_UIEventRecord &outRecord);
     void clear();
 
-    void service();
+    bool service();
     bool isPageActive();
     bool inDetail();
     void exitDetail();

@@ -194,7 +194,7 @@ namespace JWPLCUIPages
         return navigationEnabled() && g_selectionMode;
     }
 
-    void serviceNavigation()
+    bool serviceNavigation()
     {
         const uint8_t downMask = readButtonDownMask();
         const uint8_t pressedEdges =
@@ -203,7 +203,7 @@ namespace JWPLCUIPages
 
         if (!navigationEnabled())
         {
-            return;
+            return false;
         }
 
         if (g_selectionMode)
@@ -262,7 +262,7 @@ namespace JWPLCUIPages
                 consumeNavigationInput();
             }
 
-            return;
+            return consumed;
         }
 
         // PAGE_CONTENT: LEFT/RIGHT/UP/DOWN/OK quedan intactos para el usuario.
@@ -287,7 +287,10 @@ namespace JWPLCUIPages
         if (JWPLC_Buttons.pressed(BTN_ESC))
         {
             enterSelectionMode();
+            return true;
         }
+
+        return false;
     }
 
     void prepareEnter()

@@ -71,6 +71,15 @@ extern "C" void __attribute__((weak)) jwplcUIExit(void) {}
 // sketch no usa campos HMI. JWPLC_UI_API.cpp aporta implementaciones strong al
 // enlazarse la API de campos, manteniendo exactamente JWPLC_Display.*.
 extern "C" void __attribute__((weak)) jwplcUIRuntimeServiceInput(void) {}
+extern "C" bool __attribute__((weak)) jwplcUIRuntimeArbitrateInput(void)
+{
+    jwplcUIRuntimeServiceInput();
+    return false;
+}
+extern "C" bool __attribute__((weak)) jwplcUIRuntimeBlocksButtonIdleReturn(void) { return false; }
+extern "C" bool __attribute__((weak)) jwplcUIOverlayServiceInput(void) { return false; }
+extern "C" bool __attribute__((weak)) jwplcUIOverlayBlocksIdle(void) { return false; }
+extern "C" bool __attribute__((weak)) jwplcUIOverlayBlocksIdleWake(void) { return false; }
 extern "C" bool __attribute__((weak)) jwplcUIRuntimeRefreshNeeded(void) { return true; }
 extern "C" bool __attribute__((weak)) jwplcUIRuntimeBackgroundTrendDue(void) { return false; }
 extern "C" void __attribute__((weak)) jwplcUIRuntimeTickDueTrends(void) {}
@@ -296,7 +305,7 @@ static bool shouldReturnToIdleByButton(uint8_t pressedEdges)
     }
 }
 
-static void handleIdleWakeAndTimeout()
+static void serviceIdleWake()
 {
     const uint8_t downMask = readButtonDownMask();
     const uint8_t pressedEdges =
@@ -304,36 +313,51 @@ static void handleIdleWakeAndTimeout()
 
     g_navigationPreviousMask = downMask;
 
-    if (g_displayMode == DISPLAY_MODE_IDLE)
+    if (g_waitButtonReleaseBeforeWake)
     {
-        if (g_waitButtonReleaseBeforeWake)
+        if (downMask != 0)
         {
-            if (downMask != 0)
-            {
-                return;
-            }
-
-            g_waitButtonReleaseBeforeWake = false;
-            g_navigationPreviousMask = 0;
             return;
         }
 
-        if (shouldWakeFromIdle(pressedEdges))
-        {
-            JWPLCDisplay::notifyActivity();
-            JWPLCDisplay::enterUserUI();
-            return;
-        }
-
+        g_waitButtonReleaseBeforeWake = false;
+        g_navigationPreviousMask = 0;
         return;
     }
 
+    // I4: un aviso crítico visible sobre IDLE toma las teclas sin despertar el HMI.
+    if (jwplcUIOverlayBlocksIdleWake())
+    {
+        (void)jwplcUIOverlayServiceInput();
+        return;
+    }
+
+    if (shouldWakeFromIdle(pressedEdges))
+    {
+        JWPLCDisplay::notifyActivity();
+        JWPLCDisplay::enterUserUI();
+    }
+}
+
+static void serviceUserIdleReturn(bool inputConsumed)
+{
     if (g_displayMode != DISPLAY_MODE_USER)
     {
         return;
     }
 
-    if (shouldReturnToIdleByButton(pressedEdges) && jwplcCanReturnToIdle())
+    const uint8_t downMask = readButtonDownMask();
+    const uint8_t pressedEdges =
+        (uint8_t)(downMask & (uint8_t)~g_navigationPreviousMask);
+
+    g_navigationPreviousMask = downMask;
+
+    // I4: si un dueño de foco (aviso, EVENT_LOG, MENU o selector) consumió la
+    // tecla en este tick, o si tiene foco modal, no volver a IDLE por botón.
+    if (!inputConsumed &&
+        !jwplcUIRuntimeBlocksButtonIdleReturn() &&
+        shouldReturnToIdleByButton(pressedEdges) &&
+        jwplcCanReturnToIdle())
     {
         JWPLCDisplay::goIdle();
         return;
@@ -344,8 +368,11 @@ static void handleIdleWakeAndTimeout()
         JWPLCDisplay::notifyActivity();
     }
 
+    // La vuelta por inactividad sigue funcionando en submenús, pero un aviso
+    // crítico activo la bloquea (I4 / B.2).
     if ((g_idleReturnMode == JWPLCDisplay::IDLE_RETURN_TIMEOUT) &&
         (g_idleTimeoutMs > 0) &&
+        !jwplcUIOverlayBlocksIdle() &&
         jwplcCanReturnToIdle())
     {
         const uint32_t now = millis();
@@ -353,7 +380,6 @@ static void handleIdleWakeAndTimeout()
         if ((uint32_t)(now - g_lastActivityMs) >= g_idleTimeoutMs)
         {
             JWPLCDisplay::goIdle();
-            return;
         }
     }
 }
@@ -974,14 +1000,20 @@ extern "C" void jwplcDisplayRefreshCallback(const JWPLC_IOState *io, const JWPLC
     const uint32_t precheckStartUs =
         profile ? micros() : 0U;
 
-    handleIdleWakeAndTimeout();
-
-    if (g_displayMode == DISPLAY_MODE_USER)
+    if (g_displayMode == DISPLAY_MODE_IDLE)
     {
-        // La entrada HMI se atiende siempre antes del filtro dirty/forced.
-        // Así PAGE_SELECT puede consumir LEFT/RIGHT/OK sin depender de que el
-        // frame haya sido solicitado por el propio motor o por otra fuente.
-        jwplcUIRuntimeServiceInput();
+        serviceIdleWake();
+        if (g_displayMode == DISPLAY_MODE_USER)
+        {
+            (void)jwplcUIRuntimeArbitrateInput();
+        }
+    }
+    else if (g_displayMode == DISPLAY_MODE_USER)
+    {
+        // I4: la entrada HMI se arbitra antes de consultar retorno a IDLE por
+        // botón para que avisos, EVENT_LOG, MENU o páginas consuman su ESC.
+        const bool inputConsumed = jwplcUIRuntimeArbitrateInput();
+        serviceUserIdleReturn(inputConsumed);
     }
 
     updateAutomaticBusLed();
