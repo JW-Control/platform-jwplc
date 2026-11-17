@@ -191,6 +191,37 @@ async function main() {
     const linkedCheck = hostCheck(linkedHeader);
     if (!linkedCheck.skipped) check(linkedCheck.ok, `TREND + VALUE vinculados compilan en host g++${linkedCheck.ok ? '' : `\n${linkedCheck.log}`}`);
 
+    // TREND multicanal (ch2/ch3) compartiendo variable float con EDIT_NUM del MENU
+    const trendMenuProject = normalizeProject({
+      pages: ['Monitor', 'Ajustes'],
+      fields: [
+        {
+          type: 'TREND', id: 'TREND_H', variable: 'tempHorno', title: 'HORNO', unit: 'C',
+          x: 4, y: 20, width: 280, height: 100, visibleSamples: 60,
+          ch2Enabled: true, ch2Variable: 'consignaHorno', ch2Label: 'SP',
+          ch3Enabled: true, ch3Variable: 'potenciaSalida', ch3Label: 'OUT',
+          page: 0
+        },
+        {
+          type: 'MENU', id: 'MENU_AJ', page: 1, x: 4, y: 4, width: 312, height: 120,
+          nodes: [
+            { type: 'EDIT_NUM', label: 'Consigna', variable: 'consignaHorno', valueType: 'float', initial: 45, min: 0, max: 100, step: 1, decimals: 1, unit: 'C' },
+            { type: 'VIEW', label: 'Salida', variable: 'potenciaSalida', valueType: 'float', initial: 0, decimals: 1, unit: '%' }
+          ]
+        }
+      ]
+    });
+    const rTrendMenu = validateProject(trendMenuProject);
+    check(rTrendMenu.errors.length === 0, `TREND ch2/ch3 + MENU compartiendo float valida sin errores${rTrendMenu.errors.map((e) => `\n      ${e.path}: ${e.message}`).join('')}`);
+    await session.load(trendMenuProject);
+    const trendMenuHeader = await session.header();
+    const spDecls = trendMenuHeader.match(/\bfloat\s+consignaHorno\s*=/g) || [];
+    const outDecls = trendMenuHeader.match(/\bfloat\s+potenciaSalida\s*=/g) || [];
+    check(spDecls.length === 1 && outDecls.length === 1, `1 sola declaración C++ para consignaHorno (${spDecls.length}) y potenciaSalida (${outDecls.length})`);
+    check(/setTrend\(TREND_H,\s*tempHorno,\s*consignaHorno,\s*potenciaSalida\)/.test(trendMenuHeader) &&
+      /JWPLC_UIMenuEditNum\([^)]*&consignaHorno/.test(trendMenuHeader),
+      'TREND ch2/ch3 y MENU usan las mismas variables sin duplicar declaración');
+
     console.log('6. Ejemplos');
     const examples = fs.readdirSync(path.join(DESIGNER, 'examples')).filter((f) => f.endsWith('.json')).sort();
     check(examples.length >= 6, `${examples.length} ejemplos`);

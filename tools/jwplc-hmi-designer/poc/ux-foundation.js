@@ -260,7 +260,7 @@
   const V = '1791859500';
   function loadScript(src, onDone) {
     const script = document.createElement('script');
-    script.src = `${src}?v=${V}`;
+    script.src = src.includes('?') ? src : `${src}?v=${V}`;
     script.async = false;
     script.onload = () => onDone?.();
     script.onerror = () => onDone?.();
@@ -272,7 +272,7 @@
     loadScript('./designer-bar.js?v=1794581600', () => {
       loadScript('./designer-zone-indicator.js?v=1793801300', () => {
         loadScript('./designer-field-inspector.js?v=1794870000', () => {
-          loadScript('./designer-menu.js?v=1794588000');
+          loadScript('./designer-menu.js?v=1794880200');
           loadScript('./designer-event-log.js?v=1794585000');
           loadScript('./designer-trend.js?v=1793807000');
           loadScript('./designer-icons.js?v=1794582100');

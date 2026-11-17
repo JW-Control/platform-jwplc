@@ -586,11 +586,27 @@
   function fieldVariableTypes(fields) {
     const map = new Map();
     fields.forEach((f) => {
-      if (!f.variable) return;
-      if (f.type === 'VALUE' || f.type === 'BAR') map.set(f.variable, 'float');
-      else if (f.type === 'BOOL') map.set(f.variable, 'bool');
-      else if (f.type === 'ICON') map.set(f.variable, f.iconVarType === 'uint8' ? 'uint8' : 'bool');
-      else if (f.type === 'TEXT') map.set(f.variable, 'char[]');
+      if (!f) return;
+      const v = f.variable ? sanitizeSymbol(f.variable, '') : '';
+      if (f.type === 'VALUE') {
+        if (f.valueKind === 'DATETIME') return;
+        if (!v) return;
+        const isInt = f.valueKind === 'DURATION' ||
+          ([',', '.', ' '].includes(f.thousandsSep) && !(Number(f.decimalDigits) > 0));
+        map.set(v, isInt ? (f.signedValue ? 'int32' : 'uint32') : 'float');
+      } else if (f.type === 'BAR') {
+        if (v) map.set(v, 'float');
+      } else if (f.type === 'TREND') {
+        if (v) map.set(v, 'float');
+        if (f.ch2Enabled) map.set(sanitizeSymbol(f.ch2Variable, 'consigna'), 'float');
+        if (f.ch3Enabled) map.set(sanitizeSymbol(f.ch3Variable, 'salida'), 'float');
+      } else if (f.type === 'BOOL') {
+        if (v) map.set(v, 'bool');
+      } else if (f.type === 'ICON') {
+        if (v) map.set(v, f.iconVarType === 'uint8' ? 'uint8' : 'bool');
+      } else if (f.type === 'TEXT') {
+        if (v) map.set(v, 'char[]');
+      }
     });
     return map;
   }

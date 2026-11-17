@@ -348,6 +348,35 @@ check(/JWPLC_UIMenuCardStyle\(/.test(genCardMenu.declarations) &&
   /JWPLC_UIMenuNodeDirectToggle\(/.test(genCardMenu.declarations),
   'MENU CARDS: emite JWPLC_UIMenuCardStyle, Pill, Format, LRStep y DirectToggle');
 
+const trendForMenu = {
+  type: 'TREND',
+  id: 'FIELD_TREND_H',
+  variable: 'tempHorno',
+  ch2Enabled: true,
+  ch2Variable: 'consignaHorno',
+  ch3Enabled: true,
+  ch3Variable: 'potenciaSalida'
+};
+const menuSharedTrend = {
+  ...JSON.parse(JSON.stringify(menus[0])),
+  key: 'menu-trend',
+  id: 'MENU_TREND',
+  nodes: [
+    { key: 'sp', parent: null, type: 'EDIT_NUM', label: 'Consigna', variable: 'consignaHorno', valueType: 'float', initial: 50, min: 0, max: 100, step: 1, decimals: 1, unit: 'C' },
+    { key: 'out', parent: null, type: 'VIEW', label: 'Salida', variable: 'potenciaSalida', valueType: 'float', initial: 0, decimals: 1, unit: '%' }
+  ]
+};
+const valSharedTrend = menuApi.validate([menuSharedTrend], [trendForMenu]);
+const genSharedTrend = menuApi.generate([menuSharedTrend], { fields: [trendForMenu] });
+check(valSharedTrend.errors.length === 0 && genSharedTrend.variables === '',
+  'MENU + TREND ch2/ch3: no redeclara variables compartidas en float');
+const menuWrongTypeTrend = {
+  ...menuSharedTrend,
+  nodes: [{ key: 'sp', parent: null, type: 'EDIT_BOOL', label: 'Consigna', variable: 'consignaHorno', valueType: 'bool', initial: 0, falseText: 'NO', trueText: 'SI' }]
+};
+check(menuApi.validate([menuWrongTypeTrend], [trendForMenu]).errors.length > 0,
+  'MENU + TREND ch2: detecta conflicto de tipo cuando MENU usa bool sobre float de TREND');
+
 console.log('EVENT_LOG (sin DOM)');
 const evtApi = loadEventLogModule();
 check(Boolean(evtApi?.generate), 'designer-event-log.js carga sin DOM');

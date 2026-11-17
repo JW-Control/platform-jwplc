@@ -151,13 +151,12 @@
         type: varType
       });
       if (field.type === 'TREND') {
-        const serial = serialFor(field, index);
         if (field.ch2Enabled) {
           entries.push({
             field,
             index,
             prop: 'ch2Variable',
-            canonical: sanitizeSymbol(field.ch2Variable, `setpoint${serial}`),
+            canonical: sanitizeSymbol(field.ch2Variable, 'consigna'),
             type: 'float'
           });
         }
@@ -166,7 +165,7 @@
             field,
             index,
             prop: 'ch3Variable',
-            canonical: sanitizeSymbol(field.ch3Variable, `canal3_${serial}`),
+            canonical: sanitizeSymbol(field.ch3Variable, 'salida'),
             type: 'float'
           });
         }
