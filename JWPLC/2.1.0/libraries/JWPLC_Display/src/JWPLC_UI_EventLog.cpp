@@ -512,11 +512,21 @@ namespace JWPLCUIEventLog
         }
     }
 
-    void service()
+    bool service()
     {
-        if (!isPageActive() || !JWPLCButtons::isReady())
+        if (!isPageActive())
         {
-            return;
+            g_inDetail = false;
+            return false;
+        }
+
+        if (JWPLCUIPages::selectionMode() || !JWPLCButtons::isReady())
+        {
+            if (JWPLCUIPages::selectionMode())
+            {
+                g_inDetail = false;
+            }
+            return false;
         }
 
         if (g_inDetail)
@@ -525,8 +535,17 @@ namespace JWPLCUIEventLog
             {
                 exitDetail();
                 JWPLCButtons::clearPendingInput();
+                return true;
             }
-            return;
+            // Mientras el detalle modal está abierto, absorbe las flechas para
+            // que no muevan capas debajo.
+            if (JWPLC_Buttons.pressed(BTN_UP) || JWPLC_Buttons.pressed(BTN_DOWN) ||
+                JWPLC_Buttons.pressed(BTN_LEFT) || JWPLC_Buttons.pressed(BTN_RIGHT))
+            {
+                JWPLCButtons::clearPendingInput();
+                return true;
+            }
+            return false;
         }
 
         // Navegación en la lista
@@ -543,6 +562,7 @@ namespace JWPLCUIEventLog
                 g_dirty = true;
                 JWPLCUI::requestRefresh();
             }
+            return true;
         }
         else if (JWPLC_Buttons.pressed(BTN_UP))
         {
@@ -556,6 +576,7 @@ namespace JWPLCUIEventLog
                 g_dirty = true;
                 JWPLCUI::requestRefresh();
             }
+            return true;
         }
         else if (JWPLC_Buttons.pressed(BTN_OK))
         {
@@ -566,8 +587,10 @@ namespace JWPLCUIEventLog
                 g_dirty = true;
                 JWPLCButtons::clearPendingInput();
                 JWPLCUI::requestRefresh();
+                return true;
             }
         }
+        return false;
     }
 
     void draw(JWPLC_TFTClass &tft)
@@ -801,9 +824,21 @@ namespace JWPLCUIEventLog
 // Hooks strong para JWPLC_UI_API.cpp
 // ----------------------------------------------------------------------
 
+extern "C" bool jwplcUIEventLogHandleInput(void)
+{
+    return JWPLCUIEventLog::service();
+}
+
+extern "C" bool jwplcUIEventLogHasFocus(void)
+{
+    return JWPLCUIEventLog::isPageActive() &&
+           !JWPLCUIPages::selectionMode() &&
+           JWPLCUIEventLog::inDetail();
+}
+
 extern "C" void jwplcUIEventLogServiceInput(void)
 {
-    JWPLCUIEventLog::service();
+    (void)jwplcUIEventLogHandleInput();
 }
 
 extern "C" void jwplcUIEventLogPrepareEnter(void)

@@ -1,6 +1,6 @@
 # v2.1.0-alpha.17 — JWPLC Sim: estado vivo
 
-Actualizado: `2026-11-16` (cierre: entran #238 y #239, `.a` de `JWPLC_Display` y `JWPLC_ModbusTCP` regenerados)
+Actualizado: `2026-11-17` (cierre final con subvistas por página, popups I4–I6, `QR`, enlaces OpenPLC completos, `beginBatch()` anidado y `.a` regenerados de `JWPLC_Display` + `JWPLC_TFT`)
 
 ## 1. Ramas y sincronización
 
@@ -48,11 +48,14 @@ Para borrar el 16/11 (platform, todas contenidas en `…/main`): `ccr-4e8cc1e7-l
 
 ## 3. Librerías precompiladas y evidencia del cierre
 
-Regeneradas y de vuelta en `precompiled=full`: `JWPLC_Display` 1.1.0 (otra vez el 16/11, con #239), `JWPLC_ModbusTCP`
-0.1.0 (16/11, con #238; decisión del propietario), `JW_FRAM` 1.0.4 y `JW_MatrixButtons` 1.0.7
-([A17_CIERRE_PRECOMPILADAS_20261104.md](A17_CIERRE_PRECOMPILADAS_20261104.md), §5 para el 16/11). Siguen
-precompiladas sin cambios: `JWPLC_TFT`, `JWPLC_Ethernet`, `JW_SD`. En fuente: `JWPLC_Runtime`, `JWPLC_Expansion`,
-`JWPLC_UI_Widgets`, `JWPLC_WebScreen` y el resto de librerías sin `.a`.
+Regeneradas y de vuelta en `precompiled=full`: `JWPLC_Display` 1.1.0 (tercera regeneración el 17/11 con subvistas `views`, árbitro `I4`, `JWPLC_UIPopup` I5–I6 y corrección de parpadeo/flash en `MENU`), `JWPLC_TFT` 0.5.0 (17/11 con `beginBatch()`/`endBatch()` anidados por profundidad), `JWPLC_ModbusTCP` 0.1.0 (16/11, con #238), `JW_FRAM` 1.0.4 y `JW_MatrixButtons` 1.0.7 ([A17_CIERRE_PRECOMPILADAS_20261104.md](A17_CIERRE_PRECOMPILADAS_20261104.md), §5–§7). Siguen precompiladas sin cambios: `JWPLC_Ethernet`, `JW_SD`. En fuente: `JWPLC_Runtime`, `JWPLC_Expansion`, `JWPLC_UI_Widgets`, `JWPLC_WebScreen` y el resto de librerías sin `.a`.
+
+Evidencia del 17/11 (cierre final de `v2.1.0-alpha.17/JWPLC-Sim/feature/hmi-designer-review` hacia `v2.1.0-alpha.17/JWPLC-Sim/main`):
+
+- **HMI Designer**: integración de código `QR` (`JWPLC_UIQR`), subvistas por página (`views`), editor de ventanas emergentes `popups[]` (preview interactivo, escala `1×–3×`, selector de variables `bool` del proyecto, navegación `JWPLC_UIPopupNavTarget` en todos los presets), enlaces OpenPLC en `MENU`, `TREND` y Baliza independiente, coordenadas `X, Y` en línea del lienzo y nuevo ejemplo [`06_sensor_cod_subvistas`](../../tools/jwplc-hmi-designer/pruebas-ia/06_sensor_cod_subvistas/README.md).
+- `[ejecutado]` regeneración de `libJWPLC_TFT.a` (`1 665 232 B`) y `libJWPLC_Display.a` (`3 063 132 B`) con `STRONG_SYMBOLS_REMOVED=0` e `IMPORTS_FROM_OTHER_LIBS_MISSING=0`.
+- `[ejecutado]` compilación ESP32 real (`jwplc_local:esp32:jwplcbasic`) enlazando con las `.a` nuevas (`precompiled=full`): 5/5 ejemplos clave de `JWPLC_Display` (`01`, `02`, `06`, `09`, `14`) y proyectos de `tools/jwplc-hmi-designer/pruebas-ia/`.
+- `[ejecutado]` HMI Designer `tests/run-all.cjs`: 31/31 `PASS` (5 `SKIP` en Windows por falta de `g++`).
 
 Evidencia del 16/11 (con #238 y #239 dentro):
 

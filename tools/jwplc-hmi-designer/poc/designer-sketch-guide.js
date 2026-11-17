@@ -80,6 +80,7 @@
 
   // Una línea de ejemplo por variable de pantalla (las de MENU las cambia el operador).
   function exampleLine(v) {
+    if (v.type === 'char' && v.array && /^QR:/.test(v.comment)) return `strncpy(${v.name}, "http://192.168.1.50", sizeof(${v.name}) - 1); // ${v.comment}`;
     if (v.type === 'char' && v.array) return `strncpy(${v.name}, "Listo", sizeof(${v.name}) - 1); // TEXT: ${v.comment || `${v.array - 1} bytes`}`;
     if (/^ICON:/.test(v.comment)) return `${v.name} = ${v.type === 'bool' ? 'false' : '0'}; // ${v.comment}`;
     if (v.type === 'bool') return `${v.name} = false; // p. ej. digitalRead(I0_0) o el estado de tu lógica`;
@@ -90,7 +91,11 @@
   function baseSketch(header) {
     const vars = parseVariables(header);
     const menus = parseMenus(header);
-    const out = ['#include "JWPLC_HMI_Generated.h"', '', 'void setup()', '{', '    jwplcHMISetup(); // páginas, campos, MENU e IDLE del Designer', '}', '', 'void loop()', '{'];
+    const usesWidgets = /#include <JWPLC_UI_Widgets\.h>/.test(String(header || ''));
+    const includes = usesWidgets
+      ? ['#include <JWPLC_UI_Widgets.h>', '#include "JWPLC_HMI_Generated.h"']
+      : ['#include "JWPLC_HMI_Generated.h"'];
+    const out = [...includes, '', 'void setup()', '{', '    jwplcHMISetup(); // páginas, campos, MENU e IDLE del Designer', '}', '', 'void loop()', '{'];
     const byOperator = operatorVariables(menus);
     const screen = vars.filter((v) => !byOperator.has(v.name));
     if (screen.length) {

@@ -28,6 +28,7 @@ Número RGB565 (`63488`), texto hexadecimal (`"0xF800"`), `"#RRGGBB"` / `"#RGB"`
 | `display` | objeto |  | Pantalla IDLE y arranque (ver «display»). |
 | `pages` **(obligatoria)** | arreglo |  | Páginas (1 a 16). |
 | `fields` | arreglo | `[]` | Objetos (máximo 64 campos dinámicos TEXT/VALUE/BOOL/BAR/ICON/TREND; figuras, RAW_TEXT, MENU, EVENT_LOG y NAV_BAR no gastan cupo). |
+| `popups` | arreglo | `[]` | Ventanas emergentes modales I5-I6 (máximo 12). |
 | `pixelMaps` | arreglo | `[]` | Capas de píxeles (máximo 16). |
 
 ## Páginas (`pages[]`)
@@ -40,6 +41,7 @@ Cada página puede ser un texto (`"Principal"`) o un objeto:
 | `name` **(obligatoria)** | texto |  | Nombre de la página (también da el símbolo C++ PAGE_<NOMBRE>). |
 | `shortName` | texto |  | Nombre corto para las pestañas de la barra de navegación. |
 | `color` | color |  | Color de la pestaña de la página. |
+| `views` | arreglo |  | Subvistas opcionales (1 a 8) dentro de esta página: strings o { id, name }. |
 | `fields` | arreglo |  | Atajo: objetos de esta página (la normalización los pasa a `fields` con page = id). |
 
 ## Pantalla IDLE y arranque (`display`)
@@ -67,6 +69,7 @@ Texto dinámico. Declara `char variable[2·capacity+1]`; el sketch lo llena y el
 | `id` | identificador C++ |  | Identificador C++ del objeto (único en el proyecto). Si falta se genera FIELD_<TIPO>_<n>. |
 | `page` | entero 0..15 | `0` | Página (id) donde se dibuja. |
 | `pages` | arreglo |  | Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez. |
+| `views` | arreglo |  | Subvistas opcionales (índices 0..7 dentro de la página) donde aparece el objeto. Omitido o vacío = visible en todas. |
 | `layerOrder` | entero 0..9999 |  | Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima). |
 | `x` **(obligatoria)** | entero 0..319 |  | Esquina superior izquierda, X (px). |
 | `y` **(obligatoria)** | entero 0..169 |  | Esquina superior izquierda, Y (px). |
@@ -98,6 +101,7 @@ Número con formato (o duración, o fecha/hora del RTC). Declara `float` (o `int
 | `id` | identificador C++ |  | Identificador C++ del objeto (único en el proyecto). Si falta se genera FIELD_<TIPO>_<n>. |
 | `page` | entero 0..15 | `0` | Página (id) donde se dibuja. |
 | `pages` | arreglo |  | Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez. |
+| `views` | arreglo |  | Subvistas opcionales (índices 0..7 dentro de la página) donde aparece el objeto. Omitido o vacío = visible en todas. |
 | `layerOrder` | entero 0..9999 |  | Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima). |
 | `x` **(obligatoria)** | entero 0..319 |  | Esquina superior izquierda, X (px). |
 | `y` **(obligatoria)** | entero 0..169 |  | Esquina superior izquierda, Y (px). |
@@ -137,6 +141,7 @@ Estado ON/OFF. Declara `bool`. Muestra un texto por estado o un piloto (círculo
 | `id` | identificador C++ |  | Identificador C++ del objeto (único en el proyecto). Si falta se genera FIELD_<TIPO>_<n>. |
 | `page` | entero 0..15 | `0` | Página (id) donde se dibuja. |
 | `pages` | arreglo |  | Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez. |
+| `views` | arreglo |  | Subvistas opcionales (índices 0..7 dentro de la página) donde aparece el objeto. Omitido o vacío = visible en todas. |
 | `layerOrder` | entero 0..9999 |  | Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima). |
 | `x` **(obligatoria)** | entero 0..319 |  | Esquina superior izquierda, X (px). |
 | `y` **(obligatoria)** | entero 0..169 |  | Esquina superior izquierda, Y (px). |
@@ -176,6 +181,7 @@ Indicador de nivel: barra lineal (`barPreset: LINEAR`) o medidor circular (`barP
 | `id` | identificador C++ |  | Identificador C++ del objeto (único en el proyecto). Si falta se genera FIELD_<TIPO>_<n>. |
 | `page` | entero 0..15 | `0` | Página (id) donde se dibuja. |
 | `pages` | arreglo |  | Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez. |
+| `views` | arreglo |  | Subvistas opcionales (índices 0..7 dentro de la página) donde aparece el objeto. Omitido o vacío = visible en todas. |
 | `layerOrder` | entero 0..9999 |  | Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima). |
 | `x` **(obligatoria)** | entero 0..319 |  | Esquina superior izquierda, X (px). |
 | `y` **(obligatoria)** | entero 0..169 |  | Esquina superior izquierda, Y (px). |
@@ -234,6 +240,7 @@ Icono con estado (motor, piloto, válvula…; JWPLC_UIIconField): una imagen por
 | `id` | identificador C++ |  | Identificador C++ del objeto (único en el proyecto). Si falta se genera FIELD_<TIPO>_<n>. |
 | `page` | entero 0..15 | `0` | Página (id) donde se dibuja. |
 | `pages` | arreglo |  | Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez. |
+| `views` | arreglo |  | Subvistas opcionales (índices 0..7 dentro de la página) donde aparece el objeto. Omitido o vacío = visible en todas. |
 | `layerOrder` | entero 0..9999 |  | Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima). |
 | `x` **(obligatoria)** | entero 0..319 |  | Esquina superior izquierda, X (px). |
 | `y` **(obligatoria)** | entero 0..169 |  | Esquina superior izquierda, Y (px). |
@@ -308,6 +315,7 @@ Gráfica de tendencia temporal (JWPLC_UITrend). Declara `float`. Soporta auto-es
 | `id` | identificador C++ |  | Identificador C++ del objeto (único en el proyecto). Si falta se genera FIELD_<TIPO>_<n>. |
 | `page` | entero 0..15 | `0` | Página (id) donde se dibuja. |
 | `pages` | arreglo |  | Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez. |
+| `views` | arreglo |  | Subvistas opcionales (índices 0..7 dentro de la página) donde aparece el objeto. Omitido o vacío = visible en todas. |
 | `layerOrder` | entero 0..9999 |  | Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima). |
 | `x` **(obligatoria)** | entero 0..319 |  | Esquina superior izquierda, X (px). |
 | `y` **(obligatoria)** | entero 0..169 |  | Esquina superior izquierda, Y (px). |
@@ -362,6 +370,7 @@ Gráfica de tendencia temporal (JWPLC_UITrend). Declara `float`. Soporta auto-es
 | `id` | identificador C++ |  | Identificador C++ del objeto (único en el proyecto). Si falta se genera FIELD_<TIPO>_<n>. |
 | `page` | entero 0..15 | `0` | Página (id) donde se dibuja. |
 | `pages` | arreglo |  | Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez. |
+| `views` | arreglo |  | Subvistas opcionales (índices 0..7 dentro de la página) donde aparece el objeto. Omitido o vacío = visible en todas. |
 | `layerOrder` | entero 0..9999 |  | Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima). |
 | `cornerRadius` | entero 0..20 | `0` | Radio de esquinas para tarjetas/píldoras (rowStyle = CARDS). |
 | `x` **(obligatoria)** | entero 0..319 |  | Esquina superior izquierda, X (px). |
@@ -389,10 +398,10 @@ Gráfica de tendencia temporal (JWPLC_UITrend). Declara `float`. Soporta auto-es
 |---|---|---|---|
 | `key` | texto |  | Clave única del nodo dentro del MENU (se genera si falta). |
 | `parent` | texto |  | Clave del nodo padre (SUBMENU). null = raíz. Con `children` no hace falta. |
-| `type` **(obligatoria)** | `"SUBMENU"` · `"VIEW"` · `"EDIT_NUM"` · `"EDIT_BOOL"` · `"GO_IDLE"` |  | SUBMENU: abre hijos. VIEW: muestra una variable. EDIT_NUM/EDIT_BOOL: el operador la edita. GO_IDLE: vuelve a la pantalla de inicio. |
+| `type` **(obligatoria)** | `"SUBMENU"` · `"VIEW"` · `"EDIT_NUM"` · `"EDIT_BOOL"` · `"GO_IDLE"` · `"GO_VIEW"` |  | SUBMENU: abre hijos. VIEW: muestra una variable. EDIT_NUM/EDIT_BOOL: el operador la edita. GO_IDLE: vuelve a inicio. GO_VIEW: cambia a otra subvista de la página. |
 | `label` | texto | `""` | Texto de la fila. Vacío = botón centrado (píldora). |
 | `variable` | identificador C++ | `""` | Variable C++ (VIEW, EDIT_NUM, EDIT_BOOL). Puede ser la misma que la de un campo si el tipo coincide. |
-| `valueType` | `"float"` · `"int32"` · `"bool"` · `""` |  | VIEW: float\|int32\|bool. EDIT_NUM: float\|int32. EDIT_BOOL: bool. SUBMENU/GO_IDLE: vacío. |
+| `valueType` | `"float"` · `"int32"` · `"bool"` · `""` |  | VIEW: float\|int32\|bool. EDIT_NUM: float\|int32. EDIT_BOOL: bool. SUBMENU/GO_IDLE/GO_VIEW: vacío. |
 | `initial` | número | `0` | Valor inicial de la variable. |
 | `min` | número | `0` | Mínimo (EDIT_NUM). |
 | `max` | número | `100` | Máximo (EDIT_NUM). |
@@ -409,6 +418,8 @@ Gráfica de tendencia temporal (JWPLC_UITrend). Declara `float`. Soporta auto-es
 | `pillFalseBg` | color | `0x05E0` | Fondo cuando el estado bool es false. |
 | `pillTrueBg` | color | `0xC800` | Fondo cuando el estado bool es true. |
 | `pillTextColor` | color | `0xFFFF` | Color del texto de la píldora. |
+| `targetView` | entero -1..7 | `-1` | Subvista destino (0..7) al pulsar OK; -1 = sin cambio. |
+| `confirmPopupId` | entero -1..254 | `-1` | ID de ventana CONFIRM previa antes de aplicar/navegar; -1 = ejecución directa. |
 | `children` | arreglo |  | Atajo: hijos anidados de un SUBMENU (la normalización los aplana con `parent`). |
 
 Colores del MENU (`colors`), por defecto:
@@ -426,6 +437,7 @@ Historial y registro de eventos (Alpha16). 10 filas de altura fija con registro 
 | `id` | identificador C++ |  | Identificador C++ del objeto (único en el proyecto). Si falta se genera FIELD_<TIPO>_<n>. |
 | `page` | entero 0..15 | `0` | Página (id) donde se dibuja. |
 | `pages` | arreglo |  | Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez. |
+| `views` | arreglo |  | Subvistas opcionales (índices 0..7 dentro de la página) donde aparece el objeto. Omitido o vacío = visible en todas. |
 | `layerOrder` | entero 0..9999 |  | Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima). |
 | `x` **(obligatoria)** | entero 0..319 |  | Esquina superior izquierda, X (px). |
 | `y` **(obligatoria)** | entero 0..169 |  | Esquina superior izquierda, Y (px). |
@@ -451,6 +463,7 @@ Texto fijo (se dibuja una vez al entrar a la página). Admite fuentes GLCD, bitm
 | `id` | identificador C++ |  | Identificador C++ del objeto (único en el proyecto). Si falta se genera FIELD_<TIPO>_<n>. |
 | `page` | entero 0..15 | `0` | Página (id) donde se dibuja. |
 | `pages` | arreglo |  | Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez. |
+| `views` | arreglo |  | Subvistas opcionales (índices 0..7 dentro de la página) donde aparece el objeto. Omitido o vacío = visible en todas. |
 | `layerOrder` | entero 0..9999 |  | Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima). |
 | `x` **(obligatoria)** | entero 0..319 |  | Esquina superior izquierda, X (px). |
 | `y` **(obligatoria)** | entero 0..169 |  | Esquina superior izquierda, Y (px). |
@@ -460,6 +473,34 @@ Texto fijo (se dibuja una vez al entrar a la página). Admite fuentes GLCD, bitm
 | `textColor` | color | `0xFFFF` | Color del texto. |
 | `backgroundColor` | color | `0x0000` | Fondo detrás del texto (si no es transparente). |
 | `transparentBackground` | bool | `true` | Sin fondo detrás del texto. |
+
+### `QR`
+
+Código QR (estático en Flash o dinámico con `JWPLC_UIQR` cuando `sourceMode` es `VARIABLE`).
+
+| Propiedad | Tipo / valores | Por defecto | Descripción |
+|---|---|---|---|
+| `type` **(obligatoria)** | texto |  | Tipo de objeto. |
+| `name` | texto |  | Nombre visible en la lista de objetos del Designer (no llega al C++). |
+| `id` | identificador C++ |  | Identificador C++ del objeto (único en el proyecto). Si falta se genera FIELD_<TIPO>_<n>. |
+| `page` | entero 0..15 | `0` | Página (id) donde se dibuja. |
+| `pages` | arreglo |  | Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez. |
+| `views` | arreglo |  | Subvistas opcionales (índices 0..7 dentro de la página) donde aparece el objeto. Omitido o vacío = visible en todas. |
+| `layerOrder` | entero 0..9999 |  | Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima). |
+| `x` **(obligatoria)** | entero 0..319 |  | Esquina superior izquierda, X (px). |
+| `y` **(obligatoria)** | entero 0..169 |  | Esquina superior izquierda, Y (px). |
+| `sourceMode` | `"STATIC"` · `"VARIABLE"` | `"STATIC"` | STATIC: fijo en Flash (`jwplcUIPageEnter`). VARIABLE: `char[]` dinámico con `JWPLC_UIQR`. |
+| `preset` | `"URL"` · `"PAIR"` · `"DOCS"` · `"WIFI"` · `"SUPPORT"` · `"CUSTOM"` | `"URL"` | Plantilla rápida en el Designer. |
+| `text` | texto | `"http://192.168.1.50"` | Enlace o texto del QR (o valor inicial / de prueba en el lienzo si `sourceMode` es `VARIABLE`). |
+| `variable` | identificador C++ | `"qrTexto"` | Variable C++ `char[]` cuando `sourceMode` es `VARIABLE`. |
+| `maxLength` | entero 16..213 | `80` | Capacidad del buffer `char[]` en bytes cuando `sourceMode` es `VARIABLE`. |
+| `scale` | entero 1..4 | `3` | Píxeles por módulo QR. |
+| `ecc` | `"L"` · `"M"` · `"Q"` · `"H"` | `"M"` | Nivel de corrección de errores Reed-Solomon (`QR_LEVEL_*`). |
+| `quietZone` | entero 0..4 | `4` | Margen claro en módulos alrededor del QR (4 recomendado / estándar `JWPLC_UIQR`). |
+| `frame` | bool | `false` | Marco exterior de 1 px alrededor del margen. |
+| `fgColor` | color | `0x0000` | Color de los módulos oscuros. |
+| `bgColor` | color | `0xFFFF` | Color del fondo y margen. |
+| `frameColor` | color | `0xFFFF` | Color del marco exterior. |
 
 ### Figuras: `LINE`, `RECT`, `ELLIPSE`, `TRIANGLE`, `POLYGON`
 
@@ -478,6 +519,7 @@ Se dibujan una vez al entrar a la página (gráfica estática).
 | `id` | identificador C++ |  | Identificador C++ del objeto (único en el proyecto). Si falta se genera FIELD_<TIPO>_<n>. |
 | `page` | entero 0..15 | `0` | Página (id) donde se dibuja. |
 | `pages` | arreglo |  | Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez. |
+| `views` | arreglo |  | Subvistas opcionales (índices 0..7 dentro de la página) donde aparece el objeto. Omitido o vacío = visible en todas. |
 | `layerOrder` | entero 0..9999 |  | Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima). |
 | `cornerRadius` | entero 0..85 | `0` | Radio de esquinas (RECT). |
 | `x` **(obligatoria)** | entero 0..319 |  | Esquina superior izquierda, X (px). |
@@ -515,6 +557,45 @@ Barra de navegación entre páginas (◀ ▶ de la botonera). Global: una sola, 
 | `borderMode` | `"none"` · `"line"` · `"frame"` | `"none"` | Borde de la barra. |
 | `radius` | entero 0..11 | `3` | Radio de las pestañas. |
 | `gap` | entero 0..10 | `3` | Separación entre pestañas. |
+
+## Ventanas emergentes (`popups[]`)
+
+Modales I5-I6 sobre IDLE o USER (`INFO`, `WARN`, `CRIT`, `CONFIRM`). Máximo `12` definidos en el proyecto.
+
+| Propiedad | Tipo / valores | Por defecto | Descripción |
+|---|---|---|---|
+| `id` **(obligatoria)** | entero 0..254 |  | ID numérico único de la ventana emergente (0..254). |
+| `name` | texto | `""` | Nombre descriptivo en el Designer. |
+| `preset` **(obligatoria)** | `"INFO"` · `"WARN"` · `"CRIT"` · `"CONFIRM"` |  | Preset visual y comportamiento modal. |
+| `title` | texto | `"AVISO"` | Título de la cabecera. |
+| `code` | texto | `""` | Código breve opcional arriba a la derecha (ej. E104). |
+| `message` | texto | `""` | Mensaje del cuerpo (multilínea con ajuste de línea). |
+| `acceptText` | texto | `"OK"` | Texto del botón OK / Aceptar. |
+| `cancelText` | texto | `"CANCELAR"` | Texto del botón Cancelar (en preset CONFIRM). |
+| `triggerVar` | identificador C++ | `""` | Variable bool C++ opcional: dispara por flanco 0 -> 1. |
+| `confirmOutVar` | identificador C++ | `""` | Variable bool C++ opcional donde CONFIRM escribe true/false. |
+| `errCode` | texto | `""` | Código ERR lateral IDLE opcional (hasta 4 chars, recomendado en CRIT). |
+| `autoCloseMs` | entero 0..60000 | `0` | Auto-cierre en ms (0 = manual). No aplica a CRIT. |
+| `showOverIdle` | bool | `true` | Permitir mostrarse sobre pantalla IDLE. |
+| `blocksIdle` | bool | `false` | Bloquear retorno automático a IDLE mientras está activo. |
+| `latched` | bool | `false` | Mantener modal aunque triggerVar vuelva a false hasta pulsar OK. |
+| `logToEventLog` | bool | `false` | Registrar activación/ACK en EVENT_LOG. |
+| `targetPage` | entero -1..15 | `-1` | Página opcional al aceptar CONFIRM (-1 = sin cambio). |
+| `targetView` | entero -1..7 | `-1` | Subvista opcional al aceptar CONFIRM (-1 = sin cambio). |
+| `x` | entero 0..200 | `36` | Posición X del cuadro (px). |
+| `y` | entero 0..98 | `27` | Posición Y del cuadro (px). |
+| `width` | entero 120..312 | `248` | Ancho del cuadro (px). |
+| `height` | entero 72..162 | `116` | Alto del cuadro (px). |
+| `cornerRadius` | entero 0..12 | `6` | Radio de esquinas (px). |
+| `messageTextSize` | entero 1..3 | `1` | Escala del texto GLCD del mensaje (1 = 6×8 px, 2 = 12×16 px, 3 = 18×24 px). |
+| `colors` | objeto |  | Colores RGB565 opcionales. |
+
+Colores por defecto según preset (`colors`):
+
+- `INFO`: `background`=0x1082, `border`=0x2D7F, `headerBg`=0x1B9C, `headerText`=0xFFFF, `text`=0xFFFF, `acceptBg`=0x1B9C, `acceptText`=0xFFFF, `cancelBg`=0x3186, `cancelText`=0xFFFF
+- `WARN`: `background`=0x1082, `border`=0xFD20, `headerBg`=0xFD20, `headerText`=0x0000, `text`=0xFFFF, `acceptBg`=0xFD20, `acceptText`=0x0000, `cancelBg`=0x3186, `cancelText`=0xFFFF
+- `CRIT`: `background`=0x1082, `border`=0xF945, `headerBg`=0xE8E4, `headerText`=0xFFFF, `text`=0xFFFF, `acceptBg`=0xE8E4, `acceptText`=0xFFFF, `cancelBg`=0x3186, `cancelText`=0xFFFF
+- `CONFIRM`: `background`=0x1082, `border`=0x07FF, `headerBg`=0x055A, `headerText`=0xFFFF, `text`=0xFFFF, `acceptBg`=0x0568, `acceptText`=0xFFFF, `cancelBg`=0x3186, `cancelText`=0xFFFF
 
 ## Capas de píxeles (`pixelMaps[]`)
 

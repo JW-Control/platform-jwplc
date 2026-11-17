@@ -271,7 +271,8 @@ async function main() {
       let log = '';
       try {
         execFileSync('g++', ['-std=gnu++17', '-fsyntax-only', '-Wall', `-I${OUT}`, `-I${STUB}`,
-          `-I${path.join(LIBS, 'JWPLC_Display', 'src')}`, `-I${path.join(LIBS, 'JWPLC_TFT', 'src')}`, cPath],
+          `-I${path.join(LIBS, 'JWPLC_Display', 'src')}`, `-I${path.join(LIBS, 'JWPLC_TFT', 'src')}`,
+          `-I${path.join(LIBS, 'JWPLC_UI_Widgets', 'src')}`, cPath],
         { stdio: 'pipe' });
       } catch (error) {
         ok = false;

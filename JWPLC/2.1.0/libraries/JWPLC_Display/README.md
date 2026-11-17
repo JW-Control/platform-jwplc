@@ -1272,6 +1272,14 @@ un error identificable.
 Código antiguo que tomaba una referencia (`auto &tft = JWPLC_Display.tft();`)
 sigue compilando, pero se migra a usar `JWPLC_TFT` directamente.
 
+## Novedades de 2.1.0-alpha.17
+
+- **API con «.»** en ejemplos `JWPLC_Display` y `MENU` (`JWPLC_Display.menuChanged()`, `JWPLC_Display.menuNode()`, sin `::`, `*` ni `&`).
+- **Temas, fuentes universales y menú `CARDS`**: soporte de fuentes escaladas en estilos, `TREND` de hasta 3 canales con registro en MicroSD, hasta 64 campos en Flash y máscaras por página (`JWPLC_UIFieldPages`).
+- **`JWPLC_Icons` optimizada por tamaño**: los métodos `JWPLC_Icons.<icono>(tamaño)` enlazan únicamente el mapa de bits del tamaño utilizado.
+- **Subvistas por página (`views`)**: `JWPLC_Display.setPageView(page, view)` / `JWPLC_Display.pageView(page)` (y `JWPLC_UIFieldViews`, nodos `JWPLC_UIMenuGoView` / `JWPLC_UIMenuNodeTargetView`) permiten cambiar el contenido dentro de una misma pestaña sin añadir páginas a la barra de navegación.
+- **Ventanas emergentes modales (`popups[]`, I4–I6)**: árbitro único de teclas y motor modal (`setPopups`, `showPopup`, `dismissPopup`, `popupActive`, `popupConfirmed`) con presets `INFO`, `WARN`, `CRIT` y `CONFIRM`, escala configurable `1×–3×`, atenuación clara del botón no enfocado, redibujado selectivo sin parpadeo sobre relojes/contadores fuera del modal y navegación `targetPage`/`targetView` al confirmar o cerrar.
+
 ## Novedades de 2.1.0-alpha.16
 
 - **Medidor circular** e **iconos animados e industriales** (baliza por pisos, piloto de 2 a 8 estados, motores,
@@ -1285,7 +1293,7 @@ sigue compilando, pero se migra a usar `JWPLC_TFT` directamente.
 Documentado para:
 
 ```text
-JWPLC ESP32 v2.1.0-alpha.16
+JWPLC ESP32 v2.1.0-alpha.17
 JWPLC_Display 1.1.0 (precompilada: src/esp32/libJWPLC_Display.a)
 ```
 

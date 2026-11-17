@@ -133,6 +133,7 @@
     if (/JWPLC_Display\.setMenus\(|JWPLC_UIMenu/.test(text)) unsupported.push('MENU');
     if (/JWPLC_UIEventLog|JWPLC_Display\.setEventLog/.test(text)) unsupported.push('EVENT_LOG');
     if (/JWPLC_UITrend|JWPLC_Display\.setTrend\(/.test(text)) unsupported.push('TREND');
+    if (/JWPLC_UIQR/.test(text)) unsupported.push('QR (dinámico)');
 
     if (!text.includes('#include <JWPLC_Runtime.h>')) {
       text = text.replace('#include <JWPLC_Display.h>', '#include <JWPLC_Display.h>\n#include <JWPLC_Runtime.h>');

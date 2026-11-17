@@ -237,7 +237,7 @@
         element.setAttribute('aria-valuenow', String(Math.round(newWidth)));
       } else if (type === 'bottom') {
         const statusbar = document.querySelector('.statusbar');
-        const statusbarTop = statusbar ? statusbar.getBoundingClientRect().top : window.innerHeight - 28;
+        const statusbarTop = statusbar ? statusbar.getBoundingClientRect().top : window.innerHeight;
         const rawNewHeight = statusbarTop - e.clientY;
 
         // Si estaba colapsado y el usuario arrastra hacia arriba, descolapsar

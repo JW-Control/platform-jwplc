@@ -1,16 +1,19 @@
 'use strict';
 
-const CACHE_NAME = 'jwplc-hmi-designer-a17-v19';
+const CACHE_NAME = 'jwplc-hmi-designer-a17-v32';
 const CORE = [
   './desktop.html',
   './index.html',
   './styles.css',
+  './designer-light-theme.css',
   './desktop-responsive.css',
   './desktop-responsive-compat.css',
+  './designer-theme.js',
   './designer-cp437.js',
   './gfx-classic-font.js',
   './designer-fonts-data.js',
   './designer-fonts.js',
+  './designer-layout-resizer.js',
   './app.js',
   './ux-foundation.js',
   './designer-codegen.js',
@@ -20,6 +23,8 @@ const CORE = [
   './designer-zone-indicator.js',
   './designer-trend-core.js',
   './designer-trend.js',
+  './designer-qr-core.js',
+  './designer-qr.js',
   './designer-idle.js',
   './designer-runtime-core.js',
   './designer-runtime.js',
@@ -31,6 +36,7 @@ const CORE = [
   './designer-icons.js',
   './designer-dialog.js',
   './designer-menu.js',
+  './designer-popups.js',
   './designer-event-log.js',
   './designer-field-visibility.js',
   './designer-pixelmap-compat.js',
@@ -40,7 +46,9 @@ const CORE = [
   './designer-pixelmap-optimizer.js',
   './designer-pixelmap-codegen-guard.js',
   './designer-project-integration-fix.js',
+  './designer-native-project.js',
   './designer-openplc-host.js',
+  './designer-openplc-bindings.js',
   './designer-inspector-state.js',
   './designer-pages.js',
   './designer-flasher.js',

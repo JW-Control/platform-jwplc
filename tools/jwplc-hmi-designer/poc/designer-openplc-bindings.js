@@ -41,6 +41,9 @@
     .jwplc-view-bindings #installAppButton,
     .jwplc-view-bindings #generateButton,
     .jwplc-view-bindings .page-tabs .add-tab,
+    .jwplc-view-bindings #addSubViewTabBtn,
+    .jwplc-view-bindings .subview-add-btn,
+    .jwplc-view-bindings #popupsModeToggleBtn,
     .jwplc-view-bindings .page-delete-btn,
     .jwplc-view-bindings .page-tab-edit-icon,
     .jwplc-view-bindings #objectsList .object-btn,
@@ -51,16 +54,20 @@
     .jwplc-view-bindings .jwplc-insp-tabs-hidden,
     .jwplc-view-bindings [data-menu-action="duplicate"],
     .jwplc-view-bindings [data-menu-action="delete"],
+    .jwplc-view-bindings [data-trend-action="duplicate"],
+    .jwplc-view-bindings [data-trend-action="delete"],
+    .jwplc-view-bindings [data-icon-action="duplicate"],
+    .jwplc-view-bindings [data-icon-action="delete"],
     .jwplc-view-bindings .menu-tree-btns,
     .jwplc-view-bindings #idleConfigSection,
     .jwplc-view-bindings .jwplc-menu-design-only,
     .jwplc-view-bindings #themeToggleButton { display: none !important; }
     /* Sin panel de código: su fila del grid queda en 0. */
     html.jwplc-view-bindings body, html.jwplc-view-bindings body.bottom-collapsed {
-      grid-template-rows: 58px minmax(0, 1fr) 0 28px !important; }
+      grid-template-rows: 50px minmax(0, 1fr) 0 !important; }
     @media (max-height: 820px) {
       html.jwplc-view-bindings body, html.jwplc-view-bindings body.bottom-collapsed {
-        grid-template-rows: 52px minmax(0, 1fr) 0 26px !important; }
+        grid-template-rows: 50px minmax(0, 1fr) 0 !important; }
     }
     .jwplc-view-bindings .code-panel { height: 0 !important; min-height: 0 !important; border: 0 !important;
       overflow: hidden !important; visibility: hidden; }
@@ -109,7 +116,10 @@
       '<span class="jwplc-bindings-chip">Vista de enlaces · elige la variable PLC de cada objeto</span>' +
       '<button type="button" class="jwplc-bindings-edit" id="jwplcEditDesignButton"></button>';
     anchor.appendChild(bar);
-    bar.querySelector('button').addEventListener('click', () => host.openEditor?.());
+    bar.querySelector('button').addEventListener('click', () => {
+      if (window.JWPLCHMISaveFlow?.isDirty?.()) host.setDirty?.(true);
+      host.openEditor?.();
+    });
     syncEditButton();
   }
 
@@ -136,12 +146,13 @@
 
   // --- Inspector: siempre en «Datos» ---------------------------------------------
 
-  // Pestaña de datos de cada inspector (campos, BAR, MENU, ICON) y las que se ocultan.
+  // Pestaña de datos de cada inspector (campos, BAR, MENU, ICON, TREND) y las que se ocultan.
   const DATA_TABS = [
     { data: '#fieldInspectorV2 [data-insp-main="data"]', hide: '[data-insp-main="design"], [data-insp-main="tech"]' },
     { data: '.bar-main-tab[data-main-tab="plc"]', hide: '.bar-main-tab[data-main-tab="design"], .bar-main-tab[data-main-tab="tech"]' },
     { data: '[data-menu-main="tree"]', hide: '[data-menu-main="design"], [data-menu-main="tech"]' },
-    { data: '[data-icon-main="data"]', hide: '[data-icon-main="design"], [data-icon-main="tech"]' }
+    { data: '[data-icon-main="data"]', hide: '[data-icon-main="design"], [data-icon-main="tech"]' },
+    { data: '[data-trend-main="data"]', hide: '[data-trend-main="design"], [data-trend-main="sd"], [data-trend-main="tech"]' }
   ];
 
   function showDataTab() {
@@ -171,6 +182,19 @@
       box.querySelectorAll('[data-node-prop]:not([data-node-prop="variable"])').forEach((input) => {
         input.closest('.field-label, label')?.classList.add('jwplc-menu-design-only');
       });
+    });
+  }
+
+  // TREND: en la vista de enlaces sólo quedan los selectores de variables de canal.
+  function trimTrendEditor() {
+    document.querySelectorAll('#trendInspectorSection .trend-data-panel > .bar-card').forEach((card, index) => {
+      card.classList.toggle('jwplc-menu-design-only', index > 0);
+    });
+    document.querySelectorAll('#trendInspectorSection [data-trend-prop="ch2Enabled"], #trendInspectorSection [data-trend-prop="ch3Enabled"]').forEach((cb) => {
+      cb.disabled = true;
+    });
+    document.querySelectorAll('#trendInspectorSection [data-trend-prop="ch2Label"], #trendInspectorSection [data-trend-prop="ch3Label"]').forEach((lbl) => {
+      lbl.classList.add('jwplc-menu-design-only');
     });
   }
 
@@ -243,11 +267,17 @@
   // --- Ventana completa abierta: sólo lectura --------------------------------------
 
   function setEditorOpen(open) {
-    document.documentElement.classList.toggle('jwplc-editor-open', Boolean(open));
-    document.querySelectorAll('.jwplc-plc-select').forEach((select) => { select.disabled = Boolean(open); });
+    const next = Boolean(open);
+    const changed = document.documentElement.classList.contains('jwplc-editor-open') !== next;
+    document.documentElement.classList.toggle('jwplc-editor-open', next);
+    document.querySelectorAll('.jwplc-plc-select').forEach((select) => { select.disabled = next; });
     syncEditButton();
+    if (changed && !next) window.dispatchEvent(new CustomEvent('jwplc:editor-refresh'));
   }
   host.onEditorWindow?.(setEditorOpen);
+  if (typeof host.isEditorWindowOpen === 'function') {
+    Promise.resolve(host.isEditorWindowOpen()).then(setEditorOpen).catch(() => {});
+  }
 
   let scheduled = false;
   function refresh() {
@@ -256,6 +286,7 @@
     ensureLockNote();
     showDataTab();
     trimMenuEditor();
+    trimTrendEditor();
     ensureEmptyHint();
     if (document.documentElement.classList.contains('jwplc-editor-open')) setEditorOpen(true);
   }

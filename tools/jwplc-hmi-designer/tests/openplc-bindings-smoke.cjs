@@ -197,6 +197,17 @@ async function main() {
     check(!menu.add && !menu.remove && !menu.label && menu.variable, `MENU: sólo la variable del nodo (${JSON.stringify(menu)})`);
     await page.screenshot({ path: path.join(OUT, 'enlaces_menu.png') });
 
+    await page.evaluate(() => document.querySelector('[data-tool="trendField"]')?.click());
+    await page.waitForTimeout(500);
+    const trend = await page.evaluate(() => ({
+      tabs: [...document.querySelectorAll('#trendInspectorSection [data-trend-main]')].filter((b) => b.offsetParent).length,
+      selects: document.querySelectorAll('#trendInspectorSection .jwplc-plc-select').length,
+      ch2ToggleDisabled: Boolean(document.querySelector('#trendInspectorSection [data-trend-prop="ch2Enabled"]')?.disabled),
+      extraCardsVisible: [...document.querySelectorAll('#trendInspectorSection .trend-data-panel > .bar-card')].slice(1).some((c) => c.offsetParent)
+    }));
+    check(trend.tabs === 0 && trend.selects === 3 && trend.ch2ToggleDisabled && !trend.extraCardsVisible,
+      `TREND: sólo canales de variable PLC, sin pestañas ni tarjetas de diseño (${JSON.stringify(trend)})`);
+
     console.log('VENTANA DEL EDITOR');
     const label = await page.textContent('#jwplcEditDesignButton');
     check(/Abrir HMI Designer/.test(label), `con la ventana cerrada el botón dice «${label}»`);

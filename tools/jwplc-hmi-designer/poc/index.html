@@ -6,8 +6,8 @@
   <meta name="color-scheme" content="light dark" />
   <title>JWPLC HMI Designer</title>
   <meta name="jwplc-designer-version" content="2.1.0-alpha.17" />
-  <link rel="stylesheet" href="./styles.css?v=1794595500" />
-  <link rel="stylesheet" href="./designer-light-theme.css?v=1794595500" />
+  <link rel="stylesheet" href="./styles.css?v=1794944600" />
+  <link rel="stylesheet" href="./designer-light-theme.css?v=1794944500" />
   <script src="./designer-theme.js?v=1793802700"></script>
 </head>
 <body>
@@ -44,26 +44,6 @@
       </button>
       <span class="separator"></span>
       <button id="generateButton" class="primary-action tb-group-start" title="Generar código C++ (JWPLC_HMI_Generated.h)">Generar C++</button>
-      <button id="fitButton" class="tb-icon-btn tb-group-start" title="Ajustar Lienzo (Espacio)">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M8 3H5a2 2 0 0 0-2 2v3"/>
-          <path d="M21 8V5a2 2 0 0 0-2-2h-3"/>
-          <path d="M3 16v3a2 2 0 0 0 2 2h3"/>
-          <path d="M16 21h3a2 2 0 0 0 2-2v-3"/>
-        </svg>
-        <span class="sr-only">Ajustar</span>
-      </button>
-      <button id="fitSelectionButton" class="tb-icon-btn tb-group-end" title="Ajustar Selección (Shift+Espacio)">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M4 8V6a2 2 0 0 1 2-2h2"/>
-          <path d="M4 16v2a2 2 0 0 0 2 2h2"/>
-          <path d="M16 4h2a2 2 0 0 1 2 2v2"/>
-          <path d="M16 20h2a2 2 0 0 0 2-2v-2"/>
-          <rect x="8" y="8" width="8" height="8" rx="1.5"/>
-        </svg>
-        <span class="sr-only">Ajustar selección</span>
-      </button>
-      <span class="separator"></span>
       <button id="themeToggleButton" class="tb-icon-btn" title="Cambiar a Modo Claro (fondo blanco)">
         <svg class="theme-icon-sun" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="5"/>
@@ -141,11 +121,6 @@
         <button type="button" class="page-tabs-nav next" title="Desplazar pestañas a la derecha" aria-label="Desplazar pestañas a la derecha" hidden>›</button>
         <button class="tab add-tab" disabled>＋</button>
         <span class="gate">v2.1.0-alpha.17</span>
-      </div>
-
-      <div class="editor-caption">
-        <span>Pantalla ST7789 · 320 × 170 px</span>
-        <span>Modo edición pixel-perfect</span>
       </div>
 
       <div id="canvasViewport" class="canvas-viewport">
@@ -284,10 +259,18 @@
                   <span>Texto GFX estático directo en pantalla</span>
                 </div>
               </button>
-              <div class="var-menu-footer">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
-                <span>Próximamente: Selector y carga de fuentes tipográficas</span>
-              </div>
+              <button type="button" class="tool text-dropdown-item" data-tool="qrField" id="qrToolBtn">
+                <div class="var-item-icon">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+                    <path d="M14 14h3v3h-3zM18 14h3v3h-3zM14 18h3v3h-3zM18 18h3v3h-3z"/>
+                  </svg>
+                </div>
+                <div class="var-item-text">
+                  <strong>Código QR (QR)</strong>
+                  <span>Enlace web, Wi-Fi o código dinámico (JWPLC_UIQR)</span>
+                </div>
+              </button>
             </div>
           </div>
 
@@ -538,7 +521,9 @@
       </div>
 
       <footer class="canvas-status">
-        <span>Target: ST7789 · rotation 3 · RGB565</span>
+        <span id="selectedObjectStatus">TEXT Estado · FIELD_STATUS</span>
+        <span id="selectedGeometryStatus">X:20 Y:20 · —</span>
+        <span class="canvas-status-spacer"></span>
         <span id="cursorStatus">X: — · Y: —</span>
         <span id="pixelStatus">Pixel: —</span>
       </footer>
@@ -2076,22 +2061,10 @@
     <pre id="codeOutput"></pre>
   </section>
 
-  <footer class="statusbar">
-    <span class="ready-dot"></span>
-    <span>Listo</span>
-    <span>Proyecto: HMI_ST7789</span>
-    <span>Página: 0 · Principal</span>
-    <span>Campos: 1/64</span>
-    <span>Resolución: 320 × 170</span>
-    <span>Formato: RGB565</span>
-    <span class="grow"></span>
-    <span id="selectedObjectStatus">TEXT Estado · FIELD_STATUS</span>
-    <span id="selectedGeometryStatus">X:20 Y:20 · —</span>
+  <div id="hiddenControlContainer" style="display:none !important;" aria-hidden="true">
+    <span id="sketchLinkStatus" class="a11-project-status">Sketch: sin vincular</span>
     <span id="zoomStatus">Zoom: 3×</span>
     <span id="framebufferStatus" class="sr-only">Framebuffer: 54,400 px</span>
-  </footer>
-
-  <div id="hiddenControlContainer" style="display:none !important;" aria-hidden="true">
     <canvas id="previewCanvas" width="320" height="170"></canvas>
     <select id="zoomSelect">
       <option value="1">1×</option>
@@ -2114,16 +2087,17 @@
   <script src="./designer-fonts-data.js?v=1793801300"></script>
   <script src="./designer-fonts.js?v=1793803100"></script>
   <script src="./designer-value-format.js?v=1793801300"></script>
-  <script src="./designer-codegen-core.js?v=1794581600"></script>
+  <script src="./designer-codegen-core.js?v=1794882000"></script>
   <script src="./designer-runtime-core.js?v=1793810000"></script>
   <script src="./designer-icon-catalog.js?v=1793801700"></script>
   <script src="./designer-icons-core.js?v=1793801900"></script>
   <script src="./designer-trend-core.js?v=1793807000"></script>
+  <script src="./designer-qr-core.js?v=1794882000"></script>
   <script src="./designer-dialog.js?v=1793801300"></script>
-  <script src="./designer-layout-resizer.js?v=1793803200"></script>
-  <script src="./app.js?v=1794880000"></script>
-  <script src="./ux-foundation.js?v=1794870000"></script>
-  <script src="./designer-codegen.js?v=1794583000"></script>
+  <script src="./designer-layout-resizer.js?v=1794944500"></script>
+  <script src="./app.js?v=1794936000"></script>
+  <script src="./ux-foundation.js?v=1794882000"></script>
+  <script src="./designer-codegen.js?v=1794882000"></script>
 
   
 

@@ -42,10 +42,14 @@ enum JWPLC_UIMenuNodeType : uint8_t
     JWPLC_UI_MENU_EDIT_BOOL,
     // Alpha15: acción "volver a la pantalla IDLE" (OK -> JWPLC_Display.goIdle()).
     // Sirve con el retorno "Nunca" del Designer: la salida la decide el menú.
-    JWPLC_UI_MENU_GO_IDLE
+    JWPLC_UI_MENU_GO_IDLE,
+    // Alpha17+: acción "cambiar a subvista dentro de la misma página" (OK -> setPageView(page, targetView)).
+    JWPLC_UI_MENU_GO_VIEW
 };
 
 #define JWPLC_UI_HAS_MENU_GO_IDLE 1
+#define JWPLC_UI_HAS_MENU_GO_VIEW 1
+#define JWPLC_UI_HAS_MENU_VIEWS 1
 
 enum JWPLC_UIMenuValueKind : uint8_t
 {
@@ -80,6 +84,8 @@ struct JWPLC_UIMenuNode
     uint8_t zeroPad = 0;
     uint16_t lrStep = 0;
     bool directToggle = false;
+    uint8_t targetView = 0xFFU;
+    uint8_t confirmPopupId = 0xFFU;
 };
 
 enum JWPLC_UIMenuRowStyle : uint8_t
@@ -138,6 +144,7 @@ struct JWPLC_UIMenu
     bool selectOutlineOnly = false;
     uint16_t cardBackground = 0x18E3;
     uint16_t cardBorder = 0x39E7;
+    uint8_t viewMask = 0xFFU;
 };
 
 JWPLC_UIMenuNode JWPLC_UIMenuSubmenu(
@@ -194,6 +201,12 @@ JWPLC_UIMenuNode JWPLC_UIMenuEditBool(
 JWPLC_UIMenuNode JWPLC_UIMenuGoIdle(
     uint8_t parent,
     const char *label);
+
+// Ítem de acción: con OK cambia a otra subvista (0..7) dentro de la página actual.
+JWPLC_UIMenuNode JWPLC_UIMenuGoView(
+    uint8_t parent,
+    const char *label,
+    uint8_t targetView);
 
 // width/height obligatorios (> 0). textSize 1 (filas de 12 px) o 2 (20 px).
 JWPLC_UIMenu JWPLC_UIMenuField(
@@ -272,6 +285,30 @@ inline JWPLC_UIMenuNode JWPLC_UIMenuNodeDirectToggle(
     bool direct = true)
 {
     node.directToggle = direct;
+    return node;
+}
+
+inline JWPLC_UIMenu JWPLC_UIMenuViews(
+    JWPLC_UIMenu menu,
+    uint8_t viewMask)
+{
+    menu.viewMask = viewMask;
+    return menu;
+}
+
+inline JWPLC_UIMenuNode JWPLC_UIMenuNodeTargetView(
+    JWPLC_UIMenuNode node,
+    uint8_t targetView)
+{
+    node.targetView = targetView;
+    return node;
+}
+
+inline JWPLC_UIMenuNode JWPLC_UIMenuNodeConfirm(
+    JWPLC_UIMenuNode node,
+    uint8_t popupId)
+{
+    node.confirmPopupId = popupId;
     return node;
 }
 

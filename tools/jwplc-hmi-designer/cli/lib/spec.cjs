@@ -13,7 +13,7 @@
 'use strict';
 
 const SCREEN = Object.freeze({ width: 320, height: 170 });
-const LIMITS = Object.freeze({ pages: 16, fields: 64, totalObjects: 256, pixelMaps: 16, menus: 4, menuNodes: 64, menuDepth: 3, nameLength: 48 });
+const LIMITS = Object.freeze({ pages: 16, viewsPerPage: 8, fields: 64, totalObjects: 256, pixelMaps: 16, menus: 4, menuNodes: 64, menuDepth: 3, popups: 12, nameLength: 48 });
 
 // Colores con nombre (RGB565). Los ocho primeros son la paleta del Designer;
 // el resto, los TFT_* de TFT_eSPI más comunes.
@@ -41,6 +41,7 @@ const BASE = {
   id: { kind: 'symbol', desc: 'Identificador C++ del objeto (único en el proyecto). Si falta se genera FIELD_<TIPO>_<n>.' },
   page: int(0, LIMITS.pages - 1, 'Página (id) donde se dibuja.', { default: 0 }),
   pages: { kind: 'array', desc: 'Lista opcional de IDs de página (0..N-1) para mostrar este objeto en múltiples páginas a la vez.' },
+  views: { kind: 'array', desc: 'Subvistas opcionales (índices 0..7 dentro de la página) donde aparece el objeto. Omitido o vacío = visible en todas.' },
   layerOrder: int(0, 9999, 'Orden de capa: menor = más al frente. Si falta en todos, el orden del arreglo manda (el último queda encima).'),
   hidden: bool('Oculto en el lienzo y fuera del header.', { internal: true }),
   locked: bool('Bloqueado en el lienzo (no se puede mover con el ratón).', { internal: true }),
@@ -300,6 +301,26 @@ const TYPES = {
       backgroundColor: color('Fondo detrás del texto (si no es transparente).', { default: 0x0000 }),
       transparentBackground: bool('Sin fondo detrás del texto.', { default: true })
     }
+  },
+  QR: {
+    group: 'estatico',
+    desc: 'Código QR (estático en Flash o dinámico con `JWPLC_UIQR` cuando `sourceMode` es `VARIABLE`).',
+    props: {
+      ...BASE,
+      ...POS,
+      sourceMode: oneOf(['STATIC', 'VARIABLE'], 'STATIC: fijo en Flash (`jwplcUIPageEnter`). VARIABLE: `char[]` dinámico con `JWPLC_UIQR`.', { default: 'STATIC' }),
+      preset: oneOf(['URL', 'PAIR', 'DOCS', 'WIFI', 'SUPPORT', 'CUSTOM'], 'Plantilla rápida en el Designer.', { default: 'URL' }),
+      text: str('Enlace o texto del QR (o valor inicial / de prueba en el lienzo si `sourceMode` es `VARIABLE`).', { default: 'http://192.168.1.50' }),
+      variable: { kind: 'symbol', desc: 'Variable C++ `char[]` cuando `sourceMode` es `VARIABLE`.', default: 'qrTexto' },
+      maxLength: int(16, 213, 'Capacidad del buffer `char[]` en bytes cuando `sourceMode` es `VARIABLE`.', { default: 80 }),
+      scale: int(1, 4, 'Píxeles por módulo QR.', { default: 3 }),
+      ecc: oneOf(['L', 'M', 'Q', 'H'], 'Nivel de corrección de errores Reed-Solomon (`QR_LEVEL_*`).', { default: 'M' }),
+      quietZone: int(0, 4, 'Margen claro en módulos alrededor del QR (4 recomendado / estándar `JWPLC_UIQR`).', { default: 4 }),
+      frame: bool('Marco exterior de 1 px alrededor del margen.', { default: false }),
+      fgColor: color('Color de los módulos oscuros.', { default: 0x0000 }),
+      bgColor: color('Color del fondo y margen.', { default: 0xFFFF }),
+      frameColor: color('Color del marco exterior.', { default: 0xFFFF })
+    }
   }
 };
 
@@ -366,10 +387,10 @@ TYPES.NAV_BAR = {
 const MENU_NODE = {
   key: str('Clave única del nodo dentro del MENU (se genera si falta).'),
   parent: { kind: 'string', desc: 'Clave del nodo padre (SUBMENU). null = raíz. Con `children` no hace falta.', default: null },
-  type: oneOf(['SUBMENU', 'VIEW', 'EDIT_NUM', 'EDIT_BOOL', 'GO_IDLE'], 'SUBMENU: abre hijos. VIEW: muestra una variable. EDIT_NUM/EDIT_BOOL: el operador la edita. GO_IDLE: vuelve a la pantalla de inicio.', { required: true }),
+  type: oneOf(['SUBMENU', 'VIEW', 'EDIT_NUM', 'EDIT_BOOL', 'GO_IDLE', 'GO_VIEW'], 'SUBMENU: abre hijos. VIEW: muestra una variable. EDIT_NUM/EDIT_BOOL: el operador la edita. GO_IDLE: vuelve a inicio. GO_VIEW: cambia a otra subvista de la página.', { required: true }),
   label: str('Texto de la fila. Vacío = botón centrado (píldora).', { default: '' }),
   variable: { kind: 'symbol', desc: 'Variable C++ (VIEW, EDIT_NUM, EDIT_BOOL). Puede ser la misma que la de un campo si el tipo coincide.', default: '' },
-  valueType: oneOf(['float', 'int32', 'bool', ''], 'VIEW: float|int32|bool. EDIT_NUM: float|int32. EDIT_BOOL: bool. SUBMENU/GO_IDLE: vacío.'),
+  valueType: oneOf(['float', 'int32', 'bool', ''], 'VIEW: float|int32|bool. EDIT_NUM: float|int32. EDIT_BOOL: bool. SUBMENU/GO_IDLE/GO_VIEW: vacío.'),
   initial: num('Valor inicial de la variable.', { default: 0 }),
   min: num('Mínimo (EDIT_NUM).', { default: 0 }),
   max: num('Máximo (EDIT_NUM).', { default: 100 }),
@@ -386,20 +407,63 @@ const MENU_NODE = {
   pillFalseBg: color('Fondo cuando el estado bool es false.', { default: 0x05E0 }),
   pillTrueBg: color('Fondo cuando el estado bool es true.', { default: 0xC800 }),
   pillTextColor: color('Color del texto de la píldora.', { default: 0xFFFF }),
+  targetView: int(-1, LIMITS.viewsPerPage - 1, 'Subvista destino (0..7) al pulsar OK; -1 = sin cambio.', { doc: -1 }),
+  confirmPopupId: int(-1, 254, 'ID de ventana CONFIRM previa antes de aplicar/navegar; -1 = ejecución directa.', { doc: -1 }),
   children: { kind: 'array', desc: 'Atajo: hijos anidados de un SUBMENU (la normalización los aplana con `parent`).' }
 };
 const MENU_COLORS = Object.freeze({
   text: 0xC618, background: 0x0000, value: 0x07FF, selectText: 0xFFFF, selectBackground: 0x03FF,
   editText: 0x0000, editBackground: 0xFD20, title: 0xFFFF, titleBackground: 0x2124, frame: 0xFFFF
 });
-const MENU_KINDS = Object.freeze({ SUBMENU: [''], VIEW: ['float', 'int32', 'bool'], EDIT_NUM: ['float', 'int32'], EDIT_BOOL: ['bool'], GO_IDLE: [''] });
+const MENU_KINDS = Object.freeze({ SUBMENU: [''], VIEW: ['float', 'int32', 'bool'], EDIT_NUM: ['float', 'int32'], EDIT_BOOL: ['bool'], GO_IDLE: [''], GO_VIEW: [''] });
 
 const PAGE = {
   id: int(0, LIMITS.pages - 1, 'Índice 0..N-1 (se asigna por posición si falta).'),
   name: str('Nombre de la página (también da el símbolo C++ PAGE_<NOMBRE>).', { required: true }),
   shortName: str('Nombre corto para las pestañas de la barra de navegación.'),
   color: color('Color de la pestaña de la página.'),
+  views: { kind: 'array', desc: 'Subvistas opcionales (1 a 8) dentro de esta página: strings o { id, name }.' },
   fields: { kind: 'array', desc: 'Atajo: objetos de esta página (la normalización los pasa a `fields` con page = id).' }
+};
+
+const POPUP_PRESETS = Object.freeze(['INFO', 'WARN', 'CRIT', 'CONFIRM']);
+const POPUP_COLORS = Object.freeze({
+  background: 0x1082, border: 0x2D7F, headerBg: 0x1B9C, headerText: 0xFFFF, text: 0xFFFF,
+  acceptBg: 0x1B9C, acceptText: 0xFFFF, cancelBg: 0x3186, cancelText: 0xFFFF
+});
+const POPUP_PRESET_COLORS = Object.freeze({
+  INFO: { ...POPUP_COLORS },
+  WARN: { ...POPUP_COLORS, border: 0xFD20, headerBg: 0xFD20, headerText: 0x0000, acceptBg: 0xFD20, acceptText: 0x0000 },
+  CRIT: { ...POPUP_COLORS, border: 0xF945, headerBg: 0xE8E4, headerText: 0xFFFF, acceptBg: 0xE8E4, acceptText: 0xFFFF },
+  CONFIRM: { ...POPUP_COLORS, border: 0x07FF, headerBg: 0x055A, headerText: 0xFFFF, acceptBg: 0x0568, acceptText: 0xFFFF }
+});
+
+const POPUP = {
+  id: int(0, 254, 'ID numérico único de la ventana emergente (0..254).', { required: true }),
+  name: str('Nombre descriptivo en el Designer.', { default: '' }),
+  preset: oneOf(POPUP_PRESETS, 'Preset visual y comportamiento modal.', { required: true }),
+  title: str('Título de la cabecera.', { default: 'AVISO' }),
+  code: str('Código breve opcional arriba a la derecha (ej. E104).', { default: '' }),
+  message: str('Mensaje del cuerpo (multilínea con ajuste de línea).', { default: '' }),
+  acceptText: str('Texto del botón OK / Aceptar.', { default: 'OK' }),
+  cancelText: str('Texto del botón Cancelar (en preset CONFIRM).', { default: 'CANCELAR' }),
+  triggerVar: { kind: 'symbol', desc: 'Variable bool C++ opcional: dispara por flanco 0 -> 1.', default: '' },
+  confirmOutVar: { kind: 'symbol', desc: 'Variable bool C++ opcional donde CONFIRM escribe true/false.', default: '' },
+  errCode: str('Código ERR lateral IDLE opcional (hasta 4 chars, recomendado en CRIT).', { default: '' }),
+  autoCloseMs: int(0, 60000, 'Auto-cierre en ms (0 = manual). No aplica a CRIT.', { default: 0 }),
+  showOverIdle: bool('Permitir mostrarse sobre pantalla IDLE.', { default: true }),
+  blocksIdle: bool('Bloquear retorno automático a IDLE mientras está activo.', { default: false }),
+  latched: bool('Mantener modal aunque triggerVar vuelva a false hasta pulsar OK.', { default: false }),
+  logToEventLog: bool('Registrar activación/ACK en EVENT_LOG.', { default: false }),
+  targetPage: int(-1, LIMITS.pages - 1, 'Página opcional al aceptar CONFIRM (-1 = sin cambio).', { default: -1 }),
+  targetView: int(-1, LIMITS.viewsPerPage - 1, 'Subvista opcional al aceptar CONFIRM (-1 = sin cambio).', { default: -1 }),
+  x: int(0, SCREEN.width - 120, 'Posición X del cuadro (px).', { default: 36 }),
+  y: int(0, SCREEN.height - 72, 'Posición Y del cuadro (px).', { default: 27 }),
+  width: int(120, SCREEN.width - 8, 'Ancho del cuadro (px).', { default: 248 }),
+  height: int(72, SCREEN.height - 8, 'Alto del cuadro (px).', { default: 116 }),
+  cornerRadius: int(0, 12, 'Radio de esquinas (px).', { default: 6 }),
+  messageTextSize: int(1, 3, 'Escala del texto GLCD del mensaje (1 = 6×8 px, 2 = 12×16 px, 3 = 18×24 px).', { default: 1 }),
+  colors: { kind: 'object', desc: 'Colores RGB565 opcionales.', default: null }
 };
 
 const DISPLAY = {
@@ -434,6 +498,7 @@ const PROJECT = {
   display: { kind: 'object', desc: 'Pantalla IDLE y arranque (ver «display»).' },
   pages: { kind: 'array', desc: 'Páginas (1 a 16).', required: true },
   fields: { kind: 'array', desc: 'Objetos (máximo 64 campos dinámicos TEXT/VALUE/BOOL/BAR/ICON/TREND; figuras, RAW_TEXT, MENU, EVENT_LOG y NAV_BAR no gastan cupo).', default: [] },
+  popups: { kind: 'array', desc: 'Ventanas emergentes modales I5-I6 (máximo 12).', default: [] },
   pixelMaps: { kind: 'array', desc: 'Capas de píxeles (máximo 16).', default: [] },
   iconAssets: { kind: 'object', desc: 'Copia de los bitmaps de los ICON usados (la guarda el Designer).', internal: true },
   declarativeOnly: { kind: 'bool', desc: 'Siempre true.', default: true, internal: true },
@@ -443,7 +508,7 @@ const PROJECT = {
 const TARGET = Object.freeze({ display: 'ST7789', width: 320, height: 170, rotation: 3, pixelFormat: 'RGB565' });
 
 module.exports = {
-  SCREEN, LIMITS, NAMED_COLORS, FONTS, TYPES, MENU_NODE, MENU_COLORS, MENU_KINDS, PAGE, DISPLAY, PIXELMAP, PROJECT, TARGET,
+  SCREEN, LIMITS, NAMED_COLORS, FONTS, TYPES, MENU_NODE, MENU_COLORS, MENU_KINDS, PAGE, POPUP_PRESETS, POPUP_COLORS, POPUP_PRESET_COLORS, POPUP, DISPLAY, PIXELMAP, PROJECT, TARGET,
   FIELD_TYPES: ['TEXT', 'VALUE', 'BOOL', 'BAR', 'ICON', 'TREND'],
   SHAPE_TYPES: Object.keys(SHAPE_DESC)
 };

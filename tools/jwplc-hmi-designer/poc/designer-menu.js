@@ -26,11 +26,13 @@
     EDIT_NUM: { label: 'Editar número', icon: '±', kinds: ['float', 'int32'] },
     EDIT_BOOL: { label: 'Editar ON/OFF', icon: '⏻', kinds: ['bool'] },
     // Acción: OK vuelve a la pantalla IDLE (JWPLC_UIMenuGoIdle). Sin variable.
-    GO_IDLE: { label: 'Ir al inicio', icon: '⏎', kinds: [] }
+    GO_IDLE: { label: 'Ir al inicio', icon: '⏎', kinds: [] },
+    // Acción: OK cambia a otra subvista dentro de la misma página (JWPLC_UIMenuGoView).
+    GO_VIEW: { label: 'Ir a subvista', icon: '↳', kinds: [] }
   };
 
   // Ítems sin variable vinculada.
-  const hasVariable = (n) => n.type !== 'SUBMENU' && n.type !== 'GO_IDLE';
+  const hasVariable = (n) => n.type !== 'SUBMENU' && n.type !== 'GO_IDLE' && n.type !== 'GO_VIEW';
 
   const DEFAULT_COLORS = Object.freeze({
     text: 0xC618,
@@ -141,6 +143,7 @@
     if (type === 'VIEW') Object.assign(base, { label: 'Medición', variable: `medicion${serial}`, initial: 21.5, unit: 'C' });
     if (type === 'EDIT_NUM') Object.assign(base, { label: 'Consigna', variable: `consigna${serial}`, initial: 50, min: 0, max: 100, step: 0.5, unit: '%' });
     if (type === 'EDIT_BOOL') Object.assign(base, { label: 'Habilitar', variable: `habilitar${serial}`, initial: 0 });
+    if (type === 'GO_VIEW') Object.assign(base, { label: 'Abrir vista', targetView: 1 });
     return base;
   }
 
@@ -396,6 +399,7 @@
   function formatValue(node, value) {
     if (node.type === 'SUBMENU') return '>';
     if (node.type === 'GO_IDLE') return '<';
+    if (node.type === 'GO_VIEW') return '>';
     if (node.valueType === 'bool') {
       const state = Boolean(num(value));
       const text = state ? node.trueText : node.falseText;
@@ -583,33 +587,68 @@
 
   const CPP_TYPE = { float: 'float', int32: 'int32_t', bool: 'bool' };
 
-  function fieldVariableTypes(fields) {
+  function fieldVariableTypes(fields, popups = []) {
     const map = new Map();
     fields.forEach((f) => {
-      if (!f.variable) return;
-      if (f.type === 'VALUE' || f.type === 'BAR') map.set(f.variable, 'float');
-      else if (f.type === 'BOOL') map.set(f.variable, 'bool');
-      else if (f.type === 'ICON') map.set(f.variable, f.iconVarType === 'uint8' ? 'uint8' : 'bool');
-      else if (f.type === 'TEXT') map.set(f.variable, 'char[]');
+      if (!f) return;
+      const v = f.variable ? sanitizeSymbol(f.variable, '') : '';
+      if (f.type === 'VALUE') {
+        if (f.valueKind === 'DATETIME') return;
+        if (!v) return;
+        const isInt = f.valueKind === 'DURATION' ||
+          ([',', '.', ' '].includes(f.thousandsSep) && !(Number(f.decimalDigits) > 0));
+        map.set(v, isInt ? (f.signedValue ? 'int32' : 'uint32') : 'float');
+      } else if (f.type === 'BAR') {
+        if (v) map.set(v, 'float');
+      } else if (f.type === 'TREND') {
+        if (v) map.set(v, 'float');
+        if (f.ch2Enabled) map.set(sanitizeSymbol(f.ch2Variable, 'consigna'), 'float');
+        if (f.ch3Enabled) map.set(sanitizeSymbol(f.ch3Variable, 'salida'), 'float');
+      } else if (f.type === 'BOOL') {
+        if (v) map.set(v, 'bool');
+      } else if (f.type === 'ICON') {
+        if (v) map.set(v, f.iconVarType === 'uint8' ? 'uint8' : 'bool');
+      } else if (f.type === 'TEXT') {
+        if (v) map.set(v, 'char[]');
+      }
+    });
+    (Array.isArray(popups) ? popups : []).forEach((p) => {
+      if (!p) return;
+      if (p.triggerVar) map.set(sanitizeSymbol(p.triggerVar, ''), 'bool');
+      if (p.confirmOutVar) map.set(sanitizeSymbol(p.confirmOutVar, ''), 'bool');
     });
     return map;
   }
 
-  function validate(menus, fields = []) {
+  function menuViewMask(menu) {
+    if (!menu || !Array.isArray(menu.views) || !menu.views.length) return 0xFF;
+    const mask = menu.views.reduce((acc, v) => {
+      const n = Math.trunc(Number(v));
+      return Number.isInteger(n) && n >= 0 && n < 8 ? (acc | (1 << n)) : acc;
+    }, 0) & 0xFF;
+    return mask || 0xFF;
+  }
+
+  function validate(menus, fields = [], popups = []) {
     const errors = [];
     const warnings = [];
     if (menus.length > MAX_MENUS) errors.push(`Hay ${menus.length} MENU; el firmware admite ${MAX_MENUS}.`);
     const pagesSeen = new Map();
-    const fieldVars = fieldVariableTypes(fields);
+    const fieldVars = fieldVariableTypes(fields, popups);
     const menuVars = new Map();
     const ids = new Set(fields.map((f) => f.id));
+    const popupIds = new Set((Array.isArray(popups) ? popups : []).map((p) => Number(p?.id)).filter((id) => Number.isInteger(id)));
 
     menus.forEach((m) => {
       ensureState(m);
       const name = m.name || m.id;
       const page = Number(m.page || 0);
-      if (pagesSeen.has(page)) errors.push(`${name}: la página ya tiene el MENU ${pagesSeen.get(page)} (uno por página).`);
-      pagesSeen.set(page, name);
+      const myMask = menuViewMask(m);
+      const prevOnPage = pagesSeen.get(page) || [];
+      const clash = prevOnPage.find((entry) => (entry.mask & myMask) !== 0);
+      if (clash) errors.push(`${name}: la página ya tiene el MENU ${clash.name} (uno por página o subvista).`);
+      prevOnPage.push({ name, mask: myMask });
+      pagesSeen.set(page, prevOnPage);
       if (ids.has(m.id) && fields.find((f) => f.id === m.id && f !== m)) errors.push(`${name}: el ID ${m.id} ya lo usa otro objeto.`);
       if (m.nodes.length === 0) errors.push(`${name}: el árbol está vacío.`);
       if (m.nodes.length > MAX_NODES) errors.push(`${name}: ${m.nodes.length} nodos; máximo ${MAX_NODES}.`);
@@ -630,12 +669,28 @@
         const where = `${name} › ${n.label || n.type}`;
         if (n.parent && !nodeByKey(m.nodes, n.parent)) errors.push(`${where}: padre inexistente.`);
         if (levelOf(m.nodes, n) > MAX_DEPTH) errors.push(`${where}: supera la profundidad ${MAX_DEPTH}.`);
+        if (n.confirmPopupId !== undefined && n.confirmPopupId !== null && n.confirmPopupId !== '') {
+          const pid = Number(n.confirmPopupId);
+          if (!Number.isInteger(pid) || pid < 0 || pid > 254 || (popups.length > 0 && !popupIds.has(pid))) {
+            errors.push(`${where}: la ventana CONFIRM #${n.confirmPopupId} no existe.`);
+          }
+        }
+        if (n.targetView !== undefined && n.targetView !== null && n.targetView !== '' && Number(n.targetView) >= 0) {
+          const tv = Number(n.targetView);
+          if (!Number.isInteger(tv) || tv < 0 || tv >= 8) errors.push(`${where}: subvista destino ${n.targetView} fuera de rango (0..7).`);
+        }
         if (n.type === 'SUBMENU') {
           if (childrenOf(m.nodes, n.key).length === 0) warnings.push(`${where}: submenú vacío (no se puede abrir).`);
           noGlyphWarning(where, n.label);
           return;
         }
         if (n.type === 'GO_IDLE') {
+          noGlyphWarning(where, n.label);
+          return;
+        }
+        if (n.type === 'GO_VIEW') {
+          const tv = Number(n.targetView);
+          if (!Number.isInteger(tv) || tv < 0 || tv >= 8) errors.push(`${where}: GO_VIEW requiere subvista destino (0..7).`);
           noGlyphWarning(where, n.label);
           return;
         }
@@ -679,7 +734,7 @@
 
   function wrapNodeModifiers(nodeCppStr, n) {
     let out = nodeCppStr;
-    if ((n.valuePrefix || Number(n.zeroPad) > 1) && n.type !== 'SUBMENU' && n.type !== 'GO_IDLE' && n.valueType !== 'bool') {
+    if ((n.valuePrefix || Number(n.zeroPad) > 1) && n.type !== 'SUBMENU' && n.type !== 'GO_IDLE' && n.type !== 'GO_VIEW' && n.valueType !== 'bool') {
       const pfx = n.valuePrefix ? cppString(n.valuePrefix) : 'nullptr';
       const pad = Math.max(0, Math.min(6, Math.trunc(num(n.zeroPad, 0))));
       out = `JWPLC_UIMenuNodeFormat(${out}, ${pfx}, ${pad})`;
@@ -693,6 +748,18 @@
     if (n.hasPillColors) {
       out = `JWPLC_UIMenuNodePill(${out}, ${hex565(n.pillFalseBg ?? 0x05E0)}, ${hex565(n.pillTrueBg ?? 0xC800)}, ${hex565(n.pillTextColor ?? 0xFFFF)})`;
     }
+    if (n.type !== 'GO_VIEW' && n.targetView !== undefined && n.targetView !== null && n.targetView !== '') {
+      const tv = Math.trunc(Number(n.targetView));
+      if (Number.isInteger(tv) && tv >= 0 && tv < 8) {
+        out = `JWPLC_UIMenuNodeTargetView(${out}, ${tv})`;
+      }
+    }
+    if (n.confirmPopupId !== undefined && n.confirmPopupId !== null && n.confirmPopupId !== '') {
+      const pid = Math.trunc(Number(n.confirmPopupId));
+      if (Number.isInteger(pid) && pid >= 0 && pid <= 254) {
+        out = `JWPLC_UIMenuNodeConfirm(${out}, ${pid})`;
+      }
+    }
     return out;
   }
 
@@ -704,6 +771,7 @@
     const decimals = clamp(Math.trunc(num(n.decimals, 1)), 0, 6);
     if (n.type === 'SUBMENU') return wrapNodeModifiers(`JWPLC_UIMenuSubmenu(${parent}, ${label})`, n);
     if (n.type === 'GO_IDLE') return wrapNodeModifiers(`JWPLC_UIMenuGoIdle(${parent}, ${label})`, n);
+    if (n.type === 'GO_VIEW') return wrapNodeModifiers(`JWPLC_UIMenuGoView(${parent}, ${label}, ${clamp(Math.trunc(num(n.targetView, 0)), 0, 7)})`, n);
     if (n.type === 'VIEW') {
       if (n.valueType === 'bool') return wrapNodeModifiers(`JWPLC_UIMenuView(${parent}, ${label}, ${variable}, ${cppString(n.falseText)}, ${cppString(n.trueText)})`, n);
       if (n.valueType === 'int32') return wrapNodeModifiers(`JWPLC_UIMenuView(${parent}, ${label}, ${variable}, ${unit})`, n);
@@ -722,12 +790,13 @@
     return cppFloat(value);
   }
 
-  // generate(menus, { fields, pageSymbol(pageId) }) ->
+  // generate(menus, { fields, popups, pageSymbol(pageId) }) ->
   //   { errors, warnings, variables, declarations, setup }
   function generate(menus, context = {}) {
     const fields = context.fields || [];
+    const popups = context.popups || [];
     const pageSymbol = context.pageSymbol || ((id) => String(id));
-    const { errors, warnings } = validate(menus, fields);
+    const { errors, warnings } = validate(menus, fields, popups);
     if (!menus.length) return { errors, warnings, variables: '', declarations: '', setup: '' };
 
     const fieldVars = fieldVariableTypes(fields);
@@ -786,12 +855,17 @@
         `        ${m.frame ? 'true' : 'false'},\n` +
         `        JWPLC_UIMenuColors(\n` +
         `            ${[c.text, c.background, c.value, c.selectText, c.selectBackground, c.editText, c.editBackground, c.title, c.titleBackground, c.frame].map(hex565).join(',\n            ')})${fontArg})`;
-      const wrapped = isCardsStyle(m)
+      let wrapped = isCardsStyle(m)
         ? `    JWPLC_UIMenuCardStyle(\n${baseField.replace(/^    /gm, '        ')},\n` +
           `        ${effectiveRowGap(m)}, ${Math.max(0, Math.trunc(num(m.cornerRadius, 4)))}, ${effectiveRowPadY(m)}, ${effectiveRowPadX(m)}, ` +
           `${m.inlineValue ? 'true' : 'false'}, ${m.selectOutlineOnly ? 'true' : 'false'}, ` +
           `${hex565(m.cardBackground ?? 0x18E3)}, ${hex565(m.cardBorder ?? 0x39E7)})`
         : baseField;
+      const mask = menuViewMask(m);
+      if (mask !== 0xFF) {
+        const maskHex = `0x${mask.toString(16).toUpperCase().padStart(2, '0')}U`;
+        wrapped = `    JWPLC_UIMenuViews(\n${wrapped.replace(/^    /gm, '        ')},\n        ${maskHex})`;
+      }
       menuEntries.push(wrapped);
     });
 
@@ -821,6 +895,7 @@
     const symbols = new Map((window.JWPLCHMICodegen?.getPageSymbols?.() || []).map((p) => [p.id, p.symbol]));
     const out = generate(menus, {
       fields: (editor()?.getAllFields?.() || []).filter((f) => f.type !== 'MENU'),
+      popups: window.JWPLCHMIPopups?.all?.() || [],
       pageSymbol: (id) => symbols.get(id) || String(id)
     });
 
@@ -942,6 +1017,10 @@
             <div class="bar-card-section-title">Página</div>
             <div class="insp-chip-row" data-menu-pages></div>
           </div>
+          <div class="bar-card" data-menu-views-card hidden>
+            <div class="bar-card-section-title">Subvistas</div>
+            <div class="insp-chip-row" data-menu-views></div>
+          </div>
           <div class="bar-card">
             <div class="insp-two">
               <label class="field-label">X (px)<input class="field-input" data-menu-prop="x" type="number" min="0" max="319" /></label>
@@ -961,6 +1040,7 @@
               <button type="button" class="insp-chip" data-menu-add="VIEW">◉ Ver</button>
               <button type="button" class="insp-chip" data-menu-add="EDIT_NUM">± Editar nº</button>
               <button type="button" class="insp-chip" data-menu-add="EDIT_BOOL">⏻ Editar ON/OFF</button>
+              <button type="button" class="insp-chip" data-menu-add="GO_VIEW" title="Con OK cambia a otra subvista de esta misma página sin añadir pestañas">↳ Ir a subvista</button>
               <button type="button" class="insp-chip" data-menu-add="GO_IDLE" title="Con OK vuelve a la pantalla IDLE (útil con «Volver a la IDLE: Nunca»)">⏎ Ir al inicio</button>
             </div>
           </div>
@@ -1205,18 +1285,25 @@
   function renderTree(field) {
     const host = section.querySelector('[data-menu-tree]');
     const selectedKey = ui(field).nodeKey;
-    const signature = JSON.stringify([field.nodes.map((n) => [n.key, n.parent, n.type, n.label, n.falseText, n.variable]), selectedKey]);
+    const signature = JSON.stringify([field.nodes.map((n) => [n.key, n.parent, n.type, n.label, n.falseText, n.variable, n.targetView, n.confirmPopupId]), selectedKey]);
     if (host.dataset.signature === signature) return;
     host.dataset.signature = signature;
     const rows = [];
     const walk = (parentKey, depth) => {
       const siblings = childrenOf(field.nodes, parentKey);
       siblings.forEach((n, i) => {
+        const treeSub = n.type === 'SUBMENU'
+          ? `${childrenOf(field.nodes, n.key).length} ítems`
+          : n.type === 'GO_IDLE'
+            ? '→ IDLE'
+            : n.type === 'GO_VIEW'
+              ? `→ V${Number(n.targetView || 0) + 1}`
+              : escapeHtml(n.variable);
         rows.push(`
           <div class="menu-tree-row${n.key === selectedKey ? ' active' : ''}" data-menu-node="${n.key}" style="padding-left:${6 + (depth - 1) * 14}px">
             <span class="menu-tree-icon">${NODE_TYPES[n.type].icon}</span>
             <span class="menu-tree-label">${escapeHtml(n.label || n.falseText || '(sin texto)')}</span>
-            <span class="menu-tree-var">${n.type === 'SUBMENU' ? `${childrenOf(field.nodes, n.key).length} ítems` : n.type === 'GO_IDLE' ? '→ IDLE' : escapeHtml(n.variable)}</span>
+            <span class="menu-tree-var">${treeSub}</span>
             <span class="menu-tree-btns">
               <button type="button" data-menu-move="-1" ${i === 0 ? 'disabled' : ''} title="Subir">▲</button>
               <button type="button" data-menu-move="1" ${i === siblings.length - 1 ? 'disabled' : ''} title="Bajar">▼</button>
@@ -1238,7 +1325,13 @@
   function renderNodeEditor(field) {
     const host = section.querySelector('[data-menu-node-editor]');
     const node = ui(field).nodeKey ? nodeByKey(field.nodes, ui(field).nodeKey) : null;
-    const signature = node ? `${node.key}|${node.type}|${node.valueType}|${Boolean(node.directToggle)}|${ui(field).editing}` : 'none';
+    const pageViews = editor()?.getPageViews?.(field.page || 0) || [{ id: 0, name: 'Principal' }];
+    const popups = window.JWPLCHMIPopups?.all?.() || [];
+    const viewsSig = pageViews.map((v) => `${v.id}:${v.name}`).join(',');
+    const popupsSig = popups.map((p) => `${p.id}:${p.preset}:${p.title || p.name || ''}`).join(',');
+    const signature = node
+      ? `${node.key}|${node.type}|${node.valueType}|${Boolean(node.directToggle)}|${ui(field).editing}|${viewsSig}|${popupsSig}`
+      : 'none';
     if (host.dataset.signature !== signature) {
       host.dataset.signature = signature;
       if (!node) {
@@ -1248,10 +1341,19 @@
       const t = node.type;
       const kinds = NODE_TYPES[t].kinds;
       const isBool = node.valueType === 'bool';
+      const maxViews = Math.max(pageViews.length, Number.isInteger(Number(node.targetView)) ? Number(node.targetView) + 1 : 0, t === 'GO_VIEW' ? 2 : 0);
+      const viewOptions = Array.from({ length: Math.min(8, maxViews) }, (_, idx) => {
+        const found = pageViews.find((v) => Number(v.id) === idx);
+        const label = found ? found.name : `Vista ${idx + 1}`;
+        return `<option value="${idx}">Vista ${idx + 1} · ${escapeHtml(label)}</option>`;
+      }).join('');
+      const popupOptions = popups.map((p) =>
+        `<option value="${Number(p.id)}">#${Number(p.id)} · [${escapeHtml(p.preset)}] ${escapeHtml(p.title || p.name || 'Popup')}</option>`).join('');
       host.innerHTML = `
         <div class="bar-card-section-title">${NODE_TYPES[t].icon} ${NODE_TYPES[t].label} · nivel ${levelOf(field.nodes, node)}</div>
         <label class="field-label">Texto del ítem<input class="field-input" data-node-prop="label" type="text" maxlength="39" /></label>
         ${t === 'GO_IDLE' ? '<div class="insp-note">Con OK vuelve a la pantalla IDLE (<code>JWPLC_UIMenuGoIdle</code>). Úsalo con «Volver a la IDLE: Nunca» para que la salida la decida el menú.</div>' : ''}
+        ${t === 'GO_VIEW' ? '<div class="insp-note">Con OK cambia a otra subvista de esta misma página sin añadir pestañas a la NAV_BAR (<code>JWPLC_UIMenuGoView</code>).</div>' : ''}
         ${!hasVariable(node) ? '' : `
           <label class="field-label">Variable C++<input class="field-input code-input" data-node-prop="variable" type="text" maxlength="32" /></label>
           ${kinds.length > 1 ? `<span class="bar-visual-group-title insp-gap">Tipo</span><div class="insp-chip-row">${chips('data-node-kind', kinds.map((k) => [k, k === 'int32' ? 'int32_t' : k]), node.valueType)}</div>` : `<div class="insp-readouts"><span>Tipo <code class="insp-type-chip">${CPP_TYPE[node.valueType]}</code></span></div>`}
@@ -1285,14 +1387,33 @@
           `}
           ${(t === 'EDIT_NUM' || (t === 'EDIT_BOOL' && !node.directToggle)) ? `
             <button type="button" class="bar-visual-btn insp-toggle insp-wide insp-gap${ui(field).editing ? ' active' : ''}" data-node-preview-edit><span>Ver en el lienzo como "editando"</span><strong>${ui(field).editing ? 'Sí' : 'No'}</strong></button>` : ''}
-        `}`;
+        `}
+        ${t === 'GO_VIEW' || (t !== 'GO_IDLE' && t !== 'SUBMENU') ? `
+          <label class="field-label insp-gap">Subvista destino al pulsar OK
+            <select class="field-input" data-node-prop="targetView">
+              ${t === 'GO_VIEW' ? '' : '<option value="-1">Sin cambio de subvista</option>'}
+              ${viewOptions}
+            </select>
+          </label>` : ''}
+        ${t !== 'SUBMENU' ? `
+          <label class="field-label insp-gap">Confirmación previa (ventana CONFIRM)
+            <select class="field-input" data-node-prop="confirmPopupId">
+              <option value="-1">Ejecución directa (sin popup)</option>
+              ${popupOptions}
+            </select>
+          </label>` : ''}`;
     }
     if (!node) return;
     host.querySelectorAll('[data-node-prop]').forEach((input) => {
       if (document.activeElement === input) return;
       const v = node[input.dataset.nodeProp];
       if (input.dataset.nodeProp === 'lrStep') input.value = (v && Number(v) > 0) ? String(v) : '';
-      else input.value = v ?? '';
+      else if (input.dataset.nodeProp === 'targetView') {
+        const fallback = node.type === 'GO_VIEW' ? '0' : '-1';
+        input.value = (v !== undefined && v !== null && Number(v) >= 0) ? String(Number(v)) : fallback;
+      } else if (input.dataset.nodeProp === 'confirmPopupId') {
+        input.value = (v !== undefined && v !== null && Number(v) >= 0) ? String(Number(v)) : '-1';
+      } else input.value = v ?? '';
     });
   }
 
@@ -1356,12 +1477,23 @@
     pagesHost.innerHTML = pages.map((p) =>
       `<button type="button" class="insp-chip${Number(p.id) === Number(field.page || 0) ? ' active' : ''}" data-menu-page="${p.id}">${String(Number(p.id) + 1).padStart(2, '0')} · ${escapeHtml(p.name)}</button>`).join('');
 
+    const viewsHost = section.querySelector('[data-menu-views]');
+    const viewsCard = section.querySelector('[data-menu-views-card]');
+    if (viewsHost && viewsCard) {
+      const pageViews = editor()?.getPageViews?.(field.page || 0) || [{ id: 0, name: 'Principal' }];
+      viewsCard.hidden = pageViews.length <= 1;
+      const activeSet = new Set(Array.isArray(field.views) && field.views.length ? field.views.map(Number) : pageViews.map((v) => Number(v.id)));
+      viewsHost.innerHTML = pageViews.map((v) =>
+        `<button type="button" class="insp-chip${activeSet.has(Number(v.id)) ? ' active' : ''}" data-menu-view="${v.id}">${Number(v.id) + 1} · ${escapeHtml(v.name)}</button>`).join('');
+    }
+
     renderTree(field);
     renderNodeEditor(field);
 
     section.querySelector('[data-menu-contract]').textContent = contractText(field);
     const fields = editor()?.getAllFields?.() || [];
-    const { errors, warnings } = validate(fields.filter((f) => f.type === 'MENU'), fields.filter((f) => f.type !== 'MENU'));
+    const popups = window.JWPLCHMIPopups?.all?.() || [];
+    const { errors, warnings } = validate(fields.filter((f) => f.type === 'MENU'), fields.filter((f) => f.type !== 'MENU'), popups);
     section.querySelector('[data-menu-issues]').innerHTML =
       errors.map((e) => `<div class="menu-issue is-error">✕ ${escapeHtml(e)}</div>`).join('') +
       warnings.map((w) => `<div class="menu-issue">! ${escapeHtml(w)}</div>`).join('') ||
@@ -1431,9 +1563,43 @@
     const page = t.closest('[data-menu-page]');
     if (page) {
       const target = Number(page.dataset.menuPage);
-      const busy = (editor()?.getAllFields?.() || []).some((f) => f.type === 'MENU' && f !== field && Number(f.page || 0) === target);
-      if (busy) { window.JWPLCDialog.alert('Esa página ya tiene un MENU.'); return; }
+      const maskFor = (m) => {
+        const core = window.JWPLCHMICodegenCore;
+        const vs = core?.fieldViews?.(m);
+        if (!vs || !vs.length) return 0xFF;
+        return vs.reduce((acc, v) => acc | (1 << v), 0) & 0xFF;
+      };
+      const myMask = maskFor(field);
+      const busy = (editor()?.getAllFields?.() || []).some((f) => f.type === 'MENU' && f !== field && Number(f.page || 0) === target && (maskFor(f) & myMask) !== 0);
+      if (busy) { window.JWPLCDialog.alert('Esa página ya tiene otro MENU en la misma subvista.'); return; }
       editor()?.moveSelectedFieldToPage?.(target);
+      return;
+    }
+
+    const menuViewChip = t.closest('[data-menu-view]');
+    if (menuViewChip) {
+      const viewId = Number(menuViewChip.dataset.menuView);
+      const others = (editor()?.getAllFields?.() || []).filter((f) => f.type === 'MENU' && f !== field && Number(f.page || 0) === Number(field.page || 0));
+      const nextSet = new Set(Array.isArray(field.views) && field.views.length ? field.views.map(Number) : (editor()?.getPageViews?.(field.page) || [{ id: 0 }]).map((v) => Number(v.id)));
+      if (nextSet.has(viewId)) {
+        if (nextSet.size <= 1) { window.JWPLCDialog.alert('El MENU debe pertenecer al menos a una subvista.'); return; }
+        nextSet.delete(viewId);
+      } else {
+        nextSet.add(viewId);
+      }
+      const nextViews = [...nextSet].sort((a, b) => a - b);
+      const allViews = (editor()?.getPageViews?.(field.page) || [{ id: 0 }]).map((v) => Number(v.id));
+      const allSelected = nextViews.length >= allViews.length && allViews.every((v) => nextViews.includes(v));
+      const nextMask = nextViews.reduce((acc, v) => acc | (1 << v), 0);
+      const conflict = others.some((o) => {
+        const om = (Array.isArray(o.views) && o.views.length) ? o.views.reduce((acc, v) => acc | (1 << Number(v)), 0) : 0xFF;
+        return (om & nextMask) !== 0;
+      });
+      if (conflict) { window.JWPLCDialog.alert('Otro MENU de esta página ya ocupa esa subvista.'); return; }
+      mutate((f) => {
+        if (allSelected && !others.length) delete f.views;
+        else f.views = nextViews;
+      });
       return;
     }
 
@@ -1553,6 +1719,14 @@
           node.zeroPad = clamp(Math.trunc(num(t.value, 0)), 0, 6);
         } else if (prop === 'lrStep') {
           node.lrStep = t.value === '' ? 0 : clamp(Math.trunc(num(t.value, 0)), 0, 1000);
+        } else if (prop === 'targetView') {
+          const tv = Math.trunc(Number(t.value));
+          if (Number.isInteger(tv) && tv >= 0 && tv < 8) node.targetView = tv;
+          else delete node.targetView;
+        } else if (prop === 'confirmPopupId') {
+          const pid = Math.trunc(Number(t.value));
+          if (Number.isInteger(pid) && pid >= 0 && pid <= 254) node.confirmPopupId = pid;
+          else delete node.confirmPopupId;
         } else if (NUMERIC_PROPS.has(prop)) {
           if (t.value !== '' && Number.isFinite(Number(t.value))) node[prop] = Number(t.value);
         } else if (prop === 'variable') {
@@ -1587,6 +1761,13 @@
     },
     // Nodo seleccionado en el inspector (objeto vivo). Lo usa el modo OpenPLC
     // (designer-openplc-host.js) para guardar plcBinding en el nodo.
-    selectedNode: (field) => (field && ui(field).nodeKey ? nodeByKey(field.nodes || [], ui(field).nodeKey) : null)
+    selectedNode: (field) => (field && ui(field).nodeKey ? nodeByKey(field.nodes || [], ui(field).nodeKey) : null),
+    // Mutación copy-on-write sobre el nodo seleccionado (preserva Undo/Redo).
+    mutateSelectedNode: (fn, commit = true) => {
+      mutate((f) => {
+        const node = ui(f).nodeKey ? nodeByKey(f.nodes || [], ui(f).nodeKey) : null;
+        if (node) fn(node, f);
+      }, commit);
+    }
   };
 })();

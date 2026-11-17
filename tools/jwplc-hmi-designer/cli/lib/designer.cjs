@@ -112,7 +112,8 @@ class DesignerSession {
       const boxes = E.getAllFields().map((f, index) => {
         const b = E.getFieldBounds(f);
         const pages = core?.fieldPages ? core.fieldPages(f) : [Number(f.page || 0)];
-        return { index, id: f.id, type: f.type, page: Number(f.page || 0), pages, global: f.type === 'NAV_BAR', minX: b.minX, minY: b.minY, maxX: b.maxX, maxY: b.maxY };
+        const views = core?.fieldViews ? core.fieldViews(f) : null;
+        return { index, id: f.id, type: f.type, page: Number(f.page || 0), pages, views, global: f.type === 'NAV_BAR', minX: b.minX, minY: b.minY, maxX: b.maxX, maxY: b.maxY };
       });
       const issues = (window.JWPLCHMICodegen.validateIdentifiers?.() || []).map((i) => ({ property: i.property, canonical: i.canonical }));
       return { boxes, issues };
@@ -125,18 +126,25 @@ class DesignerSession {
       const E = window.JWPLCHMIEditor;
       const out = [];
       for (const page of E.getPages()) {
-        E.setActivePage(page.id);
-        E.setSelectedFieldKeys([]);
-        E.render();
-        await new Promise((r) => setTimeout(r, 150));
-        const src = document.getElementById('previewCanvas');
-        const canvas = document.createElement('canvas');
-        canvas.width = src.width * k;
-        canvas.height = src.height * k;
-        const ctx = canvas.getContext('2d');
-        ctx.imageSmoothingEnabled = false;
-        ctx.drawImage(src, 0, 0, canvas.width, canvas.height);
-        out.push({ id: page.id, name: page.name, data: canvas.toDataURL('image/png').split(',')[1] });
+        const views = E.getPageViews?.(page.id) || [{ id: 0, name: 'Principal' }];
+        for (let vi = 0; vi < views.length; vi += 1) {
+          const v = views[vi];
+          E.setActivePage(page.id);
+          if (E.setActivePageView) E.setActivePageView(v.id, page.id);
+          E.setSelectedFieldKeys([]);
+          E.render();
+          await new Promise((r) => setTimeout(r, 150));
+          const src = document.getElementById('previewCanvas');
+          const canvas = document.createElement('canvas');
+          canvas.width = src.width * k;
+          canvas.height = src.height * k;
+          const ctx = canvas.getContext('2d');
+          ctx.imageSmoothingEnabled = false;
+          ctx.drawImage(src, 0, 0, canvas.width, canvas.height);
+          const shotName = vi === 0 ? page.name : `${page.name}_V${v.id + 1}_${v.name || ''}`;
+          out.push({ id: page.id, name: shotName, data: canvas.toDataURL('image/png').split(',')[1] });
+        }
+        if (E.setActivePageView) E.setActivePageView(0, page.id);
       }
       E.setActivePage(0);
       return out;
@@ -167,6 +175,7 @@ function geometryWarnings(inspection, project) {
       const bPages = Array.isArray(b.pages) && b.pages.length ? b.pages : [b.page];
       const sharedPage = aPages.find((p) => bPages.includes(p));
       if (!(a.global || b.global) && sharedPage === undefined) continue;
+      if (!a.global && !b.global && Array.isArray(a.views) && Array.isArray(b.views) && !a.views.some((v) => b.views.includes(v))) continue;
       if (a.global && b.global) continue;
       if (b.type === 'NAV_BAR' && project.navigationBar?.preset === 'counter') continue;
       if (overlap(a, b)) warnings.push({ path: label(a), message: `se pisa con ${label(b)}${a.global || b.global ? '' : ` en la página ${sharedPage}`}: el último que se redibuja tapa al otro` });

@@ -503,7 +503,13 @@ namespace
     bool g_refreshRequested = false;
 
     uint8_t g_page = 0;
+    uint8_t g_pageViews[16] = {};
     bool g_pageRedrawPending = true;
+
+    uint8_t activeSubView()
+    {
+        return (g_page < 16U) ? g_pageViews[g_page] : 0U;
+    }
 
     bool userModeVisible()
     {
@@ -586,7 +592,7 @@ namespace
                 continue;
             }
 
-            if (!JWPLC_UIFieldOnPage(f.def->meta, g_page))
+            if (!JWPLC_UIFieldOnPageView(f.def->meta, g_page, activeSubView()))
             {
                 continue;
             }
@@ -645,7 +651,7 @@ namespace
     {
         field.dirty = true;
 
-        if (JWPLC_UIFieldOnPage(field.def->meta, g_page))
+        if (JWPLC_UIFieldOnPageView(field.def->meta, g_page, activeSubView()))
         {
             requestCurrentViewRefresh();
         }
@@ -3501,10 +3507,11 @@ namespace JWPLCUI
         g_page = page;
         g_pageRedrawPending = true;
 
+        const uint8_t subView = activeSubView();
         for (size_t i = 0; i < g_fieldCount; ++i)
         {
             if (isFieldUsed(g_fields[i]) &&
-                JWPLC_UIFieldOnPage(g_fields[i].def->meta, g_page))
+                JWPLC_UIFieldOnPageView(g_fields[i].def->meta, g_page, subView))
             {
                 resetFieldRedrawState(g_fields[i]);
             }
@@ -3516,6 +3523,55 @@ namespace JWPLCUI
     uint8_t currentPage()
     {
         return g_page;
+    }
+
+    void setPageView(uint8_t page, uint8_t subView)
+    {
+        jwplcUIRuntimeEnsureLinked();
+
+        if (page >= 16U || subView >= 8U)
+        {
+            return;
+        }
+
+        if (g_pageViews[page] == subView)
+        {
+            return;
+        }
+
+        g_pageViews[page] = subView;
+        jwplcUIMenuOnViewChanged(page, subView);
+
+        if (page == g_page)
+        {
+            g_pageRedrawPending = true;
+
+            for (size_t i = 0; i < g_fieldCount; ++i)
+            {
+                if (isFieldUsed(g_fields[i]) &&
+                    JWPLC_UIFieldOnPageView(g_fields[i].def->meta, g_page, subView))
+                {
+                    resetFieldRedrawState(g_fields[i]);
+                }
+            }
+
+            requestCurrentViewRefresh();
+        }
+    }
+
+    void setPageView(uint8_t subView)
+    {
+        setPageView(g_page, subView);
+    }
+
+    uint8_t pageView(uint8_t page)
+    {
+        return (page < 16U) ? g_pageViews[page] : 0U;
+    }
+
+    uint8_t pageView()
+    {
+        return activeSubView();
     }
 
     bool pageRedrawPending()
@@ -3564,10 +3620,11 @@ namespace JWPLCUI
     {
         g_pageRedrawPending = true;
 
+        const uint8_t subView = activeSubView();
         for (size_t i = 0; i < g_fieldCount; ++i)
         {
             if (isFieldUsed(g_fields[i]) &&
-                JWPLC_UIFieldOnPage(g_fields[i].def->meta, g_page))
+                JWPLC_UIFieldOnPageView(g_fields[i].def->meta, g_page, subView))
             {
                 resetFieldRedrawState(g_fields[i]);
             }
@@ -3578,11 +3635,13 @@ namespace JWPLCUI
 
     void drawStatic(JWPLC_TFTClass &tft)
     {
+        const uint8_t subView = activeSubView();
         for (size_t i = 0; i < g_fieldCount; ++i)
         {
             FieldRuntime &field = g_fields[i];
 
-            if (!isFieldUsed(field) || !JWPLC_UIFieldOnPage(field.def->meta, g_page))
+            if (!isFieldUsed(field) ||
+                !JWPLC_UIFieldOnPageView(field.def->meta, g_page, subView))
             {
                 continue;
             }
@@ -3602,19 +3661,35 @@ namespace JWPLCUI
             profile ? micros() : 0U;
 
         uint32_t dirtyCount = 0U;
+        uint32_t drawnCount = 0U;
+        const uint8_t subView = activeSubView();
 
         for (size_t i = 0; i < g_fieldCount; ++i)
         {
             FieldRuntime &field = g_fields[i];
 
             if (!isFieldUsed(field) ||
-                !JWPLC_UIFieldOnPage(field.def->meta, g_page) ||
+                !JWPLC_UIFieldOnPageView(field.def->meta, g_page, subView) ||
                 !field.dirty)
             {
                 continue;
             }
 
             ++dirtyCount;
+
+            if (field.fieldW <= 0 || field.fieldH <= 0)
+            {
+                computeFieldGeometry(tft, field);
+            }
+
+            if (jwplcUIOverlayOverlapsRect(field.fieldX, field.fieldY, field.fieldW, field.fieldH))
+            {
+                // El modal activo cubre este campo y al cerrarse invalida toda la pantalla.
+                field.dirty = false;
+                continue;
+            }
+
+            ++drawnCount;
 
             if (field.staticDirty)
             {
@@ -3623,6 +3698,8 @@ namespace JWPLCUI
 
             drawFieldValue(tft, field);
         }
+
+        (void)drawnCount;
 
         if (profile)
         {
@@ -3663,6 +3740,26 @@ void JWPLC_DisplayClass::setUserPage(uint8_t page)
 uint8_t JWPLC_DisplayClass::userPage() const
 {
     return JWPLCUI::currentPage();
+}
+
+void JWPLC_DisplayClass::setPageView(uint8_t page, uint8_t subView)
+{
+    JWPLCUI::setPageView(page, subView);
+}
+
+void JWPLC_DisplayClass::setPageView(uint8_t subView)
+{
+    JWPLCUI::setPageView(subView);
+}
+
+uint8_t JWPLC_DisplayClass::pageView(uint8_t page) const
+{
+    return JWPLCUI::pageView(page);
+}
+
+uint8_t JWPLC_DisplayClass::pageView() const
+{
+    return JWPLCUI::pageView();
 }
 
 bool JWPLC_DisplayClass::setFields(const JWPLC_UIField *fields, size_t count)

@@ -73,21 +73,21 @@
     style.id = 'a11-project-integration-style';
     style.textContent = `
       .a11-project-button.linked {
-        border-color: rgba(67, 209, 122, 0.48) !important;
-        background: rgba(67, 209, 122, 0.11) !important;
-        color: #7af0ae !important;
+        border-color: rgba(67, 209, 122, 0.48);
+        background: rgba(67, 209, 122, 0.11);
+        color: #7af0ae;
         box-shadow: inset 0 1px 0 rgba(67, 209, 122, 0.18);
       }
       .a11-project-button.update-ready:not(:disabled) {
-        border-color: rgba(0, 215, 239, 0.55) !important;
-        background: linear-gradient(180deg, rgba(0, 215, 239, 0.15) 0%, rgba(0, 215, 239, 0.07) 100%) !important;
-        color: #52c9ff !important;
+        border-color: rgba(0, 215, 239, 0.55);
+        background: linear-gradient(180deg, rgba(0, 215, 239, 0.15) 0%, rgba(0, 215, 239, 0.07) 100%);
+        color: #52c9ff;
         box-shadow: inset 0 -2px 0 rgba(0, 215, 239, 0.45);
       }
       .a11-project-button.update-ready:not(:disabled):hover {
-        border-color: #00d7ef !important;
-        background: linear-gradient(180deg, rgba(0, 215, 239, 0.24) 0%, rgba(0, 215, 239, 0.12) 100%) !important;
-        color: #ffffff !important;
+        border-color: #00d7ef;
+        background: linear-gradient(180deg, rgba(0, 215, 239, 0.24) 0%, rgba(0, 215, 239, 0.12) 100%);
+        color: #ffffff;
       }
       .a11-project-status {
         display:inline-flex;
@@ -262,7 +262,18 @@
 
   function serializeProject() {
     const api = editor();
-    const pages = api?.getPages?.() || [{ id: 0, name: 'Principal' }];
+    const pages = (api?.getPages?.() || [{ id: 0, name: 'Principal' }]).map((page) => {
+      const copy = { ...page };
+      if (Array.isArray(copy.views)) {
+        const cleanViews = copy.views.map((v, i) => ({ id: i, name: String(v?.name || `Vista ${i + 1}`) }));
+        if (cleanViews.length > 1 || (cleanViews.length === 1 && cleanViews[0].name !== 'Principal')) {
+          copy.views = cleanViews;
+        } else {
+          delete copy.views;
+        }
+      }
+      return copy;
+    });
     const fields = (api?.getAllFields?.() || []).map((field) => {
       const copy = { ...field };
       delete copy.key;
@@ -270,6 +281,7 @@
       Object.keys(copy).forEach((k) => { if (k.startsWith('_')) delete copy[k]; });
       return copy;
     });
+    const popups = window.JWPLCHMIPopups?.serialize?.() || [];
 
     return {
       format: PROJECT_FORMAT,
@@ -291,6 +303,7 @@
       projectType: window.JWPLCHMIRuntime?.get?.() || 'arduino',
       pages,
       fields,
+      popups,
       // Alpha16: copia de los iconos usados (se abre igual si cambia el catálogo).
       iconAssets: window.JWPLCHMIIcons?.assetsFor?.(fields),
       declarativeOnly: true
@@ -399,7 +412,9 @@
     const pages = normalized.pages.slice().sort((a, b) => Number(a.id) - Number(b.id));
 
     suppressDirty = true;
+    window.JWPLCHMIPopups?.closeMode?.();
     document.getElementById('newProjectButton')?.click();
+    window.JWPLCHMIPopups?.load?.(Array.isArray(normalized.popups) ? normalized.popups : []);
 
     if (normalized.navigationBar && api.setNavBarConfig) {
       api.setNavBarConfig(normalized.navigationBar);
@@ -416,6 +431,9 @@
     }
 
     pages.forEach((p) => {
+      if (Array.isArray(p.views) && p.views.length && api.setPageViews) {
+        api.setPageViews(p.id, p.views);
+      }
       if (api.setPageMetadata) {
         api.setPageMetadata(p.id, { shortName: p.shortName, color: p.color });
       }
@@ -753,7 +771,7 @@
     if (generateButton && !document.getElementById('linkSketchButton')) {
       const link = document.createElement('button');
       link.id = 'linkSketchButton';
-      link.className = 'a11-project-button tb-btn tb-group-end';
+      link.className = 'a11-project-button tb-btn tb-group-start';
       link.type = 'button';
       link.textContent = 'Vincular sketch…';
       link.title = 'Seleccionar la carpeta del sketch Arduino';
@@ -761,19 +779,19 @@
 
       const update = document.createElement('button');
       update.id = 'updateHmiButton';
-      update.className = 'a11-project-button update-ready tb-btn tb-group-mid';
+      update.className = 'a11-project-button update-ready tb-btn tb-group-end';
       update.type = 'button';
       update.textContent = 'Escribir en sketch';
       update.title = `Escribir ${HEADER_NAME} y el proyecto .jwhmi en la carpeta del sketch vinculado`;
       update.disabled = true;
       update.addEventListener('click', updateGeneratedHeader);
 
-      generateButton.insertAdjacentElement('afterend', update);
-      update.insertAdjacentElement('afterend', link);
-      if (!link.nextElementSibling?.classList?.contains('separator')) {
+      generateButton.insertAdjacentElement('afterend', link);
+      link.insertAdjacentElement('afterend', update);
+      if (!update.nextElementSibling?.classList?.contains('separator')) {
         const separator = document.createElement('span');
         separator.className = 'separator';
-        link.insertAdjacentElement('afterend', separator);
+        update.insertAdjacentElement('afterend', separator);
       }
     }
 
@@ -816,6 +834,8 @@
     document.getElementById('newProjectButton')?.addEventListener('click', () => {
       projectFileHandle = null;
       projectName = 'HMI_ST7789';
+      window.JWPLCHMIPopups?.load?.([]);
+      window.JWPLCHMIPopups?.closeMode?.();
       if (!suppressDirty) {
         setDirty(true);
         unlinkSketch();

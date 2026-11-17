@@ -3041,8 +3041,8 @@
     while (searchPos < text.length) {
       const idIdx = text.indexOf(target, searchPos);
       if (idIdx < 0) return text;
-      const prefix = text.slice(Math.max(0, idIdx - 120), idIdx);
-      const helperMatch = prefix.match(/(?:JWPLC_UITextField|JWPLC_UIBarField|JWPLC_UIGradientBarField|JWPLC_UICircularField)\s*\(\s*$/);
+      const prefix = text.slice(Math.max(0, idIdx - 220), idIdx);
+      const helperMatch = prefix.match(/(?:JWPLC_UIFieldViews\s*\(\s*)?(?:JWPLC_UIFieldPages\s*\(\s*)?(?:JWPLC_UITextField|JWPLC_UIBarField|JWPLC_UIGradientBarField|JWPLC_UICircularField)\s*\(\s*$/);
       if (helperMatch) {
         const helperStart = idIdx - prefix.length + helperMatch.index;
         let start = helperStart;
