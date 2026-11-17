@@ -16,7 +16,7 @@ permissions:
 env:
   # Commit de jwplc-sim del gate SIM_REGRESSION. Debe ser el mismo que el de
   # «uses:» del job sim-regression (y el de ci-jwplc-package-smoke.yml).
-  JWSIM_REF: "502137723d1af75d22081bd1b08965d51fced1da"
+  JWSIM_REF: "3c407db566ddbce940d8e6e78426e8620362e388"
 
 jobs:
   # Gate SIM_REGRESSION (JWPLC Sim, G5): compila y simula este árbol del
@@ -47,9 +47,9 @@ jobs:
     name: SIM_REGRESSION (JWPLC Sim)
     needs: sim-cache
     if: ${{ needs.sim-cache.outputs.reuse != 'true' }}
-    uses: JW-Control/jwplc-sim/.github/workflows/sim-regression.yml@502137723d1af75d22081bd1b08965d51fced1da
+    uses: JW-Control/jwplc-sim/.github/workflows/sim-regression.yml@3c407db566ddbce940d8e6e78426e8620362e388
     with:
-      sim_ref: 502137723d1af75d22081bd1b08965d51fced1da
+      sim_ref: 3c407db566ddbce940d8e6e78426e8620362e388
 
   release:
     name: Preparar y publicar package JWPLC
