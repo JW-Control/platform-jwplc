@@ -109,3 +109,17 @@ Por eso el Designer seguía copiando el mapa de bits al header.
 - `[ejecutado]` compilación ESP32 de los 16 ejemplos de `JWPLC_Display` y los 5 de `pruebas-ia`: 21/21, 0 advertencias.
   HMI Designer `tests/run-all.cjs`: 34/34 (`icon-smoke` vuelve a exigir la llamada nativa y que no haya mapas de bits
   del catálogo en el header).
+
+## 7. Tercera regeneración (17/11): Subvistas, Popups I4–I6 y `beginBatch()` anidado (`JWPLC_Display` y `JWPLC_TFT`)
+
+Tras incorporar subvistas por página (`viewMask`), árbitro único de teclas (`I4`), motor modal (`JWPLC_UIPopup`, `I5–I6` con escala `1×–3×`, navegación `targetPage`/`targetView` en todos los presets, control de foco `CONFIRM` y bloqueo selectivo de redibujado bajo popups), eliminación del destello negro en tarjetas `MENU` y `beginBatch()`/`endBatch()` anidados por profundidad en `JWPLC_TFT`:
+
+| `.a` | Bytes | SHA-256 | Símbolos eliminados / añadidos |
+|---|---|---|---|
+| `libJWPLC_TFT.a` | 1 665 232 | `24b1b6ec69679e385f3777798234670fe709f0a9b488cada3f720c209c000863` | 0 / 16 |
+| `libJWPLC_Display.a` | 3 063 132 | `df6548badeed94de3db10cfad53291fec96a19b88ae8bf424058ab34e7918e75` | 0 / 57 |
+
+- `STRONG_SYMBOLS_REMOVED=0` en ambas librerías; `IMPORTS_FROM_OTHER_LIBS_MISSING=0`.
+- Ambas librerías vuelven a distribuirse con `precompiled=full` en `library.properties`.
+- `[ejecutado]` compilación ESP32 real (`jwplc_local:esp32:jwplcbasic`) enlazando contra las `.a` nuevas de 5 ejemplos base de `JWPLC_Display` (`01`, `02`, `06`, `09`, `14`) y proyectos de `tools/jwplc-hmi-designer/pruebas-ia/`.
+- `[ejecutado]` HMI Designer `tests/run-all.cjs`: 31/31 `PASS` (5 `SKIP` en host por ausencia de `g++` en Windows).

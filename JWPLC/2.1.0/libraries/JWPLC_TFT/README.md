@@ -767,6 +767,10 @@ Para código nuevo se recomienda dibujar con el objeto global `JWPLC_TFT`
 (`JWPLC_TFT.fillRect(...)`, `JWPLC_TFT.print(...)`), sin `::`, `*` ni `&` en el
 sketch. Código antiguo con `auto &tft = JWPLC_Display.tft();` sigue compilando.
 
+## Novedades de 0.5.0 (2.1.0-alpha.17)
+
+- **`beginBatch()` / `endBatch()` anidados por profundidad**: la misma tarea FreeRTOS puede anidar llamadas de batch sin liberar prematuramente el lock SPI ni el recorte hasta el último `endBatch()` correspondiente.
+
 ## Novedades de 0.4.0 y 0.5.0 (2.1.0-alpha.16)
 
 - **Recorte:** `setClipRect(x, y, w, h)` / `resetClip()` / `clipActive()`, dentro de un batch (los callbacks USER
@@ -784,7 +788,7 @@ sketch. Código antiguo con `auto &tft = JWPLC_Display.tft();` sigue compilando.
 Documentado para:
 
 ```text
-JWPLC ESP32 v2.1.0-alpha.16
+JWPLC ESP32 v2.1.0-alpha.17
 JWPLC_TFT 0.5.0 (precompilada: src/esp32/libJWPLC_TFT.a)
 ```
 

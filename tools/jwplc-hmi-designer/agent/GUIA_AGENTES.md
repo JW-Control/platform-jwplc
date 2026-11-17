@@ -113,11 +113,14 @@ La CLI acepta un JSON mínimo y completa el resto con los mismos valores por def
   silueta del icono: úsalo para poner equipos sobre un `RECT` de color.
 - MENU: uno por página (o varios en la misma página si usan subvistas `views` disjuntas); necesita teclas (▲▼ OK ESC).
 - **Subvistas por página (`views`):** cualquier página (`pages[i]`) puede tener de `1` a `8` subvistas internas (`views: ["Config", "Medicion"]` o `{ id, name }`) que cambian **en sitio** sin añadir pestañas a la `NAV_BAR` ni incrementar `NN/TT`.
-  - Cada objeto (`TEXT`, `VALUE`, `BOOL`, `BAR`, `ICON`, `TREND`, `MENU`, figuras, `RAW_TEXT`) acepta `views: [0]` / `[1]` (si se omite o está vacío se muestra en todas las subvistas de la página). Objetos en subvistas disjuntas no generan aviso de solapamiento.
+  - Cada objeto (`TEXT`, `VALUE`, `BOOL`, `BAR`, `ICON`, `TREND`, `QR`, `MENU`, figuras, `RAW_TEXT`) acepta `views: [0]` / `[1]` (si se omite o está vacío se muestra en todas las subvistas de la página). Objetos en subvistas disjuntas no generan aviso de solapamiento.
   - En `MENU`, usa nodos `type: "GO_VIEW"` (`targetView: 1`) o añade `targetView` / `confirmPopupId` a nodos editables para cambiar de subvista tras confirmar con OK.
+- **Código `QR` (`type: "QR"`):** dibuja códigos QR ISO/IEC 18004 (`sourceMode`: `"STATIC"` en Flash o `"VARIABLE"` con `char[]` y `JWPLC_UIQR`), con `preset` (`"WIFI"`, `"URL"`, `"TEXT"`), `text`, `scale` (`1..4`), `ecc` (`L|M|Q|H`), `quietZone` (`0..4`) y `frame`.
 - **Ventanas emergentes modales (`popups[]`, I5–I6):** hasta `12` modales superpuestos sobre IDLE y USER sin añadir páginas (`preset`: `"INFO"`, `"WARN"`, `"CRIT"`, `"CONFIRM"`).
   - Propiedades principales: `id` (`0..254`), `name` (`POPUP_<NOMBRE>`), `title`, `message`, `messageTextSize` (`1` = 6×8 px, `2` = 12×16 px, `3` = 18×24 px), `code`, `acceptText`, `cancelText`, `triggerVar` (`bool` de flanco 0→1), `confirmOutVar` (`bool` resultado de `CONFIRM`), `errCode` (4 chars para LED lateral IDLE), `autoCloseMs`, `showOverIdle`, `blocksIdle`, `latched`, `logToEventLog`, `targetPage`, `targetView`, `x`/`y`/`width`/`height`/`cornerRadius` y `colors`.
+  - `targetPage` / `targetView` funciona en `CONFIRM` al aceptar y también al cerrarse en `INFO`, `WARN` y `CRIT` (por `OK`, `ESC` o `autoCloseMs`).
   - Si un campo `BOOL`, `ICON` (`bool`) o nodo `MENU` ya declara la misma variable booleana que `triggerVar` o `confirmOutVar`, el codegen evita duplicar la declaración.
+  - Ejemplo completo de subvistas + popups + WiFi/QR: [`../pruebas-ia/06_sensor_cod_subvistas/README.md`](../pruebas-ia/06_sensor_cod_subvistas/README.md).
 - Con varias páginas el firmware cambia de página con ◀ ▶ (`JWPLC_UI_Pages`); la `NAV_BAR` muestra las pestañas.
 
 ## 5. Recetas

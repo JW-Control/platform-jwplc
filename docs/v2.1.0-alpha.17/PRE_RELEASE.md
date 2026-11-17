@@ -29,10 +29,15 @@ formas**.
   I1 y dos TON). `JWPLC_Runtime.loadDemo()` reemplaza el programa guardado en la FRAM si es otro, así el ejemplo
   carga aunque el equipo tenga la «Demo feria».
 - **HMI Designer 2.1.0-alpha.17** (#231, #232, #239): temas claro y oscuro con tokens de diseño, indicadores de
-  nivel, fuentes universales y la vista de enlaces de OpenPLC sin recortes y con su tema. Nuevo widget **TREND**
-  (hasta 3 canales y 2 umbrales, registro en MicroSD), proyectos de **varias páginas**, menú **CARDS**, inspectores
-  de iconos, EVENT_LOG y MENU, y hasta **64 campos** por proyecto en `JWPLC_Display`. Biblioteca de iconos
+  nivel, fuentes universales y la vista de enlaces de OpenPLC sin recortes y con su tema. Nuevos widgets **TREND**
+  (hasta 3 canales y 2 umbrales, registro en MicroSD) y **`QR`** estático/dinámico (`JWPLC_UIQR`, presets Wi-Fi/URL),
+  proyectos de **varias páginas** con **subvistas internas** (`views`, hasta 8 por página), **ventanas emergentes
+  modales** (`popups[]`, I4–I6 con presets `INFO`/`WARN`/`CRIT`/`CONFIRM`, escala `1×–3×`, navegación al cerrar y selector
+  de variables `bool` del proyecto), menú **CARDS**, inspectores de iconos, EVENT_LOG y MENU, enlaces OpenPLC en
+  `MENU`, `TREND` y Baliza independiente, y hasta **64 campos** por proyecto en `JWPLC_Display`. Biblioteca de iconos
   precompilada `JWPLC_Icons` (`JWPLC_Icons.motor(48)`): el header del Designer la usa y sólo se enlaza el tamaño elegido.
+- **Display TFT**: `JWPLC_TFT` 0.5.0 soporta `beginBatch()`/`endBatch()` anidados por profundidad; `JWPLC_Display` 1.1.0
+  elimina destellos negros en tarjetas de `MENU` y evita el parpadeo de 1 Hz del reloj mientras hay un modal abierto.
 - **Modbus TCP** (#238): el Server de `JWPLC_ModbusTCP` atiende varios clientes a la vez, cierra las conexiones
   inactivas y responde también a Unit ID 0 y 255 (`setStrictUnitId(true)` vuelve a la comparación exacta).
   En `JW_ModbusRTU`, una tabla sin mapa responde la excepción 02.
@@ -46,8 +51,9 @@ formas**.
 - **Arranque de E/S y restricciones de programación** (#237): si el expansor de E/S no responde al arrancar, el
   JWPLC lo avisa por el Serial y lo reintenta cada segundo hasta habilitar los relés (`JWPLC_IO.fault()`). Ya no
   compilan `Serial1`, `digitalWrite(I0_x)`, `pinMode(I0_x, OUTPUT)`, `pinMode(Q0_x, INPUT)` ni el uso del GPIO27.
-- `JWPLC_Display`, `JWPLC_ModbusTCP`, `JW_FRAM` y `JW_MatrixButtons` vuelven a distribuirse **precompiladas** con
-  los `.a` regenerados en esta alpha ([A17_CIERRE_PRECOMPILADAS_20261104.md](A17_CIERRE_PRECOMPILADAS_20261104.md)).
+- `JWPLC_Display`, `JWPLC_TFT`, `JWPLC_ModbusTCP`, `JW_FRAM` y `JW_MatrixButtons` vuelven a distribuirse **precompiladas**
+  (`precompiled=full`) con sus `.a` regenerados en esta alpha
+  ([A17_CIERRE_PRECOMPILADAS_20261104.md](A17_CIERRE_PRECOMPILADAS_20261104.md)).
 
 ## Instalación
 
