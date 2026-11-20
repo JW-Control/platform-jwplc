@@ -20,6 +20,7 @@ jwplc-sim #36 (`package.lock` → tag `v2.1.0-alpha.17`). Ver `docs/v2.1.0-alpha
 |---|---|---|---|---|
 | openplc-editor | #19 | `…/feature/integracion-openplc` | `f344a79` | botón Simular, `--open-project`, `--jwsim-close`, preload de respaldo; HMI: TREND ch2/ch3 y pisos de Baliza, Guardar sin reescribir |
 | openplc-editor | #20 | `…/feature/modbus-tcp-enlace-tardio` | `6ef47ef` | firmware OpenPLC (`MBETH_JWPLC`): listener 502 con enlace tardío y ADU reensamblado (venía de `ccr-4e8cc1e7-lygr9t` @ `8669a86`) |
+| platform-jwplc | (este PR) | `…/feature/curso-al-sim` | — | sale `JWPLC_GlobalPeripherals/examples/Curso_JWPLC_Basic` y `tools/curso-jwplc-basic`: el curso, sus pruebas, los retos y las arquitecturas viven en la librería `JWPLC_Aprende` de jwplc-sim (decisión del propietario, 20/11). Último SHA con el curso aquí: `5b0d0bd` |
 
 Validación de #19 + #20 sobre alpha.17 `[ejecutado]`: `tsc --noEmit`, Prettier, ESLint sin errores, Jest de
 los módulos tocados 643/643 y `npm run build`. En Windows fallan `board-info-resolver`, `vendor-document/serve` y
