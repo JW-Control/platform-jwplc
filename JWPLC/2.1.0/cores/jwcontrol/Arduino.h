@@ -20,6 +20,24 @@
 #ifndef Arduino_h
 #define Arduino_h
 
+#if defined(JWPLC_LIBRARY_DISCOVERY_PHASE) && JWPLC_LIBRARY_DISCOVERY_PHASE
+// Fase de deteccion de librerias de arduino-cli: solo importan #include y #if.
+// Se cargan solo las macros de configuracion (sdkconfig, version, capacidades del SoC, pines).
+#include "sdkconfig.h"
+#include "esp_arduino_version.h"
+#include "soc/soc_caps.h"
+#include "pins_arduino.h"
+// El autoload de JWPLC (ver final de este archivo) debe verse tambien aqui: es lo que hace
+// que arduino-cli detecte JWPLC_Display/JWPLC_GlobalPeripherals en sketches sin #include.
+#if defined(__cplusplus) && defined(JWPLC_BASIC) && !defined(ARDUINO_CORE_BUILD) && (__INCLUDE_LEVEL__ <= 1)
+#if defined(JWPLC_TFT_ESPI_DIAGNOSTIC_NO_DISPLAY_AUTOLOAD)
+#include <JWPLC_GlobalPeripherals_Auto.h>
+#else
+#include <JWPLC_Display_Auto.h>
+#endif
+#endif
+#else
+
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdarg.h>
@@ -366,5 +384,7 @@ void noTone(uint8_t _pin);
 
 // must be applied last as it overrides some of the above
 #include "io_pin_remap.h"
+
+#endif /* JWPLC_LIBRARY_DISCOVERY_PHASE */
 
 #endif /* _ESP32_CORE_ARDUINO_H_ */

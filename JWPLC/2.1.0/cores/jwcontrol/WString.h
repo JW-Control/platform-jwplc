@@ -1,3 +1,4 @@
+#if !defined(JWPLC_LIBRARY_DISCOVERY_PHASE) || !JWPLC_LIBRARY_DISCOVERY_PHASE /* JWDISC */
 /*
  WString.h - String library for Wiring & Arduino
  ...mostly rewritten by Paul Stoffregen...
@@ -424,3 +425,4 @@ extern const String emptyString;
 
 #endif  // __cplusplus
 #endif  // String_class_h
+#endif /* JWDISC */
