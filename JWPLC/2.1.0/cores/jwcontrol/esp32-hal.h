@@ -1,3 +1,4 @@
+#if !defined(JWPLC_LIBRARY_DISCOVERY_PHASE) || !JWPLC_LIBRARY_DISCOVERY_PHASE /* JWDISC */
 /*
  Arduino.h - Main include file for the Arduino SDK
  Copyright (c) 2005-2013 Arduino Team.  All right reserved.
@@ -171,3 +172,4 @@ void *get_arduino_panic_handler_arg(void);
 #endif
 
 #endif /* HAL_ESP32_HAL_H_ */
+#endif /* JWDISC */

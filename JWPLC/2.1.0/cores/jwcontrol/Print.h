@@ -1,3 +1,4 @@
+#if !defined(JWPLC_LIBRARY_DISCOVERY_PHASE) || !JWPLC_LIBRARY_DISCOVERY_PHASE /* JWDISC */
 /*
  Print.h - Base class that provides print() and println()
  Copyright (c) 2008 David A. Mellis.  All right reserved.
@@ -116,3 +117,4 @@ public:
 };
 
 #endif
+#endif /* JWDISC */

@@ -1,6 +1,6 @@
 # v2.1.0-alpha.17 — JWPLC Sim: estado vivo
 
-Actualizado: `2026-11-17` (cierre oficial: entran el trabajo de André del 17/11 y Ledcito #240; `.a` verificados, benchmark en la PC del propietario)
+Actualizado: `2026-11-17` (publicada: Release `v2.1.0-alpha.17` y editor `4.3.3-jwplc.2`; `main` pendiente del propietario)
 
 ## 1. Ramas y sincronización
 
@@ -29,6 +29,13 @@ Para borrar el 16/11 (platform, todas contenidas en `…/main`): `ccr-4e8cc1e7-l
 Para borrar el 17/11 (contenidas en `…/main`): platform `…/feature/hmi-designer-review` @ `e4843faf` (sin PR),
 `…/feature/ledcito-animacion` @ `1692f214` (#240) y `…/feature/cierre-alpha17` (al fusionar este cierre); jwplc-sim
 `feature/alpha17-ledcito` @ `4222dd39` (#34) y `feature/alpha17-ejemplo09-ok-entra` @ `fc168401` (#35).
+
+**Publicación (17/11).** platform #241 → `819313e7`, #242 `…/main` → `release/v2.1.x` @ `a486b84d` y Release
+`v2.1.0-alpha.17` (workflow 44199330980). Editor #18 → `release/v2.1.x` @ `f81969c3` y pre-release
+`jwplc-editor-v4.3.3-jwplc.2`. Ramas borradas el 17/11: platform `v2.1.0-alpha.17/JWPLC-Sim/main` @ `819313e7` y
+editor `v2.1.0-alpha.17/JWPLC-Sim/main` @ `7eee2378` (`…/Editor-Upstream/main` ya no existía en ninguno).
+`release/v2.1.x` quedó en `29632e4a`: merge de `main` (#244, sin contenido nuevo) e índices de #243. `main` sigue en
+`d007b449` por decisión del propietario (#243 y #244 abiertos); jwplc-sim #36 (`package.lock` → tag) también abierto.
 
 ## 2. Qué entró en `…/main`
 
@@ -118,13 +125,12 @@ Evidencia del 04/11, sobre el árbol de la feature de cierre de entonces:
 
 ## 6. Para retomar
 
-1. Fusionar la feature de cierre (PR de cierre oficial) en `…/main`; luego PR `…/main` → `release/v2.1.x` (publica con el
-   cambio de `JWPLC_RELEASE_VERSION` del README). Requiere OK explícito del propietario.
-2. Tras publicar: sincronizar `release/v2.1.x` → `main` con merge commit, PR de índices y fast-forward de
-   `release/v2.1.x`; en jwplc-sim, `package.lock` → tag `v2.1.0-alpha.17` y Release del Sim.
-3. Borrar `v2.1.0-alpha.17/JWPLC-Sim/main` y `v2.1.0-alpha.17/Editor-Upstream/main` (anotar sus SHAs aquí) y
-   actualizar `RAMAS_Y_TAGS.md` en jwplc-dev-mcp.
-4. André sigue desde `v2.1.0-alpha.17/JWPLC-Sim/main` (o la línea siguiente) en una feature nueva. Si cambia el
-   catálogo de iconos: `node icons/export-cpp-library.cjs` y regenerar el `.a` de `JWPLC_Display`.
+1. Hecho el 17/11: cierre, publicación y borrado de `…/main` (ver §1, «Publicación»).
+2. Pendiente del propietario: fusionar #244 (`release/v2.1.x` → `main`) y #243 (índices) en `main`, y luego
+   fast-forward de `release/v2.1.x`; en jwplc-sim, #36 (`package.lock` → tag `v2.1.0-alpha.17`) y Release del Sim.
+3. Actualizar `RAMAS_Y_TAGS.md` en jwplc-dev-mcp: línea activa `v2.1.0-alpha.18/JWPLC-Sim/main` (platform y editor).
+4. André sigue desde `v2.1.0-alpha.18/JWPLC-Sim/main` en una feature nueva. Si cambia el catálogo de iconos:
+   `node icons/export-cpp-library.cjs` y regenerar el `.a` de `JWPLC_Display`.
 
-`NEXT_GATE=A17_PUBLICACION`
+`A17_PUBLICACION=PASS`
+`NEXT_GATE=A17_SYNC_MAIN`

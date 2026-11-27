@@ -466,6 +466,12 @@ rtc.nvramReadObject(0, restored);
 
 ---
 
+## Precompilada (desde 2.1.0-alpha.18)
+
+La librería viaja compilada (`precompiled=full`, `src/esp32/libJW_RTC.a`) para que el sketch compile más rápido.
+Para tu programa no cambia nada: se usa igual y con los mismos ejemplos. Si modificas el código de la
+librería, hay que regenerar el `.a` con `tools/alpha16/regenerate_precompiled.sh`.
+
 ## Manejo de errores
 
 ### `lastError()`
