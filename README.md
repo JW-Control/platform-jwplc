@@ -1,6 +1,6 @@
 # JWPLC Platform for Arduino IDE
 
-<!-- JWPLC_RELEASE_VERSION: 2.1.0-alpha.17 -->
+<!-- JWPLC_RELEASE_VERSION: 2.1.0-alpha.18 -->
 
 Package oficial de **JW Control** para programar el **JWPLC Basic** desde
 Arduino IDE y Arduino CLI.
@@ -11,24 +11,24 @@ sketch. Tu programa se ocupa solo de la lógica de la máquina.
 
 ---
 
-## Descargas · v2.1.0-alpha.17: ejemplos renovados y OpenPLC Editor 4.3.3
+## Descargas · v2.1.0-alpha.18: compilación 3 veces más rápida y OpenPLC con JWPLC Sim
 
 Programa el JWPLC Basic en **Ladder** desde OpenPLC Editor y diséñale la pantalla con el **HMI Designer**, que
 viene incluido: lo abres desde el panel HMI del proyecto y enlazas cada objeto de la pantalla a una variable del
-programa, sin escribir código.
+programa, sin escribir código. Con el botón **Simular** pruebas el proyecto en el **JWPLC Sim** antes de subirlo.
 
 | Descarga | Archivo | Para qué |
 |---|---|---|
-| **OpenPLC Editor – JWPLC Edition 4.3.3-jwplc.2** | [⬇ Instalador Windows x64](https://github.com/JW-Control/openplc-editor/releases/download/jwplc-editor-v4.3.3-jwplc.2/OpenPLC-Editor.exe) | Editor OpenPLC con el HMI Designer adentro |
-| **Paquete de placas JWPLC Basic (VPP) 2.1.0-alpha.17** | [⬇ VPP firmado](https://github.com/JW-Control/openplc-editor/releases/download/jwplc-editor-v4.3.3-jwplc.2/JWPLC-Basic.vpp) | Se importa en OpenPLC Editor: placa JWPLC BASIC |
-| **JWPLC HMI Designer 2.1.0-alpha.17** | [⬇ Instalador](https://github.com/JW-Control/platform-jwplc/releases/download/v2.1.0-alpha.17/HMI-Designer-Setup.exe) · [⬇ Portable](https://github.com/JW-Control/platform-jwplc/releases/download/v2.1.0-alpha.17/HMI-Designer-Portable.exe) | Solo para usarlo con sketches de Arduino IDE (en OpenPLC ya viene incluido) |
+| **OpenPLC Editor – JWPLC Edition 4.3.3-jwplc.3** | [⬇ Instalador Windows x64](https://github.com/JW-Control/openplc-editor/releases/download/jwplc-editor-v4.3.3-jwplc.3/OpenPLC-Editor.exe) | Editor OpenPLC con el HMI Designer adentro |
+| **Paquete de placas JWPLC Basic (VPP) 2.1.0-alpha.17** | [⬇ VPP firmado](https://github.com/JW-Control/openplc-editor/releases/download/jwplc-editor-v4.3.3-jwplc.3/JWPLC-Basic.vpp) | Se importa en OpenPLC Editor: placa JWPLC BASIC |
+| **JWPLC HMI Designer 2.1.0-alpha.18** | [⬇ Instalador](https://github.com/JW-Control/platform-jwplc/releases/download/v2.1.0-alpha.18/HMI-Designer-Setup.exe) · [⬇ Portable](https://github.com/JW-Control/platform-jwplc/releases/download/v2.1.0-alpha.18/HMI-Designer-Portable.exe) | Solo para usarlo con sketches de Arduino IDE (en OpenPLC ya viene incluido) |
 | **JWPLC Sim** (simulador del JWPLC Basic) | [⬇ Instalador y portable](https://github.com/JW-Control/jwplc-sim/releases/latest) · [repositorio](https://github.com/JW-Control/jwplc-sim) | Probar sketches y proyectos de OpenPLC en la PC, sin placa |
 
-Requisitos: Windows 10/11 de 64 bits y el package **JWPLC 2.1.0-alpha.17** instalado (ver
+Requisitos: Windows 10/11 de 64 bits y el package **JWPLC 2.1.0-alpha.18** instalado (ver
 [Instalación](#instalación)). Los instaladores no tienen firma de código: si Windows SmartScreen avisa, pulsa
 **Más información → Ejecutar de todas formas**. Pasos completos y sumas SHA-256 en las notas de cada descarga:
-[OpenPLC Editor](https://github.com/JW-Control/openplc-editor/releases/tag/jwplc-editor-v4.3.3-jwplc.2) ·
-[HMI Designer](https://github.com/JW-Control/platform-jwplc/releases/tag/v2.1.0-alpha.17).
+[OpenPLC Editor](https://github.com/JW-Control/openplc-editor/releases/tag/jwplc-editor-v4.3.3-jwplc.3) ·
+[HMI Designer](https://github.com/JW-Control/platform-jwplc/releases/tag/v2.1.0-alpha.18).
 
 > Probado en un JWPLC Basic: Ladder con variables enlazadas a la pantalla, compilar, subir y ver la TFT.
 
@@ -39,7 +39,7 @@ Requisitos: Windows 10/11 de 64 bits y el package **JWPLC 2.1.0-alpha.17** insta
 | Canal | Versión | Para quién |
 |---|---|---|
 | Estable | `v2.0.0` | Proyectos en producción |
-| Desarrollo (PreRelease) | `v2.1.0-alpha.17` | Probar las novedades de la línea 2.1 |
+| Desarrollo (PreRelease) | `v2.1.0-alpha.18` | Probar las novedades de la línea 2.1 |
 
 La versión de desarrollo se publica como PreRelease en GitHub y se instala
 desde un índice propio, separado del estable.
@@ -77,7 +77,7 @@ Con Arduino CLI:
 arduino-cli config add board_manager.additional_urls \
   https://raw.githubusercontent.com/JW-Control/platform-jwplc/main/JWPLC/package_jwplc_index_dev.json
 arduino-cli core update-index
-arduino-cli core install jwplc:esp32@2.1.0-alpha.17
+arduino-cli core install jwplc:esp32@2.1.0-alpha.18
 ```
 
 No instales a mano librerías con los mismos nombres que trae el package: el
@@ -116,6 +116,28 @@ excepción es Modbus TCP, que es opcional y se agrega con
 `#include <JWPLC_ModbusTCP.h>`.
 
 ---
+
+## Novedades de v2.1.0-alpha.18
+
+Alpha 18 hace que el JWPLC Basic compile mucho más rápido y une OpenPLC Editor con el JWPLC Sim. Las descargas
+están [al inicio](#descargas--v210-alpha18-compilación-3-veces-más-rápida-y-openplc-con-jwplc-sim).
+
+- **Compilación unas 3 veces más rápida** en Arduino IDE y en OpenPLC Editor, sin cambiar nada en tu sketch:
+  - En una PC con Windows, `02.Runtime_En_Vivo` pasó de 100 s a 30 s y `05.HMI_Plantilla_Caldera` de 55 s a 17,5 s.
+  - Un proyecto de OpenPLC con E/S remotas bajó de unos 60 s a 23 s.
+  - La búsqueda de librerías es más liviana y `JWPLC_RS485`, `JW_RS485`, `JWPLC_ModbusRTU`, `JW_ModbusRTU` y
+    `JW_RTC` ahora vienen precompiladas.
+- **Menú de ejemplos más claro:** se retiraron los ejemplos de arduino-esp32 que no aplican al JWPLC Basic, como
+  USB, Zigbee, Matter, Ethernet LAN8720, SD_MMC o los de pines libres. Las librerías siguen instaladas. Para la
+  microSD usa `JW_SD` y para la red `JWPLC_Ethernet`.
+- **OpenPLC Editor 4.3.3-jwplc.3:**
+  - Botón **Simular** que abre el proyecto en el JWPLC Sim.
+  - Canales 2 y 3 del TREND y Baliza enlazables a variables.
+  - Modbus TCP que arranca aunque el cable de red se conecte después del encendido.
+- **El curso del JWPLC Basic** se mudó a la librería `JWPLC_Aprende` del JWPLC Sim, junto con los retos y las
+  arquitecturas.
+
+Notas completas: [PRE_RELEASE.md](docs/v2.1.0-alpha.18/PRE_RELEASE.md).
 
 ## Novedades de v2.1.0-alpha.17
 
@@ -353,6 +375,7 @@ Instalación y uso: [tools/jwplc-hmi-designer](tools/jwplc-hmi-designer/README.m
 
 | Versión | Tema principal |
 |---|---|
+| [`v2.1.0-alpha.18`](https://github.com/JW-Control/platform-jwplc/releases/tag/v2.1.0-alpha.18) | Compilación unas 3 veces más rápida, ejemplos sólo del JWPLC Basic y OpenPLC con JWPLC Sim |
 | [`v2.1.0-alpha.17`](https://github.com/JW-Control/platform-jwplc/releases/tag/v2.1.0-alpha.17) | Ejemplos limpios con API de «.», OpenPLC Editor 4.3.3 y HMI con temas |
 | [`v2.1.0-alpha.16`](https://github.com/JW-Control/platform-jwplc/releases/tag/v2.1.0-alpha.16) | Runtime de panel estilo LOGO! 8, pantalla en el navegador y JWPLC Sim |
 | [`v2.1.0-alpha.15`](https://github.com/JW-Control/platform-jwplc/releases/tag/v2.1.0-alpha.15) | OpenPLC Editor + HMI Designer: Ladder con pantalla enlazada a sus variables |
@@ -372,7 +395,8 @@ Las notas completas de cada versión están en su página de Release y en
 ## Para desarrolladores del package
 
 El estado técnico, la evidencia de pruebas y las decisiones de cada alpha
-viven en `docs/`. La 2.1.0-alpha.17 es la línea JWPLC-Sim:
+viven en `docs/`. La 2.1.0-alpha.18 es la línea JWPLC-Sim:
+[ALPHA18_STATUS.md](docs/v2.1.0-alpha.18/ALPHA18_STATUS.md); la 2.1.0-alpha.17 también:
 [ALPHA17_STATUS.md](docs/v2.1.0-alpha.17/ALPHA17_STATUS.md); la 2.1.0-alpha.16, también JWPLC-Sim:
 [ALPHA16_STATUS.md](docs/v2.1.0-alpha.16/ALPHA16_STATUS.md). La 2.1.0-alpha.15 (OpenPLC + HMI) se desarrolló como línea de
 trabajo Alpha 14: empieza por
