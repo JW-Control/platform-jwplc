@@ -1,3 +1,4 @@
+#if !defined(JWPLC_LIBRARY_DISCOVERY_PHASE) || !JWPLC_LIBRARY_DISCOVERY_PHASE /* JWDISC */
 /*
  HardwareSerial.h - Hardware serial library for Wiring
  Copyright (c) 2006 Nicholas Zambetti.  All right reserved.
@@ -472,3 +473,4 @@ extern HardwareSerial Serial5;
 #endif
 
 #endif  // HardwareSerial_h
+#endif /* JWDISC */

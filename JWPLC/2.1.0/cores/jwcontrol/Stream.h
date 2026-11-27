@@ -1,3 +1,4 @@
+#if !defined(JWPLC_LIBRARY_DISCOVERY_PHASE) || !JWPLC_LIBRARY_DISCOVERY_PHASE /* JWDISC */
 /*
   Stream.h - base class for character-based streams.
   Copyright (c) 2010 David A. Mellis.  All right reserved.
@@ -146,3 +147,4 @@ protected:
 };
 
 #undef NO_IGNORE_CHAR
+#endif /* JWDISC */
