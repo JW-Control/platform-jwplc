@@ -120,6 +120,18 @@ Fases de la limpia del 05 (A → C): detección 28,8 → 4,2 s; prototipos 1,9 �
 `JWPLC_GlobalPeripherals`); enlace 3,4 → 3,3 s; postbuild ~2 s. Total 48,8 → 15,1 s. 46 compilaciones sin errores.
 Los +8/+16 B son la relajación de `call8`/`callx8` de §3 (verificado desensamblando `JW_RTC::now()`).
 
+`[ejecutado]` en placa (JWPLC Basic por USB, COM14, `c7b2344`, monitor a 115200 durante 15 s desde reset):
+
+| Sketch | Bytes | Resultado |
+|---|---|---|
+| `JW_RTC/BasicRead` | 486 293 | «RTC found», `Valid: 1` cada segundo (11:22:23 → 11:22:36), temperatura 29,25–29,50 °C |
+| `JWPLC_ModbusRTU/01.ModbusRTU_Slave_Holding` | 490 681 | esclavo ID=2 115200 8N1, HR0 cuenta segundos, sin reinicios (sin maestro: RX/TX=0) |
+| `JWPLC_RS485/03.RS485_Status` | 485 729 | `Ready: yes`, `Status: OK`, AutoDirection, transmite cada 2 s, `Last error: OK` |
+
+```text
+A18_COMPILACION_PRECOMPILADAS_PLACA=PASS   # sin maestro Modbus: el intercambio RTU queda [no verificado]
+```
+
 ## 5. OpenPLC Editor
 
 El editor compila con este mismo package (`arduino-cli compile … --library <proyecto>/build/<placa>/src`), así que
@@ -153,4 +165,4 @@ no entra en la detección liviana. El editor instalado compila con el package de
   compilación es decisión del propietario.
 - `JWPLC_GlobalPeripherals` precompilada por placa (vía `build.extra_libs`, como el core) quitaría ~2,2 s más en
   limpia (≈13 s).
-- Antes de publicar: prueba en placa de RS485/Modbus RTU y RTC con los `.a` nuevos `[no verificado]`.
+- Intercambio Modbus RTU con un maestro real `[no verificado]` (ver §4).
