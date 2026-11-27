@@ -3,7 +3,9 @@
 
 #include <Arduino.h>
 #include <stdint.h>
+#if !defined(JWPLC_LIBRARY_DISCOVERY_PHASE) || !JWPLC_LIBRARY_DISCOVERY_PHASE
 #include <atomic>
+#endif
 
 #define JWPLC_TFT_VERSION_MAJOR 0
 #define JWPLC_TFT_VERSION_MINOR 5

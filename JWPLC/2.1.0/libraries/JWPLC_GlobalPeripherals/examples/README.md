@@ -21,7 +21,8 @@ Serie recomendada para taller JWPLC Basic:
 07.Buzzer_Basic
 ```
 
-Curso paso a paso: `Curso_JWPLC_Basic/` (lecciones 01 a 11).
+El Curso JWPLC Basic (lecciones 01 a 11), los retos y las arquitecturas viven desde alpha.18 en la librería
+`JWPLC_Aprende` del repositorio [jwplc-sim](https://github.com/JW-Control/jwplc-sim/tree/main/JWPLC_Aprende).
 
 Estos ejemplos usan las **instancias globales del JWPLC Basic**. Por diseño no se copiaron a `JW_RTC`, `JW_FRAM`, `JW_SD` ni `JW_MatrixButtons`, porque esas librerías `JW_*` continúan siendo drivers genéricos reutilizables.
 

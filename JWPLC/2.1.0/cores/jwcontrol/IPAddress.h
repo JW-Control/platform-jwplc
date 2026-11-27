@@ -1,3 +1,4 @@
+#if !defined(JWPLC_LIBRARY_DISCOVERY_PHASE) || !JWPLC_LIBRARY_DISCOVERY_PHASE /* JWDISC */
 /*
   IPAddress.h - Base class that provides IPAddress
   Copyright (c) 2011 Adrian McEwen.  All right reserved.
@@ -138,3 +139,4 @@ protected:
 
 extern const IPAddress IN6ADDR_ANY;
 extern const IPAddress INADDR_NONE;
+#endif /* JWDISC */

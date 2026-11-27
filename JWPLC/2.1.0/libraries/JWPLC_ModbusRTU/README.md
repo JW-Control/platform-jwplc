@@ -761,6 +761,14 @@ la siguiente consulta antes de revisar `masterDone()` y liberar el resultado
 con `clearMasterResult()`. El cable desconectado puede generar timeouts
 normales; el código de aplicación debe decidir cómo reaccionar.
 
+## Precompilada (desde 2.1.0-alpha.18)
+
+La librería viaja compilada (`precompiled=full`, `src/esp32/libJWPLC_ModbusRTU.a`) para que el sketch compile más rápido.
+Para tu programa no cambia nada: se usa igual. Lo único fijo es lo que se define en el `.h` con `#ifndef`
+(`JWPLC_MODBUS_RTU_DEFAULT_BAUD`, `_DEFAULT_CONFIG`, `_DEFAULT_SLAVE_ID` y `_MAX_FRAME`): se compiló con los valores por defecto y no se debe cambiar con `#define` en el sketch ni con
+banderas de compilación, porque el `.h` y el `.a` quedarían distintos. Los valores de uso (velocidad,
+formato, número de esclavo) se pasan en `begin()` como siempre.
+
 ## Compatibilidad
 
 `poll()` se mantiene como alias de `task()`.

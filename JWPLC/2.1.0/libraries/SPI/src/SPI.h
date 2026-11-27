@@ -26,9 +26,11 @@
 
 #include <stdlib.h>
 #include "pins_arduino.h"
+#if !defined(JWPLC_LIBRARY_DISCOVERY_PHASE) || !JWPLC_LIBRARY_DISCOVERY_PHASE
 #include "esp32-hal-spi.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
+#endif
 
 #define SPI_HAS_TRANSACTION
 

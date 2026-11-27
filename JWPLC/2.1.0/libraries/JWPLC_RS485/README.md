@@ -482,6 +482,12 @@ La validación física se realizó con dos JWPLC Basic intercambiando
 tramas Modbus RTU. Para un sistema Modbus nuevo utiliza
 `JWPLC_ModbusRTU` en vez de construir manualmente el protocolo sobre UART.
 
+## Precompilada (desde 2.1.0-alpha.18)
+
+La librería viaja compilada (`precompiled=full`, `src/esp32/libJWPLC_RS485.a`) para que el sketch compile más rápido.
+Para tu programa no cambia nada: se usa igual y con los mismos ejemplos. Si modificas el código de la
+librería, hay que regenerar el `.a` con `tools/alpha16/regenerate_precompiled.sh`.
+
 ## Compatibilidad
 
 También existe:
