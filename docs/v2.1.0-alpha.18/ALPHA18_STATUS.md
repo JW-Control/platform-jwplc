@@ -36,19 +36,23 @@ la búsqueda de librerías y no altera el `.a`.
 
 ```text
 A18_H0_APERTURA=PASS
-A18_H1_EDITOR_SIM=IN_PROGRESS         # Simular, --open-project, second-instance y --jwsim-close PASS; faltan «Localizar» y sin project.json
-A18_H2_HMI_ENLACES=IN_PROGRESS        # unit tests PASS; checklist en vivo con el Designer [no verificado]
-A18_H3_MODBUS_TCP=PENDING             # requiere JWPLC Basic con cable de red
+A18_H1_EDITOR_SIM=DEFERRED            # Simular, --open-project, second-instance y --jwsim-close PASS; «Localizar» y sin project.json → alpha.19
+A18_H2_HMI_ENLACES=DEFERRED           # unit tests PASS; checklist en vivo con el Designer → alpha.19
+A18_H3_MODBUS_TCP=DEFERRED            # prueba en placa con cable de red → alpha.19
 A18_COMPILACION_RAPIDA=PASS_PHYSICAL  # PC del propietario + placa COM14 (RTC, Modbus RTU, RS485)
 A18_BENCHMARK_PC_PROPIETARIO=PASS     # 05 limpia 55 → 17,5 s; 02.Runtime_En_Vivo 100 → 30 s (propietario)
-A18_EJEMPLOS_ESP32=IN_PROGRESS        # poda hecha en la feature de cierre; SIM_REGRESSION del PR
+A18_EJEMPLOS_ESP32=PASS               # solo ejemplos (propietario, 27/11); placas genéricas ESP32 → decisión en alpha.19
 A18_H4_CIERRE=IN_PROGRESS
 ```
 
 ## 4. Riesgos y deuda
 
-- H1–H3 del editor siguen abiertos. El editor ya se publicó (jwplc.3): al cerrar la alpha hay que darlos por PASS,
-  pasarlos a alpha.19 o correrlos. H3 se puede correr en la placa del propietario con cable de red.
+- H1–H3 del editor pasan a alpha.19 (propietario, 27/11: «cerremos el 18 con lo que teníamos»). El editor jwplc.3 ya
+  está publicado; H3 se puede correr en la placa del propietario con cable de red.
+- Benchmark de cierre en la PC del propietario: se hace después de publicar, con el package del gestor de placas, y
+  se anota en un commit en `main` (propietario, 27/11). Medición previa con `jwplc_local`: 02.Runtime_En_Vivo 100 → 30 s.
+- alpha.19 decide qué hacer con las placas genéricas `ESP32 Board` y `ESP32 Family`: quitarlas (recomendado, usar el
+  core oficial de Espressif) o llevarlas a una plataforma propia con todos los ejemplos.
 - `--jwsim-close` pregunta «¿Seguro que quieres salir?» aun sin cambios: falta decisión de producto.
 - Propuesta para el editor (Kenyi): `compileArduino` (`editor-compiler-platform-port.ts`) debería reescribir solo los
   archivos generados que cambian. Hoy la librería `src` del proyecto se recompila siempre (~2–3 s).
@@ -60,10 +64,9 @@ A18_H4_CIERRE=IN_PROGRESS
 ## 5. Para retomar
 
 1. Fusionar el PR de cierre en `…/main` (CI verde + OK del propietario).
-2. Decidir H1–H3 (PASS, correr o pasar a alpha.19) y anotarlo aquí.
-3. PR `…/main` → `release/v2.1.x`: publica la Release 2.1.0-alpha.18 y **sólo se fusiona con autorización
+2. PR `…/main` → `release/v2.1.x`: publica la Release 2.1.0-alpha.18 y **sólo se fusiona con autorización
    explícita**.
-4. Tras publicar: `release/v2.1.x` → `main` con merge commit y fast-forward de vuelta, PR de índices del package,
+3. Tras publicar: `release/v2.1.x` → `main` con merge commit y fast-forward de vuelta, PR de índices del package,
    `package.lock` de jwplc-sim al tag `v2.1.0-alpha.18`, y borrar las `…/main` de la línea en platform y editor.
 
 `NEXT_GATE=A18_H4_CIERRE`
