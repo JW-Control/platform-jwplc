@@ -49,8 +49,9 @@ A18_H4_CIERRE=IN_PROGRESS
 
 - H1–H3 del editor pasan a alpha.19 (propietario, 27/11: «cerremos el 18 con lo que teníamos»). El editor jwplc.3 ya
   está publicado; H3 se puede correr en la placa del propietario con cable de red.
-- Benchmark de cierre en la PC del propietario: se hace después de publicar, con el package del gestor de placas, y
-  se anota en un commit en `main` (propietario, 27/11). Medición previa con `jwplc_local`: 02.Runtime_En_Vivo 100 → 30 s.
+- Benchmark de cierre en la PC del propietario: hecho con `jwplc_local` (02.Runtime_En_Vivo 100 → 30 s, propietario,
+  27/11). La repetición con el package publicado del gestor de placas se anota en el estado de alpha.19 (los documentos
+  entran por feature, no directo en `main`).
 - alpha.19 decide qué hacer con las placas genéricas `ESP32 Board` y `ESP32 Family`: quitarlas (recomendado, usar el
   core oficial de Espressif) o llevarlas a una plataforma propia con todos los ejemplos.
 - `--jwsim-close` pregunta «¿Seguro que quieres salir?» aun sin cambios: falta decisión de producto.
