@@ -89,6 +89,12 @@ Además es un `Stream`: `available()`, `read()`, `peek()`, `print()`, `println()
 bash extras/test/run_tests.sh
 ```
 
+## Precompilada (desde 2.1.0-alpha.18)
+
+La librería viaja compilada (`precompiled=full`, `src/esp32/libJW_RS485.a`) para que el sketch compile más rápido.
+Para tu programa no cambia nada: se usa igual y con los mismos ejemplos. Si modificas el código de la
+librería, hay que regenerar el `.a` con `tools/alpha16/regenerate_precompiled.sh`.
+
 ## Ejemplos
 
 En Arduino IDE: *Archivo → Ejemplos → JW_RS485*. Todos imprimen en el Monitor serie a 115200 y corren también en JWPLC Sim.

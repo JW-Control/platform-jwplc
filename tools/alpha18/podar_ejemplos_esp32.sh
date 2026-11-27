@@ -2,7 +2,7 @@
 # Quita del package los ejemplos de arduino-esp32 que no aplican al JWPLC Basic.
 # Solo borra carpetas examples/: las librerías siguen instaladas y compilan igual.
 # Correr de nuevo después de cada actualización de arduino-esp32 dentro del package.
-# Decisión del propietario: docs/v2.1.0-alpha.18/A18_EJEMPLOS_ESP32_20261127.md
+# Lista y motivos: docs/v2.1.0-alpha.18/PRE_RELEASE.md (decisión del propietario, 27/11/2026).
 set -euo pipefail
 LIB="$(cd "$(dirname "$0")/../../JWPLC/2.1.0/libraries" && pwd)"
 

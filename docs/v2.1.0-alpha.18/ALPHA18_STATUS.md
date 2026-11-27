@@ -1,54 +1,69 @@
 # v2.1.0-alpha.18 — JWPLC Sim: estado vivo
 
-Actualizado: `2026-11-17` (apertura: alpha.17 publicada; editor con la integración del Sim y Modbus TCP)
+Actualizado: `2026-11-27` (feature de cierre: compilación rápida fusionada, ejemplos de ESP32 podados, README)
 
 ## 1. Ramas y sincronización
 
 | Repo | Rol | Rama | SHA / estado |
 |---|---|---|---|
-| platform-jwplc | Base de la línea | `v2.1.0-alpha.18/JWPLC-Sim/main` | `29632e4` (= `release/v2.1.x`) |
-| openplc-editor | Base de la línea | `v2.1.0-alpha.18/JWPLC-Sim/main` | `6ef47ef` (#19, #20); versión 4.3.3-jwplc.2 |
+| platform-jwplc | Base de la línea | `v2.1.0-alpha.18/JWPLC-Sim/main` | `0661e83` (#247, #248) |
+| platform-jwplc | Cierre | `v2.1.0-alpha.18/JWPLC-Sim/feature/cierre` | PR hacia `…/main` |
+| openplc-editor | Publicado | `release/v2.1.x` | `7272626` (#23, tag `jwplc-editor-v4.3.3-jwplc.3`, pre-release 18/11) |
+| openplc-editor | Base de la línea | `v2.1.0-alpha.18/JWPLC-Sim/main` | `77680f0` |
 | openplc-editor | Designer / VPP empaquetados | `PLATFORM_DESIGNER_SHA` / `PLATFORM_VPP_SHA` | platform `3f29398` / `0647a84` (sin cambios desde jwplc.2) |
-| jwplc-sim | Simulador | `main` | `c807af1`; las 6 `feature/alpha18-*` ya están dentro |
 
-Pendiente del propietario (cierre de alpha.17): platform #244 y #243 hacia `main` (`main` sigue en `d007b44`) y
-jwplc-sim #36 (`package.lock` → tag `v2.1.0-alpha.17`). Ver `docs/v2.1.0-alpha.17/ALPHA17_STATUS.md`.
+La rama por defecto del editor en GitHub pasó a `release/v2.1.x` (propietario, 27/11). Ramas del editor
+limpiadas el 27/11: en GitHub quedan `main` y `development` (siguen a Autonomy), `release/v2.1.x` y la `…/main` de esta
+línea.
 
 ## 2. Qué entró en `…/main`
 
 | Repo | PR | Rama | Merge | Contenido |
 |---|---|---|---|---|
-| openplc-editor | #19 | `…/feature/integracion-openplc` | `f344a79` | botón Simular, `--open-project`, `--jwsim-close`, preload de respaldo; HMI: TREND ch2/ch3 y pisos de Baliza, Guardar sin reescribir |
-| openplc-editor | #20 | `…/feature/modbus-tcp-enlace-tardio` | `6ef47ef` | firmware OpenPLC (`MBETH_JWPLC`): listener 502 con enlace tardío y ADU reensamblado (venía de `ccr-4e8cc1e7-lygr9t` @ `8669a86`) |
-| platform-jwplc | (este PR) | `…/feature/curso-al-sim` | — | sale `JWPLC_GlobalPeripherals/examples/Curso_JWPLC_Basic` y `tools/curso-jwplc-basic`: el curso, sus pruebas, los retos y las arquitecturas viven en la librería `JWPLC_Aprende` de jwplc-sim (decisión del propietario, 20/11). Último SHA con el curso aquí: `5b0d0bd` |
+| openplc-editor | #19 | `…/feature/integracion-openplc` | `f344a79` | botón Simular, `--open-project`, `--jwsim-close`; HMI: TREND ch2/ch3 y pisos de Baliza, Guardar sin reescribir |
+| openplc-editor | #20 | `…/feature/modbus-tcp-enlace-tardio` | `6ef47ef` | Modbus TCP (`MBETH_JWPLC`): listener 502 con enlace tardío y ADU reensamblado |
+| openplc-editor | #23 | `…/main` → `release/v2.1.x` | `7272626` | 4.3.3-jwplc.3 publicado (VPP 2.1.0-alpha.17 sin cambios) |
+| platform-jwplc | #247 | `…/feature/curso-al-sim` | `46228c9` | el curso, retos y arquitecturas pasan a `JWPLC_Aprende` (jwplc-sim). Último SHA con el curso: `5b0d0bd` |
+| platform-jwplc | #248 | `…/feature/compilacion-rapida` | `0661e83` | búsqueda de librerías liviana + 5 librerías precompiladas ([A18_COMPILACION_RAPIDA_20261127.md](A18_COMPILACION_RAPIDA_20261127.md)) |
+| platform-jwplc | (cierre) | `…/feature/cierre` | — | poda de ejemplos de arduino-esp32 (`tools/alpha18/podar_ejemplos_esp32.sh`), README del package y de las 5 librerías, `PRE_RELEASE.md`, este estado |
 
-Validación de #19 + #20 sobre alpha.17 `[ejecutado]`: `tsc --noEmit`, Prettier, ESLint sin errores, Jest de
-los módulos tocados 643/643 y `npm run build`. En Windows fallan `board-info-resolver`, `vendor-document/serve` y
-`debug-map-path` por rutas/symlinks (no los toca la línea).
+Librerías en modo fuente durante la línea: ninguna. Las precompiladas de alpha.17 no cambiaron. Las 5 nuevas
+(`JWPLC_RS485`, `JW_RS485`, `JWPLC_ModbusRTU`, `JW_ModbusRTU`, `JW_RTC`) se generaron con
+`tools/alpha16/regenerate_precompiled.sh` (ABI_COMPAT=PASS). El cambio en `JWPLC_TFT.h` está dentro de la guarda de
+la búsqueda de librerías y no altera el `.a`.
 
 ## 3. Gates
 
 ```text
-A18_H0_APERTURA=IN_PROGRESS
-A18_H1_EDITOR_SIM=IN_PROGRESS        # Simular PASS (manual); --open-project, second-instance y --jwsim-close PASS [ejecutado] e2e; faltan diálogo «Localizar» y sin project.json
-A18_H2_HMI_ENLACES=IN_PROGRESS       # unit tests PASS; Designer en vivo [no verificado]
-A18_H3_MODBUS_TCP=PENDING            # requiere JWPLC Basic físico
-A18_H4_CIERRE=PENDING
+A18_H0_APERTURA=PASS
+A18_H1_EDITOR_SIM=IN_PROGRESS         # Simular, --open-project, second-instance y --jwsim-close PASS; faltan «Localizar» y sin project.json
+A18_H2_HMI_ENLACES=IN_PROGRESS        # unit tests PASS; checklist en vivo con el Designer [no verificado]
+A18_H3_MODBUS_TCP=PENDING             # requiere JWPLC Basic con cable de red
+A18_COMPILACION_RAPIDA=PASS_PHYSICAL  # PC del propietario + placa COM14 (RTC, Modbus RTU, RS485)
+A18_BENCHMARK_PC_PROPIETARIO=PASS     # 05 limpia 55 → 17,5 s; 02.Runtime_En_Vivo 100 → 30 s (propietario)
+A18_EJEMPLOS_ESP32=IN_PROGRESS        # poda hecha en la feature de cierre; SIM_REGRESSION del PR
+A18_H4_CIERRE=IN_PROGRESS
 ```
 
 ## 4. Riesgos y deuda
 
-- #19 y #20 se fusionaron con la prueba manual incompleta (decisión del 17/11): H1–H3 siguen abiertos.
-- `--jwsim-close` muestra «¿Seguro que quieres salir?» aun sin cambios y cierra aunque el editor se haya abierto a
-  mano: falta decisión de producto.
-- Upstream 4.3.4 (30 commits) y 4.3.5 (237) sin integrar: alpha.19.
-- La rama suelta `ccr-4e8cc1e7-lygr9t` del editor sigue en GitHub (su commit ya está en #20).
+- H1–H3 del editor siguen abiertos. El editor ya se publicó (jwplc.3): al cerrar la alpha hay que darlos por PASS,
+  pasarlos a alpha.19 o correrlos. H3 se puede correr en la placa del propietario con cable de red.
+- `--jwsim-close` pregunta «¿Seguro que quieres salir?» aun sin cambios: falta decisión de producto.
+- Propuesta para el editor (Kenyi): `compileArduino` (`editor-compiler-platform-port.ts`) debería reescribir solo los
+  archivos generados que cambian. Hoy la librería `src` del proyecto se recompila siempre (~2–3 s).
+- La poda de ejemplos se pierde si se reimporta arduino-esp32: repetir `tools/alpha18/podar_ejemplos_esp32.sh`.
+- La placa genérica `jwplc:esp32:esp32` del package también pierde esos ejemplos. Para un ESP32 genérico se usa
+  el core oficial de Espressif.
+- Upstream 4.3.4 y 4.3.5 del editor sin integrar: alpha.19.
 
 ## 5. Para retomar
 
-1. Fusionar este PR de apertura (OK del propietario).
-2. Correr los checklists H1 y H2 de [ALPHA18_PLAN.md](ALPHA18_PLAN.md) con el editor de `…/main`; H3 cuando haya placa.
-3. Cada arreglo que salga: feature `v2.1.0-alpha.18/JWPLC-Sim/feature/<tema>` con PR hacia `…/main`.
-4. Cierre: editor 4.3.3-jwplc.3 + nota en `docs/jwplc/releases/`, `README` de platform y PR de cierre.
+1. Fusionar el PR de cierre en `…/main` (CI verde + OK del propietario).
+2. Decidir H1–H3 (PASS, correr o pasar a alpha.19) y anotarlo aquí.
+3. PR `…/main` → `release/v2.1.x`: publica la Release 2.1.0-alpha.18 y **sólo se fusiona con autorización
+   explícita**.
+4. Tras publicar: `release/v2.1.x` → `main` con merge commit y fast-forward de vuelta, PR de índices del package,
+   `package.lock` de jwplc-sim al tag `v2.1.0-alpha.18`, y borrar las `…/main` de la línea en platform y editor.
 
-`NEXT_GATE=A18_H1_EDITOR_SIM`
+`NEXT_GATE=A18_H4_CIERRE`
