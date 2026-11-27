@@ -101,6 +101,14 @@ Equivalencia byte a byte contra el `JWPLC_ModbusRTU.cpp` original del package:
 bash extras/test/run_equivalence.sh <ruta a platform-jwplc/JWPLC/2.1.0/libraries>
 ```
 
+## Precompilada (desde 2.1.0-alpha.18)
+
+La librería viaja compilada (`precompiled=full`, `src/esp32/libJW_ModbusRTU.a`) para que el sketch compile más rápido.
+Para tu programa no cambia nada: se usa igual. Lo único fijo es lo que se define en el `.h` con `#ifndef`
+(`JW_MODBUS_RTU_DEFAULT_BAUD`, `_DEFAULT_CONFIG`, `_DEFAULT_SLAVE_ID` y `_MAX_FRAME`): se compiló con los valores por defecto y no se debe cambiar con `#define` en el sketch ni con
+banderas de compilación, porque el `.h` y el `.a` quedarían distintos. Los valores de uso (velocidad,
+formato, número de esclavo) se pasan en `begin()` como siempre.
+
 ## Ejemplos
 
 En Arduino IDE: *Archivo → Ejemplos → JW_ModbusRTU*. Todos imprimen en el Monitor serie a 115200 y corren también en JWPLC Sim.
