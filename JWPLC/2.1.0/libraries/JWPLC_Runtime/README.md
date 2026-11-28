@@ -62,7 +62,7 @@ En modo Runtime el sketch no define `jwplcUIEnter` ni `jwplcUIUpdate`.
 
 - `Runtime_Panel`: el Runtime solo.
 - `Runtime_HMI`: el Runtime con dos páginas HMI hechas en el Designer.
-- Con la pantalla en el navegador: `JWPLC_WebScreen › 02.Runtime_En_Vivo`.
+- Con la pantalla en el navegador: `JWPLC_Web › 04.Runtime_En_Vivo`.
 
 Se distribuye en código fuente (sin `.a`). Diseño y pruebas: `docs/v2.1.0-alpha.16/A16_RUNTIME_MVP_20261101.md`,
 `A16_RT2_EXPANSION_DISENO_20261101.md` y `A16_RUNTIME_HMI_20261101.md`.

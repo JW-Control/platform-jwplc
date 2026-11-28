@@ -14,7 +14,7 @@ extern "C"
 
 #include "JWPLC_TFT_Mirror.h"
 
-// JWPLC_WebScreen la redefine para que el espejo de la pantalla arranque con la
+// JWPLC_Web la redefine para que el espejo de la pantalla arranque con la
 // TFT y capture desde el primer dibujo. Sin esa librería no se reserva memoria.
 extern "C" bool __attribute__((weak)) jwplcTFTMirrorWanted() { return false; }
 

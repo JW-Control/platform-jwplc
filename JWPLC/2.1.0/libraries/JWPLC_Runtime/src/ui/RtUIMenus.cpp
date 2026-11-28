@@ -814,12 +814,16 @@ void openConfigMenu()
 
 // ================================================================ RED
 
-// Puerto de JWPLC_WebScreen si el sketch la usa (la librería la redefine); 0 = no activa.
+// Puerto del panel JWPLC_Web si el sketch lo usa (la librería lo redefine); 0 = no activo.
 extern "C" uint16_t __attribute__((weak)) jwplcWebScreenPort() { return 0; }
+// Código de primer ingreso de JWPLC_Web: nullptr sin la librería, "" si el equipo ya tiene usuarios.
+extern "C" const char *__attribute__((weak)) jwplcWebPairingCode() { return nullptr; }
+// Milisegundos que le quedan al código actual.
+extern "C" uint32_t __attribute__((weak)) jwplcWebPairingMsLeft() { return 0; }
 
 namespace
 {
-const char *const NET_ROWS[] = {"Enlace", "IP", "Mascara", "Puerta de enlace", "Pantalla web", "Conectar celular"};
+const char *const NET_ROWS[] = {"Enlace", "IP", "Mascara", "Puerta de enlace", "Panel web", "Conectar celular"};
 uint16_t netCount() { return 6; }
 void netRow(uint16_t i, JWPLC_UIRow r)
 {
@@ -840,7 +844,7 @@ void netRow(uint16_t i, JWPLC_UIRow r)
         break;
     case 4:
     {
-        // JWPLC_WebScreen en el sketch: dirección para el navegador.
+        // JWPLC_Web en el sketch: dirección para el navegador.
         const uint16_t port = jwplcWebScreenPort();
         static char url[32];
         if (!port)
@@ -866,66 +870,95 @@ void netRow(uint16_t i, JWPLC_UIRow r)
         break;
     }
     default:
-        r.right("vista previa >");
+    {
+        const char *code = jwplcWebPairingCode();
+        r.right(code && code[0] ? "codigo y QR >" : "QR >");
         break;
+    }
     }
 }
 
-// Vinculación del celular: vista previa del hito F9 (todavía sin servidor web).
+// Vinculación del celular con JWPLC_Web: QR con la dirección del panel y, mientras el
+// equipo no tiene usuarios, el código de primer ingreso (cambia cada 60 s).
 class PhoneScreen : public Screen
 {
 public:
     JWPLC_UIQR qr;
     char code[8];
-    uint32_t start = 0;
     int32_t drawnS = -1;
 
-    void newCode()
-    {
-        snprintf(code, sizeof(code), "%06ld", random(0, 1000000));
-        char url[48];
-        snprintf(url, sizeof(url), "http://%s/v?c=%s", core.ip[0] == '-' ? "192.168.1.50" : core.ip, code);
-        qr.setText(url);
-        start = millis();
-        drawnS = -1;
-    }
     void enter() override
     {
         clearBody();
         drawStatusBar("CELULAR");
-        newCode();
+        const char *web = jwplcWebPairingCode();
+        const uint16_t port = jwplcWebScreenPort();
+        snprintf(code, sizeof(code), "%s", web ? web : "");
+        drawnS = -1;
+        char url[48];
+        const char *ip = core.ip[0] == '-' ? "0.0.0.0" : core.ip;
+        if (port && port != 80)
+        {
+            snprintf(url, sizeof(url), code[0] ? "http://%s:%u/?c=%s" : "http://%s:%u/", ip, (unsigned)port, code);
+        }
+        else
+        {
+            snprintf(url, sizeof(url), code[0] ? "http://%s/?c=%s" : "http://%s/", ip, code);
+        }
+        qr.setText(url);
         const uint8_t sc = (uint8_t)(128 / qr.drawSize(1));
         const int16_t side = qr.drawSize(sc ? sc : 1);
         qr.draw((int16_t)(72 - side / 2), (int16_t)(BODY_Y + 2 + (130 - side) / 2), sc ? sc : 1);
         text16("Escanea con la camara", 148, 28, T.text, T.background);
-        JWPLC_TFT.setFont(JWPLC_FONT_26);
-        JWPLC_TFT.setTextDatum(DATUM_TOP_LEFT);
-        JWPLC_TFT.setTextColor(T.accent, T.background);
-        char g[10];
-        snprintf(g, sizeof(g), "%.3s %.3s", code, code + 3);
-        JWPLC_TFT.drawString(g, 148, 50);
-        JWPLC_TFT.fillRoundRect(148, 104, 168, 46, 5, T.surface);
-        JWPLC_TFT.drawRoundRect(148, 104, 168, 46, 5, T.warn);
-        text16("Vista previa (F9):", 156, 108, T.text, T.surface);
-        text16("falta el servidor web", 156, 127, T.warn, T.surface);
+        if (!web || !port)
+        {
+            JWPLC_TFT.fillRoundRect(148, 60, 168, 60, 5, T.surface);
+            JWPLC_TFT.drawRoundRect(148, 60, 168, 60, 5, T.warn);
+            text16("Falta el panel web:", 156, 66, T.text, T.surface);
+            text16("JWPLC_Web.begin()", 156, 86, T.warn, T.surface);
+        }
+        else if (core.ip[0] == '-')
+        {
+            text16("Sin IP: conecta la red", 148, 60, T.warn, T.background);
+        }
+        else if (code[0])
+        {
+            JWPLC_TFT.setFont(JWPLC_FONT_26);
+            JWPLC_TFT.setTextDatum(DATUM_TOP_LEFT);
+            JWPLC_TFT.setTextColor(T.accent, T.background);
+            char g[10];
+            snprintf(g, sizeof(g), "%.3s %.3s", code, code + 3);
+            JWPLC_TFT.drawString(g, 148, 50);
+            text16("Codigo de primer", 148, 104, T.text, T.background);
+            text16("ingreso (admin)", 148, 122, T.text, T.background);
+        }
+        else
+        {
+            text16("Equipo ya reclamado:", 148, 60, T.text, T.background);
+            text16("entra con tu usuario", 148, 80, T.textMuted, T.background);
+        }
         drawFooter("ESC volver");
     }
     void update() override
     {
-        const uint32_t left = 60000 - min<uint32_t>(60000, millis() - start);
-        const int32_t s = (int32_t)((left + 999) / 1000);
-        if (s != drawnS)
+        const char *web = jwplcWebPairingCode();
+        if (web && strcmp(web, code) != 0)
         {
-            drawnS = s;
-            JWPLC_TFT.fillRect(148, 80, 168, 4, T.surfaceAlt);
-            JWPLC_TFT.fillRect(148, 80, (int16_t)(168 * left / 60000), 4, T.accent);
-            char t[24];
-            snprintf(t, sizeof(t), "Expira en %ld s ", (long)s);
-            textGlcd(t, 148, 88, T.textMuted, T.background, 1);
+            enter(); // cambió el código o el equipo se reclamó
         }
-        if (left == 0)
+        else if (web && code[0])
         {
-            enter();
+            const uint32_t left = jwplcWebPairingMsLeft();
+            const int32_t s = (int32_t)((left + 999) / 1000);
+            if (s != drawnS)
+            {
+                drawnS = s;
+                JWPLC_TFT.fillRect(148, 80, 168, 4, T.surfaceAlt);
+                JWPLC_TFT.fillRect(148, 80, (int16_t)(168 * (left > 60000 ? 60000 : left) / 60000), 4, T.accent);
+                char t[24];
+                snprintf(t, sizeof(t), "Cambia en %ld s ", (long)s);
+                textGlcd(t, 148, 88, T.textMuted, T.background, 1);
+            }
         }
         if (key(BTN_ESC))
         {
