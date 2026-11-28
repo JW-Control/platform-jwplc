@@ -165,6 +165,18 @@ jobs:
           git show origin/main:JWPLC/package_jwplc_index_dev.json > JWPLC/package_jwplc_index_dev.json
           git show origin/main:JWPLC/package_jwplc_index.json > JWPLC/package_jwplc_index.json
 
+      - name: Armar plataforma genérica (ESP32 Board, packager jwesp)
+        shell: bash
+        run: |
+          set -euo pipefail
+          # ESP32 Board / ESP32 Family van en otra plataforma del mismo índice para que Arduino IDE no mezcle
+          # librerías JW/JWPLC con las del core en Archivo > Ejemplos (ver docs/v2.1.0-alpha.19/).
+          python JWPLC/tools/jwplc_esp32_generico.py \
+            --source "$SOURCE_FOLDER" \
+            --generico JWPLC/esp32-generico \
+            --out "$RUNNER_TEMP/esp32-generico"
+          echo "GENERIC_FOLDER=$RUNNER_TEMP/esp32-generico/$BASE_VERSION" >> "$GITHUB_ENV"
+
       - name: Preparar ZIP e índices
         id: prepare
         shell: bash
@@ -180,12 +192,14 @@ jobs:
             --repo-full-name "$GITHUB_REPOSITORY" \
             --update-public-index auto \
             --replace-existing-index-entry \
+            --generic-folder "$GENERIC_FOLDER" \
             --release-title "$TAG - JWPLC Arduino package"
 
       - name: Validar estructura instalable del ZIP
         shell: bash
         env:
           ZIP_FILE: ${{ steps.prepare.outputs.zip_file }}
+          GENERIC_ZIP_FILE: ${{ steps.prepare.outputs.generic_zip_file }}
         run: |
           set -euo pipefail
 
@@ -194,34 +208,35 @@ jobs:
           import sys
           import zipfile
 
-          zip_file = os.environ["ZIP_FILE"]
           expected_root = os.environ["BASE_VERSION"]
 
-          with zipfile.ZipFile(zip_file, "r") as zf:
+          for zip_file in (os.environ["ZIP_FILE"], os.environ["GENERIC_ZIP_FILE"]):
+            print(f"ZIP={zip_file}")
+            with zipfile.ZipFile(zip_file, "r") as zf:
               names = [name for name in zf.namelist() if name and not name.endswith("/")]
 
-          if not names:
-              print("ZIP vacío")
-              sys.exit(1)
+            if not names:
+                print("ZIP vacío")
+                sys.exit(1)
 
-          roots = sorted({name.split("/", 1)[0] for name in names})
-          print(f"ZIP_ROOTS={roots}")
+            roots = sorted({name.split("/", 1)[0] for name in names})
+            print(f"ZIP_ROOTS={roots}")
 
-          if roots != [expected_root]:
-              print(f"ERROR: se esperaba una única raíz '{expected_root}'")
-              sys.exit(1)
+            if roots != [expected_root]:
+                print(f"ERROR: se esperaba una única raíz '{expected_root}'")
+                sys.exit(1)
 
-          required = {
-              f"{expected_root}/boards.txt",
-              f"{expected_root}/platform.txt",
-          }
-          missing = sorted(required.difference(names))
-          if missing:
-              print(f"ERROR: faltan archivos requeridos: {missing}")
-              sys.exit(1)
+            required = {
+                f"{expected_root}/boards.txt",
+                f"{expected_root}/platform.txt",
+            }
+            missing = sorted(required.difference(names))
+            if missing:
+                print(f"ERROR: faltan archivos requeridos: {missing}")
+                sys.exit(1)
 
-          print("JWPLC_PACKAGE_UNIQUE_ROOT=PASS")
-          print("JWPLC_PACKAGE_REQUIRED_FILES=PASS")
+            print("JWPLC_PACKAGE_UNIQUE_ROOT=PASS")
+            print("JWPLC_PACKAGE_REQUIRED_FILES=PASS")
           PY
 
       - name: Mostrar metadata generada
@@ -234,6 +249,7 @@ jobs:
           echo "ZIP name    : ${{ steps.prepare.outputs.zip_name }}"
           echo "Checksum    : ${{ steps.prepare.outputs.checksum }}"
           echo "Size        : ${{ steps.prepare.outputs.size }}"
+          echo "ZIP genérico: ${{ steps.prepare.outputs.generic_zip_name }} (${{ steps.prepare.outputs.generic_checksum }}, ${{ steps.prepare.outputs.generic_size }} B)"
           echo "Prerelease  : ${{ steps.prepare.outputs.prerelease }}"
           echo "Public index: ${{ steps.prepare.outputs.update_public }}"
 
@@ -315,6 +331,9 @@ jobs:
           - ZIP: ${{ steps.prepare.outputs.zip_name }}
           - Checksum: ${{ steps.prepare.outputs.checksum }}
           - Size: ${{ steps.prepare.outputs.size }} bytes
+          - ZIP genérico (jwesp, ESP32 Board): ${{ steps.prepare.outputs.generic_zip_name }}
+          - Checksum genérico: ${{ steps.prepare.outputs.generic_checksum }}
+          - Size genérico: ${{ steps.prepare.outputs.generic_size }} bytes
           - Actualiza índice público: ${{ steps.prepare.outputs.update_public }}
           - Archive root: $BASE_VERSION/
 
@@ -368,7 +387,9 @@ jobs:
             PRERELEASE_FLAG="--prerelease"
           fi
 
-          gh release create "$TAG" "$ZIP_FILE" \
+          GENERIC_ZIP_FILE="${{ steps.prepare.outputs.generic_zip_file }}"
+
+          gh release create "$TAG" "$ZIP_FILE" "$GENERIC_ZIP_FILE" \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "${{ steps.prepare.outputs.release_title }}" \
@@ -381,6 +402,7 @@ jobs:
           name: jwplc-package-${{ steps.prepare.outputs.version }}
           path: |
             ${{ steps.prepare.outputs.zip_file }}
+            ${{ steps.prepare.outputs.generic_zip_file }}
             JWPLC/package_jwplc_index_dev.json
             JWPLC/package_jwplc_index.json
           if-no-files-found: error

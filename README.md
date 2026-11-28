@@ -70,6 +70,8 @@ un proyecto ya compilado en la mitad de tiempo que las versiones anteriores
 2. Abre **Herramientas → Placa → Gestor de tarjetas**, busca
    **JW Control ESP32 Boards** e instala la versión que quieras.
 3. Elige la placa en **Herramientas → Placa → JW Control ESP32 Boards**.
+4. Opcional, para un ESP32 genérico: en el mismo gestor instala **JW Control ESP32 genérico** (ESP32 Board).
+   Usa las mismas herramientas de compilación, así que no vuelve a descargarlas.
 
 Con Arduino CLI:
 
@@ -91,7 +93,14 @@ package ya incluye las versiones probadas con el JWPLC.
 |---|---|---|
 | **JWPLC Basic** | `jwplc:esp32:jwplcbasic` | El equipo completo, con Ethernet, FRAM y microSD |
 | **JWPLC Basic Core** | `jwplc:esp32:jwplcbasiccore` | La misma base sin Ethernet, FRAM ni microSD |
-| ESP32 Board | `jwplc:esp32:esp32` | ESP32 genérico, sin periféricos JWPLC |
+| ESP32 Board | `jwesp:esp32:esp32` | ESP32 genérico, sin periféricos JWPLC (package **JW Control ESP32 genérico**) |
+
+Cada package muestra solo sus ejemplos: con el JWPLC Basic, *Archivo → Ejemplos* trae las librerías `JW_` y
+`JWPLC_`; con ESP32 Board, las de arduino-esp32 (WiFi, BLE, WebServer…), sin las del JWPLC. Las librerías de
+arduino-esp32 siguen instaladas en el package del JWPLC Basic: `#include <WiFi.h>` compila igual.
+
+El FQBN anterior `jwplc:esp32:esp32` sigue funcionando desde la línea de comandos para los proyectos que lo
+fijan en sus scripts, pero ya no aparece en el menú de placas.
 
 ---
 
