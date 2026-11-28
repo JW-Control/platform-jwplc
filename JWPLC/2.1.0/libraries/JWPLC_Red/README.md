@@ -53,6 +53,35 @@ Protocolos      HTTP, HTTPS (JWPLC_TLS), MQTT, JW Cloud (JWPLC_Cloud)   ← pró
 `connected`) y además `network()`: por qué red salió la conexión actual. La red se elige en cada `connect()`:
 en modo automático, si se desenchufa el cable, la siguiente conexión sale por WiFi sin tocar el sketch.
 
+## Servidor: `JWPLC_RedServer`
+
+```cpp
+JWPLC_RedServer servidor(80);
+void setup() { servidor.begin(); }
+void loop()
+{
+    JWPLC_RedClient c = servidor.available(); // nunca espera
+    if (c) { /* leer el pedido, responder y */ c.stop(); }
+}
+```
+
+| Llamada | Para qué |
+|---|---|
+| `begin()` / `begin(puerto)` / `end()` | empezar o dejar de escuchar |
+| `available()` | la próxima conexión nueva (cada una se entrega una sola vez) o un cliente vacío |
+| `listeningEthernet()` / `listeningWiFi()` | en qué redes está escuchando ahora |
+| `port()` | puerto |
+
+- Modo `useEthernet()`: escucha solo por cable. `useWiFi()`: solo WiFi (red del router y punto de acceso
+  propio de `JWPLC_WiFi`). `useAuto()`: **las dos a la vez**, un socket en cada red; `available()` alterna
+  entre ellas para atender las dos por igual.
+- Si el cable se desenchufa o la WiFi se cae, vuelve a escuchar sola cuando la red regresa.
+- La conexión aceptada es un `JWPLC_RedClient`: `network()` dice por qué red llegó. Cada operación del
+  W5500 toma el bus SPI compartido por dentro (como `EthernetClient`).
+- Como `EthernetClient` y `WiFiClient`, un `JWPLC_RedClient` se puede copiar y no cierra la conexión al
+  salir de su ámbito: siempre `stop()`.
+- Base común de `JWPLC_Web` y de Modbus TCP esclavo por WiFi.
+
 ## WiFi opcional
 
 `JWPLC_Red` no incluye la pila WiFi: la engancha solo si el sketch incluye `JWPLC_WiFi.h` (símbolos débiles).
@@ -60,4 +89,4 @@ Medido con los ejemplos: `02.Red_Solo_Cable` ocupa 492 KB de flash, igual que un
 `01.Red_Cable_o_WiFi`, 1,11 MB. Sin WiFi, el sketch corre en **JWPLC Sim**, que simula el W5500 y sale a
 Internet por la red de la PC.
 
-Ejemplos: `01.Red_Cable_o_WiFi` (placa) y `02.Red_Solo_Cable` (placa y JWPLC Sim). Código fuente (sin `.a`).
+Ejemplos: `01.Red_Cable_o_WiFi` (placa), `02.Red_Solo_Cable` y `03.Red_Servidor` (placa y JWPLC Sim). Código fuente (sin `.a`).

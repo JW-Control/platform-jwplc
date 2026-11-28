@@ -416,3 +416,44 @@ Client *jwplc_red_wifi_new_client()
 {
     return new WiFiClient();
 }
+
+Client *jwplc_red_wifi_copy_client(const Client *c)
+{
+    return new WiFiClient(*static_cast<const WiFiClient *>(c));
+}
+
+// Servidor: escucha en la red del router y en el punto de acceso propio (WiFiServer usa todas
+// las interfaces).
+bool jwplc_red_wifi_server_ready()
+{
+    return JWPLC_WiFi.isReady() || JWPLC_WiFi.accessPointReady();
+}
+
+void *jwplc_red_wifi_server_new(uint16_t port)
+{
+    return new WiFiServer(port);
+}
+
+void jwplc_red_wifi_server_begin(void *server)
+{
+    static_cast<WiFiServer *>(server)->begin();
+    static_cast<WiFiServer *>(server)->setNoDelay(true);
+}
+
+void jwplc_red_wifi_server_end(void *server)
+{
+    static_cast<WiFiServer *>(server)->end();
+}
+
+void jwplc_red_wifi_server_delete(void *server)
+{
+    delete static_cast<WiFiServer *>(server);
+}
+
+Client *jwplc_red_wifi_server_accept(void *server)
+{
+    WiFiClient c = static_cast<WiFiServer *>(server)->accept();
+    if (!c)
+        return nullptr;
+    return new WiFiClient(c);
+}
