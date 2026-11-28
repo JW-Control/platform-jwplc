@@ -1441,6 +1441,7 @@ void webTask(void *)
         releaseStaleKeys();
         sampleTrend();
         refreshIP();
+        currentPairingCode(); // rota el código a tiempo (y lo avisa por el monitor serie)
         // JWPLC_RedServer vuelve a escuchar solo cuando la red regresa y toma el bus
         // SPI por su cuenta en cada operación del W5500.
         JWPLC_RedClient client = g_server->available();

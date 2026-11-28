@@ -36,15 +36,34 @@ static String codigoDibujado = "-";
 static String urlDibujada = "-";
 static int32_t presionDibujada = -1;
 static uint8_t bombasDibujadas = 255;
+static int16_t yPresion = 30; // dónde va el valor (lo calcula dibujarTodo)
+static int16_t yBombas = 98;
 
 // ------------------------------------------------------------ pantalla
 
-static void texto(const char t[], int16_t x, int16_t y, uint16_t color)
+// Escribe una línea en la fuente de 16 y devuelve dónde empieza la siguiente.
+// La altura sale de la fuente (fontHeight), no de un número a ojo: así las
+// líneas no se pisan aunque cambie la fuente.
+static int16_t texto(const char t[], int16_t x, int16_t y, uint16_t color)
 {
     JWPLC_TFT.setFont(JWPLC_FONT_16);
+    JWPLC_TFT.setTextSize(1);
     JWPLC_TFT.setTextDatum(DATUM_TOP_LEFT);
     JWPLC_TFT.setTextColor(color, JWPLC_TFT_BLACK);
     JWPLC_TFT.drawString(t, x, y);
+    return y + JWPLC_TFT.fontHeight() + 2;
+}
+
+// Fuente de 26 al doble (52 px): el código de primer ingreso.
+static int16_t textoGrande(const char t[], int16_t x, int16_t y, uint16_t color)
+{
+    JWPLC_TFT.setFont(JWPLC_FONT_26);
+    JWPLC_TFT.setTextSize(2);
+    JWPLC_TFT.setTextDatum(DATUM_TOP_LEFT);
+    JWPLC_TFT.setTextColor(color, JWPLC_TFT_BLACK);
+    JWPLC_TFT.drawString(t, x, y);
+    JWPLC_TFT.setTextSize(1);
+    return y + 2 * JWPLC_TFT.fontHeight() + 4;
 }
 
 static void dibujarTodo()
@@ -57,38 +76,56 @@ static void dibujarTodo()
     bombasDibujadas = 255;
     if (codigo.length() > 0)
     {
-        // Primer ingreso: QR con la dirección y el código.
+        // Primer ingreso: QR a la izquierda (dirección con el código) y, a la
+        // derecha, el código para escribirlo a mano. El bloque de texto se mide
+        // con textWidth para que quepa entero; el QR usa lo que sobra.
+        const String codigoVisible = codigo.substring(0, 3) + " " + codigo.substring(3);
+        JWPLC_TFT.setFont(JWPLC_FONT_16);
+        JWPLC_TFT.setTextSize(1);
+        int16_t ancho = max(JWPLC_TFT.textWidth("Primer ingreso"), JWPLC_TFT.textWidth("Escanea el QR"));
+        const int16_t alto16 = JWPLC_TFT.fontHeight();
+        JWPLC_TFT.setFont(JWPLC_FONT_26);
+        JWPLC_TFT.setTextSize(1);
+        // Medido en tamaño 1 y multiplicado: el código se dibuja al doble.
+        ancho = max(ancho, (int16_t)(2 * JWPLC_TFT.textWidth(codigoVisible.c_str())));
+        const int16_t altoCodigo = (int16_t)(2 * JWPLC_TFT.fontHeight());
+        const int16_t xTexto = 320 - 6 - ancho;
         const String url = JWPLC_Web.pairingURL();
         if (url.length() > 0)
         {
             qr.setText(url.c_str());
-            uint8_t escala = (uint8_t)(124 / qr.drawSize(1));
+            uint8_t escala = (uint8_t)((xTexto - 12) / qr.drawSize(1));
             if (escala == 0)
             {
                 escala = 1;
             }
             const int16_t lado = qr.drawSize(escala);
-            qr.draw(8, (170 - lado) / 2, escala);
+            qr.draw((xTexto - lado) / 2, (170 - lado) / 2, escala);
         }
         else
         {
-            texto("Esperando", 12, 60, GRIS);
-            texto("la red...", 12, 80, GRIS);
+            int16_t y = 60;
+            y = texto("Esperando", 8, y, GRIS);
+            texto("la red...", 8, y, GRIS);
         }
-        texto("Primer ingreso", 140, 18, JWPLC_TFT_WHITE);
-        JWPLC_TFT.setFont(JWPLC_FONT_26);
-        JWPLC_TFT.setTextColor(JWPLC_TFT_GREEN, JWPLC_TFT_BLACK);
-        JWPLC_TFT.setTextDatum(DATUM_TOP_LEFT);
-        JWPLC_TFT.drawString((codigo.substring(0, 3) + " " + codigo.substring(3)).c_str(), 140, 48);
-        texto("Escanea el QR", 140, 100, GRIS);
-        texto("y escribe el", 140, 120, GRIS);
-        texto("codigo.", 140, 140, GRIS);
+        // Bloque centrado en alto: título, código y dos líneas de ayuda.
+        const int16_t altoBloque = (alto16 + 2) + 4 + (altoCodigo + 4) + 6 + 2 * (alto16 + 2);
+        int16_t y = (170 - altoBloque) / 2;
+        y = texto("Primer ingreso", xTexto, y, JWPLC_TFT_WHITE);
+        y = textoGrande(codigoVisible.c_str(), xTexto, y + 4, JWPLC_TFT_GREEN);
+        y = texto("Escanea el QR", xTexto, y + 6, GRIS);
+        texto("o escribelo", xTexto, y, GRIS);
         return;
     }
-    texto("Presion de red", 12, 8, GRIS);
-    texto("Bomba 1", 12, 98, GRIS);
-    texto("Bomba 2", 170, 98, GRIS);
-    texto(urlDibujada.c_str(), 12, 140, GRIS);
+    int16_t y = texto("Presion de red", 12, 10, GRIS);
+    yPresion = y + 2;
+    JWPLC_TFT.setFont(JWPLC_FONT_26);
+    JWPLC_TFT.setTextSize(1);
+    y = yPresion + 2 * JWPLC_TFT.fontHeight() + 10; // el valor va al doble: se lee de lejos
+    yBombas = y;
+    texto("Bomba 1", 12, y, GRIS);
+    y = texto("Bomba 2", 170, y, GRIS);
+    texto(urlDibujada.c_str(), 12, y + 12, GRIS);
 }
 
 extern "C" void jwplcUIEnter() { dibujarTodo(); }
@@ -111,16 +148,21 @@ extern "C" void jwplcUIUpdate()
         char t[16];
         snprintf(t, sizeof(t), "%.2f bar ", presion);
         JWPLC_TFT.setFont(JWPLC_FONT_26);
+        JWPLC_TFT.setTextSize(2);
         JWPLC_TFT.setTextDatum(DATUM_TOP_LEFT);
         JWPLC_TFT.setTextColor(JWPLC_TFT_WHITE, JWPLC_TFT_BLACK);
-        JWPLC_TFT.drawString(t, 12, 34);
+        JWPLC_TFT.drawString(t, 12, yPresion);
+        JWPLC_TFT.setTextSize(1);
     }
     const uint8_t b = (uint8_t)((bomba1 ? 1 : 0) | (bomba2 ? 2 : 0));
     if (b != bombasDibujadas)
     {
         bombasDibujadas = b;
-        JWPLC_TFT.fillCircle(134, 108, 8, bomba1 ? JWPLC_TFT_GREEN : GRIS_OSCURO);
-        JWPLC_TFT.fillCircle(292, 108, 8, bomba2 ? JWPLC_TFT_GREEN : GRIS_OSCURO);
+        JWPLC_TFT.setFont(JWPLC_FONT_16);
+        JWPLC_TFT.setTextSize(1);
+        const int16_t yc = yBombas + JWPLC_TFT.fontHeight() / 2;
+        JWPLC_TFT.fillCircle(12 + JWPLC_TFT.textWidth("Bomba 1") + 16, yc, 7, bomba1 ? JWPLC_TFT_GREEN : GRIS_OSCURO);
+        JWPLC_TFT.fillCircle(170 + JWPLC_TFT.textWidth("Bomba 2") + 16, yc, 7, bomba2 ? JWPLC_TFT_GREEN : GRIS_OSCURO);
     }
 }
 

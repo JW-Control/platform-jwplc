@@ -351,6 +351,11 @@ const char *currentPairingCode()
         memcpy(g_prevCode, g_code, sizeof(g_code));
         snprintf(g_code, sizeof(g_code), "%06lu", (unsigned long)(esp_random() % 1000000u));
         g_codeAt = now;
+        if (S.running)
+        {
+            // También por el monitor serie, cada vez que cambia.
+            Serial.printf("[JWPLC_Web] Primer ingreso: abrir el panel y escribir el codigo %s\n", g_code);
+        }
     }
     return g_code;
 }
@@ -489,10 +494,7 @@ bool JWPLC_WebClass::begin(const char *deviceName, uint16_t port)
         return false;
     }
     S.running = true;
-    if (!S.userCount)
-    {
-        Serial.printf("[JWPLC_Web] Primer ingreso: abrir el panel y escribir el codigo %s\n", currentPairingCode());
-    }
+    currentPairingCode(); // primer código (lo muestra por el monitor serie)
     return true;
 }
 
@@ -601,6 +603,10 @@ void JWPLC_WebClass::trendEvery(uint16_t seconds)
 
 String JWPLC_WebClass::pairingCode()
 {
+    if (!S.running)
+    {
+        return String(); // sin panel no hay primer ingreso
+    }
     loadUsers();
     return String(currentPairingCode());
 }

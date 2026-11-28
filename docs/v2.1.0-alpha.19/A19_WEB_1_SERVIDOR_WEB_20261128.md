@@ -4,7 +4,7 @@ Rama: `v2.1.0-alpha.19/JWPLC-Sim/feature/servidor-web` (sale de `…/feature/wif
 `JWPLC_RedServer`). Propuesta y estudio de otras marcas: documento «Servidor web del JWPLC Basic» (28/11).
 
 ```text
-A19_WEB_1_COMPILA_SIM=PASS          [ejecutado] 4 ejemplos, jwplc-sim feature/alpha19 6a643d2 + este package
+A19_WEB_1_COMPILA_SIM=PASS          [ejecutado] 4 ejemplos, jwplc-sim feature/alpha19 + este package (CI fijado en 1918401)
 A19_WEB_1_JWSIM_WEB=PASS            [ejecutado] scripts/gate-web.mjs (jwplc-sim), 12 criterios
 A19_WEB_1_PRUEBAS_EJEMPLOS=PASS     [ejecutado] tests/examples/JWPLC_Web (4/4) y JWPLC_Runtime (4/4)
 A19_WEB_1_PARIDAD=PASS              [ejecutado] jwsim-cli parity (JWPLC_Web entra, JWPLC_WebScreen sale)
