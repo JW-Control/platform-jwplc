@@ -127,6 +127,8 @@ jobs:
             "JWPLC/2.1.0/libraries/JWPLC_Ethernet/examples/03.Ethernet_Diagnostics"
             "JWPLC/2.1.0/libraries/JWPLC_ModbusRTU/examples/01.ModbusRTU_Slave_Holding"
             "JWPLC/2.1.0/libraries/JWPLC_RS485/examples/04.RS485_Puente_USB"
+            "JWPLC/2.1.0/libraries/JWPLC_Red/examples/01.Red_Cable_o_WiFi"
+            "JWPLC/2.1.0/libraries/JWPLC_Red/examples/02.Red_Solo_Cable"
             "tools/build-speed-benchmark/sketches/06_alpha4_local_physical_gate"
           )
 
