@@ -8,7 +8,9 @@ This script prepares a JWPLC Arduino package release by:
 2. Calculating SHA-256 and size.
 3. Updating package_jwplc_index_dev.json.
 4. Updating package_jwplc_index.json only when requested or when channel is stable.
-5. Emitting GitHub Actions outputs.
+5. Optionally doing the same for the generic ESP32 platform (packager "jwesp", FQBN jwesp:esp32:esp32),
+   built beforehand by JWPLC/tools/jwplc_esp32_generico.py and published in the same index files.
+6. Emitting GitHub Actions outputs.
 
 It intentionally does NOT create the GitHub Release. The workflow does that after
 this script has produced the archive and updated the package indexes.
@@ -30,8 +32,22 @@ from typing import Any, Dict, List, Optional, Tuple
 
 REPO_DEFAULT = "JW-Control/platform-jwplc"
 PACKAGE_NAME = "jwplc"
-PLATFORM_NAME = "JW Control ESP32 Boards"
+PLATFORM_NAME = "JWPLC"
 ARCHITECTURE = "esp32"
+
+# Placas genéricas (ESP32 Board / ESP32 Family): otra plataforma en el mismo índice para que Arduino IDE no mezcle
+# las librerías JW/JWPLC con las del core (el menú Ejemplos se arma por plataforma, no por placa).
+GENERIC_PACKAGE_NAME = "jwesp"
+GENERIC_PLATFORM_NAME = "ESP Board"
+GENERIC_PACKAGE_TEMPLATE: Dict[str, Any] = {
+    "name": GENERIC_PACKAGE_NAME,
+    "maintainer": "JW Control",
+    "websiteURL": "https://www.jw-control.com/",
+    "email": "jw.control.peru@gmail.com",
+    "help": {"online": "https://www.jw-control.com/"},
+    "platforms": [],
+    "tools": [],
+}
 
 
 class ReleaseError(RuntimeError):
@@ -178,20 +194,25 @@ def save_json(path: Path, data: Dict[str, Any]) -> None:
         f.write("\n")
 
 
-def get_package(data: Dict[str, Any]) -> Dict[str, Any]:
+def get_package(data: Dict[str, Any], package_name: str = PACKAGE_NAME, create: bool = False) -> Dict[str, Any]:
     packages = data.get("packages")
     if not isinstance(packages, list) or not packages:
         fail("Invalid package index: missing packages[]")
 
     for package in packages:
-        if package.get("name") == PACKAGE_NAME:
+        if package.get("name") == package_name:
             return package
 
-    fail(f"Package '{PACKAGE_NAME}' not found in index")
+    if create and package_name == GENERIC_PACKAGE_NAME:
+        package = copy.deepcopy(GENERIC_PACKAGE_TEMPLATE)
+        packages.append(package)
+        return package
+
+    fail(f"Package '{package_name}' not found in index")
 
 
-def get_platforms(data: Dict[str, Any]) -> List[Dict[str, Any]]:
-    package = get_package(data)
+def get_platforms(data: Dict[str, Any], package_name: str = PACKAGE_NAME) -> List[Dict[str, Any]]:
+    package = get_package(data, package_name, create=True)
     platforms = package.get("platforms")
     if not isinstance(platforms, list):
         fail("Invalid package index: missing platforms[]")
@@ -202,8 +223,10 @@ def find_template_platform(dev_data: Dict[str, Any], public_data: Optional[Dict[
     for data in [dev_data, public_data]:
         if not data:
             continue
+        # No depende del nombre visible (cambió en alpha.19: «JW Control ESP32 Boards» -> «JWPLC»):
+        # sirve cualquier entrada esp32 del packager jwplc; se toma la primera (el índice va de la más nueva a la más vieja).
         for platform in get_platforms(data):
-            if platform.get("name") == PLATFORM_NAME and platform.get("architecture") == ARCHITECTURE:
+            if platform.get("architecture") == ARCHITECTURE:
                 return copy.deepcopy(platform)
 
     fail("Could not find a platform template to clone")
@@ -216,13 +239,15 @@ def build_platform_entry(
     zip_file: Path,
     checksum: str,
     size: int,
+    platform_name: str = PLATFORM_NAME,
+    boards: Optional[List[Dict[str, str]]] = None,
 ) -> Dict[str, Any]:
     zip_name = zip_file.name
     tag = f"v{version}"
     url = f"https://github.com/{repo_full_name}/releases/download/{tag}/{zip_name}"
 
     entry = copy.deepcopy(template)
-    entry["name"] = PLATFORM_NAME
+    entry["name"] = platform_name
     entry["architecture"] = ARCHITECTURE
     entry["version"] = version
     entry["category"] = entry.get("category", "Contributed")
@@ -230,8 +255,25 @@ def build_platform_entry(
     entry["archiveFileName"] = zip_name
     entry["checksum"] = f"SHA-256:{checksum}"
     entry["size"] = str(size)
+    if boards is not None:
+        entry["boards"] = boards
 
     return entry
+
+
+def boards_from_txt(platform_folder: Path) -> List[Dict[str, str]]:
+    """Placas visibles (sin hide=true) de boards.txt, para la lista «Boards included» del gestor."""
+    names: Dict[str, str] = {}
+    hidden = set()
+    for line in (platform_folder / "boards.txt").read_text(encoding="utf-8").splitlines():
+        m = re.match(r"^([A-Za-z0-9_]+)\.(name|hide)=(.*)$", line.strip())
+        if not m or m.group(1) == "menu":
+            continue
+        if m.group(2) == "name":
+            names[m.group(1)] = m.group(3).strip()
+        elif m.group(3).strip().lower() == "true":
+            hidden.add(m.group(1))
+    return [{"name": n} for b, n in names.items() if b not in hidden]
 
 
 def upsert_platform(
@@ -240,8 +282,9 @@ def upsert_platform(
     replace_existing: bool,
     fail_if_exists: bool,
     latest_only: bool = False,
+    package_name: str = PACKAGE_NAME,
 ) -> bool:
-    platforms = get_platforms(data)
+    platforms = get_platforms(data, package_name)
     version = entry["version"]
 
     existing_indexes = [i for i, platform in enumerate(platforms) if platform.get("version") == version]
@@ -253,7 +296,7 @@ def upsert_platform(
 
     if latest_only:
         if platforms != [entry]:
-            package = get_package(data)
+            package = get_package(data, package_name)
             package["platforms"] = [entry]
             changed = True
         return changed
@@ -339,19 +382,56 @@ def prepare_release(args: argparse.Namespace) -> int:
         zip_file=zip_file,
         checksum=checksum,
         size=size,
+        boards=boards_from_txt(source_folder) if (source_folder / "boards.txt").is_file() else None,
     )
+    entries: List[Tuple[Dict[str, Any], str]] = [(entry, PACKAGE_NAME)]
+
+    generic_outputs: Dict[str, str] = {}
+    if args.generic_folder:
+        generic_folder = Path(args.generic_folder)
+        if not (generic_folder / "boards.txt").is_file() or not (generic_folder / "platform.txt").is_file():
+            fail(f"Generic platform folder is not a valid Arduino platform: {generic_folder}")
+        generic_zip = Path("dist") / f"jwesp-esp32-{version}.zip"
+        if generic_zip.exists():
+            generic_zip.unlink()
+        create_zip_from_folder(generic_folder, generic_zip, args.archive_root_mode)
+        generic_checksum = sha256_file(generic_zip)
+        generic_size = generic_zip.stat().st_size
+        log(f"Generic ZIP      : {generic_zip} ({generic_size} bytes, SHA-256 {generic_checksum})")
+        generic_entry = build_platform_entry(
+            template=template,
+            version=version,
+            repo_full_name=args.repo_full_name,
+            zip_file=generic_zip,
+            checksum=generic_checksum,
+            size=generic_size,
+            platform_name=GENERIC_PLATFORM_NAME,
+            boards=boards_from_txt(generic_folder),
+        )
+        # Las herramientas (compilador, esptool, esp32-libs) son las del packager jwplc: no se duplican.
+        for dep in generic_entry.get("toolsDependencies", []):
+            dep.setdefault("packager", PACKAGE_NAME)
+        entries.append((generic_entry, GENERIC_PACKAGE_NAME))
+        generic_outputs = {
+            "generic_zip_file": generic_zip.as_posix(),
+            "generic_zip_name": generic_zip.name,
+            "generic_checksum": f"SHA-256:{generic_checksum}",
+            "generic_size": str(generic_size),
+        }
 
     replace_existing = args.replace_existing_index_entry
     fail_if_exists = args.fail_if_version_exists
 
     log(f"Updating dev index: {dev_index_path}")
-    upsert_platform(
-        dev_data,
-        entry,
-        replace_existing=replace_existing,
-        fail_if_exists=fail_if_exists,
-        latest_only=False,
-    )
+    for item, package_name in entries:
+        upsert_platform(
+            dev_data,
+            item,
+            replace_existing=replace_existing,
+            fail_if_exists=fail_if_exists,
+            latest_only=False,
+            package_name=package_name,
+        )
     save_json(dev_index_path, dev_data)
 
     if update_public:
@@ -361,13 +441,15 @@ def prepare_release(args: argparse.Namespace) -> int:
             fail("Refusing to update public index for non-stable channel unless update_public_index=yes")
 
         log(f"Updating public index: {public_index_path}")
-        upsert_platform(
-            public_data,
-            entry,
-            replace_existing=replace_existing,
-            fail_if_exists=fail_if_exists,
-            latest_only=(args.public_strategy == "latest-only"),
-        )
+        for item, package_name in entries:
+            upsert_platform(
+                public_data,
+                item,
+                replace_existing=replace_existing,
+                fail_if_exists=fail_if_exists,
+                latest_only=(args.public_strategy == "latest-only"),
+                package_name=package_name,
+            )
         save_json(public_index_path, public_data)
     else:
         log("Public index skipped")
@@ -387,6 +469,7 @@ def prepare_release(args: argparse.Namespace) -> int:
         "update_public": "true" if update_public else "false",
         "release_title": title,
     }
+    outputs.update(generic_outputs)
     write_github_output(outputs)
 
     log("Preparation complete")
@@ -412,6 +495,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--fail-if-version-exists", action="store_true", help="Fail if the version already exists in a package index")
     p.add_argument("--replace-existing-index-entry", action="store_true", help="Replace existing platform entry for the same version")
     p.add_argument("--release-title", default="", help="Optional release title")
+    p.add_argument("--generic-folder", default="", help="Plataforma genérica ya armada (jwplc_esp32_generico.py): se publica como packager jwesp en los mismos índices")
 
     return parser
 
