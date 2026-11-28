@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f1418">
+<title>JWPLC Basic</title>
+<link rel="icon" href="data:,">
+<style>
+:root{--g:#22c55e;--gd:#16a34a;--bg:#0f1418;--card:#182027;--line:#26313a;--tx:#e6edf2;--mut:#8a99a6;--red:#ef4444;--amb:#f59e0b;--in:#0c1115}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+button,input,select{font:inherit;color:inherit}
+[hidden]{display:none!important}
+.wrap{max-width:760px;margin:0 auto;padding:0 12px 92px}
+header{position:sticky;top:0;z-index:5;background:var(--bg);display:flex;align-items:center;gap:10px;padding:14px 4px 10px;border-bottom:1px solid var(--line)}
+header b{font-size:16px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pill{font-size:12px;padding:3px 9px;border-radius:20px;background:rgba(34,197,94,.15);color:var(--g);font-weight:600;white-space:nowrap}
+.pill.bad{background:rgba(239,68,68,.15);color:var(--red)}.pill.warn{background:rgba(245,158,11,.15);color:var(--amb)}
+.c{background:var(--card);border:1px solid var(--line);border-radius:14px;margin:12px 0;padding:14px}
+.k{color:var(--mut);font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+.big{font-size:32px;font-weight:700;font-variant-numeric:tabular-nums}.u{font-size:14px;color:var(--mut);font-weight:400}
+.bar{height:8px;border-radius:8px;background:var(--line);margin-top:8px;overflow:hidden}.bar i{display:block;height:100%;background:var(--g)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}
+.m{background:var(--in);border:1px solid var(--line);border-radius:12px;padding:12px;min-width:0}
+.m .val{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;margin-top:2px}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:7px;background:#555;vertical-align:middle}
+.dot.on{background:var(--g)}.dot.red{background:var(--red)}.dot.amb{background:var(--amb)}
+.btn{border:0;border-radius:10px;padding:10px 16px;background:var(--g);color:#06210f;font-weight:700;cursor:pointer}
+.btn:disabled{opacity:.5}.btn2{border:1px solid var(--line);background:transparent;color:var(--tx);border-radius:10px;padding:8px 12px;cursor:pointer}
+.btn.sm,.btn2.sm{padding:5px 10px;font-size:13px}
+label{display:block;margin:10px 0 4px;color:var(--mut);font-size:13px}
+input,select{width:100%;background:var(--in);border:1px solid var(--line);border-radius:10px;padding:11px;color:var(--tx)}
+input:focus,select:focus{outline:2px solid var(--g);outline-offset:1px}
+.code{letter-spacing:.5em;font-size:24px;text-align:center;font-weight:700;color:var(--g)}
+.err{color:var(--red);min-height:1.4em;margin-top:8px;font-size:14px}
+.note{color:var(--mut);font-size:13px;margin-top:8px}
+.row{display:flex;gap:10px;align-items:center;justify-content:space-between}
+.al{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--line)}.al:last-child{border:0}
+.al .t{flex:1;min-width:0}.al small{display:block;color:var(--mut);font-size:12px}
+nav{position:fixed;bottom:0;left:0;right:0;display:flex;border-top:1px solid var(--line);background:#0c1115;padding-bottom:env(safe-area-inset-bottom);z-index:6}
+nav button{flex:1;border:0;background:none;padding:10px 0 12px;font-size:12px;color:var(--mut);cursor:pointer;position:relative}
+nav button.a{color:var(--g);font-weight:600}
+nav .badge{position:absolute;top:5px;left:calc(50% + 14px);background:var(--red);color:#fff;border-radius:9px;font-size:10px;padding:0 5px}
+.center{max-width:420px;margin:8vh auto;padding:0 16px}
+svg{display:block;width:100%;height:auto}
+.scr{background:#000;border-radius:6px;overflow:hidden;border:3px solid #05070a;max-width:640px;margin:0 auto}
+canvas{display:block;width:100%;height:auto;image-rendering:pixelated}
+.keys{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px auto 0;max-width:640px}
+.keys button{border:1px solid var(--line);background:var(--line);border-radius:10px;padding:12px 0;font-weight:700;font-size:18px;touch-action:none;user-select:none;-webkit-user-select:none;cursor:pointer}
+.keys button.on{background:var(--gd)}
+table{width:100%;border-collapse:collapse;font-size:14px}td{padding:6px 4px;border-bottom:1px solid var(--line)}td:last-child{text-align:right;color:var(--mut)}
+dialog{background:var(--card);color:var(--tx);border:1px solid var(--line);border-radius:14px;padding:16px;width:min(92vw,380px)}
+dialog::backdrop{background:#000a}
+.legend{display:flex;flex-wrap:wrap;gap:12px;font-size:13px;color:var(--mut);margin-top:6px}.legend i{display:inline-block;width:10px;height:3px;margin-right:5px;vertical-align:middle}
+</style></head><body>
+
+<!-- Primer ingreso -->
+<div id="vClaim" class="center" hidden>
+<div class="row" style="margin-bottom:8px"><b id="cName">JWPLC Basic</b><span class="pill warn">Sin reclamar</span></div>
+<div class="c"><div style="font-size:18px;font-weight:700">Reclamar este equipo</div>
+<div class="note">Escribe el código de 6 dígitos que muestra el equipo (MENU › Red › Conectar celular). Cambia cada 60 s.</div>
+<label for="cCode">Código</label><input id="cCode" class="code" inputmode="numeric" maxlength="6" autocomplete="one-time-code">
+<label for="cUser">Usuario administrador</label><input id="cUser" value="admin" autocapitalize="none" autocomplete="username">
+<label for="cPass">Nueva contraseña</label><input id="cPass" type="password" autocomplete="new-password">
+<label for="cPass2">Repetir contraseña</label><input id="cPass2" type="password" autocomplete="new-password">
+<div class="note">Mínimo 10 caracteres. La contraseña no viaja por la red.</div>
+<div class="err" id="cErr"></div><button class="btn" id="cGo">Crear y entrar</button></div>
+<div class="c" style="border-color:#3b2f13;background:#1f1a0f"><b style="color:var(--amb)">Seguridad</b><div class="note" style="margin-top:4px">No abras puertos del router hacia este equipo. Para verlo desde afuera de la planta usa JW Cloud o una VPN.</div></div>
+</div>
+
+<!-- Ingreso -->
+<div id="vLogin" class="center" hidden>
+<div class="row" style="margin-bottom:8px"><b id="lName">JWPLC Basic</b><span class="pill">JWPLC Basic</span></div>
+<form class="c" id="lForm"><div style="font-size:18px;font-weight:700">Ingresar</div>
+<label for="lUser">Usuario</label><input id="lUser" autocapitalize="none" autocomplete="username">
+<label for="lPass">Contraseña</label><input id="lPass" type="password" autocomplete="current-password">
+<div class="err" id="lErr"></div><button class="btn" id="lGo">Entrar</button></form>
+</div>
+
+<!-- Panel -->
+<div id="vApp" hidden>
+<div class="wrap">
+<header><b id="hName">JWPLC Basic</b><span class="pill" id="hState">en línea</span></header>
+<section id="tInicio"></section>
+<section id="tAlarmas" hidden><div class="c" id="aList"></div><div class="c"><div class="k">Historial</div><div id="aHist"></div></div></section>
+<section id="tTend" hidden><div class="c"><div class="row"><div class="k" id="trTitle">Tendencia</div><a class="btn2 sm" href="/api/tendencia.csv" download>CSV</a></div><div id="trChart"></div><div class="legend" id="trLeg"></div></div></section>
+<section id="tPant" hidden><div class="c"><div class="scr"><canvas id="cv" width="320" height="170"></canvas></div>
+<div class="keys" id="keys"><button data-k="0" aria-label="Izquierda">◄</button><button data-k="1" aria-label="Arriba">▲</button><button data-k="2" aria-label="Derecha">►</button><button data-k="3">ESC</button><button data-k="4">OK</button><button data-k="5" aria-label="Abajo">▼</button></div>
+<div class="note" id="pNote" style="text-align:center"></div></div></section>
+<section id="tEquipo" hidden>
+<div class="c"><div class="k">Equipo</div><table id="eInfo"></table></div>
+<div class="c" id="eUsers" hidden><div class="row"><div class="k">Usuarios</div><button class="btn2 sm" id="uAdd">Agregar</button></div><table id="uList"></table></div>
+<div class="c" id="eAudit" hidden><div class="k">Auditoría</div><div id="aud"></div></div>
+<div class="c"><div class="row"><span id="eMe"></span><span><button class="btn2 sm" id="ePass">Cambiar clave</button> <button class="btn2 sm" id="eOut">Salir</button></span></div></div>
+</section>
+</div>
+<nav id="nav"><button data-t="tInicio" class="a">Inicio</button><button data-t="tAlarmas">Alarmas<span class="badge" id="nBadge" hidden></span></button><button data-t="tTend" id="nTend">Tendencias</button><button data-t="tPant" id="nPant">Pantalla</button><button data-t="tEquipo">Equipo</button></nav>
+</div>
+
+<dialog id="dlg"><form method="dialog" id="dForm"><div style="font-weight:700;font-size:17px" id="dTitle"></div><div id="dBody"></div><div class="err" id="dErr"></div><div class="row" style="justify-content:flex-end;margin-top:12px"><button class="btn2" value="no" formnovalidate>Cancelar</button><button class="btn" id="dOk" value="ok">Aceptar</button></div></form></dialog>
+
+<script>
+"use strict";
+// ---------- SHA-256, HMAC y PBKDF2 (crypto.subtle no existe en páginas http)
+const K=new Uint32Array([0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2]);
+const W=new Uint32Array(64);
+function blk(h,b,o){for(let i=0;i<16;i++)W[i]=b[o+i*4]<<24|b[o+i*4+1]<<16|b[o+i*4+2]<<8|b[o+i*4+3];
+for(let i=16;i<64;i++){const x=W[i-15],y=W[i-2];W[i]=((x>>>7|x<<25)^(x>>>18|x<<14)^x>>>3)+((y>>>17|y<<15)^(y>>>19|y<<13)^y>>>10)+W[i-7]+W[i-16]|0}
+let a=h[0],b2=h[1],c=h[2],d=h[3],e=h[4],f=h[5],g=h[6],hh=h[7];
+for(let i=0;i<64;i++){const t1=hh+((e>>>6|e<<26)^(e>>>11|e<<21)^(e>>>25|e<<7))+(e&f^~e&g)+K[i]+W[i]|0,t2=((a>>>2|a<<30)^(a>>>13|a<<19)^(a>>>22|a<<10))+(a&b2^a&c^b2&c)|0;hh=g;g=f;f=e;e=d+t1|0;d=c;c=b2;b2=a;a=t1+t2|0}
+h[0]+=a;h[1]+=b2;h[2]+=c;h[3]+=d;h[4]+=e;h[5]+=f;h[6]+=g;h[7]+=hh}
+const IV=[0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19];
+// SHA-256 de (prefijo de 64 bytes ya procesado en st) + m
+function shaFrom(st,pre,m){const h=new Uint32Array(st),L=pre+m.length,n=((m.length+9+63)>>6)<<6,b=new Uint8Array(n);b.set(m);b[m.length]=0x80;const bits=L*8;b[n-4]=bits>>>24;b[n-3]=bits>>>16;b[n-2]=bits>>>8;b[n-1]=bits;if(L>=2**29)b[n-5]=bits/2**32;for(let o=0;o<n;o+=64)blk(h,b,o);const out=new Uint8Array(32);for(let i=0;i<8;i++){out[i*4]=h[i]>>>24;out[i*4+1]=h[i]>>>16;out[i*4+2]=h[i]>>>8;out[i*4+3]=h[i]}return out}
+function sha256(m){return shaFrom(IV,0,m)}
+function hmacKey(key){if(key.length>64)key=sha256(key);const ip=new Uint8Array(64),op=new Uint8Array(64);for(let i=0;i<64;i++){ip[i]=(key[i]||0)^0x36;op[i]=(key[i]||0)^0x5c}const si=new Uint32Array(IV),so=new Uint32Array(IV);blk(si,ip,0);blk(so,op,0);return{si,so}}
+function hmacWith(k,m){return shaFrom(k.so,64,shaFrom(k.si,64,m))}
+function hmac(key,m){return hmacWith(hmacKey(key),m)}
+function pbkdf2(pass,salt,iter){const k=hmacKey(pass),s=new Uint8Array(salt.length+4);s.set(salt);s[salt.length+3]=1;let u=hmacWith(k,s);const t=u.slice();for(let i=1;i<iter;i++){u=hmacWith(k,u);for(let j=0;j<32;j++)t[j]^=u[j]}return t}
+const enc=s=>new TextEncoder().encode(s),hex=b=>[...b].map(x=>x.toString(16).padStart(2,'0')).join(''),unhex=h=>new Uint8Array(h.match(/../g).map(x=>parseInt(x,16)));
+function rnd(n){const b=new Uint8Array(n);crypto.getRandomValues(b);return b}
+// Clave derivada que guarda el equipo: PBKDF2(clave, sal, iter). La clave nunca sale de la página.
+function newCredentials(pass){const s=rnd(16);return{s:hex(s),k:hex(pbkdf2(enc(pass),s,2000))}}
+
+// ---------- utilidades
+const $=id=>document.getElementById(id);
+function el(tag,attrs,...kids){const e=document.createElement(tag);for(const k in attrs||{}){if(k==='class')e.className=attrs[k];else if(k.startsWith('on'))e.addEventListener(k.slice(2),attrs[k]);else e.setAttribute(k,attrs[k])}for(const k of kids)if(k!=null)e.append(k instanceof Node?k:document.createTextNode(String(k)));return e}
+class HttpError extends Error{constructor(s,m){super(m);this.status=s}}
+async function api(path,body){const o=body?{method:'POST',headers:{'X-JW':'1','Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams(body)}:{cache:'no-store'};
+const r=await fetch(path,o);let j=null;try{j=await r.json()}catch(e){}if(r.status===401){showLogin();throw new HttpError(401,'sesión vencida')}if(!r.ok)throw new HttpError(r.status,(j&&j.error)||('error '+r.status));return j}
+const ROLES={visor:1,operador:2,tecnico:3,admin:4},ROLE_NAME={visor:'Visor',operador:'Operador',tecnico:'Técnico',admin:'Administrador'};
+function ago(ms){const s=Math.max(0,Math.round(ms/1000));if(s<60)return'hace '+s+' s';const m=Math.round(s/60);if(m<60)return'hace '+m+' min';const h=Math.floor(m/60);if(h<48)return'hace '+h+' h '+(m%60)+' min';return'hace '+Math.floor(h/24)+' d'}
+function uptime(ms){const m=Math.floor(ms/60000),d=Math.floor(m/1440),h=Math.floor(m%1440/60);return(d?d+' d ':'')+h+' h '+(m%60)+' min'}
+function show(v){for(const id of['vClaim','vLogin','vApp'])$(id).hidden=id!==v}
+
+// ---------- arranque
+let me=null,defs=null,live=null,timer=null,tab='tInicio';
+async function start(){let st;try{st=await api('/api/estado')}catch(e){setTimeout(start,2000);return}
+for(const id of['cName','lName','hName'])$(id).textContent=st.nombre;document.title=st.nombre;
+if(!st.reclamado){show('vClaim');const c=new URLSearchParams(location.search).get('c');if(c)$('cCode').value=c;return}
+if(!st.usuario){showLogin();return}me={user:st.usuario,role:st.rol};openApp()}
+function showLogin(){stopAll();me=null;show('vLogin');$('lPass').value='';setTimeout(()=>$(($('lUser').value?'lPass':'lUser')).focus(),50)}
+
+// primer ingreso
+$('cGo').onclick=async()=>{const code=$('cCode').value.trim(),u=$('cUser').value.trim().toLowerCase(),p=$('cPass').value;$('cErr').textContent='';
+if(!/^\d{6}$/.test(code))return $('cErr').textContent='El código tiene 6 dígitos.';
+if(!/^[a-z0-9._-]{2,15}$/.test(u))return $('cErr').textContent='Usuario: 2 a 15 letras minúsculas, dígitos, . _ -';
+if(p.length<10)return $('cErr').textContent='La contraseña debe tener al menos 10 caracteres.';
+if(p!==$('cPass2').value)return $('cErr').textContent='Las contraseñas no coinciden.';
+$('cGo').disabled=true;try{const cr=newCredentials(p);await api('/api/reclamar',{c:code,u,s:cr.s,k:cr.k});history.replaceState(null,'','/');me={user:u,role:'admin'};openApp()}catch(e){$('cErr').textContent=e.message}finally{$('cGo').disabled=false}};
+
+// ingreso
+$('lForm').onsubmit=async ev=>{ev.preventDefault();const u=$('lUser').value.trim().toLowerCase(),p=$('lPass').value;$('lErr').textContent='';if(!u||!p)return;
+$('lGo').disabled=true;$('lGo').textContent='Verificando…';
+try{const ch=await api('/api/reto?u='+encodeURIComponent(u));await new Promise(r=>setTimeout(r,20));const key=pbkdf2(enc(p),unhex(ch.sal),ch.iter);const proof=hmac(key,unhex(ch.reto));
+const r=await api('/api/entrar',{u,r:ch.reto,p:hex(proof)});me={user:u,role:r.rol};$('lPass').value='';openApp()}
+catch(e){$('lErr').textContent=e.message}finally{$('lGo').disabled=false;$('lGo').textContent='Entrar'}};
+
+// ---------- panel
+async function openApp(){show('vApp');try{defs=await api('/api/defs')}catch(e){return}
+$('nTend').hidden=!defs.vars.some(v=>v.tendencia);$('nPant').hidden=!defs.pantalla;buildHome();go(tab);poll()}
+function stopAll(){clearTimeout(timer);timer=null;screenStop()}
+function canWrite(v){return v.escribe&&ROLES[me.role]>=ROLES[v.escribe]}
+function fmt(v,x){if(x==null)return'—';if(v.tipo==='bool')return x?'Sí':'No';const d=v.dec!=null?v.dec:(v.tipo==='real'?(Math.abs(x)>=100?1:2):0);return Number(x).toLocaleString('es',{minimumFractionDigits:d,maximumFractionDigits:d})}
+const cells={};
+function buildHome(){const root=$('tInicio');root.textContent='';for(const k in cells)delete cells[k];
+if(!defs.vars.length){root.append(el('div',{class:'c note'},'El programa no publicó variables. Usa JWPLC_Web.publish("id", variable) en setup().'))}
+const groups=[];for(const v of defs.vars){let g=groups.find(x=>x.n===v.grupo);if(!g)groups.push(g={n:v.grupo,vs:[]});g.vs.push(v)}
+for(const g of groups){const card=el('div',{class:'c'});if(g.n)card.append(el('div',{class:'k',style:'margin-bottom:8px'},g.n));const grid=el('div',{class:'grid'});card.append(grid);
+for(const v of g.vs){const num=el('span',{},'—');let dot=null,bar=null,val;
+if(v.tipo==='bool'){dot=el('span',{class:'dot'});val=el('div',{class:'val'},dot,num)}else val=el('div',{class:'val'},num,el('span',{class:'u'},v.unidad?' '+v.unidad:''));
+const m=el('div',{class:'m'},el('div',{class:'k'},v.nombre),val);
+if(v.min!=null&&v.tipo!=='bool'){bar=el('i',{style:'width:0'});m.append(el('div',{class:'bar'},bar),el('div',{class:'row note',style:'margin-top:2px;font-size:11px'},el('span',{},v.min),el('span',{},v.max)))}
+if(canWrite(v)){m.append(el('div',{style:'margin-top:8px'},el('button',{class:'btn2 sm',onclick:()=>edit(v)},v.tipo==='bool'?'Cambiar':'Cambiar valor')))}
+else if(v.escribe)m.append(el('div',{class:'note',style:'font-size:11px'},'Lo cambia: '+ROLE_NAME[v.escribe]));
+cells[v.id]={v,num,bar,dot};grid.append(m)}root.append(card)}
+}
+function paintLive(){if(!live)return;for(const id in cells){const c=cells[id],x=live.v[id];c.num.textContent=fmt(c.v,x);if(c.dot)c.dot.className='dot'+(x?' on':'');if(c.bar&&x!=null){const p=Math.max(0,Math.min(100,(x-c.v.min)*100/(c.v.max-c.v.min)));c.bar.style.width=p+'%'}}
+let act=0,unack=0;for(const a of defs.alarmas){const s=live.a[a.id];if(s&&s.activa)act++;if(s&&!s.reconocida)unack++}
+$('nBadge').hidden=!unack;$('nBadge').textContent=unack;const hs=$('hState');hs.textContent=act?act+(act>1?' alarmas':' alarma'):'en línea';hs.className='pill'+(act?' bad':'');
+if(tab==='tAlarmas')paintAlarms()}
+let fails=0;
+async function poll(){clearTimeout(timer);if(!me)return;try{live=await api('/api/vivo');fails=0;paintLive();if(tab==='tTend')await trend();if(tab==='tEquipo'&&Date.now()-eqAt>5000)await equipo()}catch(e){if(e.status===401)return;if(++fails>2){const hs=$('hState');hs.textContent='sin conexión';hs.className='pill warn'}}
+timer=setTimeout(poll,1000)}
+
+// cambiar un valor
+function dialog(title,body,onOk){$('dTitle').textContent=title;$('dBody').textContent='';$('dBody').append(...body);$('dErr').textContent='';const d=$('dlg');
+$('dOk').onclick=async ev=>{ev.preventDefault();$('dOk').disabled=true;try{await onOk();d.close()}catch(e){$('dErr').textContent=e.message}finally{$('dOk').disabled=false}};d.showModal()}
+function edit(v){const cur=live&&live.v[v.id];
+if(v.tipo==='bool'){dialog(v.nombre,[el('div',{class:'note'},'Cambiar de '+fmt(v,cur)+' a '+fmt(v,!cur)+'.')],async()=>{await api('/api/escribir',{id:v.id,v:cur?0:1});await poll()});return}
+const inp=el('input',{type:'number',step:'any',inputmode:'decimal',value:cur!=null?cur:''});if(v.min!=null){inp.min=v.min;inp.max=v.max}
+dialog(v.nombre,[el('label',{},'Nuevo valor'+(v.unidad?' ('+v.unidad+')':'')+(v.min!=null?' entre '+v.min+' y '+v.max:'')),inp],async()=>{const x=parseFloat(inp.value.replace(',','.'));if(!isFinite(x))throw new Error('Escribe un número.');if(v.min!=null&&(x<v.min||x>v.max))throw new Error('Fuera de rango.');await api('/api/escribir',{id:v.id,v:x});await poll()});setTimeout(()=>inp.select(),50)}
+
+// alarmas
+async function paintAlarms(){const L=$('aList');L.textContent='';
+if(!defs.alarmas.length){L.append(el('div',{class:'note'},'El programa no declaró alarmas.'))}
+const pri={1:'',2:'amb',3:'red'},list=defs.alarmas.map(a=>({a,s:live&&live.a[a.id]})).sort((x,y)=>(y.s&&y.s.activa)-(x.s&&x.s.activa)||y.a.prioridad-x.a.prioridad);
+for(const {a,s} of list){const on=s&&s.activa,info=on?'activa '+ago(live.t-s.desde):'normal';
+L.append(el('div',{class:'al'},el('span',{class:'dot '+(on?pri[a.prioridad]||'amb':''),style:'margin-top:5px'}),el('div',{class:'t'},el('b',{},a.texto),el('small',{},info+(s&&!s.reconocida?' · sin reconocer':(s&&s.por?' · reconoció '+s.por:'')))),
+s&&!s.reconocida&&ROLES[me.role]>=2?el('button',{class:'btn sm',onclick:async()=>{try{await api('/api/reconocer',{id:a.id});await poll()}catch(e){alert(e.message)}}},'Reconocer'):null))}}
+async function loadHistory(){const j=await api('/api/eventos'),H=$('aHist');H.textContent='';if(!j.eventos.length)H.append(el('div',{class:'note'},'Sin eventos desde que arrancó el equipo.'));
+const name=id=>(defs.alarmas.find(a=>a.id===id)||{}).texto||id;for(const e of j.eventos)H.append(el('div',{class:'al'},el('div',{class:'t'},el('b',{},name(e.alarma)),el('small',{},e.tipo+(e.por?' por '+e.por:'')+' · '+ago(j.t-e.t)))))}
+
+// tendencia
+const COLORS=['#22c55e','#3b82f6','#f59e0b','#e879f9'];
+async function trend(){const j=await api('/api/tendencia'),vs=defs.vars.filter(v=>v.tendencia),Wd=640,Hd=220,pad=30;const C=$('trChart');
+const n=Math.max(0,...vs.map(v=>(j.series[v.id]||[]).length));const span=n*j.paso;$('trTitle').textContent='Tendencia · últimos '+(span<120?span+' s':Math.round(span/60)+' min')+' (cada '+j.paso+' s)';
+if(n<2){C.textContent='';C.append(el('div',{class:'note'},'Juntando datos…'));return}
+let lo=Infinity,hi=-Infinity;for(const v of vs){if(v.min!=null){lo=Math.min(lo,v.min);hi=Math.max(hi,v.max)}for(const x of j.series[v.id]||[]){lo=Math.min(lo,x);hi=Math.max(hi,x)}}if(hi-lo<1e-6){hi+=1;lo-=1}
+const X=i=>pad+(Wd-pad-8)*i/(n-1),Y=x=>8+(Hd-30)*(1-(x-lo)/(hi-lo));
+let s=`<svg viewBox="0 0 ${Wd} ${Hd}" role="img" aria-label="Tendencia">`;for(let k=0;k<=4;k++){const yv=lo+(hi-lo)*k/4,y=Y(yv);s+=`<line x1="${pad}" x2="${Wd-8}" y1="${y}" y2="${y}" stroke="#26313a"/><text x="0" y="${y+4}" fill="#8a99a6" font-size="11">${+yv.toFixed(2)}</text>`}
+vs.forEach((v,i)=>{const a=j.series[v.id]||[];s+=`<polyline fill="none" stroke="${COLORS[i%4]}" stroke-width="2" points="${a.map((x,k)=>X(k+n-a.length).toFixed(1)+','+Y(x).toFixed(1)).join(' ')}"/>`});
+s+=`<text x="${pad}" y="${Hd-4}" fill="#8a99a6" font-size="11">-${(n-1)*j.paso<120?(n-1)*j.paso+' s':Math.round((n-1)*j.paso/60)+' min'}</text><text x="${Wd-40}" y="${Hd-4}" fill="#8a99a6" font-size="11">ahora</text></svg>`;C.innerHTML=s;
+const Lg=$('trLeg');Lg.textContent='';vs.forEach((v,i)=>Lg.append(el('span',{},el('i',{style:'background:'+COLORS[i%4]}),v.nombre+(v.unidad?' ('+v.unidad+')':''))))}
+
+// equipo
+let eqAt=0;
+async function equipo(){eqAt=Date.now();const j=await api('/api/equipo'),T=$('eInfo');T.textContent='';
+const rows=[['Nombre',j.nombre],['Red',j.red+' · '+j.ip],['Encendido',uptime(j.t)],['Memoria libre',Math.round(j.heap/1024)+' KB (mínimo '+Math.round(j.heapMin/1024)+' KB)'],['Sesiones abiertas',j.sesiones],['Variables / alarmas',j.variables+' / '+j.alarmas],['JWPLC_Web',j.version]];
+for(const [a,b] of rows)T.append(el('tr',{},el('td',{},a),el('td',{},b)));
+$('eMe').textContent=me.user+' · '+ROLE_NAME[me.role];
+$('eAudit').hidden=!j.auditoria;if(j.auditoria){const A=$('aud');A.textContent='';for(const a of j.auditoria)A.append(el('div',{class:'al'},el('div',{class:'t'},a.texto,el('small',{},(a.por||'—')+' · '+ago(j.t-a.t)))))}
+$('eUsers').hidden=me.role!=='admin';if(me.role==='admin'){const u=await api('/api/usuarios'),U=$('uList');U.textContent='';
+for(const x of u.usuarios)U.append(el('tr',{},el('td',{},x.nombre+' · '+ROLE_NAME[x.rol]),el('td',{},x.nombre===me.user?'(tú)':el('button',{class:'btn2 sm',onclick:()=>dialog('Borrar usuario',[el('div',{class:'note'},'¿Borrar a '+x.nombre+'? Se cierra su sesión.')],async()=>{await api('/api/usuarios/borrar',{u:x.nombre});await equipo()})},'Borrar'))));
+$('uAdd').disabled=u.usuarios.length>=u.max}}
+$('uAdd').onclick=()=>{const u=el('input',{autocapitalize:'none'}),r=el('select',{},...['visor','operador','tecnico','admin'].map(x=>el('option',{value:x},ROLE_NAME[x]))),p=el('input',{type:'password',autocomplete:'new-password'});r.value='operador';
+dialog('Nuevo usuario',[el('label',{},'Usuario'),u,el('label',{},'Rol'),r,el('label',{},'Contraseña (mín. 10)'),p],async()=>{const name=u.value.trim().toLowerCase();if(!/^[a-z0-9._-]{2,15}$/.test(name))throw new Error('Usuario: 2 a 15 minúsculas, dígitos, . _ -');if(p.value.length<10)throw new Error('Mínimo 10 caracteres.');const cr=newCredentials(p.value);await api('/api/usuarios/crear',{u:name,rol:r.value,s:cr.s,k:cr.k});await equipo()})};
+$('ePass').onclick=()=>{const p=el('input',{type:'password',autocomplete:'new-password'}),p2=el('input',{type:'password',autocomplete:'new-password'});
+dialog('Cambiar mi clave',[el('label',{},'Nueva contraseña (mín. 10)'),p,el('label',{},'Repetir'),p2],async()=>{if(p.value.length<10)throw new Error('Mínimo 10 caracteres.');if(p.value!==p2.value)throw new Error('No coinciden.');const cr=newCredentials(p.value);await api('/api/clave',cr)})};
+$('eOut').onclick=async()=>{try{await api('/api/salir',{})}catch(e){}showLogin()};
+
+// ---------- pestañas
+function go(t){tab=t;for(const b of $('nav').children)b.classList.toggle('a',b.dataset.t===t);for(const id of['tInicio','tAlarmas','tTend','tPant','tEquipo'])$(id).hidden=id!==t;
+screenStop();if(t==='tAlarmas'){paintAlarms();loadHistory().catch(()=>{})}if(t==='tTend')trend().catch(()=>{});if(t==='tEquipo')equipo().catch(()=>{});if(t==='tPant')screenStart();scrollTo(0,0)}
+for(const b of $('nav').children)b.onclick=()=>go(b.dataset.t);
+
+// ---------- pantalla en vivo (protocolo JWS2, igual que JWPLC_WebScreen)
+const cv=$('cv'),gx=cv.getContext('2d');let SW=320,SH=170,img=gx.createImageData(SW,SH),idx=new Uint8Array(SW*SH),pal=[],ver=0,sOn=false,sBusy=false,ctl=null,waiting=false;const evq=[],down=new Set();
+function rgb(v){return[((v>>11)&31)*255/31|0,((v>>5)&63)*255/63|0,(v&31)*255/31|0]}
+function resize(w,h){SW=w;SH=h;cv.width=w;cv.height=h;img=gx.createImageData(w,h);idx=new Uint8Array(w*h);ver=0}
+function paintRows(rows){const d=img.data;for(const y of rows){let o=y*SW;for(let x=0;x<SW;x++,o++){const p=pal[idx[o]]||[0,0,0],q=o*4;d[q]=p[0];d[q+1]=p[1];d[q+2]=p[2];d[q+3]=255}}gx.putImageData(img,0,0)}
+function applyFrame(b){const v=new DataView(b);if(b.byteLength<16||v.getUint32(0)!==0x4A575332)throw 0;let o=4;const nv=v.getUint32(o,true);o+=4;const w=v.getUint16(o,true),h=v.getUint16(o+2,true);o+=4;if(w!==SW||h!==SH){resize(w,h);return}
+const from=v.getUint16(o,true),n=v.getUint16(o+2,true);o+=4;for(let i=0;i<n;i++){pal[from+i]=rgb(v.getUint16(o,true));o+=2}
+const rows=[];for(;;){const y=v.getUint16(o,true);o+=2;if(y===0xFFFF)break;let x=v.getUint16(o,true);const e=x+v.getUint16(o+2,true),r=y*SW;o+=4;while(x<e){const len=v.getUint8(o)+1,ix=v.getUint8(o+1);o+=2;idx.fill(ix,r+x,r+x+len);x+=len}rows.push(y)}if(rows.length)paintRows(rows);ver=nv}
+async function sLoop(){if(!sOn||sBusy)return;sBusy=true;let wait=0;const ev=evq.shift();ctl=new AbortController();waiting=ev===undefined;
+try{const r=await fetch('/f?v='+ver+'&p='+pal.length+(ev!==undefined?'&e='+ev:(ver?'&w=1':'')),{cache:'no-store',signal:ctl.signal});if(r.status===401){sBusy=false;showLogin();return}if(!r.ok)throw 0;applyFrame(await r.arrayBuffer());$('pNote').textContent=keysOk()?'Las teclas funcionan como la botonera del equipo.':'Solo vista: tu rol no usa las teclas.'}
+catch(e){if(!(e&&e.name==='AbortError')){if(ev!==undefined)evq.unshift(ev);wait=600;$('pNote').textContent='Reconectando…'}}
+waiting=false;sBusy=false;if(sOn)setTimeout(sLoop,wait)}
+function keysOk(){return defs&&defs.teclas&&ROLES[me.role]>=2}
+function screenStart(){sOn=true;ver=0;pal=[];$('keys').hidden=!keysOk();sLoop()}
+function screenStop(){sOn=false;if(ctl)ctl.abort();for(const k of[...down])key(k,false)}
+function key(k,d){if(d?down.has(k):!down.has(k))return;d?down.add(k):down.delete(k);const b=document.querySelector('[data-k="'+k+'"]');if(b)b.classList.toggle('on',d);if(!keysOk())return;evq.push(k*10+(d?1:0));if(waiting&&ctl)ctl.abort()}
+for(const b of document.querySelectorAll('[data-k]')){const k=+b.dataset.k;b.addEventListener('pointerdown',e=>{b.setPointerCapture(e.pointerId);key(k,true)});for(const ev of['pointerup','pointercancel','lostpointercapture'])b.addEventListener(ev,()=>key(k,false))}
+const map={ArrowLeft:0,ArrowUp:1,ArrowRight:2,Escape:3,Enter:4,ArrowDown:5};
+addEventListener('keydown',e=>{if(tab!=='tPant'||$('dlg').open)return;const k=map[e.key];if(k===undefined)return;e.preventDefault();if(!e.repeat)key(k,true)});
+addEventListener('keyup',e=>{const k=map[e.key];if(k!==undefined&&tab==='tPant')key(k,false)});
+setInterval(()=>{if(sOn)for(const k of down){evq.push(k*10+1);if(waiting&&ctl)ctl.abort()}},1000);
+start();
+</script></body></html>

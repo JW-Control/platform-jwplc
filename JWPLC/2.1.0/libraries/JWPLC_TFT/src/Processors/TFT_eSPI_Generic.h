@@ -186,7 +186,7 @@
 
 
 ////////////////////////////////////////////////////////////////////////////////////////
-// JWPLC: espejo de la pantalla para JWPLC_WebScreen (JWPLC_TFT_Mirror.h). Esta ruta
+// JWPLC: espejo de la pantalla para JWPLC_Web (JWPLC_TFT_Mirror.h). Esta ruta
 // la usa JWPLC Sim; en la placa va la del procesador ESP32 (mismo decodificador).
 ////////////////////////////////////////////////////////////////////////////////////////
 #include "../JWPLC_TFT_Mirror.h"

@@ -589,7 +589,7 @@ SPI3_HOST = 2
 #define DAT8TO32(P) ( (uint32_t)P[0]<<8 | P[1] | P[2]<<24 | P[3]<<16 )
 
 ////////////////////////////////////////////////////////////////////////////////////////
-// JWPLC: espejo de la pantalla para JWPLC_WebScreen (JWPLC_TFT_Mirror.h). Cada
+// JWPLC: espejo de la pantalla para JWPLC_Web (JWPLC_TFT_Mirror.h). Cada
 // escritura SPI a la TFT avisa al espejo cuando está activo; DC_C/DC_D le dicen
 // si el byte es comando o dato. Solo el bus SPI de un hilo (nuestra placa).
 ////////////////////////////////////////////////////////////////////////////////////////

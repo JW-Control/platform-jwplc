@@ -101,7 +101,7 @@ public:
   bool pressed(uint8_t id) const;
   bool released(uint8_t id) const;
 
-  // Tecla virtual (p. ej. la botonera de JWPLC_WebScreen): mientras está en
+  // Tecla virtual (p. ej. la botonera de JWPLC_Web): mientras está en
   // true cuenta como pulsada, sin antirrebote, con eventos y repetición normales.
   void setVirtualDown(uint8_t id, bool down);
   bool virtualDown(uint8_t id) const;

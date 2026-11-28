@@ -1,7 +1,7 @@
 // JWPLC_TFT_Mirror.h: copia en RAM de lo que se dibuja en la TFT (uso interno).
 //
-// La usa JWPLC_WebScreen para mostrar la pantalla del equipo en un navegador.
-// No es API del sketch: el sketch solo llama JWPLC_WebScreen.begin().
+// La usa JWPLC_Web para mostrar la pantalla del equipo en un navegador.
+// No es API del sketch: el sketch solo llama JWPLC_Web.begin().
 //
 // Cómo funciona: las macros de escritura SPI de TFT_eSPI (TFT_WRITE_BITS,
 // tft_Write_16N, DC_C/DC_D) y pushBlock/pushPixels avisan aquí de cada byte
@@ -9,7 +9,7 @@
 // RAMWR (0x2C) igual que el ST7789 y escribe los píxeles en un búfer de
 // 8 bits por píxel con paleta (hasta 256 colores RGB565 exactos; 320x170 =
 // 54 400 B). Cada fila guarda la versión en la que cambió, para enviar solo
-// las filas nuevas. Sin JWPLC_WebScreen no se reserva memoria y el costo es
+// las filas nuevas. Sin JWPLC_Web no se reserva memoria y el costo es
 // una comparación por escritura.
 #pragma once
 

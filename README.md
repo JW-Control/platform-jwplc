@@ -168,8 +168,9 @@ el navegador y lo simula en la PC. Las descargas están
   página HMI propia diseñada con el proyecto «Runtime» del HMI Designer.
 - **Expansión por RS-485** (*Ejemplos → JWPLC_Expansion*): otro JWPLC Basic aporta sus entradas y salidas al
   Runtime, que lo da de alta desde la pantalla.
-- **La pantalla en el navegador** (*Ejemplos → JWPLC_WebScreen*): `JWPLC_WebScreen.begin()` y la TFT aparece en
-  vivo en `http://<IP>/`, con la botonera virtual. Ideal para demostraciones y soporte remoto.
+- **Panel web con usuarios** (*Ejemplos → JWPLC_Web*): `JWPLC_Web.begin()` y `publish()` arman un panel para el
+  celular o la PC con valores en vivo, consignas, alarmas, tendencia y la TFT en vivo con la botonera. El primer
+  ingreso pide un código de 6 dígitos del equipo y crea el administrador; la contraseña no viaja por la red.
 - **Gráficos y widgets:** sprites, fuentes grandes y de 7 segmentos (`JWPLC_TFT` 0.5.0), lista de parámetros,
   tendencia, teclado en pantalla y QR (`JWPLC_UI_Widgets`).
 - **HMI más industrial:** medidor circular, iconos animados (balizas, pilotos, motores, pistones) e historial de
@@ -347,7 +348,7 @@ para el final.
 | Dibujo directo en la TFT | [JWPLC_TFT](JWPLC/2.1.0/libraries/JWPLC_TFT/README.md) |
 | Widgets de pantalla (parámetros, tendencia, teclado, QR) | [JWPLC_UI_Widgets](JWPLC/2.1.0/libraries/JWPLC_UI_Widgets/README.md) |
 | Runtime de panel estilo LOGO! (programar desde la pantalla) | [JWPLC_Runtime](JWPLC/2.1.0/libraries/JWPLC_Runtime/README.md) |
-| La pantalla en el navegador (Ethernet) | [JWPLC_WebScreen](JWPLC/2.1.0/libraries/JWPLC_WebScreen/README.md) |
+| Panel web con usuarios y la pantalla en el navegador | [JWPLC_Web](JWPLC/2.1.0/libraries/JWPLC_Web/README.md) |
 | Módulos de expansión por RS-485 | [JWPLC_Expansion](JWPLC/2.1.0/libraries/JWPLC_Expansion/README.md) |
 | Botonera (teclas físicas y virtuales) | [JW_MatrixButtons](JWPLC/2.1.0/libraries/JW_MatrixButtons/README.md) |
 | Ethernet, TCP y UDP | [JWPLC_Ethernet](JWPLC/2.1.0/libraries/JWPLC_Ethernet/README.md) |
