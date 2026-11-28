@@ -38,7 +38,7 @@ ARCHITECTURE = "esp32"
 # Placas genéricas (ESP32 Board / ESP32 Family): otra plataforma en el mismo índice para que Arduino IDE no mezcle
 # las librerías JW/JWPLC con las del core (el menú Ejemplos se arma por plataforma, no por placa).
 GENERIC_PACKAGE_NAME = "jwesp"
-GENERIC_PLATFORM_NAME = "ESP32 Board"
+GENERIC_PLATFORM_NAME = "ESP Board"
 GENERIC_PACKAGE_TEMPLATE: Dict[str, Any] = {
     "name": GENERIC_PACKAGE_NAME,
     "maintainer": "JW Control",

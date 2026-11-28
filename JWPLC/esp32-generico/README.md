@@ -1,4 +1,4 @@
-# Placas genéricas (package «ESP32 Board», packager `jwesp`)
+# Placas genéricas (package «ESP Board», packager `jwesp`)
 
 `boards.txt` de ESP32 Board (`jwesp:esp32:esp32`) y ESP32 Family Device (oculta). El resto de la plataforma no se
 versiona aquí: `JWPLC/tools/jwplc_esp32_generico.py` la arma al publicar desde el core del package `JWPLC/<versión>`

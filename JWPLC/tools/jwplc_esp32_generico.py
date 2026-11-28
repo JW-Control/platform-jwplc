@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Arma la plataforma «ESP32 Board» (ESP32 Board / ESP32 Family).
+"""Arma la plataforma «ESP Board» (ESP32 Board / ESP32 Family).
 
 Arduino IDE muestra en Archivo > Ejemplos todas las librerías de la plataforma de la placa elegida, sin filtrar
 por placa. Para que el JWPLC Basic no muestre ejemplos del core ESP32 y ESP32 Board no muestre librerías JW/JWPLC,
@@ -31,7 +31,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-NOMBRE_PLATAFORMA = "ESP32 Board"
+NOMBRE_PLATAFORMA = "ESP Board"
 
 # Librerías propias del JWPLC Basic (y sus dependencias de terceros) que no van en la plataforma genérica.
 PREFIJOS_JW = ("JW_", "JWPLC_")
