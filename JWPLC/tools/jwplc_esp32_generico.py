@@ -17,13 +17,20 @@ Uso:
       --source JWPLC/2.1.0 --out dist/esp32-generico [--esp32-libraries <arduino-esp32>/libraries]
 
 Sin --esp32-libraries descarga de GitHub los ejemplos de la versión de arduino-esp32 indicada en
-`JWPLC/<versión>/package.json` (clon superficial y disperso de espressif/arduino-esp32).
+`JWPLC/<versión>/package.json` (clon superficial y disperso de espressif/arduino-esp32). La descarga queda
+en caché en la carpeta temporal del sistema y las siguientes corridas la reutilizan.
+
+Para probar en Arduino IDE (instalación local, como `jwplc_local` del Basic):
+  python JWPLC/tools/jwplc_esp32_generico.py --local
+escribe en <Arduino15>/packages/jwesp_local/hardware/esp32/<versión base>. En Windows también:
+  powershell -ExecutionPolicy Bypass -File tools/alpha19/actualizar_esp_board_local.ps1
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -56,6 +63,28 @@ def es_libreria_jw(nombre: str) -> bool:
 def version_arduino_esp32(source: Path) -> str:
     data = json.loads((source / "package.json").read_text(encoding="utf-8"))
     return str(data["version"])
+
+
+def carpeta_arduino15() -> Path:
+    if sys.platform.startswith("win"):
+        return Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local")) / "Arduino15"
+    if sys.platform == "darwin":
+        return Path.home() / "Library" / "Arduino15"
+    return Path.home() / ".arduino15"
+
+
+def librerias_upstream_en_cache(version: str) -> Path:
+    """Ejemplos de arduino-esp32 en caché (carpeta temporal del sistema); se descargan una sola vez."""
+    cache = Path(tempfile.gettempdir()) / f"jwplc-arduino-esp32-{version}"
+    libs = cache / "libraries"
+    if (cache / ".completo").is_file() and libs.is_dir():
+        log(f"Usando ejemplos de arduino-esp32 {version} en caché: {cache}")
+        return libs
+    if cache.exists():
+        shutil.rmtree(cache, ignore_errors=True)
+    descargar_librerias_upstream(version, cache)
+    (cache / ".completo").write_text(version, encoding="utf-8")
+    return libs
 
 
 def descargar_librerias_upstream(version: str, destino: Path) -> Path:
@@ -106,10 +135,8 @@ def armar(source: Path, generico: Path, out_root: Path, librerias_upstream: Path
     platform_txt.write_text(texto, encoding="utf-8")
 
     # Ejemplos originales de arduino-esp32 en las librerías del core.
-    tmp = None
     if librerias_upstream is None:
-        tmp = Path(tempfile.mkdtemp(prefix="arduino-esp32-"))
-        librerias_upstream = descargar_librerias_upstream(version_arduino_esp32(source), tmp / "arduino-esp32")
+        librerias_upstream = librerias_upstream_en_cache(version_arduino_esp32(source))
     restaurados = 0
     for lib in sorted((out / "libraries").iterdir()):
         ejemplos = librerias_upstream / lib.name / "examples"
@@ -118,8 +145,6 @@ def armar(source: Path, generico: Path, out_root: Path, librerias_upstream: Path
                 shutil.rmtree(lib / "examples")
             shutil.copytree(ejemplos, lib / "examples")
             restaurados += 1
-    if tmp is not None:
-        shutil.rmtree(tmp, ignore_errors=True)
 
     quedan_jw = [p.name for p in (out / "libraries").iterdir() if es_libreria_jw(p.name)]
     if quedan_jw:
@@ -138,9 +163,17 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--generico", default="JWPLC/esp32-generico", help="boards.txt y variantes de las placas genéricas")
     p.add_argument("--out", default="dist/esp32-generico", help="Carpeta donde se arma <out>/<versión base>")
     p.add_argument("--esp32-libraries", default="", help="Carpeta libraries/ de arduino-esp32 (sin red)")
+    p.add_argument(
+        "--local",
+        action="store_true",
+        help="Instalar para Arduino IDE en <Arduino15>/packages/jwesp_local/hardware/esp32 (ignora --out)",
+    )
     a = p.parse_args(argv)
     upstream = Path(a.esp32_libraries) if a.esp32_libraries else None
-    armar(Path(a.source), Path(a.generico), Path(a.out), upstream)
+    out = carpeta_arduino15() / "packages" / "jwesp_local" / "hardware" / "esp32" if a.local else Path(a.out)
+    armar(Path(a.source), Path(a.generico), out, upstream)
+    if a.local:
+        log("Reinicia Arduino IDE para ver el package «ESP Board» con la placa ESP32 Board")
     return 0
 
 
