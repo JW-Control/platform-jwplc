@@ -2,6 +2,8 @@
 // auditoría y usuarios. El servidor HTTP está en JWPLC_Web_Server.cpp.
 #include "JWPLC_Web.h"
 
+#include <stdlib.h>
+
 #include <JWPLC_Red.h>
 #include <Preferences.h>
 #include <esp_random.h>
@@ -509,6 +511,17 @@ String JWPLC_WebClass::url() const
     {
         return String();
     }
+#ifdef JWSIM
+    // JWPLC Sim con «Panel web desde el celular»: el Sim publica el puerto del
+    // PLC en la red de la PC (puerto + 1000 si es menor que 1024) y deja aquí la
+    // IP de la PC, para que el QR y la URL sirvan desde el celular.
+    const char *lan = getenv("JWSIM_LAN_HOST");
+    if (lan && lan[0])
+    {
+        const uint16_t p = S.port < 1024 ? (uint16_t)(S.port + 1000) : S.port;
+        return "http://" + String(lan) + ":" + String(p) + "/";
+    }
+#endif
     String s = "http://" + IPAddress(ip).toString();
     if (S.port != 80)
     {
