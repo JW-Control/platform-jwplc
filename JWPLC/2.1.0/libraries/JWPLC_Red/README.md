@@ -1,6 +1,6 @@
 # JWPLC_Red
 
-Cable o WiFi **con el mismo código**. Versión **0.1.0** (línea `v2.1.0-alpha.20/Red`).
+Cable o WiFi **con el mismo código**. Versión **0.1.0** (línea `v2.1.0-alpha.19/JWPLC-Sim`).
 
 `JWPLC_Red` elige por qué red sale el JWPLC Basic y da `JWPLC_RedClient`, un cliente TCP que funciona igual
 por Ethernet (W5500) o por WiFi. Sobre él se construyen HTTP, HTTPS, MQTT y JW Cloud.

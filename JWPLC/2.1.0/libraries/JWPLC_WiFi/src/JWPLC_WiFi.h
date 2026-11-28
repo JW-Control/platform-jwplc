@@ -9,6 +9,7 @@
 // - Si la red se cae o el router se reinicia, vuelve a conectar solo.
 // - statusString() dice por qué no conecta: clave incorrecta, red no encontrada, etc.
 // - Junto con JWPLC_Red, el mismo sketch puede salir por cable o por WiFi.
+// - startAccessPoint() abre la red propia del PLC y qrText() da su QR para el HMI Designer.
 //
 // JWPLC Sim todavía no simula la radio: un sketch con esta librería compila solo para la placa.
 #pragma once
@@ -59,6 +60,23 @@ public:
 
     void printStatus(Stream &out);
 
+    // Punto de acceso propio (red del PLC, p. ej. portal de descarga o configuración desde el
+    // celular). Puede estar a la vez que connect(). IP del PLC en su red: 192.168.4.1.
+    // Devuelve false si el nombre está vacío o pasa de 32 caracteres, o si la clave no está vacía
+    // y no tiene entre 8 y 63 caracteres (WPA2). Clave vacía = red abierta.
+    bool startAccessPoint(const char *network, const char *password = "");
+    bool startAccessPoint(const String &network, const String &password);
+    void stopAccessPoint();
+    bool accessPointReady();
+    const char *accessPointNetwork();
+    IPAddress accessPointIP();
+    uint8_t accessPointClients();
+
+    // Texto para el QR «unirse a la red» del punto de acceso, en el mismo formato que el preset
+    // WIFI del HMI Designer: WIFI:T:WPA;S:<red>;P:<clave>;; (o T:nopass). Vacío sin punto de acceso.
+    // Para un QR VARIABLE del Designer: JWPLC_WiFi.qrText().toCharArray(qrTexto, sizeof(qrTexto));
+    String qrText();
+
     // Interno (tarea y eventos).
     void serviceInternal();
     void onEventInternal(int32_t event, uint8_t reason);
@@ -79,6 +97,9 @@ private:
     volatile uint32_t reconnects_ = 0;
     volatile bool restart_ = false;
     bool eventsHooked_ = false;
+    char apNetwork_[33] = "";
+    char apPassword_[64] = "";
+    volatile bool apOn_ = false;
     void *task_ = nullptr;
 };
 

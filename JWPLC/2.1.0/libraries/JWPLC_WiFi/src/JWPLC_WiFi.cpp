@@ -39,6 +39,26 @@ void taskMain(void *)
     }
 }
 
+wifi_mode_t radioMode(bool station, bool accessPoint)
+{
+    if (station && accessPoint)
+        return WIFI_AP_STA;
+    if (accessPoint)
+        return WIFI_AP;
+    return station ? WIFI_STA : WIFI_OFF;
+}
+
+// Escapa \ ; , : " como el preset WIFI del HMI Designer (designer-qr-core.js, escapeWifiField).
+void appendQrField(String &out, const char *val)
+{
+    for (const char *p = val; *p; ++p)
+    {
+        if (*p == '\\' || *p == ';' || *p == ',' || *p == ':' || *p == '"')
+            out += '\\';
+        out += *p;
+    }
+}
+
 bool copyText(char *dst, size_t size, const char *src)
 {
     if (src == nullptr)
@@ -81,7 +101,10 @@ void JWPLC_WiFiClass::disconnect()
     wanted_ = false;
     restart_ = false;
     state_ = WIFI_STATE_OFF;
-    WiFi.disconnect(true, false);
+    // Si el punto de acceso sigue abierto, la radio queda encendida solo para él.
+    WiFi.disconnect(!apOn_, false);
+    if (apOn_)
+        WiFi.mode(WIFI_AP);
 }
 
 void JWPLC_WiFiClass::useDHCP()
@@ -132,7 +155,7 @@ void JWPLC_WiFiClass::beginAttempt()
         esp_read_mac(mac, ESP_MAC_WIFI_STA);
         snprintf(hostname_, sizeof(hostname_), "jwplc-%02x%02x", mac[4], mac[5]);
     }
-    WiFi.mode(WIFI_STA);
+    WiFi.mode(radioMode(true, apOn_));
     WiFi.setHostname(hostname_);
     WiFi.setAutoReconnect(true);
     if (staticIp_)
@@ -293,7 +316,88 @@ void JWPLC_WiFiClass::printStatus(Stream &out)
         out.print(" dBm)");
     }
     out.print(" | reconexiones: ");
-    out.println(reconnects());
+    out.print(reconnects());
+    if (apOn_)
+    {
+        out.print(" | punto de acceso: ");
+        out.print(apNetwork_);
+        out.print(" ");
+        out.print(accessPointIP());
+        out.print(" (");
+        out.print(accessPointClients());
+        out.print(" conectados)");
+    }
+    out.println();
+}
+
+bool JWPLC_WiFiClass::startAccessPoint(const char *network, const char *password)
+{
+    if (network == nullptr || network[0] == '\0')
+        return false;
+    if (password == nullptr)
+        password = "";
+    const size_t passLen = strlen(password);
+    if (passLen != 0 && (passLen < 8 || passLen > 63))
+        return false;
+    if (!copyText(apNetwork_, sizeof(apNetwork_), network))
+        return false;
+    memcpy(apPassword_, password, passLen + 1);
+
+    WiFi.mode(radioMode(wanted_, true));
+    const bool ok = WiFi.softAP(apNetwork_, passLen ? apPassword_ : nullptr);
+    apOn_ = ok;
+    return ok;
+}
+
+bool JWPLC_WiFiClass::startAccessPoint(const String &network, const String &password)
+{
+    return startAccessPoint(network.c_str(), password.c_str());
+}
+
+void JWPLC_WiFiClass::stopAccessPoint()
+{
+    if (!apOn_)
+        return;
+    apOn_ = false;
+    WiFi.softAPdisconnect(false);
+    WiFi.mode(radioMode(wanted_, false));
+}
+
+bool JWPLC_WiFiClass::accessPointReady()
+{
+    return apOn_;
+}
+
+const char *JWPLC_WiFiClass::accessPointNetwork()
+{
+    return apOn_ ? apNetwork_ : "";
+}
+
+IPAddress JWPLC_WiFiClass::accessPointIP()
+{
+    return apOn_ ? WiFi.softAPIP() : IPAddress();
+}
+
+uint8_t JWPLC_WiFiClass::accessPointClients()
+{
+    return apOn_ ? WiFi.softAPgetStationNum() : 0;
+}
+
+String JWPLC_WiFiClass::qrText()
+{
+    String out;
+    if (!apOn_)
+        return out;
+    out.reserve(24 + strlen(apNetwork_) * 2 + strlen(apPassword_) * 2);
+    out += apPassword_[0] ? "WIFI:T:WPA;S:" : "WIFI:T:nopass;S:";
+    appendQrField(out, apNetwork_);
+    if (apPassword_[0])
+    {
+        out += ";P:";
+        appendQrField(out, apPassword_);
+    }
+    out += ";;";
+    return out;
 }
 
 // Enganche con JWPLC_Red. JWPLC_Red los declara como símbolos débiles: existen solo si el sketch

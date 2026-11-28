@@ -459,7 +459,7 @@
             <div class="qr-wifi-box" data-qr-wifi-box hidden>
               <div class="bar-card-section-title" style="margin:0;">Configuración Wi-Fi</div>
               <label class="field-label">Nombre de red (SSID)
-                <input class="field-input" data-qr-wifi="ssid" type="text" maxlength="64" placeholder="MiRed_PLC" />
+                <input class="field-input" data-qr-wifi="ssid" type="text" maxlength="32" placeholder="MiRed_PLC" />
               </label>
               <div class="insp-two">
                 <label class="field-label">Seguridad
@@ -470,7 +470,7 @@
                   </select>
                 </label>
                 <label class="field-label" data-qr-wifi-pass-wrap>Contraseña
-                  <input class="field-input" data-qr-wifi="password" type="text" maxlength="64" placeholder="12345678" />
+                  <input class="field-input" data-qr-wifi="password" type="text" maxlength="63" placeholder="12345678" />
                 </label>
               </div>
             </div>
