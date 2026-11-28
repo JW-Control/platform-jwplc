@@ -272,6 +272,9 @@ jwplcbasic.build.event_core=
 ###############################
 
 jwplcbasiccore.name=JWPLC Basic Core
+# Oculta temporalmente (decisión del propietario, 28/11/2026): solo se vende y mantiene el JWPLC Basic.
+# El FQBN jwplc:esp32:jwplcbasiccore sigue compilando; para mostrarla de nuevo basta quitar esta línea.
+jwplcbasiccore.hide=true
 
 jwplcbasiccore.bootloader.tool=esptool_py
 jwplcbasiccore.bootloader.tool.default=esptool_py

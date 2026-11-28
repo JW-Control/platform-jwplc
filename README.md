@@ -92,7 +92,6 @@ package ya incluye las versiones probadas con el JWPLC.
 | Placa | FQBN | Qué incluye |
 |---|---|---|
 | **JWPLC Basic** | `jwplc:esp32:jwplcbasic` | El equipo completo, con Ethernet, FRAM y microSD |
-| **JWPLC Basic Core** | `jwplc:esp32:jwplcbasiccore` | La misma base sin Ethernet, FRAM ni microSD |
 | ESP32 Board | `jwesp:esp32:esp32` | ESP32 genérico, sin periféricos JWPLC (package **JW Control ESP32 genérico**) |
 
 Cada package muestra solo sus ejemplos: con el JWPLC Basic, *Archivo → Ejemplos* trae las librerías `JW_` y
