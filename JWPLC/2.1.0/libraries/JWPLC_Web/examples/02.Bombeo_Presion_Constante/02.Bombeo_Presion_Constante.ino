@@ -12,7 +12,8 @@
 
   Qué mirar:
   - En la pantalla del equipo: mientras no haya usuarios, el QR y el código
-    de primer ingreso; después, la presión y las bombas.
+    de primer ingreso; después, la presión y las bombas. ESC muestra la
+    pantalla de E/S (IDLE) y cualquier tecla vuelve.
   - En el celular: escanear el QR, escribir el código y crear el admin.
     Inicio muestra presión, consigna y bombas; la consigna se cambia desde el
     rol Operador (entre 1 y 6 bar). Tendencias guarda la presión cada 5 s.
@@ -128,9 +129,16 @@ static void dibujarTodo()
     texto(urlDibujada.c_str(), 12, y + 12, GRIS);
 }
 
-extern "C" void jwplcUIEnter() { dibujarTodo(); }
+// JWPLC_Display dibuja la IDLE y sus menús en GLCD: al salir de cada dibujo se
+// deja la fuente como estaba (si no, la IDLE sale con la fuente de 26 encima).
+static void restaurarFuente()
+{
+    JWPLC_TFT.setFont(JWPLC_FONT_GLCD);
+    JWPLC_TFT.setTextSize(1);
+    JWPLC_TFT.setTextDatum(DATUM_TOP_LEFT);
+}
 
-extern "C" void jwplcUIUpdate()
+static void actualizar()
 {
     if (JWPLC_Web.pairingCode() != codigoDibujado || JWPLC_Web.url() != urlDibujada)
     {
@@ -166,6 +174,18 @@ extern "C" void jwplcUIUpdate()
     }
 }
 
+extern "C" void jwplcUIEnter()
+{
+    dibujarTodo();
+    restaurarFuente();
+}
+
+extern "C" void jwplcUIUpdate()
+{
+    actualizar();
+    restaurarFuente();
+}
+
 // ------------------------------------------------------------ programa
 
 void setup()
@@ -173,7 +193,10 @@ void setup()
     Serial.begin(115200);
     Serial.println("JWPLC Basic - 02.Bombeo_Presion_Constante");
 
-    JWPLC_Display.setIdleWakeMode(IDLE_WAKE_DISABLED);
+    // La pantalla del programa queda fija (el QR no se va a los 15 s); ESC va a
+    // la IDLE de E/S y cualquier tecla vuelve.
+    JWPLC_Display.setIdleReturnMode(IDLE_RETURN_ESC_ONLY);
+    JWPLC_Display.setIdleWakeMode(IDLE_WAKE_ANY_BUTTON);
     JWPLC_Display.setUserRefreshPeriodMs(200);
     JWPLC_Display.enterUserUI();
 
