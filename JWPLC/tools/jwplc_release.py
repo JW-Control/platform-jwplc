@@ -32,13 +32,13 @@ from typing import Any, Dict, List, Optional, Tuple
 
 REPO_DEFAULT = "JW-Control/platform-jwplc"
 PACKAGE_NAME = "jwplc"
-PLATFORM_NAME = "JW Control ESP32 Boards"
+PLATFORM_NAME = "JWPLC"
 ARCHITECTURE = "esp32"
 
 # Placas genéricas (ESP32 Board / ESP32 Family): otra plataforma en el mismo índice para que Arduino IDE no mezcle
 # las librerías JW/JWPLC con las del core (el menú Ejemplos se arma por plataforma, no por placa).
 GENERIC_PACKAGE_NAME = "jwesp"
-GENERIC_PLATFORM_NAME = "JW Control ESP32 genérico"
+GENERIC_PLATFORM_NAME = "ESP Board"
 GENERIC_PACKAGE_TEMPLATE: Dict[str, Any] = {
     "name": GENERIC_PACKAGE_NAME,
     "maintainer": "JW Control",
@@ -223,8 +223,10 @@ def find_template_platform(dev_data: Dict[str, Any], public_data: Optional[Dict[
     for data in [dev_data, public_data]:
         if not data:
             continue
+        # No depende del nombre visible (cambió en alpha.19: «JW Control ESP32 Boards» -> «JWPLC»):
+        # sirve cualquier entrada esp32 del packager jwplc; se toma la primera (el índice va de la más nueva a la más vieja).
         for platform in get_platforms(data):
-            if platform.get("name") == PLATFORM_NAME and platform.get("architecture") == ARCHITECTURE:
+            if platform.get("architecture") == ARCHITECTURE:
                 return copy.deepcopy(platform)
 
     fail("Could not find a platform template to clone")
