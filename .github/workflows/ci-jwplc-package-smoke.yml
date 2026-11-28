@@ -21,7 +21,7 @@ permissions:
 env:
   # Commit de jwplc-sim del gate SIM_REGRESSION. Debe ser el mismo que el de
   # «uses:» del job sim-regression (y el de release-jwplc-package.yml).
-  JWSIM_REF: "ec6e76e5df39460f19867a3bec707ef631836098"
+  JWSIM_REF: "5e2aa6d67b340d2e8eacedeb85837ef989cbd773"
   ARDUINO_CLI_VERSION: "1.x"
   # Última alpha publicada usada únicamente como bootstrap del toolchain.
   # El árbol completo JWPLC/2.1.0 del PR se superpone después con rsync --delete.
@@ -185,9 +185,9 @@ jobs:
     name: SIM_REGRESSION (JWPLC Sim)
     needs: sim-cache
     if: ${{ needs.sim-cache.outputs.reuse != 'true' }}
-    uses: JW-Control/jwplc-sim/.github/workflows/sim-regression.yml@ec6e76e5df39460f19867a3bec707ef631836098
+    uses: JW-Control/jwplc-sim/.github/workflows/sim-regression.yml@5e2aa6d67b340d2e8eacedeb85837ef989cbd773
     with:
-      sim_ref: ec6e76e5df39460f19867a3bec707ef631836098
+      sim_ref: 5e2aa6d67b340d2e8eacedeb85837ef989cbd773
 
   # Deja el marcador para que la Release (y el CI siguiente) no repitan el
   # barrido sobre el mismo árbol. Ver tools/ci/sim_regression_marker.sh.
