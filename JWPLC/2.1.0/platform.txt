@@ -1,4 +1,4 @@
-name=JW Control ESP32
+name=JWPLC
 version=2.0.0
 
 tools.esp32-arduino-libs.path={runtime.tools.{build.chip_variant}-libs.path}

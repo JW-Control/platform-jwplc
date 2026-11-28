@@ -29,8 +29,8 @@ sigue existiendo. Decisión: dos packages en el **mismo** índice, packagers `jw
 
 | Package (gestor de placas) | Packager | Placas visibles | Ejemplos |
 |---|---|---|---|
-| JW Control ESP32 Boards | `jwplc` | JWPLC Basic | solo `JW_` y `JWPLC_` (17 librerías) |
-| JW Control ESP32 genérico | `jwesp` | ESP32 Board (`jwesp:esp32:esp32`) | los originales de arduino-esp32 3.3.8 (42 librerías) |
+| JWPLC | `jwplc` | JWPLC Basic | solo `JW_` y `JWPLC_` (17 librerías) |
+| ESP32 Board | `jwesp` | ESP32 Board (`jwesp:esp32:esp32`) | los originales de arduino-esp32 3.3.8 (42 librerías) |
 
 - **Basic:** `tools/alpha19/ejemplos_solo_jw.sh` borra las carpetas `examples/` de las librerías del core
   (reemplaza a `tools/alpha18/podar_ejemplos_esp32.sh`). Las librerías siguen y compilan: `#include <WiFi.h>` en el
@@ -85,10 +85,13 @@ sigue existiendo. Decisión: dos packages en el **mismo** índice, packagers `jw
 1. Prueba en Arduino IDE 2.3.10 (PC del propietario) con el índice de la PreRelease: menú Ejemplos con las dos
    placas, y actualizar desde alpha.18 con ESP32 Board elegida.
 2. Lista `EXCEPCIONES` (ejemplos del core visibles en el Basic): vacía hasta que el propietario decida.
-3. Quien use ESP32 Board en el IDE debe instalar «JW Control ESP32 genérico» y volver a elegir la placa, porque el
+3. Quien use ESP32 Board en el IDE debe instalar el package «ESP32 Board» y volver a elegir la placa, porque el
    FQBN cambia. Va en `PRE_RELEASE.md` del cierre.
-4. Opcional: renombrar la plataforma del Basic («JW Control ESP32 Boards» → p. ej. «JWPLC Basic»). Hoy
-   `jwplc_release.py` busca la plantilla por ese nombre.
+4. **Hecho (28/11, PR de `…/feature/nombres-packages`):** el propietario pidió nombres más cortos en el gestor de
+   placas. `jwplc` pasa de «JW Control ESP32 Boards» a **«JWPLC»** y `jwesp` de «JW Control ESP32 genérico» a
+   **«ESP32 Board»**. Las entradas viejas del índice conservan su nombre. `jwplc_release.py` ya no busca la
+   plantilla por nombre, sino la entrada `esp32` más reciente del packager `jwplc`. La web (JW-Page) todavía dice
+   «JW Control ESP32 Boards» en 9 lugares; se actualiza cuando salga el alpha.19.
 5. **Aclarado con el propietario (28/11):** Laundry usa ESP32 Board y no usa el RTC, así que no le afecta. Hallazgo original: el `libJW_RTC.a` precompilado en alpha.18 (#248) llama a
    `jwplcI2C_begin`, `jwplcI2C_readReg8` y `jwplcI2C_readRegs`, que solo existen en el core del JWPLC Basic. Con
    `jwplc:esp32:esp32` (la placa que fija Laundry) un sketch con `JW_RTC` del package no enlaza. Si Laundry usa el
